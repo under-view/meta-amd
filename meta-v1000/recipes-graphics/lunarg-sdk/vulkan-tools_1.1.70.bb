@@ -26,6 +26,8 @@ SRC_URI = "git://github.com/LunarG/VulkanTools;branch=sdk-${PV} \
            file://0001-CMakeLists-add-include-paths-so-Xlib-and-XCB-are-fou.patch \
            file://0002-layersvt-drop-device_sim-as-we-don-t-have-jsoncpp-fo.patch \
            file://0003-CMakeLists.txt-use-a-fixed-header-for-spirv_commit.patch \
+           file://0001-vktrace-append-cxx-flags-to-support-cross-compilatio.patch \
+           file://0002-layersvt-append-cxx-flags-to-support-cross-compilati.patch \
 "
 
 EXTRA_OECMAKE = " \
