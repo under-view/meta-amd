@@ -1,0 +1,30 @@
+From 4fc32cd19c64ebf92530c056db9b5870613950f5 Mon Sep 17 00:00:00 2001
+From: "Arsalan H. Awan" <Arsalan_Awan@mentor.com>
+Date: Mon, 17 Sep 2018 19:52:02 +0500
+Subject: [PATCH 2/2] layersvt: append cxx flags to support cross compilation
+
+To support cross compilation, we need to set the variable
+CMAKE_CXX_FLAGS such that the CXX flags set by user
+for cross compilation are also included here.
+
+Signed-off-by: Arsalan H. Awan <Arsalan_Awan@mentor.com>
+---
+ layersvt/CMakeLists.txt | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/layersvt/CMakeLists.txt b/layersvt/CMakeLists.txt
+index d47f3c65a..55da62700 100644
+--- a/layersvt/CMakeLists.txt
++++ b/layersvt/CMakeLists.txt
+@@ -155,7 +154,7 @@ if (WIN32)
+         set (CMAKE_C_FLAGS_DEBUG     "${CMAKE_C_FLAGS_DEBUG} -D_CRT_SECURE_NO_WARNINGS")
+     endif()
+ else()
+-    set (CMAKE_CXX_FLAGS "-std=c++11")
++    set (CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++11")
+     set (CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wpointer-arith")
+     set (CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -Wpointer-arith")
+ endif()
+-- 
+2.11.1
+
