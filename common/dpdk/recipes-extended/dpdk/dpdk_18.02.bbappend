@@ -1,5 +1,7 @@
 FILESEXTRAPATHS_prepend := "${THISDIR}/${PN}:"
 
+DEPENDS += "openssl"
+
 SRC_URI += "\
             file://dpdk-dev-v4-01-20-crypto-ccp-add-AMD-ccp-skeleton-PMD.patch \
             file://dpdk-dev-v4-02-20-crypto-ccp-support-ccp-device-initialization-and-deintialization.patch \
