@@ -13,6 +13,7 @@ Cc: pablo.de.lara.guarch@intel.com
 Date: Fri,  9 Mar 2018 03:35:01 -0500
 
 Signed-off-by: Ravi Kumar <Ravi1.kumar@amd.com>
+Signed-off-by: Arsalan H. Awan <Arsalan_Awan@mentor.com>
 ---
  MAINTAINERS                                |  6 +++
  config/common_base                         |  5 +++
@@ -64,7 +65,7 @@ diff --git a/doc/guides/rel_notes/release_18_02.rst b/doc/guides/rel_notes/relea
 index 3923dc2..c5b2854 100644
 --- a/doc/guides/rel_notes/release_18_02.rst
 +++ b/doc/guides/rel_notes/release_18_02.rst
-@@ -41,6 +41,11 @@ New Features
+@@ -41,6 +41,12 @@ New Features
       Also, make sure to start the actual text at the margin.
       =========================================================
  
@@ -73,9 +74,10 @@ index 3923dc2..c5b2854 100644
 +  Added the new ``ccp`` crypto driver for AMD CCP devices. See the
 +  :doc:`../cryptodevs/ccp` crypto driver guide for more details on
 +  this new driver.
++
+ * **Added function to allow releasing internal EAL resources on exit.**
  
- API Changes
- -----------
+   During ``rte_eal_init()`` EAL allocates memory from hugepages to enable its
 diff --git a/drivers/crypto/Makefile b/drivers/crypto/Makefile
 index 628bd14..fe41edd 100644
 --- a/drivers/crypto/Makefile

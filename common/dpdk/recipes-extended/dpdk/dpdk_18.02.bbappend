@@ -1,5 +1,7 @@
 FILESEXTRAPATHS_prepend := "${THISDIR}/${PN}:"
 
+DEPENDS += "openssl"
+
 SRC_URI += "\
             file://dpdk-dev-v4-01-20-crypto-ccp-add-AMD-ccp-skeleton-PMD.patch \
             file://dpdk-dev-v4-02-20-crypto-ccp-support-ccp-device-initialization-and-deintialization.patch \
@@ -57,6 +59,26 @@ do_configure_prepend () {
 	# shared libs are a more convenient way for development but then the user
 	# has to load the PMD explicitly with the -d flag so be careful
 	sed -e "s#CONFIG_RTE_BUILD_SHARED_LIB=n#CONFIG_RTE_BUILD_SHARED_LIB=${BUILD_SHARED}#" -i ${S}/config/common_base
+}
+
+do_compile () {
+	unset LDFLAGS TARGET_LDFLAGS BUILD_LDFLAGS
+
+	cd ${S}/${RTE_TARGET}
+	oe_runmake EXTRA_LDFLAGS="-L${STAGING_LIBDIR} --hash-style=gnu" \
+		   EXTRA_CFLAGS="--no-sysroot-suffix --sysroot=${STAGING_DIR_HOST} -I${STAGING_INCDIR}" \
+		   CROSS="${TARGET_PREFIX}" \
+		   prefix="" LDFLAGS="${TUNE_LDARGS}" WERROR_FLAGS="-w" V=1
+
+	cd ${S}/examples/
+	oe_runmake EXTRA_LDFLAGS="-L${STAGING_LIBDIR} --hash-style=gnu -fuse-ld=bfd" \
+		   EXTRA_CFLAGS="--no-sysroot-suffix --sysroot=${STAGING_DIR_HOST} -I${STAGING_INCDIR}" \
+		   CROSS="${TARGET_PREFIX}" O="${S}/examples/$@/"
+
+	cd ${S}/test/
+	oe_runmake EXTRA_LDFLAGS="-L${STAGING_LIBDIR} --hash-style=gnu -fuse-ld=bfd" \
+		   EXTRA_CFLAGS="--no-sysroot-suffix --sysroot=${STAGING_DIR_HOST} -I${STAGING_INCDIR}" \
+		   CROSS="${TARGET_PREFIX}" O="${S}/test/$@/"
 }
 
 COMPATIBLE_MACHINE_snowyowl = "snowyowl"

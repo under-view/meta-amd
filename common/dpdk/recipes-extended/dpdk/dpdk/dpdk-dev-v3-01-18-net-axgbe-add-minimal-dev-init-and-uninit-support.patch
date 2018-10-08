@@ -14,6 +14,7 @@ Cc: ferruh.yigit@intel.com
 Date: Fri,  9 Mar 2018 03:42:17 -0500
 
 Signed-off-by: Ravi Kumar <Ravi1.kumar@amd.com>
+Signed-off-by: Arsalan H. Awan <Arsalan_Awan@mentor.com>
 ---
  MAINTAINERS                                 |   6 +
  config/common_base                          |   6 +
@@ -72,7 +73,7 @@ diff --git a/doc/guides/rel_notes/release_18_02.rst b/doc/guides/rel_notes/relea
 index 3923dc2..b97d91b 100644
 --- a/doc/guides/rel_notes/release_18_02.rst
 +++ b/doc/guides/rel_notes/release_18_02.rst
-@@ -41,6 +41,11 @@ New Features
+@@ -41,6 +41,12 @@ New Features
       Also, make sure to start the actual text at the margin.
       =========================================================
  
@@ -81,9 +82,10 @@ index 3923dc2..b97d91b 100644
 +  Added the new ``axgbe`` ethernet poll mode driver for AMD XGBE devices.
 +  See the :doc:`../nics/axgbe` nic driver guide for more details on this
 +  new driver.
++
+ * **Added a new crypto poll mode driver for AMD CCP devices.**
  
- API Changes
- -----------
+   Added the new ``ccp`` crypto driver for AMD CCP devices. See the
 diff --git a/drivers/net/Makefile b/drivers/net/Makefile
 index e112732..9ec571d 100644
 --- a/drivers/net/Makefile

@@ -48,3 +48,12 @@ IMAGE_OVERHEAD_FACTOR = "1.1"
 
 MACHINE_FEATURES_append_amdgpu = " x11"
 MACHINE_FEATURES_append_radeon = " x11"
+
+# Add common feartures to be supported for all machines here
+EXTRA_IMAGE_FEATURES += "amd-misc-pkgs"
+
+# Add the basic features we know these overrides support
+EXTRA_IMAGE_FEATURES_append_amdgpu := " ${@bb.utils.contains("EXTRA_IMAGE_FEATURES", "multimedia", "amd-feature-multimedia", "", d)} \
+                                        ${@bb.utils.contains_any("EXTRA_IMAGE_FEATURES", "graphics", "amd-feature-graphics", "", d)}"
+EXTRA_IMAGE_FEATURES_append_radeon := " ${@bb.utils.contains("EXTRA_IMAGE_FEATURES", "multimedia", "amd-feature-multimedia", "", d)} \
+                                        ${@bb.utils.contains_any("EXTRA_IMAGE_FEATURES", "graphics", "amd-feature-graphics", "", d)}"
