@@ -82,10 +82,10 @@ diff --git a/drivers/crypto/Makefile b/drivers/crypto/Makefile
 index 628bd14..fe41edd 100644
 --- a/drivers/crypto/Makefile
 +++ b/drivers/crypto/Makefile
-@@ -16,5 +16,6 @@ DIRS-$(CONFIG_RTE_LIBRTE_PMD_MRVL_CRYPTO) += mrvl
- DIRS-$(CONFIG_RTE_LIBRTE_PMD_NULL_CRYPTO) += null
- DIRS-$(CONFIG_RTE_LIBRTE_PMD_DPAA2_SEC) += dpaa2_sec
+@@ -20,5 +20,6 @@ endif
+ ifeq ($(CONFIG_RTE_LIBRTE_DPAA_BUS),y)
  DIRS-$(CONFIG_RTE_LIBRTE_PMD_DPAA_SEC) += dpaa_sec
+ endif
 +DIRS-$(CONFIG_RTE_LIBRTE_PMD_CCP) += ccp
  
  include $(RTE_SDK)/mk/rte.subdir.mk
