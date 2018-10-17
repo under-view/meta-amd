@@ -82,4 +82,5 @@ do_compile () {
 }
 
 COMPATIBLE_MACHINE_snowyowl = "snowyowl"
+DPDK_TARGET_MACHINE_snowyowl = "znver1"
 TUNE_FEATURES += "m64"
