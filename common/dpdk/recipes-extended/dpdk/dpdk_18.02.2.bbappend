@@ -61,25 +61,6 @@ do_configure_prepend () {
 	sed -e "s#CONFIG_RTE_BUILD_SHARED_LIB=n#CONFIG_RTE_BUILD_SHARED_LIB=${BUILD_SHARED}#" -i ${S}/config/common_base
 }
 
-do_compile () {
-	unset LDFLAGS TARGET_LDFLAGS BUILD_LDFLAGS
-
-	cd ${S}/${RTE_TARGET}
-	oe_runmake EXTRA_LDFLAGS="-L${STAGING_LIBDIR} --hash-style=gnu" \
-		   EXTRA_CFLAGS="--no-sysroot-suffix --sysroot=${STAGING_DIR_HOST} -I${STAGING_INCDIR}" \
-		   CROSS="${TARGET_PREFIX}" \
-		   prefix="" LDFLAGS="${TUNE_LDARGS}" WERROR_FLAGS="-w" V=1
-
-	cd ${S}/examples/
-	oe_runmake EXTRA_LDFLAGS="-L${STAGING_LIBDIR} --hash-style=gnu -fuse-ld=bfd" \
-		   EXTRA_CFLAGS="--no-sysroot-suffix --sysroot=${STAGING_DIR_HOST} -I${STAGING_INCDIR}" \
-		   CROSS="${TARGET_PREFIX}" O="${S}/examples/$@/"
-
-	cd ${S}/test/
-	oe_runmake EXTRA_LDFLAGS="-L${STAGING_LIBDIR} --hash-style=gnu -fuse-ld=bfd" \
-		   EXTRA_CFLAGS="--no-sysroot-suffix --sysroot=${STAGING_DIR_HOST} -I${STAGING_INCDIR}" \
-		   CROSS="${TARGET_PREFIX}" O="${S}/test/$@/"
-}
-
 COMPATIBLE_MACHINE_snowyowl = "snowyowl"
+DPDK_TARGET_MACHINE_snowyowl = "znver1"
 TUNE_FEATURES += "m64"

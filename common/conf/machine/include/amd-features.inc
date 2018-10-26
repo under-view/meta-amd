@@ -33,8 +33,8 @@ GSTREAMER_PKGS ?= " \
     ${@bb.utils.contains("MACHINE_FEATURES", "alsa", "gstreamer1.0-meta-audio", "", d)} \
     gstreamer1.0-meta-debug \
     gstreamer1.0-meta-video \
-    gstreamer1.0-omx \
-    gstreamer1.0-vaapi \
+    ${@bb.utils.contains("EXTRA_IMAGE_FEATURES", "graphics", "gstreamer1.0-omx", "", d)} \
+    ${@bb.utils.contains("EXTRA_IMAGE_FEATURES", "graphics", "gstreamer1.0-vaapi", "", d)} \
 "
 VULKAN_PKGS ?= ""
 CODEXL_PKGS ?= ""
