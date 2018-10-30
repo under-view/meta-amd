@@ -90,3 +90,6 @@ patch 0089-KVM-SVM-install-RSM-intercept.patch
 patch 0090-KVM-SVM-Fix-SEV-LAUNCH_SECRET-command.patch
 patch 0091-KVM-x86-define-SVM-VMX-specific-kvm_arch_-alloc-free.patch
 patch 0092-KVM-SVM-add-struct-kvm_svm-to-hold-SVM-specific-KVM-.patch
+patch 0093-check-pci-dev-before-getting-pci-alias.patch
+patch 0094-mmc-sdhci-acpi-Add-support-for-ACPI-HID-of-AMD-Contr.patch
+patch 0095-eMMC-patch-4.14.48.patch
