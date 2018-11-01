@@ -1,0 +1,37 @@
+From a9f04388cf18357226bc273f38565c6352d7dab4 Mon Sep 17 00:00:00 2001
+From: kalyan alle <kalyan.alle@amd.com>
+Date: Tue, 11 Jul 2017 15:48:00 -0500
+Subject: [PATCH 0849/4131] drm/amd/amdgpu: revert back the CG disabling for
+ estoney platform
+
+Reverting back the CG disabling for eStoney platform ,since the fix
+in  drivers/pci/quirks.c is upstreamed to vanilla 4.14.kernel
+
+Link:
+https://git.kernel.org/pub/scm/linux/kernel/git/stable/linux-stable.git/patch/?id=9b44b0b09decfbe388131a345ba780c57240a7a9
+
+Signed-off-by: Kalyan Alle <kalyan.alle@amd.com>
+---
+ drivers/gpu/drm/amd/amdgpu/vi.c | 6 +-----
+ 1 file changed, 1 insertion(+), 5 deletions(-)
+
+diff --git a/drivers/gpu/drm/amd/amdgpu/vi.c b/drivers/gpu/drm/amd/amdgpu/vi.c
+index f5ec5f8..7d4d22d 100644
+--- a/drivers/gpu/drm/amd/amdgpu/vi.c
++++ b/drivers/gpu/drm/amd/amdgpu/vi.c
+@@ -1066,11 +1066,7 @@ static int vi_common_early_init(void *handle)
+ 			AMD_CG_SUPPORT_GFX_CP_LS |
+ 			AMD_CG_SUPPORT_GFX_CGTS |
+ 			AMD_CG_SUPPORT_GFX_CGTS_LS |
+-			/* Enabling CGCG on 4.9 kernel results in
+-			* IOMMU errors and filesystem corruption
+-			* Disable CGCG until the issue is fixed properly
+-			*/
+-			//AMD_CG_SUPPORT_GFX_CGCG |
++			AMD_CG_SUPPORT_GFX_CGCG |
+ 			AMD_CG_SUPPORT_GFX_CGLS |
+ 			AMD_CG_SUPPORT_BIF_LS |
+ 			AMD_CG_SUPPORT_HDP_MGCG |
+-- 
+2.7.4
+

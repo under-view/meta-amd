@@ -1,0 +1,86 @@
+From 24c74dfc09a4cb6d68774106d8356a2f4cf96212 Mon Sep 17 00:00:00 2001
+From: Bhawanpreet Lakha <Bhawanpreet.Lakha@amd.com>
+Date: Fri, 23 Feb 2018 14:32:53 -0500
+Subject: [PATCH 3755/4131] drm/amd/display: Use MACROS instead of dm_logger
+
+Use DC_LOGGER macro for logs.
+
+Signed-off-by: Bhawanpreet Lakha <Bhawanpreet.Lakha@amd.com>
+Reviewed-by: Harry Wentland <Harry.Wentland@amd.com>
+---
+ drivers/gpu/drm/amd/display/dc/core/dc_debug.c        | 14 +++++---------
+ drivers/gpu/drm/amd/display/dc/dce/dce_link_encoder.c |  3 +--
+ drivers/gpu/drm/amd/display/dc/dml/dml_logger.h       |  7 +++++--
+ 3 files changed, 11 insertions(+), 13 deletions(-)
+
+diff --git a/drivers/gpu/drm/amd/display/dc/core/dc_debug.c b/drivers/gpu/drm/amd/display/dc/core/dc_debug.c
+index c155650..f82275e 100644
+--- a/drivers/gpu/drm/amd/display/dc/core/dc_debug.c
++++ b/drivers/gpu/drm/amd/display/dc/core/dc_debug.c
+@@ -36,26 +36,22 @@
+ #include "hw_sequencer.h"
+ 
+ #include "resource.h"
++#define DC_LOGGER \
++	logger
+ 
+ #define SURFACE_TRACE(...) do {\
+ 		if (dc->debug.surface_trace) \
+-			dm_logger_write(logger, \
+-					LOG_IF_TRACE, \
+-					##__VA_ARGS__); \
++			DC_LOG_IF_TRACE(__VA_ARGS__); \
+ } while (0)
+ 
+ #define TIMING_TRACE(...) do {\
+ 	if (dc->debug.timing_trace) \
+-		dm_logger_write(logger, \
+-				LOG_SYNC, \
+-				##__VA_ARGS__); \
++		DC_LOG_SYNC(__VA_ARGS__); \
+ } while (0)
+ 
+ #define CLOCK_TRACE(...) do {\
+ 	if (dc->debug.clock_trace) \
+-		dm_logger_write(logger, \
+-				LOG_BANDWIDTH_CALCS, \
+-				##__VA_ARGS__); \
++		DC_LOG_BANDWIDTH_CALCS(__VA_ARGS__); \
+ } while (0)
+ 
+ void pre_surface_trace(
+diff --git a/drivers/gpu/drm/amd/display/dc/dce/dce_link_encoder.c b/drivers/gpu/drm/amd/display/dc/dce/dce_link_encoder.c
+index 81776e4..8167cad 100644
+--- a/drivers/gpu/drm/amd/display/dc/dce/dce_link_encoder.c
++++ b/drivers/gpu/drm/amd/display/dc/dce/dce_link_encoder.c
+@@ -767,8 +767,7 @@ void dce110_link_encoder_construct(
+ 				bp_cap_info.DP_HBR3_EN;
+ 		enc110->base.features.flags.bits.HDMI_6GB_EN = bp_cap_info.HDMI_6GB_EN;
+ 	} else {
+-		dm_logger_write(enc110->base.ctx->logger, LOG_WARNING,
+-				"%s: Failed to get encoder_cap_info from VBIOS with error code %d!\n",
++		DC_LOG_WARNING("%s: Failed to get encoder_cap_info from VBIOS with error code %d!\n",
+ 				__func__,
+ 				result);
+ 	}
+diff --git a/drivers/gpu/drm/amd/display/dc/dml/dml_logger.h b/drivers/gpu/drm/amd/display/dc/dml/dml_logger.h
+index 7c22f3d..465859b 100644
+--- a/drivers/gpu/drm/amd/display/dc/dml/dml_logger.h
++++ b/drivers/gpu/drm/amd/display/dc/dml/dml_logger.h
+@@ -27,8 +27,11 @@
+ #ifndef __DML_LOGGER_H_
+ #define __DML_LOGGER_H_
+ 
+-#define dml_print(str, ...) {dm_logger_write(mode_lib->logger, LOG_DML, str, ##__VA_ARGS__); }
+-#define DTRACE(str, ...) {dm_logger_write(mode_lib->logger, LOG_DML, str, ##__VA_ARGS__); }
++#define DC_LOGGER \
++	mode_lib->logger
++
++#define dml_print(str, ...) {DC_LOG_DML(str, ##__VA_ARGS__); }
++#define DTRACE(str, ...) {DC_LOG_DML(str, ##__VA_ARGS__); }
+ 
+ #endif
+ 
+-- 
+2.7.4
+

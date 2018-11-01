@@ -1,0 +1,44 @@
+From ae2fb9f16e7802a25e68cdcfe59565a40f220435 Mon Sep 17 00:00:00 2001
+From: "Le.Ma" <Le.Ma@amd.com>
+Date: Wed, 2 Aug 2017 12:58:43 +0800
+Subject: [PATCH 1777/4131] drm/amdkfd: Fit parameter to amdgpu_bo_create() in
+ caller
+
+Change-Id: I168e0c78a9affd4c81f68bf249014b9d75eb69d3
+Signed-off-by: Le.Ma <Le.Ma@amd.com>
+Reviewed-by: Junwei Zhang <Jerry.Zhang@amd.com>
+Reviewed-by: Evan Quan <evan.quan@amd.com>
+---
+ drivers/gpu/drm/amd/amdgpu/amdgpu_amdkfd.c       | 2 +-
+ drivers/gpu/drm/amd/amdgpu/amdgpu_amdkfd_gpuvm.c | 2 +-
+ 2 files changed, 2 insertions(+), 2 deletions(-)
+
+diff --git a/drivers/gpu/drm/amd/amdgpu/amdgpu_amdkfd.c b/drivers/gpu/drm/amd/amdgpu/amdgpu_amdkfd.c
+index 5d09ad3..106ccb4 100755
+--- a/drivers/gpu/drm/amd/amdgpu/amdgpu_amdkfd.c
++++ b/drivers/gpu/drm/amd/amdgpu/amdgpu_amdkfd.c
+@@ -284,7 +284,7 @@ int alloc_gtt_mem(struct kgd_dev *kgd, size_t size,
+ 	void *cpu_ptr_tmp = NULL;
+ 
+ 	r = amdgpu_bo_create(adev, size, PAGE_SIZE, true, AMDGPU_GEM_DOMAIN_GTT,
+-			     AMDGPU_GEM_CREATE_CPU_GTT_USWC, NULL, NULL, &bo);
++				AMDGPU_GEM_CREATE_CPU_GTT_USWC, NULL, NULL, 0, &bo);
+ 	if (r) {
+ 		dev_err(adev->dev,
+ 			"failed to allocate BO for amdkfd (%d)\n", r);
+diff --git a/drivers/gpu/drm/amd/amdgpu/amdgpu_amdkfd_gpuvm.c b/drivers/gpu/drm/amd/amdgpu/amdgpu_amdkfd_gpuvm.c
+index edc1d24..b7a5b44 100644
+--- a/drivers/gpu/drm/amd/amdgpu/amdgpu_amdkfd_gpuvm.c
++++ b/drivers/gpu/drm/amd/amdgpu/amdgpu_amdkfd_gpuvm.c
+@@ -724,7 +724,7 @@ static int __alloc_memory_of_gpu(struct kgd_dev *kgd, uint64_t va,
+ 	 */
+ 	ret = amdgpu_bo_create(adev, size, byte_align, false,
+ 				alloc_domain,
+-			       flags, sg, NULL, &bo);
++			       flags, sg, NULL, 0, &bo);
+ 	if (ret != 0) {
+ 		pr_err("Failed to create BO on domain %s. ret %d\n",
+ 				domain_string(alloc_domain), ret);
+-- 
+2.7.4
+

@@ -1,0 +1,30 @@
+From 03bfbeafbe681c6c4511b786d95a2171e218bf2f Mon Sep 17 00:00:00 2001
+From: Charlene Liu <charlene.liu@amd.com>
+Date: Wed, 31 Jan 2018 16:45:26 -0500
+Subject: [PATCH 3546/4131] drm/amd/display: boot up/S4 fix mainlink off before
+ BL.
+
+Signed-off-by: Charlene Liu <charlene.liu@amd.com>
+Reviewed-by: Krunoslav Kovac <Krunoslav.Kovac@amd.com>
+Acked-by: Harry Wentland <harry.wentland@amd.com>
+Signed-off-by: Alex Deucher <alexander.deucher@amd.com>
+---
+ drivers/gpu/drm/amd/display/dc/dce110/dce110_hw_sequencer.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/drivers/gpu/drm/amd/display/dc/dce110/dce110_hw_sequencer.c b/drivers/gpu/drm/amd/display/dc/dce110/dce110_hw_sequencer.c
+index 54c933b..53243d5 100644
+--- a/drivers/gpu/drm/amd/display/dc/dce110/dce110_hw_sequencer.c
++++ b/drivers/gpu/drm/amd/display/dc/dce110/dce110_hw_sequencer.c
+@@ -1481,7 +1481,7 @@ void dce110_enable_accelerated_mode(struct dc *dc, struct dc_state *context)
+ 
+ 	struct dc_link *edp_link = get_link_for_edp(dc);
+ 	if (dcb->funcs->get_vga_enabled_displays(dc->ctx->dc_bios) != 0) {
+-		if (edp_link_to_turnoff) {
++		if (edp_link) {
+ 			/*we need turn off backlight before DP_blank and encoder powered down, todo add optimization*/
+ 			dc->hwss.edp_backlight_control(edp_link, false);
+ 		}
+-- 
+2.7.4
+

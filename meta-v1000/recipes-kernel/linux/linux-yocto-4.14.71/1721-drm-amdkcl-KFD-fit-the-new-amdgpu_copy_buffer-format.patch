@@ -1,0 +1,29 @@
+From 3b5a4fab2cc58facbf6c7d6c166dc153f14a5f98 Mon Sep 17 00:00:00 2001
+From: Evan Quan <evan.quan@amd.com>
+Date: Mon, 3 Jul 2017 17:44:01 +0800
+Subject: [PATCH 1721/4131] drm/amdkcl: [KFD] fit the new amdgpu_copy_buffer()
+ format - one more parameter vm_needs_flush added
+
+Change-Id: I45866879079f8605f85ab41831071cd02782a716
+Signed-off-by: Evan Quan <evan.quan@amd.com>
+Reviewed-by: Junwei Zhang <Jerry.Zhang@amd.com>
+---
+ drivers/gpu/drm/amd/amdgpu/amdgpu_amdkfd_gpuvm.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/drivers/gpu/drm/amd/amdgpu/amdgpu_amdkfd_gpuvm.c b/drivers/gpu/drm/amd/amdgpu/amdgpu_amdkfd_gpuvm.c
+index 3a30505..8384dfb 100644
+--- a/drivers/gpu/drm/amd/amdgpu/amdgpu_amdkfd_gpuvm.c
++++ b/drivers/gpu/drm/amd/amdgpu/amdgpu_amdkfd_gpuvm.c
+@@ -2475,7 +2475,7 @@ int amdgpu_amdkfd_copy_mem_to_mem(struct kgd_dev *kgd, struct kgd_mem *src_mem,
+ 				    (size - total_copy_size));
+ 
+ 		r = amdgpu_copy_buffer(ring, src_start, dst_start,
+-			cur_copy_size, NULL, &next, false);
++			cur_copy_size, NULL, &next, false, false);
+ 		if (r)
+ 			break;
+ 
+-- 
+2.7.4
+

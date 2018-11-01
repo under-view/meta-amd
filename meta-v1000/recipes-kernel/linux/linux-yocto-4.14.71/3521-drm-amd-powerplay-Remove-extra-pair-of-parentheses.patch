@@ -1,0 +1,36 @@
+From 7d776f74796e0a928ece5ce9dcb73f97e9a6e30c Mon Sep 17 00:00:00 2001
+From: Matthias Kaehlcke <mka@chromium.org>
+Date: Wed, 7 Feb 2018 11:10:17 -0800
+Subject: [PATCH 3521/4131] drm/amd/powerplay: Remove extra pair of parentheses
+
+The double parentheses are not needed. Removing them fixes the following
+warning when building with clang:
+
+drivers/gpu/drm/amd/powerplay/smumgr/tonga_smumgr.c:419:29:
+  error: equality comparison with extraneous parentheses
+    [-Werror,-Wparentheses-equality]
+  if ((data->vdd_gfx_control == SMU7_VOLTAGE_CONTROL_BY_SVID2)) {
+
+Reviewed-by: Guenter Roeck <groeck@chromium.org>
+Signed-off-by: Matthias Kaehlcke <mka@chromium.org>
+Signed-off-by: Alex Deucher <alexander.deucher@amd.com>
+---
+ drivers/gpu/drm/amd/powerplay/smumgr/tonga_smumgr.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/drivers/gpu/drm/amd/powerplay/smumgr/tonga_smumgr.c b/drivers/gpu/drm/amd/powerplay/smumgr/tonga_smumgr.c
+index 748d985..97404a5 100644
+--- a/drivers/gpu/drm/amd/powerplay/smumgr/tonga_smumgr.c
++++ b/drivers/gpu/drm/amd/powerplay/smumgr/tonga_smumgr.c
+@@ -412,7 +412,7 @@ static int tonga_populate_cac_tables(struct pp_hwmgr *hwmgr,
+ 			convert_to_vid(vddc_lookup_table->entries[index].us_cac_high);
+ 	}
+ 
+-	if ((data->vdd_gfx_control == SMU7_VOLTAGE_CONTROL_BY_SVID2)) {
++	if (data->vdd_gfx_control == SMU7_VOLTAGE_CONTROL_BY_SVID2) {
+ 		/* We are populating vddgfx CAC data to BapmVddgfx table in split mode */
+ 		for (count = 0; count < vddgfx_level_count; count++) {
+ 			index = phm_get_voltage_index(vddgfx_lookup_table,
+-- 
+2.7.4
+

@@ -1,0 +1,28 @@
+From 4fc29598297dda8e2c26346c5388ad3ec0b97fc5 Mon Sep 17 00:00:00 2001
+From: Feifei Xu <Feifei.Xu@amd.com>
+Date: Thu, 19 Oct 2017 17:04:54 +0800
+Subject: [PATCH 3836/4131] drm/amdgpu: add vega12 to asic_type enum
+
+Add vega12 to amd_asic_type enum and amdgpu_asic_name[].
+
+Signed-off-by: Alex Deucher <alexander.deucher@amd.com>
+Signed-off-by: Hawking Zhang <Hawking.Zhang@amd.com>
+---
+ drivers/gpu/drm/amd/amdgpu/amdgpu_device.c | 1 +
+ 1 file changed, 1 insertion(+)
+
+diff --git a/drivers/gpu/drm/amd/amdgpu/amdgpu_device.c b/drivers/gpu/drm/amd/amdgpu/amdgpu_device.c
+index 6889c49..4c9cea9 100644
+--- a/drivers/gpu/drm/amd/amdgpu/amdgpu_device.c
++++ b/drivers/gpu/drm/amd/amdgpu/amdgpu_device.c
+@@ -83,6 +83,7 @@ static const char *amdgpu_asic_name[] = {
+ 	"POLARIS11",
+ 	"POLARIS12",
+ 	"VEGA10",
++	"VEGA12",
+ 	"RAVEN",
+ 	"LAST",
+ };
+-- 
+2.7.4
+

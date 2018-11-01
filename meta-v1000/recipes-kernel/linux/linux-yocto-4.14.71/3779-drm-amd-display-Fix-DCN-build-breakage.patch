@@ -1,0 +1,38 @@
+From d1de32619c8913bc907c2e6d12e4e8cd69cab917 Mon Sep 17 00:00:00 2001
+From: Harry Wentland <harry.wentland@amd.com>
+Date: Tue, 13 Mar 2018 15:09:45 -0400
+Subject: [PATCH 3779/4131] drm/amd/display: Fix DCN build breakage
+
+Fixes: 680acc64120c (drm/amd/display: Set disp clk in a safe way to avoid
+over high dpp clk.)
+
+Signed-off-by: Harry Wentland <harry.wentland@amd.com>
+Reviewed-by: Alex Deucher <alexander.deucher@amd.com>
+Tested-by: Mike Lothian <mike@fireburn.co.uk>
+---
+ drivers/gpu/drm/amd/display/dc/dce/dce_clocks.c | 2 ++
+ 1 file changed, 2 insertions(+)
+
+diff --git a/drivers/gpu/drm/amd/display/dc/dce/dce_clocks.c b/drivers/gpu/drm/amd/display/dc/dce/dce_clocks.c
+index 76fc903..78e6beb 100644
+--- a/drivers/gpu/drm/amd/display/dc/dce/dce_clocks.c
++++ b/drivers/gpu/drm/amd/display/dc/dce/dce_clocks.c
+@@ -623,6 +623,7 @@ static bool dce_apply_clock_voltage_request(
+ 		}
+ 	}
+ 	if (send_request) {
++#if defined(CONFIG_DRM_AMD_DC_DCN1_0)
+ 		if (clk->ctx->dce_version >= DCN_VERSION_1_0) {
+ 			struct dc *core_dc = clk->ctx->dc;
+ 			/*use dcfclk request voltage*/
+@@ -630,6 +631,7 @@ static bool dce_apply_clock_voltage_request(
+ 			clock_voltage_req.clocks_in_khz =
+ 				dcn_find_dcfclk_suits_all(core_dc, &clk->cur_clocks_value);
+ 		}
++#endif
+ 		dm_pp_apply_clock_for_voltage_request(
+ 			clk->ctx, &clock_voltage_req);
+ 	}
+-- 
+2.7.4
+

@@ -1,0 +1,186 @@
+From 607d11b10bfdcec51d3a06045bfda7365bf215f8 Mon Sep 17 00:00:00 2001
+From: Oak Zeng <Oak.Zeng@amd.com>
+Date: Mon, 13 Nov 2017 14:47:30 -0500
+Subject: [PATCH 2862/4131] drm/amdkfd: Removed unused bo mmap functions
+
+Those functions were used for mmapping of KFD BOs.
+Now KFD BOs are mmapped from drm render node and
+those functions are not needed anymore. mmap_bo
+interface was also deleted from kfd2kgd calls
+
+Change-Id: Ic21e025f39d86d7f980ffa0df9abb560281063ca
+Signed-off-by: Oak Zeng <Oak.Zeng@amd.com>
+---
+ drivers/gpu/drm/amd/amdgpu/amdgpu_amdkfd.h        |  3 --
+ drivers/gpu/drm/amd/amdgpu/amdgpu_amdkfd_gfx_v7.c |  1 -
+ drivers/gpu/drm/amd/amdgpu/amdgpu_amdkfd_gfx_v8.c |  1 -
+ drivers/gpu/drm/amd/amdgpu/amdgpu_amdkfd_gfx_v9.c |  1 -
+ drivers/gpu/drm/amd/amdgpu/amdgpu_amdkfd_gpuvm.c  | 13 -------
+ drivers/gpu/drm/amd/amdgpu/amdgpu_ttm.c           | 43 +----------------------
+ drivers/gpu/drm/amd/amdgpu/amdgpu_ttm.h           |  2 --
+ drivers/gpu/drm/amd/include/kgd_kfd_interface.h   |  1 -
+ 8 files changed, 1 insertion(+), 64 deletions(-)
+
+diff --git a/drivers/gpu/drm/amd/amdgpu/amdgpu_amdkfd.h b/drivers/gpu/drm/amd/amdgpu/amdgpu_amdkfd.h
+index b4e26d9..0dbba0f 100644
+--- a/drivers/gpu/drm/amd/amdgpu/amdgpu_amdkfd.h
++++ b/drivers/gpu/drm/amd/amdgpu/amdgpu_amdkfd.h
+@@ -215,9 +215,6 @@ uint32_t amdgpu_amdkfd_gpuvm_get_process_page_dir(void *vm);
+ int amdgpu_amdkfd_gpuvm_get_vm_fault_info(struct kgd_dev *kgd,
+ 					      struct kfd_vm_fault_info *info);
+ 
+-int amdgpu_amdkfd_gpuvm_mmap_bo(
+-		struct kgd_dev *kgd, struct vm_area_struct *vma);
+-
+ int amdgpu_amdkfd_gpuvm_map_gtt_bo_to_kernel(struct kgd_dev *kgd,
+ 		struct kgd_mem *mem, void **kptr);
+ 
+diff --git a/drivers/gpu/drm/amd/amdgpu/amdgpu_amdkfd_gfx_v7.c b/drivers/gpu/drm/amd/amdgpu/amdgpu_amdkfd_gfx_v7.c
+index f1cf456..30480c8 100644
+--- a/drivers/gpu/drm/amd/amdgpu/amdgpu_amdkfd_gfx_v7.c
++++ b/drivers/gpu/drm/amd/amdgpu/amdgpu_amdkfd_gfx_v7.c
+@@ -228,7 +228,6 @@ static const struct kfd2kgd_calls kfd2kgd = {
+ 	.get_cu_info = get_cu_info,
+ 	.alloc_memory_of_scratch = alloc_memory_of_scratch,
+ 	.write_config_static_mem = write_config_static_mem,
+-	.mmap_bo = amdgpu_amdkfd_gpuvm_mmap_bo,
+ 	.map_gtt_bo_to_kernel = amdgpu_amdkfd_gpuvm_map_gtt_bo_to_kernel,
+ 	.set_vm_context_page_table_base = set_vm_context_page_table_base,
+ 	.pin_get_sg_table_bo = amdgpu_amdkfd_gpuvm_pin_get_sg_table,
+diff --git a/drivers/gpu/drm/amd/amdgpu/amdgpu_amdkfd_gfx_v8.c b/drivers/gpu/drm/amd/amdgpu/amdgpu_amdkfd_gfx_v8.c
+index 06d4c62..b8d2ddd 100644
+--- a/drivers/gpu/drm/amd/amdgpu/amdgpu_amdkfd_gfx_v8.c
++++ b/drivers/gpu/drm/amd/amdgpu/amdgpu_amdkfd_gfx_v8.c
+@@ -201,7 +201,6 @@ static const struct kfd2kgd_calls kfd2kgd = {
+ 	.get_cu_info = get_cu_info,
+ 	.alloc_memory_of_scratch = alloc_memory_of_scratch,
+ 	.write_config_static_mem = write_config_static_mem,
+-	.mmap_bo = amdgpu_amdkfd_gpuvm_mmap_bo,
+ 	.map_gtt_bo_to_kernel = amdgpu_amdkfd_gpuvm_map_gtt_bo_to_kernel,
+ 	.set_vm_context_page_table_base = set_vm_context_page_table_base,
+ 	.pin_get_sg_table_bo = amdgpu_amdkfd_gpuvm_pin_get_sg_table,
+diff --git a/drivers/gpu/drm/amd/amdgpu/amdgpu_amdkfd_gfx_v9.c b/drivers/gpu/drm/amd/amdgpu/amdgpu_amdkfd_gfx_v9.c
+index 43a0776..99965aa 100644
+--- a/drivers/gpu/drm/amd/amdgpu/amdgpu_amdkfd_gfx_v9.c
++++ b/drivers/gpu/drm/amd/amdgpu/amdgpu_amdkfd_gfx_v9.c
+@@ -246,7 +246,6 @@ static const struct kfd2kgd_calls kfd2kgd = {
+ 	.get_cu_info = get_cu_info,
+ 	.alloc_memory_of_scratch = alloc_memory_of_scratch,
+ 	.write_config_static_mem = write_config_static_mem,
+-	.mmap_bo = amdgpu_amdkfd_gpuvm_mmap_bo,
+ 	.map_gtt_bo_to_kernel = amdgpu_amdkfd_gpuvm_map_gtt_bo_to_kernel,
+ 	.set_vm_context_page_table_base = set_vm_context_page_table_base,
+ 	.pin_get_sg_table_bo = amdgpu_amdkfd_gpuvm_pin_get_sg_table,
+diff --git a/drivers/gpu/drm/amd/amdgpu/amdgpu_amdkfd_gpuvm.c b/drivers/gpu/drm/amd/amdgpu/amdgpu_amdkfd_gpuvm.c
+index c6e3d60..ab5c7ea 100644
+--- a/drivers/gpu/drm/amd/amdgpu/amdgpu_amdkfd_gpuvm.c
++++ b/drivers/gpu/drm/amd/amdgpu/amdgpu_amdkfd_gpuvm.c
+@@ -1616,19 +1616,6 @@ int amdgpu_amdkfd_gpuvm_unmap_memory_from_gpu(
+ 	return ret;
+ }
+ 
+-int amdgpu_amdkfd_gpuvm_mmap_bo(struct kgd_dev *kgd, struct vm_area_struct *vma)
+-{
+-	struct amdgpu_device *adev;
+-
+-	adev = get_amdgpu_device(kgd);
+-	if (!adev) {
+-		pr_err("Could not get amdgpu device in %s\n", __func__);
+-		return -ENODEV;
+-	}
+-
+-	return amdgpu_bo_mmap(NULL, vma, &adev->mman.bdev);
+-}
+-
+ int amdgpu_amdkfd_gpuvm_map_gtt_bo_to_kernel(struct kgd_dev *kgd,
+ 		struct kgd_mem *mem, void **kptr)
+ {
+diff --git a/drivers/gpu/drm/amd/amdgpu/amdgpu_ttm.c b/drivers/gpu/drm/amd/amdgpu/amdgpu_ttm.c
+index 7e5095c..7e238c1 100644
+--- a/drivers/gpu/drm/amd/amdgpu/amdgpu_ttm.c
++++ b/drivers/gpu/drm/amd/amdgpu/amdgpu_ttm.c
+@@ -1674,47 +1674,6 @@ void amdgpu_ttm_set_active_vram_size(struct amdgpu_device *adev, u64 size)
+ 	man->size = size >> PAGE_SHIFT;
+ }
+ 
+-static struct vm_operations_struct amdgpu_ttm_vm_ops;
+-static const struct vm_operations_struct *ttm_vm_ops;
+-
+-/* This function is a tweak variance of ttm_bo_vm_open() just to avoid the
+- * warning message when fork() with KFD BOs on DGPU.
+- */
+-static void amdgpu_ttm_vm_open(struct vm_area_struct *vma)
+-{
+-	struct ttm_buffer_object *bo =
+-		(struct ttm_buffer_object *)vma->vm_private_data;
+-	struct amdgpu_bo *abo = container_of(bo, struct amdgpu_bo, tbo);
+-
+-	/* Because vma->vm_file for /dev/kfd can not be associated with any
+-	* ttm_bo_device due to the one to many mapping between kfd and
+-	* amdgpu devices, for KFD BOs we should just skip the check.
+-	*/
+-	if (!abo->kfd_bo)
+-		WARN_ON(bo->bdev->dev_mapping != vma->vm_file->f_mapping);
+-
+-	(void)ttm_bo_reference(bo);
+-}
+-
+-int amdgpu_bo_mmap(struct file *filp, struct vm_area_struct *vma,
+-		   struct ttm_bo_device *bdev)
+-{
+-	int r;
+-
+-	r = ttm_bo_mmap(filp, vma, bdev);
+-	if (unlikely(r != 0))
+-		return r;
+-
+-	if (unlikely(ttm_vm_ops == NULL)) {
+-		ttm_vm_ops = vma->vm_ops;
+-		amdgpu_ttm_vm_ops = *ttm_vm_ops;
+-		amdgpu_ttm_vm_ops.open = &amdgpu_ttm_vm_open;
+-	}
+-	vma->vm_ops = &amdgpu_ttm_vm_ops;
+-
+-	return 0;
+-}
+-
+ int amdgpu_mmap(struct file *filp, struct vm_area_struct *vma)
+ {
+ 	struct drm_file *file_priv;
+@@ -1728,7 +1687,7 @@ int amdgpu_mmap(struct file *filp, struct vm_area_struct *vma)
+ 	if (adev == NULL)
+ 		return -EINVAL;
+ 
+-	return amdgpu_bo_mmap(filp, vma, &adev->mman.bdev);
++	return ttm_bo_mmap(filp, vma, &adev->mman.bdev);
+ }
+ 
+ static int amdgpu_map_buffer(struct ttm_buffer_object *bo,
+diff --git a/drivers/gpu/drm/amd/amdgpu/amdgpu_ttm.h b/drivers/gpu/drm/amd/amdgpu/amdgpu_ttm.h
+index 4a8384c..7cb2f17 100644
+--- a/drivers/gpu/drm/amd/amdgpu/amdgpu_ttm.h
++++ b/drivers/gpu/drm/amd/amdgpu/amdgpu_ttm.h
+@@ -96,8 +96,6 @@ int amdgpu_fill_buffer(struct amdgpu_bo *bo,
+ 			struct dma_fence **fence);
+ 
+ int amdgpu_mmap(struct file *filp, struct vm_area_struct *vma);
+-int amdgpu_bo_mmap(struct file *filp, struct vm_area_struct *vma,
+-		   struct ttm_bo_device *bdev);
+ int amdgpu_ttm_bind(struct ttm_buffer_object *bo);
+ int amdgpu_ttm_alloc_gart(struct ttm_buffer_object *bo);
+ int amdgpu_ttm_recover_gart(struct ttm_buffer_object *tbo);
+diff --git a/drivers/gpu/drm/amd/include/kgd_kfd_interface.h b/drivers/gpu/drm/amd/include/kgd_kfd_interface.h
+index 877d966..4547a22 100644
+--- a/drivers/gpu/drm/amd/include/kgd_kfd_interface.h
++++ b/drivers/gpu/drm/amd/include/kgd_kfd_interface.h
+@@ -370,7 +370,6 @@ struct kfd2kgd_calls {
+ 		uint8_t element_size, uint8_t index_stride, uint8_t mtype);
+ 	void (*get_cu_info)(struct kgd_dev *kgd,
+ 			struct kfd_cu_info *cu_info);
+-	int (*mmap_bo)(struct kgd_dev *kgd, struct vm_area_struct *vma);
+ 	int (*map_gtt_bo_to_kernel)(struct kgd_dev *kgd,
+ 			struct kgd_mem *mem, void **kptr);
+ 	void (*set_vm_context_page_table_base)(struct kgd_dev *kgd, uint32_t vmid,
+-- 
+2.7.4
+

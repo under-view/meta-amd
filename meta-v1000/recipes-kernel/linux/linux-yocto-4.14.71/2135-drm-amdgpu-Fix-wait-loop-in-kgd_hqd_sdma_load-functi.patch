@@ -1,0 +1,120 @@
+From 83ea308476093c9d0abd43d48e5385111804b69a Mon Sep 17 00:00:00 2001
+From: Felix Kuehling <Felix.Kuehling@amd.com>
+Date: Mon, 30 Oct 2017 20:16:40 -0400
+Subject: [PATCH 2135/4131] drm/amdgpu: Fix wait loop in kgd_hqd_sdma_load
+ functions
+
+msleep(10) was causing a checkpatch warning during upstreaming. This
+commit fixes the wait loop similar to what has been done in the
+kgd_hqd_sdma_destroy functions.
+
+Change-Id: I56c59b340a41247d631e260330254193ac4e758c
+Signed-off-by: Felix Kuehling <Felix.Kuehling@amd.com>
+---
+ drivers/gpu/drm/amd/amdgpu/amdgpu_amdkfd_gfx_v7.c | 11 +++++------
+ drivers/gpu/drm/amd/amdgpu/amdgpu_amdkfd_gfx_v8.c | 12 ++++++------
+ drivers/gpu/drm/amd/amdgpu/amdgpu_amdkfd_gfx_v9.c | 12 ++++++------
+ 3 files changed, 17 insertions(+), 18 deletions(-)
+
+diff --git a/drivers/gpu/drm/amd/amdgpu/amdgpu_amdkfd_gfx_v7.c b/drivers/gpu/drm/amd/amdgpu/amdgpu_amdkfd_gfx_v7.c
+index 936cc59..f1cf456 100644
+--- a/drivers/gpu/drm/amd/amdgpu/amdgpu_amdkfd_gfx_v7.c
++++ b/drivers/gpu/drm/amd/amdgpu/amdgpu_amdkfd_gfx_v7.c
+@@ -475,7 +475,6 @@ static int kgd_hqd_sdma_load(struct kgd_dev *kgd, void *mqd,
+ 	struct cik_sdma_rlc_registers *m;
+ 	unsigned long end_jiffies;
+ 	uint32_t sdma_base_addr;
+-        uint32_t temp, timeout = 2000;
+         uint32_t data;
+ 
+ 	m = get_sdma_mqd(mqd);
+@@ -484,14 +483,14 @@ static int kgd_hqd_sdma_load(struct kgd_dev *kgd, void *mqd,
+         WREG32(sdma_base_addr + mmSDMA0_RLC0_RB_CNTL,
+                 m->sdma_rlc_rb_cntl & (~SDMA0_RLC0_RB_CNTL__RB_ENABLE_MASK));
+ 
++	end_jiffies = msecs_to_jiffies(2000) + jiffies;
+         while (true) {
+-                temp = RREG32(sdma_base_addr + mmSDMA0_RLC0_CONTEXT_STATUS);
+-                if (temp & SDMA0_RLC0_CONTEXT_STATUS__IDLE_MASK)
++                data = RREG32(sdma_base_addr + mmSDMA0_RLC0_CONTEXT_STATUS);
++                if (data & SDMA0_RLC0_CONTEXT_STATUS__IDLE_MASK)
+                         break;
+-                if (timeout == 0)
++		if (time_after(jiffies, end_jiffies))
+                         return -ETIME;
+-               msleep(10);
+-                timeout -= 10;
++		usleep_range(500, 1000);
+         }
+         if (m->sdma_engine_id) {
+                 data = RREG32(mmSDMA1_GFX_CONTEXT_CNTL);
+diff --git a/drivers/gpu/drm/amd/amdgpu/amdgpu_amdkfd_gfx_v8.c b/drivers/gpu/drm/amd/amdgpu/amdgpu_amdkfd_gfx_v8.c
+index 59a1036..06d4c62 100644
+--- a/drivers/gpu/drm/amd/amdgpu/amdgpu_amdkfd_gfx_v8.c
++++ b/drivers/gpu/drm/amd/amdgpu/amdgpu_amdkfd_gfx_v8.c
+@@ -487,8 +487,8 @@ static int kgd_hqd_sdma_load(struct kgd_dev *kgd, void *mqd,
+ {
+ 	struct amdgpu_device *adev = get_amdgpu_device(kgd);
+ 	struct vi_sdma_mqd *m;
++	unsigned long end_jiffies;
+ 	uint32_t sdma_base_addr;
+-	uint32_t temp, timeout = 2000;
+ 	uint32_t data;
+ 
+ 	m = get_sdma_mqd(mqd);
+@@ -496,14 +496,14 @@ static int kgd_hqd_sdma_load(struct kgd_dev *kgd, void *mqd,
+ 	WREG32(sdma_base_addr + mmSDMA0_RLC0_RB_CNTL,
+ 		m->sdmax_rlcx_rb_cntl & (~SDMA0_RLC0_RB_CNTL__RB_ENABLE_MASK));
+ 
++	end_jiffies = msecs_to_jiffies(2000) + jiffies;
+ 	while (true) {
+-		temp = RREG32(sdma_base_addr + mmSDMA0_RLC0_CONTEXT_STATUS);
+-		if (temp & SDMA0_RLC0_CONTEXT_STATUS__IDLE_MASK)
++		data = RREG32(sdma_base_addr + mmSDMA0_RLC0_CONTEXT_STATUS);
++		if (data & SDMA0_RLC0_CONTEXT_STATUS__IDLE_MASK)
+ 			break;
+-		if (timeout == 0)
++		if (time_after(jiffies, end_jiffies))
+ 			return -ETIME;
+-		msleep(10);
+-		timeout -= 10;
++		usleep_range(500, 1000);
+ 	}
+ 	if (m->sdma_engine_id) {
+ 		data = RREG32(mmSDMA1_GFX_CONTEXT_CNTL);
+diff --git a/drivers/gpu/drm/amd/amdgpu/amdgpu_amdkfd_gfx_v9.c b/drivers/gpu/drm/amd/amdgpu/amdgpu_amdkfd_gfx_v9.c
+index c649376..2e1496d 100644
+--- a/drivers/gpu/drm/amd/amdgpu/amdgpu_amdkfd_gfx_v9.c
++++ b/drivers/gpu/drm/amd/amdgpu/amdgpu_amdkfd_gfx_v9.c
+@@ -609,7 +609,7 @@ static int kgd_hqd_sdma_load(struct kgd_dev *kgd, void *mqd,
+ 	struct amdgpu_device *adev = get_amdgpu_device(kgd);
+ 	struct v9_sdma_mqd *m;
+ 	uint32_t sdma_base_addr, sdmax_gfx_context_cntl;
+-	uint32_t temp, timeout = 2000;
++	unsigned long end_jiffies;
+ 	uint32_t data;
+ 	uint64_t data64;
+ 	uint64_t __user *wptr64 = (uint64_t __user *)wptr;
+@@ -624,14 +624,14 @@ static int kgd_hqd_sdma_load(struct kgd_dev *kgd, void *mqd,
+ 	WREG32(sdma_base_addr + mmSDMA0_RLC0_RB_CNTL,
+ 		m->sdmax_rlcx_rb_cntl & (~SDMA0_RLC0_RB_CNTL__RB_ENABLE_MASK));
+ 
++	end_jiffies = msecs_to_jiffies(2000) + jiffies;
+ 	while (true) {
+-		temp = RREG32(sdma_base_addr + mmSDMA0_RLC0_CONTEXT_STATUS);
+-		if (temp & SDMA0_RLC0_CONTEXT_STATUS__IDLE_MASK)
++		data = RREG32(sdma_base_addr + mmSDMA0_RLC0_CONTEXT_STATUS);
++		if (data & SDMA0_RLC0_CONTEXT_STATUS__IDLE_MASK)
+ 			break;
+-		if (timeout == 0)
++		if (time_after(jiffies, end_jiffies))
+ 			return -ETIME;
+-		msleep(10);
+-		timeout -= 10;
++		usleep_range(500, 1000);
+ 	}
+ 	data = RREG32(sdmax_gfx_context_cntl);
+ 	data = REG_SET_FIELD(data, SDMA0_GFX_CONTEXT_CNTL,
+-- 
+2.7.4
+

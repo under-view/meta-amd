@@ -1,0 +1,39 @@
+From 6c219020cccecbb9c243adfbcae6359b66249fb0 Mon Sep 17 00:00:00 2001
+From: Yongqiang Sun <yongqiang.sun@amd.com>
+Date: Fri, 3 Nov 2017 16:02:50 -0400
+Subject: [PATCH 2731/4131] drm/amd/display: Fixed not set scaler bug.
+
+New scaler parameter assign to dpp is after early return,
+cause next flip scaler not program.
+
+Signed-off-by: Yongqiang Sun <yongqiang.sun@amd.com>
+Reviewed-by: Tony Cheng <Tony.Cheng@amd.com>
+Acked-by: Harry Wentland <harry.wentland@amd.com>
+Signed-off-by: Alex Deucher <alexander.deucher@amd.com>
+---
+ drivers/gpu/drm/amd/display/dc/dcn10/dcn10_dpp_dscl.c | 4 +++-
+ 1 file changed, 3 insertions(+), 1 deletion(-)
+
+diff --git a/drivers/gpu/drm/amd/display/dc/dcn10/dcn10_dpp_dscl.c b/drivers/gpu/drm/amd/display/dc/dcn10/dcn10_dpp_dscl.c
+index 242a568..4b5b709 100644
+--- a/drivers/gpu/drm/amd/display/dc/dcn10/dcn10_dpp_dscl.c
++++ b/drivers/gpu/drm/amd/display/dc/dcn10/dcn10_dpp_dscl.c
+@@ -650,6 +650,9 @@ void dpp1_dscl_set_scaler_manual_scale(
+ 
+ 	if (memcmp(&dpp->scl_data, scl_data, sizeof(*scl_data)) == 0)
+ 		return;
++
++	dpp->scl_data = *scl_data;
++
+ 	/* Recout */
+ 	dpp1_dscl_set_recout(dpp, &scl_data->recout);
+ 
+@@ -701,5 +704,4 @@ void dpp1_dscl_set_scaler_manual_scale(
+ 		SCL_H_NUM_TAPS_C, scl_data->taps.h_taps_c - 1);
+ 
+ 	dpp1_dscl_set_scl_filter(dpp, scl_data, ycbcr);
+-	dpp->scl_data = *scl_data;
+ }
+-- 
+2.7.4
+

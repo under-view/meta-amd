@@ -1,0 +1,29 @@
+From 97cad72339bd667ba9255e5f04bab631b8b365c5 Mon Sep 17 00:00:00 2001
+From: Harry Wentland <harry.wentland@amd.com>
+Date: Tue, 13 Feb 2018 11:07:43 -0500
+Subject: [PATCH 3657/4131] drm/amd/display: Don't blow up if TG is NULL in
+ dce110_vblank_set
+
+Signed-off-by: Harry Wentland <harry.wentland@amd.com>
+Reviewed-by: Roman Li <Roman.Li@amd.com>
+Acked-by: Harry Wentland <harry.wentland@amd.com>
+---
+ drivers/gpu/drm/amd/display/dc/irq/dce110/irq_service_dce110.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/drivers/gpu/drm/amd/display/dc/irq/dce110/irq_service_dce110.c b/drivers/gpu/drm/amd/display/dc/irq/dce110/irq_service_dce110.c
+index 9bc1c1d..afe0876 100644
+--- a/drivers/gpu/drm/amd/display/dc/irq/dce110/irq_service_dce110.c
++++ b/drivers/gpu/drm/amd/display/dc/irq/dce110/irq_service_dce110.c
+@@ -208,7 +208,7 @@ bool dce110_vblank_set(struct irq_service *irq_service,
+ 			core_dc->current_state->res_ctx.pipe_ctx[pipe_offset].stream_res.tg;
+ 
+ 	if (enable) {
+-		if (!tg->funcs->arm_vert_intr(tg, 2)) {
++		if (!tg || !tg->funcs->arm_vert_intr(tg, 2)) {
+ 			DC_ERROR("Failed to get VBLANK!\n");
+ 			return false;
+ 		}
+-- 
+2.7.4
+

@@ -1,0 +1,128 @@
+From 31d5e1e7b490409751bef5473537c785525d6dcc Mon Sep 17 00:00:00 2001
+From: Samuel Li <Samuel.Li@amd.com>
+Date: Fri, 19 Jan 2018 11:22:59 -0500
+Subject: [PATCH 3232/4131] drm/amdgpu: rename amdgpu_crtc_page_flip_target
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+Add display to the name for consistency.
+
+Signed-off-by: Samuel Li <Samuel.Li@amd.com>
+Acked-by: Christian König <christian.koenig@amd.com>
+Reviewed-by: Alex Deucher <alexander.deucher@amd.com>
+
+Conflicts:
+      drivers/gpu/drm/amd/amdgpu/amdgpu_display.c
+      drivers/gpu/drm/amd/amdgpu/amdgpu_mode.h
+      drivers/gpu/drm/amd/amdgpu/dce_v10_0.c
+      drivers/gpu/drm/amd/amdgpu/dce_v11_0.c
+      drivers/gpu/drm/amd/amdgpu/dce_v6_0.c
+      drivers/gpu/drm/amd/amdgpu/dce_v8_0.c
+      drivers/gpu/drm/amd/amdgpu/dce_virtual.c
+
+Change-Id: I2e4c912f0b6902bf21ecd4180dab6e2749ed237c
+---
+ drivers/gpu/drm/amd/amdgpu/amdgpu_display.c | 2 +-
+ drivers/gpu/drm/amd/amdgpu/amdgpu_mode.h    | 2 +-
+ drivers/gpu/drm/amd/amdgpu/dce_v10_0.c      | 2 +-
+ drivers/gpu/drm/amd/amdgpu/dce_v11_0.c      | 2 +-
+ drivers/gpu/drm/amd/amdgpu/dce_v6_0.c       | 2 +-
+ drivers/gpu/drm/amd/amdgpu/dce_v8_0.c       | 2 +-
+ drivers/gpu/drm/amd/amdgpu/dce_virtual.c    | 2 +-
+ 7 files changed, 7 insertions(+), 7 deletions(-)
+
+diff --git a/drivers/gpu/drm/amd/amdgpu/amdgpu_display.c b/drivers/gpu/drm/amd/amdgpu/amdgpu_display.c
+index 89ae32e..f6e2e90 100644
+--- a/drivers/gpu/drm/amd/amdgpu/amdgpu_display.c
++++ b/drivers/gpu/drm/amd/amdgpu/amdgpu_display.c
+@@ -141,7 +141,7 @@ static void amdgpu_display_unpin_work_func(struct work_struct *__work)
+ 	kfree(work);
+ }
+ 
+-int amdgpu_crtc_page_flip_target(struct drm_crtc *crtc,
++int amdgpu_display_crtc_page_flip_target(struct drm_crtc *crtc,
+ 				 struct drm_framebuffer *fb,
+ 				 struct drm_pending_vblank_event *event,
+ 				 uint32_t page_flip_flags, uint32_t target,
+diff --git a/drivers/gpu/drm/amd/amdgpu/amdgpu_mode.h b/drivers/gpu/drm/amd/amdgpu/amdgpu_mode.h
+index 20d9168..b0afe81 100644
+--- a/drivers/gpu/drm/amd/amdgpu/amdgpu_mode.h
++++ b/drivers/gpu/drm/amd/amdgpu/amdgpu_mode.h
+@@ -691,7 +691,7 @@ int amdgpu_crtc_set_config(struct drm_mode_set *set,
+ int amdgpu_crtc_set_config(struct drm_mode_set *set);
+ #endif
+ #if LINUX_VERSION_CODE >= KERNEL_VERSION(4, 9, 0) || defined(OS_NAME_RHEL_7_4)
+-int amdgpu_crtc_page_flip_target(struct drm_crtc *crtc,
++int amdgpu_display_crtc_page_flip_target(struct drm_crtc *crtc,
+ 				 struct drm_framebuffer *fb,
+ 				 struct drm_pending_vblank_event *event,
+ #if LINUX_VERSION_CODE >= KERNEL_VERSION(4, 12, 0)
+diff --git a/drivers/gpu/drm/amd/amdgpu/dce_v10_0.c b/drivers/gpu/drm/amd/amdgpu/dce_v10_0.c
+index 5590bf1..751b52f 100644
+--- a/drivers/gpu/drm/amd/amdgpu/dce_v10_0.c
++++ b/drivers/gpu/drm/amd/amdgpu/dce_v10_0.c
+@@ -2519,7 +2519,7 @@ static const struct drm_crtc_funcs dce_v10_0_crtc_funcs = {
+ 	.gamma_set = dce_v10_0_crtc_gamma_set,
+ 	.set_config = amdgpu_crtc_set_config,
+ 	.destroy = dce_v10_0_crtc_destroy,
+-	.page_flip_target = amdgpu_crtc_page_flip_target,
++	.page_flip_target = amdgpu_display_crtc_page_flip_target,
+ };
+ 
+ static void dce_v10_0_crtc_dpms(struct drm_crtc *crtc, int mode)
+diff --git a/drivers/gpu/drm/amd/amdgpu/dce_v11_0.c b/drivers/gpu/drm/amd/amdgpu/dce_v11_0.c
+index 8ee4fc4..6502e5f 100644
+--- a/drivers/gpu/drm/amd/amdgpu/dce_v11_0.c
++++ b/drivers/gpu/drm/amd/amdgpu/dce_v11_0.c
+@@ -2594,7 +2594,7 @@ static const struct drm_crtc_funcs dce_v11_0_crtc_funcs = {
+ 	.gamma_set = dce_v11_0_crtc_gamma_set,
+ 	.set_config = amdgpu_crtc_set_config,
+ 	.destroy = dce_v11_0_crtc_destroy,
+-	.page_flip_target = amdgpu_crtc_page_flip_target,
++	.page_flip_target = amdgpu_display_crtc_page_flip_target,
+ };
+ 
+ static void dce_v11_0_crtc_dpms(struct drm_crtc *crtc, int mode)
+diff --git a/drivers/gpu/drm/amd/amdgpu/dce_v6_0.c b/drivers/gpu/drm/amd/amdgpu/dce_v6_0.c
+index c943ad1..433de9f 100644
+--- a/drivers/gpu/drm/amd/amdgpu/dce_v6_0.c
++++ b/drivers/gpu/drm/amd/amdgpu/dce_v6_0.c
+@@ -2409,7 +2409,7 @@ static const struct drm_crtc_funcs dce_v6_0_crtc_funcs = {
+ 	.gamma_set = dce_v6_0_crtc_gamma_set,
+ 	.set_config = amdgpu_crtc_set_config,
+ 	.destroy = dce_v6_0_crtc_destroy,
+-	.page_flip_target = amdgpu_crtc_page_flip_target,
++	.page_flip_target = amdgpu_display_crtc_page_flip_target,
+ };
+ 
+ static void dce_v6_0_crtc_dpms(struct drm_crtc *crtc, int mode)
+diff --git a/drivers/gpu/drm/amd/amdgpu/dce_v8_0.c b/drivers/gpu/drm/amd/amdgpu/dce_v8_0.c
+index c02308c..0988751 100644
+--- a/drivers/gpu/drm/amd/amdgpu/dce_v8_0.c
++++ b/drivers/gpu/drm/amd/amdgpu/dce_v8_0.c
+@@ -2423,7 +2423,7 @@ static const struct drm_crtc_funcs dce_v8_0_crtc_funcs = {
+ 	.gamma_set = dce_v8_0_crtc_gamma_set,
+ 	.set_config = amdgpu_crtc_set_config,
+ 	.destroy = dce_v8_0_crtc_destroy,
+-	.page_flip_target = amdgpu_crtc_page_flip_target,
++	.page_flip_target = amdgpu_display_crtc_page_flip_target,
+ };
+ 
+ static void dce_v8_0_crtc_dpms(struct drm_crtc *crtc, int mode)
+diff --git a/drivers/gpu/drm/amd/amdgpu/dce_virtual.c b/drivers/gpu/drm/amd/amdgpu/dce_virtual.c
+index 24e9cdb..7877139 100644
+--- a/drivers/gpu/drm/amd/amdgpu/dce_virtual.c
++++ b/drivers/gpu/drm/amd/amdgpu/dce_virtual.c
+@@ -132,7 +132,7 @@ static const struct drm_crtc_funcs dce_virtual_crtc_funcs = {
+ 	.gamma_set = dce_virtual_crtc_gamma_set,
+ 	.set_config = amdgpu_crtc_set_config,
+ 	.destroy = dce_virtual_crtc_destroy,
+-	.page_flip_target = amdgpu_crtc_page_flip_target,
++	.page_flip_target = amdgpu_display_crtc_page_flip_target,
+ };
+ 
+ static void dce_virtual_crtc_dpms(struct drm_crtc *crtc, int mode)
+-- 
+2.7.4
+

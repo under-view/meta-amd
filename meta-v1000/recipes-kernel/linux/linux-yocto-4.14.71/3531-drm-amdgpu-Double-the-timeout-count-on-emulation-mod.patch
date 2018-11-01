@@ -1,0 +1,29 @@
+From 49a7fe15c9341b238bf570560685df8808db8610 Mon Sep 17 00:00:00 2001
+From: Shaoyun Liu <Shaoyun.Liu@amd.com>
+Date: Wed, 7 Feb 2018 14:43:13 -0500
+Subject: [PATCH 3531/4131] drm/amdgpu: Double the timeout count on emulation
+ mode
+
+Signed-off-by: Shaoyun Liu <Shaoyun.Liu@amd.com>
+Reviewed-by: Alex Deucher <alexander.deucher@amd.com>
+Signed-off-by: Alex Deucher <alexander.deucher@amd.com>
+---
+ drivers/gpu/drm/amd/amdgpu/amdgpu_device.c | 2 ++
+ 1 file changed, 2 insertions(+)
+
+diff --git a/drivers/gpu/drm/amd/amdgpu/amdgpu_device.c b/drivers/gpu/drm/amd/amdgpu/amdgpu_device.c
+index 99bbfac..367368a 100644
+--- a/drivers/gpu/drm/amd/amdgpu/amdgpu_device.c
++++ b/drivers/gpu/drm/amd/amdgpu/amdgpu_device.c
+@@ -1815,6 +1815,8 @@ int amdgpu_device_init(struct amdgpu_device *adev,
+ 	adev->flags = flags;
+ 	adev->asic_type = flags & AMD_ASIC_MASK;
+ 	adev->usec_timeout = AMDGPU_MAX_USEC_TIMEOUT;
++	if (amdgpu_emu_mode == 1)
++		adev->usec_timeout *= 2;
+ 	adev->gmc.gart_size = 512 * 1024 * 1024;
+ 	adev->accel_working = false;
+ 	adev->num_rings = 0;
+-- 
+2.7.4
+

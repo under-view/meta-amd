@@ -1,0 +1,39 @@
+From 84492ad94c0abfa9eeb7b0d98964438fdccf6409 Mon Sep 17 00:00:00 2001
+From: "Le.Ma" <Le.Ma@amd.com>
+Date: Wed, 20 Sep 2017 16:59:01 +0800
+Subject: [PATCH 1810/4131] drm/amdgpu: [KFD] Fix for using new MMU lock
+
+Unlock is moved into amdgpu_mn_invalidate_range_end()
+
+Change-Id: I48034c3f4a93e6514c0997458c55eab1a212c472
+Signed-off-by: Le.Ma <Le.Ma@amd.com>
+Reviewed-by: Junwei Zhang <Jerry.Zhang@amd.com>
+---
+ drivers/gpu/drm/amd/amdgpu/amdgpu_mn.c | 4 +---
+ 1 file changed, 1 insertion(+), 3 deletions(-)
+
+diff --git a/drivers/gpu/drm/amd/amdgpu/amdgpu_mn.c b/drivers/gpu/drm/amd/amdgpu/amdgpu_mn.c
+index e21172ee..c870664 100644
+--- a/drivers/gpu/drm/amd/amdgpu/amdgpu_mn.c
++++ b/drivers/gpu/drm/amd/amdgpu/amdgpu_mn.c
+@@ -264,7 +264,7 @@ static void amdgpu_mn_invalidate_range_start_hsa(struct mmu_notifier *mn,
+ 	/* notification is exclusive, but interval is inclusive */
+ 	end -= 1;
+ 
+-	mutex_lock(&rmn->lock);
++	amdgpu_mn_read_lock(rmn);
+ 
+ 	it = interval_tree_iter_first(&rmn->objects, start, end);
+ 	while (it) {
+@@ -282,8 +282,6 @@ static void amdgpu_mn_invalidate_range_start_hsa(struct mmu_notifier *mn,
+ 				amdgpu_amdkfd_evict_userptr(mem, mm);
+ 		}
+ 	}
+-
+-	mutex_unlock(&rmn->lock);
+ }
+ 
+ static const struct mmu_notifier_ops amdgpu_mn_ops[] = {
+-- 
+2.7.4
+

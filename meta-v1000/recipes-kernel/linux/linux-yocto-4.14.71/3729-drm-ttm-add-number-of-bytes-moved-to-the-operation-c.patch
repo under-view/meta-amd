@@ -1,0 +1,39 @@
+From 351acbda274f35124225245d48d05e77159ccae8 Mon Sep 17 00:00:00 2001
+From: Christian Koenig <christian.koenig@amd.com>
+Date: Thu, 27 Apr 2017 18:19:46 +0200
+Subject: [PATCH 3729/4131] drm/ttm: add number of bytes moved to the operation
+ context
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+Add some statistics how many bytes we have moved.
+
+Signed-off-by: Christian König <christian.koenig@amd.com>
+Reviewed-by: Michel Dänzer <michel.daenzer@amd.com>
+Reviewed-by: Chunming Zhou <david1.zhou@amd.com>
+Tested-by: Dieter Nützel <Dieter@nuetzel-hh.de>
+Tested-by: Michel Dänzer <michel.daenzer@amd.com>
+Acked-by: Felix Kuehling <Felix.Kuehling@amd.com>
+Signed-off-by: Alex Deucher <alexander.deucher@amd.com>
+---
+ drivers/gpu/drm/ttm/ttm_bo.c | 3 ++-
+ 1 file changed, 2 insertions(+), 1 deletion(-)
+
+diff --git a/drivers/gpu/drm/ttm/ttm_bo.c b/drivers/gpu/drm/ttm/ttm_bo.c
+index 4c379dd..e9886d1 100644
+--- a/drivers/gpu/drm/ttm/ttm_bo.c
++++ b/drivers/gpu/drm/ttm/ttm_bo.c
+@@ -359,7 +359,8 @@ static int ttm_bo_handle_move_mem(struct ttm_buffer_object *bo,
+ 		bo->cur_placement = bo->mem.placement;
+ 	} else
+ 		bo->offset = 0;
+-
++	
++	ctx->bytes_moved += bo->num_pages << PAGE_SHIFT;
+ 	return 0;
+ 
+ out_err:
+-- 
+2.7.4
+

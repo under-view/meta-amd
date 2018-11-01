@@ -1,0 +1,44 @@
+From a03c6d23b9eaa4d67855d0454fe64f222ae50e12 Mon Sep 17 00:00:00 2001
+From: Alex Deucher <alexander.deucher@amd.com>
+Date: Tue, 13 Mar 2018 20:43:00 -0500
+Subject: [PATCH 3782/4131] drm/amdgpu/powerplay/vega10: fix memory leak in
+ error path
+
+Free the backend structure if we fail to allocate device
+memory.
+
+Reviewed-by: Evan Quan <evan.quan@amd.com>
+Reviewed-by: Rex Zhu <Rex.Zhu@amd.com>
+Signed-off-by: Alex Deucher <alexander.deucher@amd.com>
+---
+ drivers/gpu/drm/amd/powerplay/smumgr/vega10_smumgr.c | 6 ++++--
+ 1 file changed, 4 insertions(+), 2 deletions(-)
+
+diff --git a/drivers/gpu/drm/amd/powerplay/smumgr/vega10_smumgr.c b/drivers/gpu/drm/amd/powerplay/smumgr/vega10_smumgr.c
+index 15e1afa..2199508 100644
+--- a/drivers/gpu/drm/amd/powerplay/smumgr/vega10_smumgr.c
++++ b/drivers/gpu/drm/amd/powerplay/smumgr/vega10_smumgr.c
+@@ -406,9 +406,8 @@ static int vega10_smu_init(struct pp_hwmgr *hwmgr)
+ 			&handle,
+ 			&mc_addr,
+ 			&kaddr);
+-
+ 	if (ret)
+-		return -EINVAL;
++		goto free_backend;
+ 
+ 	priv->smu_tables.entry[PPTABLE].version = 0x01;
+ 	priv->smu_tables.entry[PPTABLE].size = sizeof(PPTable_t);
+@@ -511,6 +510,9 @@ static int vega10_smu_init(struct pp_hwmgr *hwmgr)
+ 	amdgpu_bo_free_kernel(&priv->smu_tables.entry[PPTABLE].handle,
+ 			&priv->smu_tables.entry[PPTABLE].mc_addr,
+ 			&priv->smu_tables.entry[PPTABLE].table);
++free_backend:
++	kfree(hwmgr->smu_backend);
++
+ 	return -EINVAL;
+ }
+ 
+-- 
+2.7.4
+

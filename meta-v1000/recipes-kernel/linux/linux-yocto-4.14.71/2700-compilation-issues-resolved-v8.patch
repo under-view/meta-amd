@@ -1,0 +1,54 @@
+From fe61dbab6523fb9e48dcba16aa213abfca0098d9 Mon Sep 17 00:00:00 2001
+From: Kalyan Alle <kalyan.alle@amd.com>
+Date: Wed, 25 Apr 2018 12:48:35 +0530
+Subject: [PATCH 2700/4131] compilation issues resolved v8
+
+This patch resolves the compilation issues prompted during
+porting from branch: amd-18.10, repo: brahma/ec/linux
+till commit : 4f3ad6a4e70c47bed615207be0aabb27ab2d5180
+
+Signed-off-by: kalyan alle <kalyan.alle@amd.com>
+---
+ drivers/gpu/drm/amd/amdkfd/kfd_priv.h | 1 +
+ drivers/gpu/drm/radeon/radeon_kfd.c   | 6 ++++--
+ 2 files changed, 5 insertions(+), 2 deletions(-)
+
+diff --git a/drivers/gpu/drm/amd/amdkfd/kfd_priv.h b/drivers/gpu/drm/amd/amdkfd/kfd_priv.h
+index 998820f..459f859 100644
+--- a/drivers/gpu/drm/amd/amdkfd/kfd_priv.h
++++ b/drivers/gpu/drm/amd/amdkfd/kfd_priv.h
+@@ -24,6 +24,7 @@
+ #define KFD_PRIV_H_INCLUDED
+ 
+ #include <linux/hashtable.h>
++#include <linux/version.h>
+ #include <linux/mmu_notifier.h>
+ #include <linux/mutex.h>
+ #include <linux/types.h>
+diff --git a/drivers/gpu/drm/radeon/radeon_kfd.c b/drivers/gpu/drm/radeon/radeon_kfd.c
+index d670283..e852be6 100755
+--- a/drivers/gpu/drm/radeon/radeon_kfd.c
++++ b/drivers/gpu/drm/radeon/radeon_kfd.c
+@@ -79,7 +79,8 @@ static uint64_t get_gpu_clock_counter(struct kgd_dev *kgd);
+ 
+ static uint32_t get_max_engine_clock_in_mhz(struct kgd_dev *kgd);
+ 
+-static int create_process_vm(struct kgd_dev *kgd, void **vm, void **info);
++static int create_process_vm(struct kgd_dev *kgd, void **vm, void **info,
++                             struct dma_fence **ef);
+ static void destroy_process_vm(struct kgd_dev *kgd, void *vm);
+ 
+ static uint32_t get_process_page_dir(void *vm);
+@@ -418,7 +419,8 @@ static uint32_t get_max_engine_clock_in_mhz(struct kgd_dev *kgd)
+ /*
+  * Creates a VM context for HSA process
+  */
+-static int create_process_vm(struct kgd_dev *kgd, void **vm, void **info)
++static int create_process_vm(struct kgd_dev *kgd, void **vm, void **info,
++                             struct dma_fence **ef)
+ {
+ 	int ret;
+ 	struct radeon_vm *new_vm;
+-- 
+2.7.4
+

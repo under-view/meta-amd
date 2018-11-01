@@ -1,0 +1,141 @@
+From 07315845f90d4c7a4951d87c1df64598e5d372d5 Mon Sep 17 00:00:00 2001
+From: Kalyan Alle <kalyan.alle@amd.com>
+Date: Fri, 27 Apr 2018 17:56:08 +0530
+Subject: [PATCH 3253/4131] fixes the compilation issues v14
+
+This patch fixes the compilation issues prompted during porting
+from repo: brahma/ec/linux, branch: amd-18.10
+till commit : b01b1cced66517ad1319b85ef7bb749fa3ba19f0
+
+Signed-off-by: kalyan alle <kalyan.alle@amd.com>
+---
+ drivers/gpu/drm/amd/amdgpu/amdgpu_display.c |  1 -
+ drivers/gpu/drm/scheduler/Makefile          | 34 +++++++++++++++++++++++++++--
+ drivers/gpu/drm/scheduler/sched_fence.c     | 13 +++++++----
+ include/drm/gpu_scheduler.h                 |  3 ---
+ include/drm/ttm/ttm_bo_driver.h             |  2 ++
+ 5 files changed, 43 insertions(+), 10 deletions(-)
+
+diff --git a/drivers/gpu/drm/amd/amdgpu/amdgpu_display.c b/drivers/gpu/drm/amd/amdgpu/amdgpu_display.c
+index 8e78e3a..ee3f851 100644
+--- a/drivers/gpu/drm/amd/amdgpu/amdgpu_display.c
++++ b/drivers/gpu/drm/amd/amdgpu/amdgpu_display.c
+@@ -570,7 +570,6 @@ amdgpu_display_user_framebuffer_create(struct drm_device *dev,
+ 		return ERR_PTR(-ENOMEM);
+ 	}
+ 
+-	ret = amdgpu_framebuffer_init(dev, amdgpu_fb, mode_cmd, obj);
+ 	ret = amdgpu_display_framebuffer_init(dev, amdgpu_fb, mode_cmd, obj);
+ 	if (ret) {
+ 		kfree(amdgpu_fb);
+diff --git a/drivers/gpu/drm/scheduler/Makefile b/drivers/gpu/drm/scheduler/Makefile
+index ed87791..45925ec 100644
+--- a/drivers/gpu/drm/scheduler/Makefile
++++ b/drivers/gpu/drm/scheduler/Makefile
+@@ -1,4 +1,34 @@
++#
++#copyright 2017 Advanced Micro Devices, Inc.
++#
++# Permission is hereby granted, free of charge, to any person obtaining a
++# copy of this software and associated documentation files (the "Software"),
++# to deal in the Software without restriction, including without limitation
++# the rights to use, copy, modify, merge, publish, distribute, sublicense,
++# and/or sell copies of the Software, and to permit persons to whom the
++# Software is furnished to do so, subject to the following conditions:
++#
++# The above copyright notice and this permission notice shall be included in
++# all copies or substantial portions of the Software.
++#
++# THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
++# IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
++# FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.  IN NO EVENT SHALL
++# THE COPYRIGHT HOLDER(S) OR AUTHOR(S) BE LIABLE FOR ANY CLAIM, DAMAGES OR
++# OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE,
++# ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR
++# OTHER DEALINGS IN THE SOFTWARE.
++#
++#
++
++ifneq (,$(BUILD_AS_DKMS))
++        SCHED_NAME = amd-sched
++else
++        SCHED_NAME = gpu-sched
++endif
++
+ ccflags-y := -Iinclude/drm
+-gpu-sched-y := gpu_scheduler.o sched_fence.o
++$(SCHED_NAME)-y := gpu_scheduler.o sched_fence.o
++
++obj-$(CONFIG_DRM_SCHED) += $(SCHED_NAME).o
+ 
+-obj-$(CONFIG_DRM_SCHED) += gpu-sched.o
+diff --git a/drivers/gpu/drm/scheduler/sched_fence.c b/drivers/gpu/drm/scheduler/sched_fence.c
+index f6f2955..d799e63 100644
+--- a/drivers/gpu/drm/scheduler/sched_fence.c
++++ b/drivers/gpu/drm/scheduler/sched_fence.c
+@@ -29,7 +29,7 @@
+ 
+ static struct kmem_cache *sched_fence_slab;
+ 
+-int drm_sched_fence_slab_init(void)
++static int __init drm_sched_fence_slab_init(void)
+ {
+ 	sched_fence_slab = kmem_cache_create(
+ 		"drm_sched_fence", sizeof(struct drm_sched_fence), 0,
+@@ -39,14 +39,12 @@ int drm_sched_fence_slab_init(void)
+ 
+ 	return 0;
+ }
+-EXPORT_SYMBOL_GPL(drm_sched_fence_slab_init);
+ 
+-void drm_sched_fence_slab_fini(void)
++static void __exit drm_sched_fence_slab_fini(void)
+ {
+ 	rcu_barrier();
+ 	kmem_cache_destroy(sched_fence_slab);
+ }
+-EXPORT_SYMBOL_GPL(drm_sched_fence_slab_fini);
+ 
+ void drm_sched_fence_scheduled(struct drm_sched_fence *fence)
+ {
+@@ -185,3 +183,10 @@ struct drm_sched_fence *drm_sched_fence_create(struct drm_sched_entity *entity,
+ 
+ 	return fence;
+ }
++
++module_init(drm_sched_fence_slab_init);
++module_exit(drm_sched_fence_slab_fini);
++
++MODULE_DESCRIPTION("DRM GPU scheduler");
++MODULE_LICENSE("GPL and additional rights");
++
+diff --git a/include/drm/gpu_scheduler.h b/include/drm/gpu_scheduler.h
+index d29da4c..dfd54fb 100644
+--- a/include/drm/gpu_scheduler.h
++++ b/include/drm/gpu_scheduler.h
+@@ -155,9 +155,6 @@ void drm_sched_entity_push_job(struct drm_sched_job *sched_job,
+ void drm_sched_entity_set_rq(struct drm_sched_entity *entity,
+ 			     struct drm_sched_rq *rq);
+ 
+-int drm_sched_fence_slab_init(void);
+-void drm_sched_fence_slab_fini(void);
+-
+ struct drm_sched_fence *drm_sched_fence_create(
+ 	struct drm_sched_entity *s_entity, void *owner);
+ void drm_sched_fence_scheduled(struct drm_sched_fence *fence);
+diff --git a/include/drm/ttm/ttm_bo_driver.h b/include/drm/ttm/ttm_bo_driver.h
+index 5f821a9b..b980ed8 100644
+--- a/include/drm/ttm/ttm_bo_driver.h
++++ b/include/drm/ttm/ttm_bo_driver.h
+@@ -594,6 +594,8 @@ struct ttm_bo_device {
+ 	struct delayed_work wq;
+ 
+ 	bool need_dma32;
++	
++	bool no_retry;
+ };
+ 
+ /**
+-- 
+2.7.4
+

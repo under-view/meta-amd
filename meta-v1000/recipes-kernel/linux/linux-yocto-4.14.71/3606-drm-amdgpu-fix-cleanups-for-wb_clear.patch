@@ -1,0 +1,60 @@
+From 00acc53f8eed6bf1e07e1e70290018af82a480c3 Mon Sep 17 00:00:00 2001
+From: Monk Liu <Monk.Liu@amd.com>
+Date: Fri, 29 Dec 2017 17:06:41 +0800
+Subject: [PATCH 3606/4131] drm/amdgpu: fix&cleanups for wb_clear
+
+fix:
+should do right shift on wb before clearing
+
+cleanups:
+1,should memset all wb buffer
+2,set max wb number to 128 (total 4KB) is big enough
+
+Change-Id: I43832245c875ce039e7709dc049828e21c50c81f
+Signed-off-by: Monk Liu <Monk.Liu@amd.com>
+Acked-by: Alex Deucher <alexander.deucher@amd.com>
+---
+ drivers/gpu/drm/amd/amdgpu/amdgpu.h        | 2 +-
+ drivers/gpu/drm/amd/amdgpu/amdgpu_device.c | 5 +++--
+ 2 files changed, 4 insertions(+), 3 deletions(-)
+
+diff --git a/drivers/gpu/drm/amd/amdgpu/amdgpu.h b/drivers/gpu/drm/amd/amdgpu/amdgpu.h
+index 6bb5c6b..37e43fd 100644
+--- a/drivers/gpu/drm/amd/amdgpu/amdgpu.h
++++ b/drivers/gpu/drm/amd/amdgpu/amdgpu.h
+@@ -1092,7 +1092,7 @@ static inline void amdgpu_set_ib_value(struct amdgpu_cs_parser *p,
+ /*
+  * Writeback
+  */
+-#define AMDGPU_MAX_WB 512	/* Reserve at most 512 WB slots for amdgpu-owned rings. */
++#define AMDGPU_MAX_WB 128	/* Reserve at most 128 WB slots for amdgpu-owned rings. */
+ 
+ struct amdgpu_wb {
+ 	struct amdgpu_bo	*wb_obj;
+diff --git a/drivers/gpu/drm/amd/amdgpu/amdgpu_device.c b/drivers/gpu/drm/amd/amdgpu/amdgpu_device.c
+index e319c96..b70ed6a 100644
+--- a/drivers/gpu/drm/amd/amdgpu/amdgpu_device.c
++++ b/drivers/gpu/drm/amd/amdgpu/amdgpu_device.c
+@@ -492,7 +492,7 @@ static int amdgpu_device_wb_init(struct amdgpu_device *adev)
+ 		memset(&adev->wb.used, 0, sizeof(adev->wb.used));
+ 
+ 		/* clear wb memory */
+-		memset((char *)adev->wb.wb, 0, AMDGPU_MAX_WB * sizeof(uint32_t));
++		memset((char *)adev->wb.wb, 0, AMDGPU_MAX_WB * sizeof(uint32_t) * 8);
+ 	}
+ 
+ 	return 0;
+@@ -530,8 +530,9 @@ int amdgpu_device_wb_get(struct amdgpu_device *adev, u32 *wb)
+  */
+ void amdgpu_device_wb_free(struct amdgpu_device *adev, u32 wb)
+ {
++	wb >>= 3;
+ 	if (wb < adev->wb.num_wb)
+-		__clear_bit(wb >> 3, adev->wb.used);
++		__clear_bit(wb, adev->wb.used);
+ }
+ 
+ /**
+-- 
+2.7.4
+

@@ -1,0 +1,30 @@
+From a1f50871d0a954709d2d127b595934c7e902b1ee Mon Sep 17 00:00:00 2001
+From: Hawking Zhang <Hawking.Zhang@amd.com>
+Date: Mon, 6 Mar 2017 14:01:11 +0800
+Subject: [PATCH 0394/4131] drm/amdgpu: enable dcn1.0 dc support on raven
+
+Signed-off-by: Hawking Zhang <Hawking.Zhang@amd.com>
+Reviewed-by: Chunming Zhou <david1.zhou@amd.com>
+Signed-off-by: Alex Deucher <alexander.deucher@amd.com>
+---
+ drivers/gpu/drm/amd/amdgpu/amdgpu_device.c | 4 ++++
+ 1 file changed, 4 insertions(+)
+
+diff --git a/drivers/gpu/drm/amd/amdgpu/amdgpu_device.c b/drivers/gpu/drm/amd/amdgpu/amdgpu_device.c
+index dbfca21..dd8eb13 100644
+--- a/drivers/gpu/drm/amd/amdgpu/amdgpu_device.c
++++ b/drivers/gpu/drm/amd/amdgpu/amdgpu_device.c
+@@ -1983,6 +1983,10 @@ bool amdgpu_device_asic_has_dc_support(enum amd_asic_type asic_type)
+ 	case CHIP_VEGA10:
+ 		return amdgpu_dc != 0;
+ #endif
++#if defined(CONFIG_DRM_AMD_DC) && defined(CONFIG_DRM_AMD_DC_DCN1_0)
++	case CHIP_RAVEN:
++		return amdgpu_dc != 0;
++#endif
+ 	default:
+ 		return false;
+ 	}
+-- 
+2.7.4
+

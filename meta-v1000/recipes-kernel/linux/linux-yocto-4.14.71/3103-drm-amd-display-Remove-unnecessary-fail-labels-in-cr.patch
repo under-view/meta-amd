@@ -1,0 +1,68 @@
+From c7d18c842744380968144e9bde1566e494f090dd Mon Sep 17 00:00:00 2001
+From: Harry Wentland <harry.wentland@amd.com>
+Date: Mon, 18 Dec 2017 13:46:19 -0500
+Subject: [PATCH 3103/4131] drm/amd/display: Remove unnecessary fail labels in
+ create_stream_for_sink
+
+Signed-off-by: Harry Wentland <harry.wentland@amd.com>
+Reviewed-by: Tony Cheng <Tony.Cheng@amd.com>
+Acked-by: Harry Wentland <harry.wentland@amd.com>
+---
+ drivers/gpu/drm/amd/display/amdgpu_dm/amdgpu_dm.c | 14 +++++---------
+ 1 file changed, 5 insertions(+), 9 deletions(-)
+
+diff --git a/drivers/gpu/drm/amd/display/amdgpu_dm/amdgpu_dm.c b/drivers/gpu/drm/amd/display/amdgpu_dm/amdgpu_dm.c
+index 90a6c98..4b3e4ec 100644
+--- a/drivers/gpu/drm/amd/display/amdgpu_dm/amdgpu_dm.c
++++ b/drivers/gpu/drm/amd/display/amdgpu_dm/amdgpu_dm.c
+@@ -2551,12 +2551,12 @@ create_stream_for_sink(struct amdgpu_dm_connector *aconnector,
+ 
+ 	if (aconnector == NULL) {
+ 		DRM_ERROR("aconnector is NULL!\n");
+-		goto drm_connector_null;
++		return stream;
+ 	}
+ 
+ 	if (dm_state == NULL) {
+ 		DRM_ERROR("dm_state is NULL!\n");
+-		goto dm_state_null;
++		return stream;
+ 	}
+ 
+ 	drm_connector = &aconnector->base;
+@@ -2568,18 +2568,18 @@ create_stream_for_sink(struct amdgpu_dm_connector *aconnector,
+ 		 */
+ 		if (aconnector->mst_port) {
+ 			dm_dp_mst_dc_sink_create(drm_connector);
+-			goto mst_dc_sink_create_done;
++			return stream;
+ 		}
+ 
+ 		if (create_fake_sink(aconnector))
+-			goto stream_create_fail;
++			return stream;
+ 	}
+ 
+ 	stream = dc_create_stream_for_sink(aconnector->dc_sink);
+ 
+ 	if (stream == NULL) {
+ 		DRM_ERROR("Failed to create stream for sink!\n");
+-		goto stream_create_fail;
++		return stream;
+ 	}
+ 
+ 	list_for_each_entry(preferred_mode, &aconnector->base.modes, head) {
+@@ -2617,10 +2617,6 @@ create_stream_for_sink(struct amdgpu_dm_connector *aconnector,
+ 		drm_connector,
+ 		aconnector->dc_sink);
+ 
+-stream_create_fail:
+-dm_state_null:
+-drm_connector_null:
+-mst_dc_sink_create_done:
+ 	return stream;
+ }
+ 
+-- 
+2.7.4
+

@@ -1,0 +1,69 @@
+From bdb4a1555207bf0105c4ff97d37f5eefce266361 Mon Sep 17 00:00:00 2001
+From: "Le.Ma" <Le.Ma@amd.com>
+Date: Tue, 24 Oct 2017 15:26:56 +0800
+Subject: [PATCH 2353/4131] drm/amdkcl: [4.12] Kcl for drm old/new state
+ iterator and get_old/new/_crtc_state before sw commit
+
+Change-Id: Ib5003a9cc4cb7186e658cbc09f234a938ee45f7a
+Signed-off-by: Le.Ma <Le.Ma@amd.com>
+Reviewed-by: Xiaojie Yuan <Xiaojie.Yuan@amd.com>
+---
+ drivers/gpu/drm/amd/display/amdgpu_dm/amdgpu_dm.c | 19 +++++++++++++++++++
+ 1 file changed, 19 insertions(+)
+
+diff --git a/drivers/gpu/drm/amd/display/amdgpu_dm/amdgpu_dm.c b/drivers/gpu/drm/amd/display/amdgpu_dm/amdgpu_dm.c
+index 57f48fa..e310275 100644
+--- a/drivers/gpu/drm/amd/display/amdgpu_dm/amdgpu_dm.c
++++ b/drivers/gpu/drm/amd/display/amdgpu_dm/amdgpu_dm.c
+@@ -4782,7 +4782,12 @@ static int dm_update_planes_state(
+ 		return ret;
+ 
+ 	/* Add new planes */
++#if LINUX_VERSION_CODE < KERNEL_VERSION(4, 12, 0)
++	for_each_plane_in_state(state, plane, new_plane_state, i) {
++		old_plane_state = plane->state;
++#else
+ 	for_each_oldnew_plane_in_state(state, plane, old_plane_state, new_plane_state, i) {
++#endif
+ 		new_plane_crtc = new_plane_state->crtc;
+ 		old_plane_crtc = old_plane_state->crtc;
+ 		new_dm_plane_state = to_dm_plane_state(new_plane_state);
+@@ -4799,7 +4804,11 @@ static int dm_update_planes_state(
+ 				continue;
+ 
+ 			old_acrtc_state = to_dm_crtc_state(
++#if LINUX_VERSION_CODE < KERNEL_VERSION(4, 12, 0)
++					kcl_drm_atomic_get_old_crtc_state_before_commit(
++#else
+ 					drm_atomic_get_old_crtc_state(
++#endif
+ 							state,
+ 							old_plane_crtc));
+ 
+@@ -4827,13 +4836,23 @@ static int dm_update_planes_state(
+ 
+ 		} else { /* Add new planes */
+ 
++#if LINUX_VERSION_CODE < KERNEL_VERSION(4, 12, 0)
++			if (drm_atomic_plane_disabling(plane, old_plane_state))
++#else
+ 			if (drm_atomic_plane_disabling(plane->state, new_plane_state))
++#endif
+ 				continue;
+ 
+ 			if (!new_plane_crtc)
+ 				continue;
+ 
++#if LINUX_VERSION_CODE < KERNEL_VERSION(4, 12, 0)
++			new_crtc_state =
++				kcl_drm_atomic_get_new_crtc_state_before_commit(
++				state, new_plane_crtc);
++#else
+ 			new_crtc_state = drm_atomic_get_new_crtc_state(state, new_plane_crtc);
++#endif
+ 			new_acrtc_state = to_dm_crtc_state(new_crtc_state);
+ 
+ 			if (!new_acrtc_state->stream)
+-- 
+2.7.4
+

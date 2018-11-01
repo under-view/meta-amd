@@ -1,0 +1,30 @@
+From 93f45c346e22a716cf314ee7b3bd04a52f0a491f Mon Sep 17 00:00:00 2001
+From: Yue Hin Lau <Yuehin.Lau@amd.com>
+Date: Fri, 24 Nov 2017 16:35:52 -0500
+Subject: [PATCH 3025/4131] drm/amd/display: Expose dpp1_set_cursor_attributes
+
+Signed-off-by: Yue Hin Lau <Yuehin.Lau@amd.com>
+Reviewed-by: Tony Cheng <Tony.Cheng@amd.com>
+Acked-by: Harry Wentland <harry.wentland@amd.com>
+---
+ drivers/gpu/drm/amd/display/dc/dcn10/dcn10_dpp.h | 4 ++++
+ 1 file changed, 4 insertions(+)
+
+diff --git a/drivers/gpu/drm/amd/display/dc/dcn10/dcn10_dpp.h b/drivers/gpu/drm/amd/display/dc/dcn10/dcn10_dpp.h
+index 640edfa..f56ee4d 100644
+--- a/drivers/gpu/drm/amd/display/dc/dcn10/dcn10_dpp.h
++++ b/drivers/gpu/drm/amd/display/dc/dcn10/dcn10_dpp.h
+@@ -1283,6 +1283,10 @@ enum dcn10_input_csc_select {
+ 	INPUT_CSC_SELECT_COMA
+ };
+ 
++void dpp1_set_cursor_attributes(
++		struct dpp *dpp_base,
++		enum dc_cursor_color_format color_format);
++
+ bool dpp1_dscl_is_lb_conf_valid(
+ 		int ceil_vratio,
+ 		int num_partitions,
+-- 
+2.7.4
+

@@ -1,0 +1,31 @@
+From ff1f2da63b76c58f704bf906dd6301468ac4daa3 Mon Sep 17 00:00:00 2001
+From: Kalyan Alle <kalyan.alle@amd.com>
+Date: Tue, 24 Apr 2018 11:48:56 +0530
+Subject: [PATCH 2213/4131] compilation issues resolved v5
+
+This patch fixes the compilation issues popped up
+while porting
+till commit : 2313d2a1f683eb1e8ed30b106917d0b50ea8343f
+repo:brahma/ec/linux , branch:amd-18.10
+
+Signed-off-by: kalyan alle <kalyan.alle@amd.com>
+---
+ include/uapi/drm/amdgpu_drm.h | 2 ++
+ 1 file changed, 2 insertions(+)
+
+diff --git a/include/uapi/drm/amdgpu_drm.h b/include/uapi/drm/amdgpu_drm.h
+index dcd2e3c..58dae78 100644
+--- a/include/uapi/drm/amdgpu_drm.h
++++ b/include/uapi/drm/amdgpu_drm.h
+@@ -107,6 +107,8 @@ extern "C" {
+ #define AMDGPU_GEM_CREATE_VRAM_CONTIGUOUS	(1 << 5)
+ /* Flag that BO is always valid in this VM */
+ #define AMDGPU_GEM_CREATE_VM_ALWAYS_VALID       (1 << 6)
++/* Flag that BO sharing will be explicitly synchronized */
++#define AMDGPU_GEM_CREATE_EXPLICIT_SYNC         (1 << 7)
+ 
+ /* hybrid specific */
+ /* Flag that the memory allocation should be from top of domain */
+-- 
+2.7.4
+

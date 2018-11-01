@@ -1,0 +1,31 @@
+From e4c464eeedc8a7ea6d30632cd15ef0c798dbf20c Mon Sep 17 00:00:00 2001
+From: Rex Zhu <Rex.Zhu@amd.com>
+Date: Wed, 18 Oct 2017 14:31:40 +0800
+Subject: [PATCH 2029/4131] drm/amd/pp: thermal control not enabled on vega10.
+
+regression issue.
+caused by "f12f9f5e5d455edebc01"
+forget to set start_thermal_controller function point.
+
+Change-Id: Ica1ef147ca5d31a5a5104dcf0399e91bb3742d10
+Reviewed-by: Alex Deucher <alexander.deucher@amd.com>
+Signed-off-by: Rex Zhu <Rex.Zhu@amd.com>
+---
+ drivers/gpu/drm/amd/powerplay/hwmgr/vega10_hwmgr.c | 1 +
+ 1 file changed, 1 insertion(+)
+
+diff --git a/drivers/gpu/drm/amd/powerplay/hwmgr/vega10_hwmgr.c b/drivers/gpu/drm/amd/powerplay/hwmgr/vega10_hwmgr.c
+index 59851d8..8c3a1d4 100644
+--- a/drivers/gpu/drm/amd/powerplay/hwmgr/vega10_hwmgr.c
++++ b/drivers/gpu/drm/amd/powerplay/hwmgr/vega10_hwmgr.c
+@@ -5111,6 +5111,7 @@ static const struct pp_hwmgr_func vega10_hwmgr_funcs = {
+ 	.avfs_control = vega10_avfs_enable,
+ 	.notify_cac_buffer_info = vega10_notify_cac_buffer_info,
+ 	.register_internal_thermal_interrupt = vega10_register_thermal_interrupt,
++	.start_thermal_controller = vega10_start_thermal_controller,
+ };
+ 
+ int vega10_hwmgr_init(struct pp_hwmgr *hwmgr)
+-- 
+2.7.4
+

@@ -1,0 +1,57 @@
+From c29e36d28dbdc26d749848ba2e36af6d68b0925b Mon Sep 17 00:00:00 2001
+From: Huang Rui <ray.huang@amd.com>
+Date: Thu, 14 Dec 2017 13:38:13 +0800
+Subject: [PATCH 4038/4131] drm/amd/powerplay: send CGPG smc message if PG is
+ enabled for raven
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+Signed-off-by: Huang Rui <ray.huang@amd.com>
+Acked-by: Hawking Zhang <Hawking.Zhang@amd.com>
+Acked-by: Alex Deucher <alexander.deucher@amd.com>
+Acked-by: Christian König <christian.koenig@amd.com>
+---
+ drivers/gpu/drm/amd/powerplay/hwmgr/smu10_hwmgr.c | 8 +++++++-
+ drivers/gpu/drm/amd/powerplay/inc/rv_ppsmc.h      | 1 +
+ 2 files changed, 8 insertions(+), 1 deletion(-)
+
+diff --git a/drivers/gpu/drm/amd/powerplay/hwmgr/smu10_hwmgr.c b/drivers/gpu/drm/amd/powerplay/hwmgr/smu10_hwmgr.c
+index 055358b..a36eca0 100644
+--- a/drivers/gpu/drm/amd/powerplay/hwmgr/smu10_hwmgr.c
++++ b/drivers/gpu/drm/amd/powerplay/hwmgr/smu10_hwmgr.c
+@@ -206,12 +206,18 @@ static int smu10_set_power_state_tasks(struct pp_hwmgr *hwmgr, const void *input
+ static int smu10_init_power_gate_state(struct pp_hwmgr *hwmgr)
+ {
+ 	struct smu10_hwmgr *smu10_data = (struct smu10_hwmgr *)(hwmgr->backend);
++	struct amdgpu_device *adev = hwmgr->adev;
+ 
+ 	smu10_data->vcn_power_gated = true;
+ 	smu10_data->isp_tileA_power_gated = true;
+ 	smu10_data->isp_tileB_power_gated = true;
+ 
+-	return 0;
++	if (adev->pg_flags & AMD_PG_SUPPORT_GFX_PG)
++		return smum_send_msg_to_smc_with_parameter(hwmgr,
++							   PPSMC_MSG_SetGfxCGPG,
++							   true);
++	else
++		return 0;
+ }
+ 
+ 
+diff --git a/drivers/gpu/drm/amd/powerplay/inc/rv_ppsmc.h b/drivers/gpu/drm/amd/powerplay/inc/rv_ppsmc.h
+index 426bff2..5d07b6e 100644
+--- a/drivers/gpu/drm/amd/powerplay/inc/rv_ppsmc.h
++++ b/drivers/gpu/drm/amd/powerplay/inc/rv_ppsmc.h
+@@ -75,6 +75,7 @@
+ #define PPSMC_MSG_GetMinGfxclkFrequency         0x2C
+ #define PPSMC_MSG_GetMaxGfxclkFrequency         0x2D
+ #define PPSMC_MSG_SoftReset                     0x2E
++#define PPSMC_MSG_SetGfxCGPG			0x2F
+ #define PPSMC_MSG_SetSoftMaxGfxClk              0x30
+ #define PPSMC_MSG_SetHardMinGfxClk              0x31
+ #define PPSMC_MSG_SetSoftMaxSocclkByFreq        0x32
+-- 
+2.7.4
+

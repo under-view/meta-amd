@@ -1,0 +1,47 @@
+From a5a586a3b70641e0b7a7d7acc1aac68ae819824f Mon Sep 17 00:00:00 2001
+From: Andrey Grodzovsky <Andrey.Grodzovsky@amd.com>
+Date: Tue, 30 May 2017 16:49:59 -0400
+Subject: [PATCH 0464/4131] drm/amdgpu: Enable DRIVER_ATOMIC flag for DAL.
+
+This flag is needed to pass several of IGT test cases.
+
+Signed-off-by: Andrey Grodzovsky <Andrey.Grodzovsky@amd.com>
+Acked-by: Alex Deucher <alexander.deucher@amd.com>
+Reviewed-by: Harry Wentland <harry.wentland@amd.com>
+Signed-off-by: Alex Deucher <alexander.deucher@amd.com>
+---
+ drivers/gpu/drm/amd/amdgpu/amdgpu_device.c | 3 +++
+ drivers/gpu/drm/amd/amdgpu/amdgpu_fb.c     | 3 ++-
+ 2 files changed, 5 insertions(+), 1 deletion(-)
+
+diff --git a/drivers/gpu/drm/amd/amdgpu/amdgpu_device.c b/drivers/gpu/drm/amd/amdgpu/amdgpu_device.c
+index dd8eb13..a5cd28b 100644
+--- a/drivers/gpu/drm/amd/amdgpu/amdgpu_device.c
++++ b/drivers/gpu/drm/amd/amdgpu/amdgpu_device.c
+@@ -2060,6 +2060,9 @@ int amdgpu_device_init(struct amdgpu_device *adev,
+ 	adev->audio_endpt_rreg = &amdgpu_block_invalid_rreg;
+ 	adev->audio_endpt_wreg = &amdgpu_block_invalid_wreg;
+ 
++	if (amdgpu_device_has_dc_support(adev))
++		adev->ddev->driver->driver_features |= DRIVER_ATOMIC;
++
+ 
+ 	DRM_INFO("initializing kernel modesetting (%s 0x%04X:0x%04X 0x%04X:0x%04X 0x%02X).\n",
+ 		 amdgpu_asic_name[adev->asic_type], pdev->vendor, pdev->device,
+diff --git a/drivers/gpu/drm/amd/amdgpu/amdgpu_fb.c b/drivers/gpu/drm/amd/amdgpu/amdgpu_fb.c
+index 84d227b..950af13 100644
+--- a/drivers/gpu/drm/amd/amdgpu/amdgpu_fb.c
++++ b/drivers/gpu/drm/amd/amdgpu/amdgpu_fb.c
+@@ -348,7 +348,8 @@ int amdgpu_fbdev_init(struct amdgpu_device *adev)
+ 	drm_fb_helper_single_add_all_connectors(&rfbdev->helper);
+ 
+ 	/* disable all the possible outputs/crtcs before entering KMS mode */
+-	drm_helper_disable_unused_functions(adev->ddev);
++	if (!amdgpu_device_has_dc_support(adev))
++		drm_helper_disable_unused_functions(adev->ddev);
+ 
+ 	drm_fb_helper_initial_config(&rfbdev->helper, bpp_sel);
+ 	return 0;
+-- 
+2.7.4
+

@@ -1,0 +1,40 @@
+From 8f77382a53a338faf0283246148303dbaf028322 Mon Sep 17 00:00:00 2001
+From: Andrey Grodzovsky <Andrey.Grodzovsky@amd.com>
+Date: Thu, 13 Jul 2017 10:56:48 -0400
+Subject: [PATCH 0618/4131] drm/amd/display: Release cached atomic state in S3.
+
+Fixes memory leak.
+
+Signed-off-by: Andrey Grodzovsky <Andrey.Grodzovsky@amd.com>
+Reviewed-by: Tony Cheng <Tony.Cheng@amd.com>
+Acked-by: Harry Wentland <Harry.Wentland@amd.com>
+Signed-off-by: Alex Deucher <alexander.deucher@amd.com>
+---
+ drivers/gpu/drm/amd/display/amdgpu_dm/amdgpu_dm.c | 4 ++++
+ 1 file changed, 4 insertions(+)
+
+diff --git a/drivers/gpu/drm/amd/display/amdgpu_dm/amdgpu_dm.c b/drivers/gpu/drm/amd/display/amdgpu_dm/amdgpu_dm.c
+index b6a04ad..8377575 100644
+--- a/drivers/gpu/drm/amd/display/amdgpu_dm/amdgpu_dm.c
++++ b/drivers/gpu/drm/amd/display/amdgpu_dm/amdgpu_dm.c
+@@ -508,6 +508,7 @@ static int dm_suspend(void *handle)
+ 
+ 	amdgpu_dm_irq_suspend(adev);
+ 
++	WARN_ON(adev->dm.cached_state);
+ 	adev->dm.cached_state = drm_atomic_helper_suspend(adev->ddev);
+ 
+ 	dc_set_power_state(
+@@ -607,6 +608,9 @@ int amdgpu_dm_display_resume(struct amdgpu_device *adev )
+ 
+ 	ret = drm_atomic_helper_resume(ddev, adev->dm.cached_state);
+ 
++	drm_atomic_state_put(adev->dm.cached_state);
++	adev->dm.cached_state = NULL;
++
+ 	amdgpu_dm_irq_resume_late(adev);
+ 
+ 	return ret;
+-- 
+2.7.4
+

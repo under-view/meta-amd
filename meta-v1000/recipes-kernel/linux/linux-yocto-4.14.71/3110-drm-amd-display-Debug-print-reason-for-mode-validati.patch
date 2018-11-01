@@ -1,0 +1,34 @@
+From 7153e63d7ffdfb0744be30582929e786b0260dee Mon Sep 17 00:00:00 2001
+From: Harry Wentland <harry.wentland@amd.com>
+Date: Mon, 18 Dec 2017 11:55:48 -0500
+Subject: [PATCH 3110/4131] drm/amd/display: Debug-print reason for mode
+ validation failure
+
+Signed-off-by: Harry Wentland <harry.wentland@amd.com>
+Reviewed-by: Tony Cheng <Tony.Cheng@amd.com>
+Acked-by: Harry Wentland <harry.wentland@amd.com>
+---
+ drivers/gpu/drm/amd/display/amdgpu_dm/amdgpu_dm.c | 5 +++--
+ 1 file changed, 3 insertions(+), 2 deletions(-)
+
+diff --git a/drivers/gpu/drm/amd/display/amdgpu_dm/amdgpu_dm.c b/drivers/gpu/drm/amd/display/amdgpu_dm/amdgpu_dm.c
+index d75f0d9..73e7d2d 100644
+--- a/drivers/gpu/drm/amd/display/amdgpu_dm/amdgpu_dm.c
++++ b/drivers/gpu/drm/amd/display/amdgpu_dm/amdgpu_dm.c
+@@ -3145,10 +3145,11 @@ int amdgpu_dm_connector_mode_valid(struct drm_connector *connector,
+ 	if (dc_result == DC_OK)
+ 		result = MODE_OK;
+ 	else
+-		DRM_DEBUG_KMS("Mode %dx%d (clk %d) failed DC validation\n",
++		DRM_DEBUG_KMS("Mode %dx%d (clk %d) failed DC validation with error %d\n",
+ 			      mode->vdisplay,
+ 			      mode->hdisplay,
+-			      mode->clock);
++			      mode->clock,
++			      dc_result);
+ 
+ 	dc_stream_release(stream);
+ 
+-- 
+2.7.4
+

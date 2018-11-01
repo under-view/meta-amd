@@ -1,0 +1,32 @@
+From f3ab783b1524d8e828efcf9d8dca4efdbc14d3c2 Mon Sep 17 00:00:00 2001
+From: Jun Lei <Jun.Lei@amd.com>
+Date: Thu, 1 Mar 2018 08:58:02 -0500
+Subject: [PATCH 4006/4131] drm/amd/display: remove unused enum
+
+Signed-off-by: Jun Lei <Jun.Lei@amd.com>
+Reviewed-by: Aric Cyr <Aric.Cyr@amd.com>
+Acked-by: Harry Wentland <harry.wentland@amd.com>
+---
+ drivers/gpu/drm/amd/display/dc/dc_types.h | 6 ------
+ 1 file changed, 6 deletions(-)
+
+diff --git a/drivers/gpu/drm/amd/display/dc/dc_types.h b/drivers/gpu/drm/amd/display/dc/dc_types.h
+index 90f40ee..5e041b7 100644
+--- a/drivers/gpu/drm/amd/display/dc/dc_types.h
++++ b/drivers/gpu/drm/amd/display/dc/dc_types.h
+@@ -370,12 +370,6 @@ struct dc_csc_adjustments {
+ 	struct fixed31_32 hue;
+ };
+ 
+-enum {
+-	MAX_LANES = 2,
+-	MAX_COFUNC_PATH = 6,
+-	LAYER_INDEX_PRIMARY = -1,
+-};
+-
+ enum dpcd_downstream_port_max_bpc {
+ 	DOWN_STREAM_MAX_8BPC = 0,
+ 	DOWN_STREAM_MAX_10BPC,
+-- 
+2.7.4
+

@@ -1,0 +1,41 @@
+From eccd231cc66aed251b827070ae77a4d95680525d Mon Sep 17 00:00:00 2001
+From: Rex Zhu <Rex.Zhu@amd.com>
+Date: Tue, 27 Mar 2018 18:29:41 +0800
+Subject: [PATCH 3968/4131] drm/amd/pp: Clean header file in vega12_smumgr.c
+
+Change-Id: I2569a81c85c4dca6cd899a8fdebdfd97e24f06d4
+Reviewed-by: Alex Deucher <alexander.deucher@amd.com>
+Reviewed-by: Huang Rui <ray.huang@amd.com>
+Reviewed-by: Evan Quan <evan.quan@amd.com>
+Signed-off-by: Rex Zhu <Rex.Zhu@amd.com>
+---
+ drivers/gpu/drm/amd/powerplay/smumgr/vega12_smumgr.c | 6 ++----
+ 1 file changed, 2 insertions(+), 4 deletions(-)
+
+diff --git a/drivers/gpu/drm/amd/powerplay/smumgr/vega12_smumgr.c b/drivers/gpu/drm/amd/powerplay/smumgr/vega12_smumgr.c
+index 55cd204..651a3f2 100644
+--- a/drivers/gpu/drm/amd/powerplay/smumgr/vega12_smumgr.c
++++ b/drivers/gpu/drm/amd/powerplay/smumgr/vega12_smumgr.c
+@@ -30,8 +30,7 @@
+ 
+ #include "ppatomctrl.h"
+ #include "pp_debug.h"
+-#include "smu_ucode_xfer_vi.h"
+-#include "smu7_smumgr.h"
++
+ 
+ /* MP Apertures */
+ #define MP0_Public                  0x03800000
+@@ -392,8 +391,7 @@ static int vega12_smu_init(struct pp_hwmgr *hwmgr)
+ 	struct cgs_firmware_info info = {0};
+ 	int ret;
+ 
+-	ret = cgs_get_firmware_info(hwmgr->device,
+-				smu7_convert_fw_type_to_cgs(UCODE_ID_SMU),
++	ret = cgs_get_firmware_info(hwmgr->device, CGS_UCODE_ID_SMU,
+ 				&info);
+ 	if (ret || !info.kptr)
+ 		return -EINVAL;
+-- 
+2.7.4
+

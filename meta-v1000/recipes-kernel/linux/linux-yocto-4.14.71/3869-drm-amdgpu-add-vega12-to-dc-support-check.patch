@@ -1,0 +1,28 @@
+From 43f325894da363fdfe4fc5d4a5409225208885c7 Mon Sep 17 00:00:00 2001
+From: Alex Deucher <alexander.deucher@amd.com>
+Date: Sat, 2 Sep 2017 02:05:29 -0400
+Subject: [PATCH 3869/4131] drm/amdgpu: add vega12 to dc support check
+
+DC is used for modesetting on vega12.
+
+Signed-off-by: Alex Deucher <alexander.deucher@amd.com>
+Reviewed-by: Feifei Xu <Feifei.Xu@amd.com>
+---
+ drivers/gpu/drm/amd/amdgpu/amdgpu_device.c | 1 +
+ 1 file changed, 1 insertion(+)
+
+diff --git a/drivers/gpu/drm/amd/amdgpu/amdgpu_device.c b/drivers/gpu/drm/amd/amdgpu/amdgpu_device.c
+index 1ca6e6b..ea25c74 100644
+--- a/drivers/gpu/drm/amd/amdgpu/amdgpu_device.c
++++ b/drivers/gpu/drm/amd/amdgpu/amdgpu_device.c
+@@ -1814,6 +1814,7 @@ bool amdgpu_device_asic_has_dc_support(enum amd_asic_type asic_type)
+         return amdgpu_dc != 0;
+ #endif
+ 	case CHIP_VEGA10:
++	case CHIP_VEGA12:
+ #if defined(CONFIG_DRM_AMD_DC_DCN1_0)
+ 	case CHIP_RAVEN:
+ #endif
+-- 
+2.7.4
+

@@ -1,0 +1,30 @@
+From a1cc13800561c75a4fea5ae53d1b85c068f6ce24 Mon Sep 17 00:00:00 2001
+From: Harry Wentland <harry.wentland@amd.com>
+Date: Mon, 31 Jul 2017 13:15:04 -0400
+Subject: [PATCH 0725/4131] drm/amd/display: Fix plane_atomic_check when no
+ dc_state
+
+Signed-off-by: Harry Wentland <harry.wentland@amd.com>
+Reviewed-by: Andrey Grodzovsky <Andrey.Grodzovsky@amd.com>
+Acked-by: Harry Wentland <Harry.Wentland@amd.com>
+Signed-off-by: Alex Deucher <alexander.deucher@amd.com>
+---
+ drivers/gpu/drm/amd/display/amdgpu_dm/amdgpu_dm.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/drivers/gpu/drm/amd/display/amdgpu_dm/amdgpu_dm.c b/drivers/gpu/drm/amd/display/amdgpu_dm/amdgpu_dm.c
+index ce9136d..2c948d9 100644
+--- a/drivers/gpu/drm/amd/display/amdgpu_dm/amdgpu_dm.c
++++ b/drivers/gpu/drm/amd/display/amdgpu_dm/amdgpu_dm.c
+@@ -3310,7 +3310,7 @@ int dm_plane_atomic_check(struct drm_plane *plane,
+ 	struct dm_plane_state *dm_plane_state = to_dm_plane_state(state);
+ 
+ 	if (!dm_plane_state->dc_state)
+-		return true;
++		return 0;
+ 
+ 	if (dc_validate_plane(dc, dm_plane_state->dc_state))
+ 		return 0;
+-- 
+2.7.4
+

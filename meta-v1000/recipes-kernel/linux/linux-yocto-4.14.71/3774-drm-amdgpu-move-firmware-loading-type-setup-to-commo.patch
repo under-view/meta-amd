@@ -1,0 +1,87 @@
+From e570a5bb4a480b0dc4568bc26762b1448eacceb9 Mon Sep 17 00:00:00 2001
+From: Alex Deucher <alexander.deucher@amd.com>
+Date: Fri, 9 Mar 2018 15:06:35 -0500
+Subject: [PATCH 3774/4131] drm/amdgpu: move firmware loading type setup to
+ common code
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+No need to replicate it in several places.
+
+Reviewed-by: Rex Zhu <rezhu@amd.com>
+Acked-by: Christian König <christian.koenig@amd.com>
+Signed-off-by: Alex Deucher <alexander.deucher@amd.com>
+
+Conflicts:
+      drivers/gpu/drm/amd/amdgpu/amdgpu_device.c
+
+Change-Id: I939dea07174ef1ad9cdc45737aa89508d65d835d
+---
+ drivers/gpu/drm/amd/amdgpu/amdgpu_device.c | 7 ++-----
+ drivers/gpu/drm/amd/amdgpu/cik.c           | 2 --
+ drivers/gpu/drm/amd/amdgpu/soc15.c         | 2 --
+ drivers/gpu/drm/amd/amdgpu/vi.c            | 3 ---
+ 4 files changed, 2 insertions(+), 12 deletions(-)
+
+diff --git a/drivers/gpu/drm/amd/amdgpu/amdgpu_device.c b/drivers/gpu/drm/amd/amdgpu/amdgpu_device.c
+index 4eba30d..f111b78 100644
+--- a/drivers/gpu/drm/amd/amdgpu/amdgpu_device.c
++++ b/drivers/gpu/drm/amd/amdgpu/amdgpu_device.c
+@@ -900,11 +900,8 @@ static void amdgpu_device_check_arguments(struct amdgpu_device *adev)
+ 	}
+ 	/* Max DGMA size is 96M Bytes */
+ 	amdgpu_direct_gma_size = min(amdgpu_direct_gma_size, 96);
+-
+-	if (amdgpu_lockup_timeout == 0) {
+-		dev_warn(adev->dev, "lockup_timeout msut be > 0, adjusting to 10000\n");
+-		amdgpu_lockup_timeout = 10000;
+-	}
++	
++	adev->firmware.load_type = amdgpu_ucode_get_load_type(adev, amdgpu_fw_load_type);
+ }
+ 
+ /**
+diff --git a/drivers/gpu/drm/amd/amdgpu/cik.c b/drivers/gpu/drm/amd/amdgpu/cik.c
+index 4324184..f14dd1b 100644
+--- a/drivers/gpu/drm/amd/amdgpu/cik.c
++++ b/drivers/gpu/drm/amd/amdgpu/cik.c
+@@ -1887,8 +1887,6 @@ static int cik_common_early_init(void *handle)
+ 		return -EINVAL;
+ 	}
+ 
+-	adev->firmware.load_type = amdgpu_ucode_get_load_type(adev, amdgpu_fw_load_type);
+-
+ 	amdgpu_device_get_pcie_info(adev);
+ 
+ 	return 0;
+diff --git a/drivers/gpu/drm/amd/amdgpu/soc15.c b/drivers/gpu/drm/amd/amdgpu/soc15.c
+index 8dc8b72..de7defb 100644
+--- a/drivers/gpu/drm/amd/amdgpu/soc15.c
++++ b/drivers/gpu/drm/amd/amdgpu/soc15.c
+@@ -692,8 +692,6 @@ static int soc15_common_early_init(void *handle)
+ 		xgpu_ai_mailbox_set_irq_funcs(adev);
+ 	}
+ 
+-	adev->firmware.load_type = amdgpu_ucode_get_load_type(adev, amdgpu_fw_load_type);
+-
+ 	amdgpu_device_get_pcie_info(adev);
+ 
+ 	return 0;
+diff --git a/drivers/gpu/drm/amd/amdgpu/vi.c b/drivers/gpu/drm/amd/amdgpu/vi.c
+index 2a439c9..4beed5b 100644
+--- a/drivers/gpu/drm/amd/amdgpu/vi.c
++++ b/drivers/gpu/drm/amd/amdgpu/vi.c
+@@ -1140,9 +1140,6 @@ static int vi_common_early_init(void *handle)
+ 		xgpu_vi_mailbox_set_irq_funcs(adev);
+ 	}
+ 
+-	/* vi use smc load by default */
+-	adev->firmware.load_type = amdgpu_ucode_get_load_type(adev, amdgpu_fw_load_type);
+-
+ 	amdgpu_device_get_pcie_info(adev);
+ 
+ 	return 0;
+-- 
+2.7.4
+

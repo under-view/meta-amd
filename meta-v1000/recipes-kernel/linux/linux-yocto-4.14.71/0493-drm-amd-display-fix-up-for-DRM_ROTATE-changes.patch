@@ -1,0 +1,40 @@
+From b3cfddb504c4a112db68223fd72182cccfb41d4e Mon Sep 17 00:00:00 2001
+From: Alex Deucher <alexander.deucher@amd.com>
+Date: Fri, 16 Jun 2017 17:52:18 -0400
+Subject: [PATCH 0493/4131] drm/amd/display: fix up for DRM_ROTATE changes
+
+Signed-off-by: Alex Deucher <alexander.deucher@amd.com>
+---
+ drivers/gpu/drm/amd/display/amdgpu_dm/amdgpu_dm_types.c | 10 +++++-----
+ 1 file changed, 5 insertions(+), 5 deletions(-)
+
+diff --git a/drivers/gpu/drm/amd/display/amdgpu_dm/amdgpu_dm_types.c b/drivers/gpu/drm/amd/display/amdgpu_dm/amdgpu_dm_types.c
+index 4961007..2d8a9bb 100644
+--- a/drivers/gpu/drm/amd/display/amdgpu_dm/amdgpu_dm_types.c
++++ b/drivers/gpu/drm/amd/display/amdgpu_dm/amdgpu_dm_types.c
+@@ -275,17 +275,17 @@ static bool fill_rects_from_plane_state(
+ 
+ 	surface->clip_rect = surface->dst_rect;
+ 
+-	switch (state->rotation) {
+-	case BIT(DRM_ROTATE_0):
++	switch (state->rotation & DRM_MODE_ROTATE_MASK) {
++	case DRM_MODE_ROTATE_0:
+ 		surface->rotation = ROTATION_ANGLE_0;
+ 		break;
+-	case BIT(DRM_ROTATE_90):
++	case DRM_MODE_ROTATE_90:
+ 		surface->rotation = ROTATION_ANGLE_90;
+ 		break;
+-	case BIT(DRM_ROTATE_180):
++	case DRM_MODE_ROTATE_180:
+ 		surface->rotation = ROTATION_ANGLE_180;
+ 		break;
+-	case BIT(DRM_ROTATE_270):
++	case DRM_MODE_ROTATE_270:
+ 		surface->rotation = ROTATION_ANGLE_270;
+ 		break;
+ 	default:
+-- 
+2.7.4
+

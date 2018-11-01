@@ -1,0 +1,35 @@
+From 9debd679f167ac22fdff25799fee0e4576513607 Mon Sep 17 00:00:00 2001
+From: Tom St Denis <tom.stdenis@amd.com>
+Date: Fri, 9 Mar 2018 06:16:55 -0500
+Subject: [PATCH 3716/4131] drm/amd/amdgpu: Add missing "DDR4" label
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+The commit d296278fd372003fc69588acfd0c0c5edbdf4874 added support for
+detecting DDR4 but omitted the label that is printed out in
+amdgpu_bo_init() resulting in a KASAN error.
+
+Signed-off-by: Tom St Denis <tom.stdenis@amd.com>
+Reviewed-by: Christian König <christian.koenig@amd.com>
+---
+ drivers/gpu/drm/amd/amdgpu/amdgpu_object.c | 3 ++-
+ 1 file changed, 2 insertions(+), 1 deletion(-)
+
+diff --git a/drivers/gpu/drm/amd/amdgpu/amdgpu_object.c b/drivers/gpu/drm/amd/amdgpu/amdgpu_object.c
+index d17419b..2e0482e 100755
+--- a/drivers/gpu/drm/amd/amdgpu/amdgpu_object.c
++++ b/drivers/gpu/drm/amd/amdgpu/amdgpu_object.c
+@@ -857,7 +857,8 @@ static const char *amdgpu_vram_names[] = {
+ 	"GDDR4",
+ 	"GDDR5",
+ 	"HBM",
+-	"DDR3"
++	"DDR3",
++	"DDR4",
+ };
+ 
+ int amdgpu_bo_init(struct amdgpu_device *adev)
+-- 
+2.7.4
+

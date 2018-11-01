@@ -1,0 +1,39 @@
+From 905107a89c0abc2530cbdad58894f439f59a1d2e Mon Sep 17 00:00:00 2001
+From: Sanjay R Mehta <sanju.mehta@amd.com>
+Date: Wed, 21 Mar 2018 12:55:23 +0530
+Subject: [PATCH 1355/4131] drm/amdgpu: add members to struct amdgpu_cu_info
+
+For KFD topology these additional information is necessary.
+
+Signed-off-by: Harish Kasiviswanathan <Harish.Kasiviswanathan@amd.com>
+Signed-off-by: Sanjay R Mehta <sanju.mehta@amd.com>
+---
+ drivers/gpu/drm/amd/amdgpu/gfx_v8_0.c | 12 ++++++++++++
+ 1 file changed, 12 insertions(+)
+
+diff --git a/drivers/gpu/drm/amd/amdgpu/gfx_v8_0.c b/drivers/gpu/drm/amd/amdgpu/gfx_v8_0.c
+index fd802eb..c8330d9 100644
+--- a/drivers/gpu/drm/amd/amdgpu/gfx_v8_0.c
++++ b/drivers/gpu/drm/amd/amdgpu/gfx_v8_0.c
+@@ -6997,6 +6997,18 @@ static void gfx_v8_0_get_cu_info(struct amdgpu_device *adev)
+ 
+ 	cu_info->number = active_cu_number;
+ 	cu_info->ao_cu_mask = ao_cu_mask;
++	cu_info->simd_per_cu = NUM_SIMD_PER_CU;
++	switch (adev->asic_type) {
++	case CHIP_TONGA:
++	case CHIP_CARRIZO:
++		cu_info->max_waves_per_simd = 10;
++		cu_info->max_scratch_slots_per_cu = 32;
++		cu_info->wave_front_size = 64;
++		break;
++	default:
++		dev_warn(adev->dev, "CU info asic_type [0x%x] not supported\n",
++					adev->asic_type);
++	}
+ }
+ 
+ const struct amdgpu_ip_block_version gfx_v8_0_ip_block =
+-- 
+2.7.4
+

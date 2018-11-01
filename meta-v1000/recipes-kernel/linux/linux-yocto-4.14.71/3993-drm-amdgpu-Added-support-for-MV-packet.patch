@@ -1,0 +1,61 @@
+From 8140bb0e3f0fa2778262d6df45df5cbf68461918 Mon Sep 17 00:00:00 2001
+From: James Zhu <James.Zhu@amd.com>
+Date: Tue, 3 Apr 2018 10:41:32 -0400
+Subject: [PATCH 3993/4131] drm/amdgpu:Added support for MV packet
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+Motion vector packet needs support in physic mode.
+
+Signed-off-by: James Zhu <James.Zhu@amd.com>
+Acked-by: Christian König <christian.koenig@amd.com>
+---
+ drivers/gpu/drm/amd/amdgpu/amdgpu_vce.c | 24 ++++++++++++++++++++++++
+ 1 file changed, 24 insertions(+)
+
+diff --git a/drivers/gpu/drm/amd/amdgpu/amdgpu_vce.c b/drivers/gpu/drm/amd/amdgpu/amdgpu_vce.c
+index a33804b..d7261e0 100644
+--- a/drivers/gpu/drm/amd/amdgpu/amdgpu_vce.c
++++ b/drivers/gpu/drm/amd/amdgpu/amdgpu_vce.c
+@@ -755,6 +755,18 @@ int amdgpu_vce_ring_parse_cs(struct amdgpu_cs_parser *p, uint32_t ib_idx)
+ 			if (r)
+ 				goto out;
+ 			break;
++
++		case 0x0500000d: /* MV buffer */
++			r = amdgpu_vce_validate_bo(p, ib_idx, idx + 3,
++							idx + 2, 0, 0);
++			if (r)
++				goto out;
++
++			r = amdgpu_vce_validate_bo(p, ib_idx, idx + 8,
++							idx + 7, 0, 0);
++			if (r)
++				goto out;
++			break;
+ 		}
+ 
+ 		idx += len / 4;
+@@ -860,6 +872,18 @@ int amdgpu_vce_ring_parse_cs(struct amdgpu_cs_parser *p, uint32_t ib_idx)
+ 				goto out;
+ 			break;
+ 
++		case 0x0500000d: /* MV buffer */
++			r = amdgpu_vce_cs_reloc(p, ib_idx, idx + 3,
++							idx + 2, *size, 0);
++			if (r)
++				goto out;
++
++			r = amdgpu_vce_cs_reloc(p, ib_idx, idx + 8,
++							idx + 7, *size / 12, 0);
++			if (r)
++				goto out;
++			break;
++
+ 		default:
+ 			DRM_ERROR("invalid VCE command (0x%x)!\n", cmd);
+ 			r = -EINVAL;
+-- 
+2.7.4
+

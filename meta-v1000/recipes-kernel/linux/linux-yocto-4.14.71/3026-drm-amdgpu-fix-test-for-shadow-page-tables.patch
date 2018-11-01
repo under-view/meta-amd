@@ -1,0 +1,36 @@
+From d39c5cdb12fd28084d879c2700ed37d1d1dc0ab0 Mon Sep 17 00:00:00 2001
+From: =?UTF-8?q?Christian=20K=C3=B6nig?= <christian.koenig@amd.com>
+Date: Tue, 19 Dec 2017 18:44:43 +0100
+Subject: [PATCH 3026/4131] drm/amdgpu: fix test for shadow page tables
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+They don't work 100% correctly at the moment.
+
+Signed-off-by: Christian König <christian.koenig@amd.com>
+Reviewed-and-Tested-by: Michel Dänzer <michel.daenzer@amd.com>
+---
+ drivers/gpu/drm/amd/amdgpu/amdgpu_object.c | 6 +++++-
+ 1 file changed, 5 insertions(+), 1 deletion(-)
+
+diff --git a/drivers/gpu/drm/amd/amdgpu/amdgpu_object.c b/drivers/gpu/drm/amd/amdgpu/amdgpu_object.c
+index 0d15b64..99a7000 100755
+--- a/drivers/gpu/drm/amd/amdgpu/amdgpu_object.c
++++ b/drivers/gpu/drm/amd/amdgpu/amdgpu_object.c
+@@ -43,7 +43,11 @@ static bool amdgpu_need_backup(struct amdgpu_device *adev)
+ 	if (adev->flags & AMD_IS_APU)
+ 		return false;
+ 
+-	return amdgpu_gpu_recovery;
++	if (amdgpu_gpu_recovery == 0 ||
++	    (amdgpu_gpu_recovery == -1  && !amdgpu_sriov_vf(adev)))
++		return false;
++
++	return true;
+ }
+ 
+ static void amdgpu_ttm_bo_destroy(struct ttm_buffer_object *tbo)
+-- 
+2.7.4
+

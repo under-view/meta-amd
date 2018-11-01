@@ -1,0 +1,28 @@
+From 6e6929052f0b90d9e21c1050ccb75731650a5ea4 Mon Sep 17 00:00:00 2001
+From: Rex Zhu <Rex.Zhu@amd.com>
+Date: Thu, 22 Feb 2018 17:45:11 +0800
+Subject: [PATCH 3594/4131] drm/amd/pp: Add a pp feature mask bit for
+ AutoWattman feature
+
+Reviewed-by: Alex Deucher <alexander.deucher@amd.com>
+Signed-off-by: Rex Zhu <Rex.Zhu@amd.com>
+Signed-off-by: Alex Deucher <alexander.deucher@amd.com>
+---
+ drivers/gpu/drm/amd/powerplay/inc/hwmgr.h | 1 +
+ 1 file changed, 1 insertion(+)
+
+diff --git a/drivers/gpu/drm/amd/powerplay/inc/hwmgr.h b/drivers/gpu/drm/amd/powerplay/inc/hwmgr.h
+index 2a59ee8..77d7f49 100644
+--- a/drivers/gpu/drm/amd/powerplay/inc/hwmgr.h
++++ b/drivers/gpu/drm/amd/powerplay/inc/hwmgr.h
+@@ -85,6 +85,7 @@ enum PP_FEATURE_MASK {
+ 	PP_SOCCLK_DPM_MASK = 0x1000,
+ 	PP_DCEFCLK_DPM_MASK = 0x2000,
+ 	PP_OVERDRIVE_MASK = 0x4000,
++	PP_AUTOWATTMAN_MASK = 0x8000,
+ };
+ 
+ enum PHM_BackEnd_Magic {
+-- 
+2.7.4
+

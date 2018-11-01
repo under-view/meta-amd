@@ -1,0 +1,363 @@
+From 8e8258703990c626860aa69139bd66741097a2b0 Mon Sep 17 00:00:00 2001
+From: Rex Zhu <Rex.Zhu@amd.com>
+Date: Fri, 23 Mar 2018 15:18:45 +0800
+Subject: [PATCH 3967/4131] drm/amdgpu: remove duplicate cg/pg wrapper
+ functions
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+Change-Id: Idc09f141624c492b435e3333a75d965a49bc23d6
+Reviewed-by: Alex Deucher <alexander.deucher@amd.com>
+Acked-by: Christian König<christian.koenig@amd.com>
+Signed-off-by: Rex Zhu <Rex.Zhu@amd.com>
+---
+ drivers/gpu/drm/amd/amdgpu/amdgpu.h                |  4 +-
+ drivers/gpu/drm/amd/amdgpu/amdgpu_cgs.c            | 44 ----------------------
+ drivers/gpu/drm/amd/amdgpu/amdgpu_device.c         |  6 ++-
+ drivers/gpu/drm/amd/include/cgs_common.h           | 31 ---------------
+ drivers/gpu/drm/amd/powerplay/amd_powerplay.c      |  8 ++--
+ .../amd/powerplay/hwmgr/smu7_clockpowergating.c    | 16 ++++----
+ drivers/gpu/drm/amd/powerplay/hwmgr/smu8_hwmgr.c   | 20 ++++------
+ drivers/gpu/drm/amd/powerplay/smumgr/fiji_smumgr.c |  8 ++--
+ 8 files changed, 30 insertions(+), 107 deletions(-)
+
+diff --git a/drivers/gpu/drm/amd/amdgpu/amdgpu.h b/drivers/gpu/drm/amd/amdgpu/amdgpu.h
+index 7572636..0d9c5dd 100644
+--- a/drivers/gpu/drm/amd/amdgpu/amdgpu.h
++++ b/drivers/gpu/drm/amd/amdgpu/amdgpu.h
+@@ -225,10 +225,10 @@ enum amdgpu_kiq_irq {
+ 	AMDGPU_CP_KIQ_IRQ_LAST
+ };
+ 
+-int amdgpu_device_ip_set_clockgating_state(struct amdgpu_device *adev,
++int amdgpu_device_ip_set_clockgating_state(void *dev,
+ 					   enum amd_ip_block_type block_type,
+ 					   enum amd_clockgating_state state);
+-int amdgpu_device_ip_set_powergating_state(struct amdgpu_device *adev,
++int amdgpu_device_ip_set_powergating_state(void *dev,
+ 					   enum amd_ip_block_type block_type,
+ 					   enum amd_powergating_state state);
+ void amdgpu_device_ip_get_clockgating_state(struct amdgpu_device *adev,
+diff --git a/drivers/gpu/drm/amd/amdgpu/amdgpu_cgs.c b/drivers/gpu/drm/amd/amdgpu/amdgpu_cgs.c
+index dc28fa6..a8a942c 100644
+--- a/drivers/gpu/drm/amd/amdgpu/amdgpu_cgs.c
++++ b/drivers/gpu/drm/amd/amdgpu/amdgpu_cgs.c
+@@ -108,48 +108,6 @@ static void amdgpu_cgs_write_ind_register(struct cgs_device *cgs_device,
+ 	WARN(1, "Invalid indirect register space");
+ }
+ 
+-static int amdgpu_cgs_set_clockgating_state(struct cgs_device *cgs_device,
+-				  enum amd_ip_block_type block_type,
+-				  enum amd_clockgating_state state)
+-{
+-	CGS_FUNC_ADEV;
+-	int i, r = -1;
+-
+-	for (i = 0; i < adev->num_ip_blocks; i++) {
+-		if (!adev->ip_blocks[i].status.valid)
+-			continue;
+-
+-		if (adev->ip_blocks[i].version->type == block_type) {
+-			r = adev->ip_blocks[i].version->funcs->set_clockgating_state(
+-								(void *)adev,
+-									state);
+-			break;
+-		}
+-	}
+-	return r;
+-}
+-
+-static int amdgpu_cgs_set_powergating_state(struct cgs_device *cgs_device,
+-				  enum amd_ip_block_type block_type,
+-				  enum amd_powergating_state state)
+-{
+-	CGS_FUNC_ADEV;
+-	int i, r = -1;
+-
+-	for (i = 0; i < adev->num_ip_blocks; i++) {
+-		if (!adev->ip_blocks[i].status.valid)
+-			continue;
+-
+-		if (adev->ip_blocks[i].version->type == block_type) {
+-			r = adev->ip_blocks[i].version->funcs->set_powergating_state(
+-								(void *)adev,
+-									state);
+-			break;
+-		}
+-	}
+-	return r;
+-}
+-
+ static uint32_t fw_type_convert(struct cgs_device *cgs_device, uint32_t fw_type)
+ {
+ 	CGS_FUNC_ADEV;
+@@ -490,8 +448,6 @@ static const struct cgs_ops amdgpu_cgs_ops = {
+ 	.read_ind_register = amdgpu_cgs_read_ind_register,
+ 	.write_ind_register = amdgpu_cgs_write_ind_register,
+ 	.get_firmware_info = amdgpu_cgs_get_firmware_info,
+-	.set_powergating_state = amdgpu_cgs_set_powergating_state,
+-	.set_clockgating_state = amdgpu_cgs_set_clockgating_state,
+ };
+ 
+ struct cgs_device *amdgpu_cgs_create_device(struct amdgpu_device *adev)
+diff --git a/drivers/gpu/drm/amd/amdgpu/amdgpu_device.c b/drivers/gpu/drm/amd/amdgpu/amdgpu_device.c
+index 6a34212..4207662 100644
+--- a/drivers/gpu/drm/amd/amdgpu/amdgpu_device.c
++++ b/drivers/gpu/drm/amd/amdgpu/amdgpu_device.c
+@@ -975,10 +975,11 @@ static const struct vga_switcheroo_client_ops amdgpu_switcheroo_ops = {
+ 	.can_switch = amdgpu_switcheroo_can_switch,
+ };
+ 
+-int amdgpu_device_ip_set_clockgating_state(struct amdgpu_device *adev,
++int amdgpu_device_ip_set_clockgating_state(void *dev,
+ 					   enum amd_ip_block_type block_type,
+ 					   enum amd_clockgating_state state)
+ {
++	struct amdgpu_device *adev = dev;
+ 	int i, r = 0;
+ 
+ 	for (i = 0; i < adev->num_ip_blocks; i++) {
+@@ -997,10 +998,11 @@ int amdgpu_device_ip_set_clockgating_state(struct amdgpu_device *adev,
+ 	return r;
+ }
+ 
+-int amdgpu_device_ip_set_powergating_state(struct amdgpu_device *adev,
++int amdgpu_device_ip_set_powergating_state(void *dev,
+ 					   enum amd_ip_block_type block_type,
+ 					   enum amd_powergating_state state)
+ {
++	struct amdgpu_device *adev = dev;
+ 	int i, r = 0;
+ 
+ 	for (i = 0; i < adev->num_ip_blocks; i++) {
+diff --git a/drivers/gpu/drm/amd/include/cgs_common.h b/drivers/gpu/drm/amd/include/cgs_common.h
+index cab34a4..a69deb3 100644
+--- a/drivers/gpu/drm/amd/include/cgs_common.h
++++ b/drivers/gpu/drm/amd/include/cgs_common.h
+@@ -42,20 +42,6 @@ enum cgs_ind_reg {
+ 	CGS_IND_REG__AUDIO_ENDPT
+ };
+ 
+-/**
+- * enum cgs_engine - Engines that can be statically power-gated
+- */
+-enum cgs_engine {
+-	CGS_ENGINE__UVD,
+-	CGS_ENGINE__VCE,
+-	CGS_ENGINE__VP8,
+-	CGS_ENGINE__ACP_DMA,
+-	CGS_ENGINE__ACP_DSP0,
+-	CGS_ENGINE__ACP_DSP1,
+-	CGS_ENGINE__ISP,
+-	/* ... */
+-};
+-
+ /*
+  * enum cgs_ucode_id - Firmware types for different IPs
+  */
+@@ -152,15 +138,6 @@ typedef int (*cgs_get_firmware_info)(struct cgs_device *cgs_device,
+ 				     enum cgs_ucode_id type,
+ 				     struct cgs_firmware_info *info);
+ 
+-
+-typedef int(*cgs_set_powergating_state)(struct cgs_device *cgs_device,
+-				  enum amd_ip_block_type block_type,
+-				  enum amd_powergating_state state);
+-
+-typedef int(*cgs_set_clockgating_state)(struct cgs_device *cgs_device,
+-				  enum amd_ip_block_type block_type,
+-				  enum amd_clockgating_state state);
+-
+ struct cgs_ops {
+ 	/* MMIO access */
+ 	cgs_read_register_t read_register;
+@@ -169,9 +146,6 @@ struct cgs_ops {
+ 	cgs_write_ind_register_t write_ind_register;
+ 	/* Firmware Info */
+ 	cgs_get_firmware_info get_firmware_info;
+-	/* cg pg interface*/
+-	cgs_set_powergating_state set_powergating_state;
+-	cgs_set_clockgating_state set_clockgating_state;
+ };
+ 
+ struct cgs_os_ops; /* To be define in OS-specific CGS header */
+@@ -200,10 +174,5 @@ struct cgs_device
+ 
+ #define cgs_get_firmware_info(dev, type, info)	\
+ 	CGS_CALL(get_firmware_info, dev, type, info)
+-#define cgs_set_powergating_state(dev, block_type, state)	\
+-	CGS_CALL(set_powergating_state, dev, block_type, state)
+-#define cgs_set_clockgating_state(dev, block_type, state)	\
+-	CGS_CALL(set_clockgating_state, dev, block_type, state)
+-
+ 
+ #endif /* _CGS_COMMON_H */
+diff --git a/drivers/gpu/drm/amd/powerplay/amd_powerplay.c b/drivers/gpu/drm/amd/powerplay/amd_powerplay.c
+index 0ebbbad..7172ad7 100644
+--- a/drivers/gpu/drm/amd/powerplay/amd_powerplay.c
++++ b/drivers/gpu/drm/amd/powerplay/amd_powerplay.c
+@@ -288,10 +288,10 @@ static void pp_dpm_en_umd_pstate(struct pp_hwmgr  *hwmgr,
+ 		if (*level & profile_mode_mask) {
+ 			hwmgr->saved_dpm_level = hwmgr->dpm_level;
+ 			hwmgr->en_umd_pstate = true;
+-			cgs_set_clockgating_state(hwmgr->device,
++			amdgpu_device_ip_set_clockgating_state(hwmgr->adev,
+ 						AMD_IP_BLOCK_TYPE_GFX,
+ 						AMD_CG_STATE_UNGATE);
+-			cgs_set_powergating_state(hwmgr->device,
++			amdgpu_device_ip_set_powergating_state(hwmgr->adev,
+ 					AMD_IP_BLOCK_TYPE_GFX,
+ 					AMD_PG_STATE_UNGATE);
+ 		}
+@@ -301,10 +301,10 @@ static void pp_dpm_en_umd_pstate(struct pp_hwmgr  *hwmgr,
+ 			if (*level == AMD_DPM_FORCED_LEVEL_PROFILE_EXIT)
+ 				*level = hwmgr->saved_dpm_level;
+ 			hwmgr->en_umd_pstate = false;
+-			cgs_set_clockgating_state(hwmgr->device,
++			amdgpu_device_ip_set_clockgating_state(hwmgr->adev,
+ 					AMD_IP_BLOCK_TYPE_GFX,
+ 					AMD_CG_STATE_GATE);
+-			cgs_set_powergating_state(hwmgr->device,
++			amdgpu_device_ip_set_powergating_state(hwmgr->adev,
+ 					AMD_IP_BLOCK_TYPE_GFX,
+ 					AMD_PG_STATE_GATE);
+ 		}
+diff --git a/drivers/gpu/drm/amd/powerplay/hwmgr/smu7_clockpowergating.c b/drivers/gpu/drm/amd/powerplay/hwmgr/smu7_clockpowergating.c
+index 859a107..5e3c264 100644
+--- a/drivers/gpu/drm/amd/powerplay/hwmgr/smu7_clockpowergating.c
++++ b/drivers/gpu/drm/amd/powerplay/hwmgr/smu7_clockpowergating.c
+@@ -147,20 +147,20 @@ void smu7_powergate_uvd(struct pp_hwmgr *hwmgr, bool bgate)
+ 	data->uvd_power_gated = bgate;
+ 
+ 	if (bgate) {
+-		cgs_set_powergating_state(hwmgr->device,
++		amdgpu_device_ip_set_powergating_state(hwmgr->adev,
+ 						AMD_IP_BLOCK_TYPE_UVD,
+ 						AMD_PG_STATE_GATE);
+-		cgs_set_clockgating_state(hwmgr->device,
++		amdgpu_device_ip_set_clockgating_state(hwmgr->adev,
+ 				AMD_IP_BLOCK_TYPE_UVD,
+ 				AMD_CG_STATE_GATE);
+ 		smu7_update_uvd_dpm(hwmgr, true);
+ 		smu7_powerdown_uvd(hwmgr);
+ 	} else {
+ 		smu7_powerup_uvd(hwmgr);
+-		cgs_set_clockgating_state(hwmgr->device,
++		amdgpu_device_ip_set_clockgating_state(hwmgr->adev,
+ 				AMD_IP_BLOCK_TYPE_UVD,
+ 				AMD_CG_STATE_UNGATE);
+-		cgs_set_powergating_state(hwmgr->device,
++		amdgpu_device_ip_set_powergating_state(hwmgr->adev,
+ 						AMD_IP_BLOCK_TYPE_UVD,
+ 						AMD_PG_STATE_UNGATE);
+ 
+@@ -176,20 +176,20 @@ void smu7_powergate_vce(struct pp_hwmgr *hwmgr, bool bgate)
+ 	data->vce_power_gated = bgate;
+ 
+ 	if (bgate) {
+-		cgs_set_powergating_state(hwmgr->device,
++		amdgpu_device_ip_set_powergating_state(hwmgr->adev,
+ 						AMD_IP_BLOCK_TYPE_VCE,
+ 						AMD_PG_STATE_GATE);
+-		cgs_set_clockgating_state(hwmgr->device,
++		amdgpu_device_ip_set_clockgating_state(hwmgr->adev,
+ 				AMD_IP_BLOCK_TYPE_VCE,
+ 				AMD_CG_STATE_GATE);
+ 		smu7_update_vce_dpm(hwmgr, true);
+ 		smu7_powerdown_vce(hwmgr);
+ 	} else {
+ 		smu7_powerup_vce(hwmgr);
+-		cgs_set_clockgating_state(hwmgr->device,
++		amdgpu_device_ip_set_clockgating_state(hwmgr->adev,
+ 				AMD_IP_BLOCK_TYPE_VCE,
+ 				AMD_CG_STATE_UNGATE);
+-		cgs_set_powergating_state(hwmgr->device,
++		amdgpu_device_ip_set_powergating_state(hwmgr->adev,
+ 						AMD_IP_BLOCK_TYPE_VCE,
+ 						AMD_PG_STATE_UNGATE);
+ 		smu7_update_vce_dpm(hwmgr, false);
+diff --git a/drivers/gpu/drm/amd/powerplay/hwmgr/smu8_hwmgr.c b/drivers/gpu/drm/amd/powerplay/hwmgr/smu8_hwmgr.c
+index c2f93aa..50690c7 100644
+--- a/drivers/gpu/drm/amd/powerplay/hwmgr/smu8_hwmgr.c
++++ b/drivers/gpu/drm/amd/powerplay/hwmgr/smu8_hwmgr.c
+@@ -1892,20 +1892,20 @@ static void smu8_dpm_powergate_uvd(struct pp_hwmgr *hwmgr, bool bgate)
+ 	data->uvd_power_gated = bgate;
+ 
+ 	if (bgate) {
+-		cgs_set_powergating_state(hwmgr->device,
++		amdgpu_device_ip_set_powergating_state(hwmgr->adev,
+ 						AMD_IP_BLOCK_TYPE_UVD,
+ 						AMD_PG_STATE_GATE);
+-		cgs_set_clockgating_state(hwmgr->device,
++		amdgpu_device_ip_set_clockgating_state(hwmgr->adev,
+ 						AMD_IP_BLOCK_TYPE_UVD,
+ 						AMD_CG_STATE_GATE);
+ 		smu8_dpm_update_uvd_dpm(hwmgr, true);
+ 		smu8_dpm_powerdown_uvd(hwmgr);
+ 	} else {
+ 		smu8_dpm_powerup_uvd(hwmgr);
+-		cgs_set_clockgating_state(hwmgr->device,
++		amdgpu_device_ip_set_clockgating_state(hwmgr->adev,
+ 						AMD_IP_BLOCK_TYPE_UVD,
+ 						AMD_CG_STATE_UNGATE);
+-		cgs_set_powergating_state(hwmgr->device,
++		amdgpu_device_ip_set_powergating_state(hwmgr->adev,
+ 						AMD_IP_BLOCK_TYPE_UVD,
+ 						AMD_PG_STATE_UNGATE);
+ 		smu8_dpm_update_uvd_dpm(hwmgr, false);
+@@ -1918,12 +1918,10 @@ static void smu8_dpm_powergate_vce(struct pp_hwmgr *hwmgr, bool bgate)
+ 	struct smu8_hwmgr *data = hwmgr->backend;
+ 
+ 	if (bgate) {
+-		cgs_set_powergating_state(
+-					hwmgr->device,
++		amdgpu_device_ip_set_powergating_state(hwmgr->adev,
+ 					AMD_IP_BLOCK_TYPE_VCE,
+ 					AMD_PG_STATE_GATE);
+-		cgs_set_clockgating_state(
+-					hwmgr->device,
++		amdgpu_device_ip_set_clockgating_state(hwmgr->adev,
+ 					AMD_IP_BLOCK_TYPE_VCE,
+ 					AMD_CG_STATE_GATE);
+ 		smu8_enable_disable_vce_dpm(hwmgr, false);
+@@ -1932,12 +1930,10 @@ static void smu8_dpm_powergate_vce(struct pp_hwmgr *hwmgr, bool bgate)
+ 	} else {
+ 		smu8_dpm_powerup_vce(hwmgr);
+ 		data->vce_power_gated = false;
+-		cgs_set_clockgating_state(
+-					hwmgr->device,
++		amdgpu_device_ip_set_clockgating_state(hwmgr->adev,
+ 					AMD_IP_BLOCK_TYPE_VCE,
+ 					AMD_CG_STATE_UNGATE);
+-		cgs_set_powergating_state(
+-					hwmgr->device,
++		amdgpu_device_ip_set_powergating_state(hwmgr->adev,
+ 					AMD_IP_BLOCK_TYPE_VCE,
+ 					AMD_PG_STATE_UNGATE);
+ 		smu8_dpm_update_vce_dpm(hwmgr);
+diff --git a/drivers/gpu/drm/amd/powerplay/smumgr/fiji_smumgr.c b/drivers/gpu/drm/amd/powerplay/smumgr/fiji_smumgr.c
+index d023494..dae3422 100644
+--- a/drivers/gpu/drm/amd/powerplay/smumgr/fiji_smumgr.c
++++ b/drivers/gpu/drm/amd/powerplay/smumgr/fiji_smumgr.c
+@@ -306,13 +306,13 @@ static int fiji_start_smu(struct pp_hwmgr *hwmgr)
+ 	}
+ 
+ 	/* To initialize all clock gating before RLC loaded and running.*/
+-	cgs_set_clockgating_state(hwmgr->device,
++	amdgpu_device_ip_set_clockgating_state(hwmgr->adev,
+ 			AMD_IP_BLOCK_TYPE_GFX, AMD_CG_STATE_GATE);
+-	cgs_set_clockgating_state(hwmgr->device,
++	amdgpu_device_ip_set_clockgating_state(hwmgr->adev,
+ 			AMD_IP_BLOCK_TYPE_GMC, AMD_CG_STATE_GATE);
+-	cgs_set_clockgating_state(hwmgr->device,
++	amdgpu_device_ip_set_clockgating_state(hwmgr->adev,
+ 			AMD_IP_BLOCK_TYPE_SDMA, AMD_CG_STATE_GATE);
+-	cgs_set_clockgating_state(hwmgr->device,
++	amdgpu_device_ip_set_clockgating_state(hwmgr->adev,
+ 			AMD_IP_BLOCK_TYPE_COMMON, AMD_CG_STATE_GATE);
+ 
+ 	/* Setup SoftRegsStart here for register lookup in case
+-- 
+2.7.4
+

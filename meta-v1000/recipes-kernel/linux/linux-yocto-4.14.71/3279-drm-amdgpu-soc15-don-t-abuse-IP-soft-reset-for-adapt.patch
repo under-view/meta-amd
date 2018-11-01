@@ -1,0 +1,90 @@
+From 75f5209e1b1d79276782ce118976905fae7bfec9 Mon Sep 17 00:00:00 2001
+From: Alex Deucher <alexander.deucher@amd.com>
+Date: Tue, 23 Jan 2018 16:27:31 -0500
+Subject: [PATCH 3279/4131] drm/amdgpu/soc15: don't abuse IP soft reset for
+ adapter reset
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+The IP soft reset interface is for per IP reset but it was
+being abused for adapter reset on soc15 asics.  Adjust the
+interface to make it explicit.
+
+Reviewed-by: Christian König <christian.koenig@amd.com>
+Signed-off-by: Alex Deucher <alexander.deucher@amd.com>
+---
+ drivers/gpu/drm/amd/amdgpu/amdgpu_psp.c | 17 +++--------------
+ drivers/gpu/drm/amd/amdgpu/amdgpu_psp.h |  2 ++
+ drivers/gpu/drm/amd/amdgpu/soc15.c      |  7 +------
+ 3 files changed, 6 insertions(+), 20 deletions(-)
+
+diff --git a/drivers/gpu/drm/amd/amdgpu/amdgpu_psp.c b/drivers/gpu/drm/amd/amdgpu/amdgpu_psp.c
+index b89873f1..c63516b 100644
+--- a/drivers/gpu/drm/amd/amdgpu/amdgpu_psp.c
++++ b/drivers/gpu/drm/amd/amdgpu/amdgpu_psp.c
+@@ -496,19 +496,8 @@ static int psp_resume(void *handle)
+ 	return ret;
+ }
+ 
+-static bool psp_check_reset(void* handle)
++int psp_gpu_reset(struct amdgpu_device *adev)
+ {
+-	struct amdgpu_device *adev = (struct amdgpu_device *)handle;
+-
+-	if (adev->flags & AMD_IS_APU)
+-		return true;
+-
+-	return false;
+-}
+-
+-static int psp_reset(void* handle)
+-{
+-	struct amdgpu_device *adev = (struct amdgpu_device *)handle;
+ 	return psp_mode1_reset(&adev->psp);
+ }
+ 
+@@ -555,9 +544,9 @@ const struct amd_ip_funcs psp_ip_funcs = {
+ 	.suspend = psp_suspend,
+ 	.resume = psp_resume,
+ 	.is_idle = NULL,
+-	.check_soft_reset = psp_check_reset,
++	.check_soft_reset = NULL,
+ 	.wait_for_idle = NULL,
+-	.soft_reset = psp_reset,
++	.soft_reset = NULL,
+ 	.set_clockgating_state = psp_set_clockgating_state,
+ 	.set_powergating_state = psp_set_powergating_state,
+ };
+diff --git a/drivers/gpu/drm/amd/amdgpu/amdgpu_psp.h b/drivers/gpu/drm/amd/amdgpu/amdgpu_psp.h
+index cf28abc..1292096 100644
+--- a/drivers/gpu/drm/amd/amdgpu/amdgpu_psp.h
++++ b/drivers/gpu/drm/amd/amdgpu/amdgpu_psp.h
+@@ -158,4 +158,6 @@ extern int psp_wait_for(struct psp_context *psp, uint32_t reg_index,
+ 
+ extern const struct amdgpu_ip_block_version psp_v10_0_ip_block;
+ 
++int psp_gpu_reset(struct amdgpu_device *adev);
++
+ #endif
+diff --git a/drivers/gpu/drm/amd/amdgpu/soc15.c b/drivers/gpu/drm/amd/amdgpu/soc15.c
+index 04a471b..8dc8b72 100644
+--- a/drivers/gpu/drm/amd/amdgpu/soc15.c
++++ b/drivers/gpu/drm/amd/amdgpu/soc15.c
+@@ -417,12 +417,7 @@ static int soc15_asic_reset(struct amdgpu_device *adev)
+ 
+ 	pci_save_state(adev->pdev);
+ 
+-	for (i = 0; i < AMDGPU_MAX_IP_NUM; i++) {
+-		if (adev->ip_blocks[i].version->type == AMD_IP_BLOCK_TYPE_PSP){
+-			adev->ip_blocks[i].version->funcs->soft_reset((void *)adev);
+-			break;
+-		}
+-	}
++	psp_gpu_reset(adev);
+ 
+ 	pci_restore_state(adev->pdev);
+ 
+-- 
+2.7.4
+

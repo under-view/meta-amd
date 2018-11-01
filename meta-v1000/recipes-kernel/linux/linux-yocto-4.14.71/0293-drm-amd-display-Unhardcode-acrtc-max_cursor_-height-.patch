@@ -1,0 +1,32 @@
+From af1703ade25d63e527cd4ad221e9ce887e522623 Mon Sep 17 00:00:00 2001
+From: Andrey Grodzovsky <Andrey.Grodzovsky@amd.com>
+Date: Wed, 22 Feb 2017 15:31:47 -0500
+Subject: [PATCH 0293/4131] drm/amd/display: Unhardcode
+ acrtc->max_cursor_{height,width}
+
+Signed-off-by: Andrey Grodzovsky <Andrey.Grodzovsky@amd.com>
+Reviewed-by: Jordan Lazare <Jordan.Lazare@amd.com>
+Reviewed-by: Harry Wentland <harry.wentland@amd.com>
+Signed-off-by: Alex Deucher <alexander.deucher@amd.com>
+---
+ drivers/gpu/drm/amd/display/amdgpu_dm/amdgpu_dm_types.c | 4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
+
+diff --git a/drivers/gpu/drm/amd/display/amdgpu_dm/amdgpu_dm_types.c b/drivers/gpu/drm/amd/display/amdgpu_dm/amdgpu_dm_types.c
+index 03f92de..90c1fbb 100644
+--- a/drivers/gpu/drm/amd/display/amdgpu_dm/amdgpu_dm_types.c
++++ b/drivers/gpu/drm/amd/display/amdgpu_dm/amdgpu_dm_types.c
+@@ -1777,8 +1777,8 @@ int amdgpu_dm_crtc_init(struct amdgpu_display_manager *dm,
+ 
+ 	drm_crtc_helper_add(&acrtc->base, &amdgpu_dm_crtc_helper_funcs);
+ 
+-	acrtc->max_cursor_width = 128;
+-	acrtc->max_cursor_height = 128;
++	acrtc->max_cursor_width = dm->adev->dm.dc->caps.max_cursor_size;
++	acrtc->max_cursor_height = dm->adev->dm.dc->caps.max_cursor_size;
+ 
+ 	acrtc->crtc_id = crtc_index;
+ 	acrtc->base.enabled = false;
+-- 
+2.7.4
+

@@ -1,0 +1,35 @@
+From 06279bffea268b3bae56094b2fdf454f8bb07142 Mon Sep 17 00:00:00 2001
+From: Harry Wentland <harry.wentland@amd.com>
+Date: Thu, 10 Aug 2017 16:16:20 -0400
+Subject: [PATCH 2284/4131] drm/amd/display: Leave DCN config guard around fpu
+ header
+
+See
+https://lists.freedesktop.org/archives/dri-devel/2017-August/149938.html
+
+Change-Id: Id9a112c8517f0205193996244aa0e99785a28e22
+Signed-off-by: Harry Wentland <harry.wentland@amd.com>
+Reviewed-by: Jordan Lazare <Jordan.Lazare@amd.com>
+Acked-by: Harry Wentland <Harry.Wentland@amd.com>
+Signed-off-by: Alex Deucher <alexander.deucher@amd.com>
+---
+ drivers/gpu/drm/amd/display/dc/dm_services.h | 2 ++
+ 1 file changed, 2 insertions(+)
+
+diff --git a/drivers/gpu/drm/amd/display/dc/dm_services.h b/drivers/gpu/drm/amd/display/dc/dm_services.h
+index a7d661d..e9bf4c4 100644
+--- a/drivers/gpu/drm/amd/display/dc/dm_services.h
++++ b/drivers/gpu/drm/amd/display/dc/dm_services.h
+@@ -75,7 +75,9 @@
+ 	BREAK_TO_DEBUGGER(); \
+ } while (0)
+ 
++#if defined(CONFIG_DRM_AMD_DC_DCN1_0)
+ #include <asm/fpu/api.h>
++#endif
+ 
+ #define dm_alloc(size) kzalloc(size, GFP_KERNEL)
+ #define dm_realloc(ptr, size) krealloc(ptr, size, GFP_KERNEL)
+-- 
+2.7.4
+

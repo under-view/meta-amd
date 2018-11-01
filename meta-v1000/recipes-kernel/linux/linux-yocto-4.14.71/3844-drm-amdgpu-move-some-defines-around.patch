@@ -1,0 +1,48 @@
+From 29bfddb992576d18ce8f6254d5e1b2a1a7f835c9 Mon Sep 17 00:00:00 2001
+From: Christian Koenig <christian.koenig@amd.com>
+Date: Fri, 21 Jul 2017 00:16:21 +0200
+Subject: [PATCH 3844/4131] drm/amdgpu: move some defines around
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+Move amdgpu_bo and related structures into amdgpu_object.h.
+
+Move amdgpu_bo_list structures to the amdgpu_bo_list functions.
+
+Signed-off-by: Christian König <christian.koenig@amd.com>
+Reviewed-by: Alex Deucher <alexander.deucher@amd.com>
+Signed-off-by: Alex Deucher <alexander.deucher@amd.com>
+---
+ drivers/gpu/drm/amd/amdgpu/amdgpu.h        | 2 +-
+ drivers/gpu/drm/amd/amdgpu/amdgpu_object.c | 1 -
+ 2 files changed, 1 insertion(+), 2 deletions(-)
+
+diff --git a/drivers/gpu/drm/amd/amdgpu/amdgpu.h b/drivers/gpu/drm/amd/amdgpu/amdgpu.h
+index 5f547a8..7572636 100644
+--- a/drivers/gpu/drm/amd/amdgpu/amdgpu.h
++++ b/drivers/gpu/drm/amd/amdgpu/amdgpu.h
+@@ -375,7 +375,7 @@ struct amdgpu_gem_object {
+ 
+ struct kgd_mem;
+ 
+-#define gem_to_amdgpu_bo(gobj) container_of((gobj), struct amdgpu_gem_object, base)->bo
++#define gem_to_amdgpu_bo(gobj) container_of((gobj), struct amdgpu_bo, gem_base)
+ 
+ void amdgpu_gem_object_free(struct drm_gem_object *obj);
+ int amdgpu_gem_object_open(struct drm_gem_object *obj,
+diff --git a/drivers/gpu/drm/amd/amdgpu/amdgpu_object.c b/drivers/gpu/drm/amd/amdgpu/amdgpu_object.c
+index ed4afd0..3f0012f 100755
+--- a/drivers/gpu/drm/amd/amdgpu/amdgpu_object.c
++++ b/drivers/gpu/drm/amd/amdgpu/amdgpu_object.c
+@@ -398,7 +398,6 @@ static int amdgpu_bo_do_create(struct amdgpu_device *adev, unsigned long size,
+ 	drm_gem_private_object_init(adev->ddev, &bo->gem_base, size);
+ 	INIT_LIST_HEAD(&bo->shadow_list);
+ 	INIT_LIST_HEAD(&bo->va);
+-	INIT_LIST_HEAD(&bo->gem_objects);
+ 	bo->preferred_domains = domain & (AMDGPU_GEM_DOMAIN_VRAM |
+ 					 AMDGPU_GEM_DOMAIN_GTT |
+ 					 AMDGPU_GEM_DOMAIN_CPU |
+-- 
+2.7.4
+

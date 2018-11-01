@@ -1,0 +1,28 @@
+From 56cd8c985ee33afd924af036219d8aac32a51427 Mon Sep 17 00:00:00 2001
+From: Tony Cheng <Tony.Cheng@amd.com>
+Date: Sat, 17 Feb 2018 01:34:42 -0500
+Subject: [PATCH 3643/4131] drm/amd/display: dal 3.1.36
+
+Signed-off-by: Tony Cheng <Tony.Cheng@amd.com>
+Reviewed-by: Tony Cheng <Tony.Cheng@amd.com>
+Acked-by: Harry Wentland <harry.wentland@amd.com>
+---
+ drivers/gpu/drm/amd/display/dc/dc.h | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/drivers/gpu/drm/amd/display/dc/dc.h b/drivers/gpu/drm/amd/display/dc/dc.h
+index 2bc6928..9449ede 100644
+--- a/drivers/gpu/drm/amd/display/dc/dc.h
++++ b/drivers/gpu/drm/amd/display/dc/dc.h
+@@ -38,7 +38,7 @@
+ #include "inc/compressor.h"
+ #include "dml/display_mode_lib.h"
+ 
+-#define DC_VER "3.1.35"
++#define DC_VER "3.1.36"
+ 
+ #define MAX_SURFACES 3
+ #define MAX_STREAMS 6
+-- 
+2.7.4
+

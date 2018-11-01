@@ -1,0 +1,95 @@
+From be93441e621d131f735d88cae1bb093f914b68e1 Mon Sep 17 00:00:00 2001
+From: Dave Airlie <airlied@redhat.com>
+Date: Thu, 28 Sep 2017 10:55:25 +1000
+Subject: [PATCH 3847/4131] amdgpu/dc: drop dml_util_is_420
+
+This is unused code.
+
+Signed-off-by: Dave Airlie <airlied@redhat.com>
+Reviewed-by: Harry Wentland <harry.wentland@amd.com>
+Signed-off-by: Alex Deucher <alexander.deucher@amd.com>
+Signed-off-by: Alex Deucher <alexander.deucher@amd.com>
+---
+ .../gpu/drm/amd/display/dc/dml/dml_common_defs.c   | 53 ----------------------
+ .../gpu/drm/amd/display/dc/dml/dml_common_defs.h   |  3 --
+ 2 files changed, 56 deletions(-)
+
+diff --git a/drivers/gpu/drm/amd/display/dc/dml/dml_common_defs.c b/drivers/gpu/drm/amd/display/dc/dml/dml_common_defs.c
+index d403dda..1eb1c71 100644
+--- a/drivers/gpu/drm/amd/display/dc/dml/dml_common_defs.c
++++ b/drivers/gpu/drm/amd/display/dc/dml/dml_common_defs.c
+@@ -39,57 +39,4 @@ double dml_round(double a)
+ 		return floor;
+ }
+ 
+-unsigned int dml_round_to_multiple(
+-        unsigned int num,
+-        unsigned int multiple,
+-        bool up)
+-{
+-        unsigned int remainder;
+-
+-        if (multiple == 0)
+-                return num;
+-
+-        remainder = num % multiple;
+-
+-        if (remainder == 0)
+-                return num;
+-
+-        if (up)
+-                return (num + multiple - remainder);
+-        else
+-                return (num - remainder);
+-}
+-
+-bool dml_util_is_420(enum source_format_class sorce_format)
+-{
+-	bool val = false;
+-
+-	switch (sorce_format) {
+-	case dm_444_16:
+-		val = false;
+-		break;
+-	case dm_444_32:
+-		val = false;
+-		break;
+-	case dm_444_64:
+-		val = false;
+-		break;
+-	case dm_420_8:
+-		val = true;
+-		break;
+-	case dm_420_10:
+-		val = true;
+-		break;
+-	case dm_422_8:
+-		val = false;
+-		break;
+-	case dm_422_10:
+-		val = false;
+-		break;
+-	default:
+-		BREAK_TO_DEBUGGER();
+-	}
+-
+-	return val;
+-}
+ 
+diff --git a/drivers/gpu/drm/amd/display/dc/dml/dml_common_defs.h b/drivers/gpu/drm/amd/display/dc/dml/dml_common_defs.h
+index 7589c4b..39f6385 100644
+--- a/drivers/gpu/drm/amd/display/dc/dml/dml_common_defs.h
++++ b/drivers/gpu/drm/amd/display/dc/dml/dml_common_defs.h
+@@ -31,9 +31,6 @@
+ #include "display_mode_structs.h"
+ #include "display_mode_enums.h"
+ 
+-bool dml_util_is_420(enum source_format_class sorce_format);
+ double dml_round(double a);
+-unsigned int dml_round_to_multiple(
+-                        unsigned int num, unsigned int multiple, bool up);
+ 
+ #endif /* __DC_COMMON_DEFS_H__ */
+-- 
+2.7.4
+

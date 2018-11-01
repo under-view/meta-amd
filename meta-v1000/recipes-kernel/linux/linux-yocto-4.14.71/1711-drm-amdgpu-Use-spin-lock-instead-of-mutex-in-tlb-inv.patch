@@ -1,0 +1,70 @@
+From 0ca7e35039f5cec771e61add0a6d76ba967acdc2 Mon Sep 17 00:00:00 2001
+From: ozeng <oak.zeng@amd.com>
+Date: Tue, 6 Jun 2017 20:24:49 -0500
+Subject: [PATCH 1711/4131] drm/amdgpu: Use spin lock instead of mutex in tlb
+ invalidation
+
+Change-Id: Ic7b6da7efe4785b952c0bdf73fa650cab8e021f7
+Signed-off-by: <Oak.Zeng@amd.com>
+
+ Conflicts:
+        drivers/gpu/drm/amd/amdgpu/amdgpu.h
+---
+ drivers/gpu/drm/amd/amdgpu/amdgpu.h               | 3 +++
+ drivers/gpu/drm/amd/amdgpu/amdgpu_amdkfd_gfx_v9.c | 4 +++-
+ drivers/gpu/drm/amd/amdgpu/amdgpu_device.c        | 1 +
+ 3 files changed, 7 insertions(+), 1 deletion(-)
+
+diff --git a/drivers/gpu/drm/amd/amdgpu/amdgpu.h b/drivers/gpu/drm/amd/amdgpu/amdgpu.h
+index ee6069f..265ddb3 100755
+--- a/drivers/gpu/drm/amd/amdgpu/amdgpu.h
++++ b/drivers/gpu/drm/amd/amdgpu/amdgpu.h
+@@ -1663,8 +1663,11 @@ struct amdgpu_device {
+ 
+ 	/* record hw reset is performed */
+ 	bool has_hw_reset;
++
+ 	u8				reset_magic[AMDGPU_RESET_MAGIC_NUM];
+ 
++	spinlock_t tlb_invalidation_lock;
++
+ 	/* record last mm index being written through WREG32*/
+ 	unsigned long last_mm_index;
+ };
+diff --git a/drivers/gpu/drm/amd/amdgpu/amdgpu_amdkfd_gfx_v9.c b/drivers/gpu/drm/amd/amdgpu/amdgpu_amdkfd_gfx_v9.c
+index 33b4077..e84c115 100644
+--- a/drivers/gpu/drm/amd/amdgpu/amdgpu_amdkfd_gfx_v9.c
++++ b/drivers/gpu/drm/amd/amdgpu/amdgpu_amdkfd_gfx_v9.c
+@@ -920,7 +920,7 @@ static void write_vmid_invalidate_request(struct kgd_dev *kgd, uint8_t vmid)
+ 		VM_INVALIDATE_ENG16_REQ__INVALIDATE_L2_PDE2_MASK |
+ 		VM_INVALIDATE_ENG16_REQ__INVALIDATE_L1_PTES_MASK;
+ 
+-	mutex_lock(&adev->srbm_mutex);
++	spin_lock(&adev->tlb_invalidation_lock);
+ 
+ 	/* Use light weight invalidation.
+ 	 *
+@@ -956,6 +956,8 @@ static void write_vmid_invalidate_request(struct kgd_dev *kgd, uint8_t vmid)
+ 					mmMMHUB_VM_INVALIDATE_ENG16_ACK)) &
+ 					(1 << vmid)))
+ 		cpu_relax();
++	
++	spin_unlock(&adev->tlb_invalidation_lock);
+ }
+ 
+ static int invalidate_tlbs_with_kiq(struct amdgpu_device *adev, uint16_t pasid)
+diff --git a/drivers/gpu/drm/amd/amdgpu/amdgpu_device.c b/drivers/gpu/drm/amd/amdgpu/amdgpu_device.c
+index b84914c..f910159 100644
+--- a/drivers/gpu/drm/amd/amdgpu/amdgpu_device.c
++++ b/drivers/gpu/drm/amd/amdgpu/amdgpu_device.c
+@@ -2092,6 +2092,7 @@ int amdgpu_device_init(struct amdgpu_device *adev,
+ 	spin_lock_init(&adev->se_cac_idx_lock);
+ 	spin_lock_init(&adev->audio_endpt_idx_lock);
+ 	spin_lock_init(&adev->mm_stats.lock);
++	spin_lock_init(&adev->tlb_invalidation_lock);
+ 
+ 	INIT_LIST_HEAD(&adev->shadow_list);
+ 	mutex_init(&adev->shadow_list_lock);
+-- 
+2.7.4
+

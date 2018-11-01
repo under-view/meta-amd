@@ -1,0 +1,28 @@
+From a71074715add79697defcfd88cdb79d0072b5343 Mon Sep 17 00:00:00 2001
+From: Eric Bernstein <eric.bernstein@amd.com>
+Date: Fri, 16 Feb 2018 17:46:54 -0500
+Subject: [PATCH 3644/4131] drm/amd/display: Fix DAL surface change test
+
+Signed-off-by: Eric Bernstein <eric.bernstein@amd.com>
+Reviewed-by: Yongqiang Sun <yongqiang.sun@amd.com>
+Acked-by: Harry Wentland <harry.wentland@amd.com>
+---
+ drivers/gpu/drm/amd/display/dc/dcn10/dcn10_hw_sequencer.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/drivers/gpu/drm/amd/display/dc/dcn10/dcn10_hw_sequencer.c b/drivers/gpu/drm/amd/display/dc/dcn10/dcn10_hw_sequencer.c
+index 759e925..b4a6b67 100644
+--- a/drivers/gpu/drm/amd/display/dc/dcn10/dcn10_hw_sequencer.c
++++ b/drivers/gpu/drm/amd/display/dc/dcn10/dcn10_hw_sequencer.c
+@@ -1943,7 +1943,7 @@ static void dcn10_apply_ctx_for_surface(
+ 			if (old_pipe_ctx->stream_res.tg == tg &&
+ 				old_pipe_ctx->plane_res.hubp &&
+ 				old_pipe_ctx->plane_res.hubp->opp_id != 0xf) {
+-				dcn10_disable_plane(dc, pipe_ctx);
++				dcn10_disable_plane(dc, old_pipe_ctx);
+ 				/*
+ 				 * power down fe will unlock when calling reset, need
+ 				 * to lock it back here. Messy, need rework.
+-- 
+2.7.4
+

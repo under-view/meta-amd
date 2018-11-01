@@ -1,0 +1,38 @@
+From a16204bf42369212b7de91896051a24b8980c785 Mon Sep 17 00:00:00 2001
+From: =?UTF-8?q?Christian=20K=C3=B6nig?= <christian.koenig@amd.com>
+Date: Tue, 20 Feb 2018 19:09:56 +0100
+Subject: [PATCH 3720/4131] drm/amdgpu: drop the backing store when DMA-buf
+ imports are evicted
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+Instead of moving this to the SYSTEM domain just drop the backing store
+and let the resulting allocation be freed.
+
+Signed-off-by: Christian König <christian.koenig@amd.com>
+Acked-by: Roger He <Hongbo.He@amd.com>
+---
+ drivers/gpu/drm/amd/amdgpu/amdgpu_ttm.c | 6 ++++++
+ 1 file changed, 6 insertions(+)
+
+diff --git a/drivers/gpu/drm/amd/amdgpu/amdgpu_ttm.c b/drivers/gpu/drm/amd/amdgpu/amdgpu_ttm.c
+index b5ba7eb..5d37184 100644
+--- a/drivers/gpu/drm/amd/amdgpu/amdgpu_ttm.c
++++ b/drivers/gpu/drm/amd/amdgpu/amdgpu_ttm.c
+@@ -221,6 +221,12 @@ static void amdgpu_evict_flags(struct ttm_buffer_object *bo,
+ 		.flags = TTM_PL_MASK_CACHING | TTM_PL_FLAG_SYSTEM
+ 	};
+ 
++	if (bo->type == ttm_bo_type_sg) {
++		placement->num_placement = 0;
++		placement->num_busy_placement = 0;
++		return;
++	}
++
+ 	if (!amdgpu_ttm_bo_is_amdgpu_bo(bo)) {
+ 		placement->placement = &placements;
+ 		placement->busy_placement = &placements;
+-- 
+2.7.4
+

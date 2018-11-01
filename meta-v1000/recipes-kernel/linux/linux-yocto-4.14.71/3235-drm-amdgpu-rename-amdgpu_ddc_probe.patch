@@ -1,0 +1,97 @@
+From a2cac99f42103f4fa2b4c432493d6eee6a7fea51 Mon Sep 17 00:00:00 2001
+From: Samuel Li <Samuel.Li@amd.com>
+Date: Fri, 19 Jan 2018 12:10:52 -0500
+Subject: [PATCH 3235/4131] drm/amdgpu: rename amdgpu_ddc_probe
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+Add display to the name for consistency.
+
+Signed-off-by: Samuel Li <Samuel.Li@amd.com>
+Acked-by: Christian König <christian.koenig@amd.com>
+Reviewed-by: Alex Deucher <alexander.deucher@amd.com>
+---
+ drivers/gpu/drm/amd/amdgpu/amdgpu_connectors.c | 10 ++++++----
+ drivers/gpu/drm/amd/amdgpu/amdgpu_display.c    |  6 +++---
+ drivers/gpu/drm/amd/amdgpu/amdgpu_mode.h       |  3 ++-
+ 3 files changed, 11 insertions(+), 8 deletions(-)
+
+diff --git a/drivers/gpu/drm/amd/amdgpu/amdgpu_connectors.c b/drivers/gpu/drm/amd/amdgpu/amdgpu_connectors.c
+index 0065c92..6ab01c4 100644
+--- a/drivers/gpu/drm/amd/amdgpu/amdgpu_connectors.c
++++ b/drivers/gpu/drm/amd/amdgpu/amdgpu_connectors.c
+@@ -879,7 +879,7 @@ amdgpu_connector_vga_detect(struct drm_connector *connector, bool force)
+ 		ret = connector_status_disconnected;
+ 
+ 	if (amdgpu_connector->ddc_bus)
+-		dret = amdgpu_ddc_probe(amdgpu_connector, false);
++		dret = amdgpu_display_ddc_probe(amdgpu_connector, false);
+ 	if (dret) {
+ 		amdgpu_connector->detected_by_load = false;
+ 		amdgpu_connector_free_edid(connector);
+@@ -1004,7 +1004,7 @@ amdgpu_connector_dvi_detect(struct drm_connector *connector, bool force)
+ 	}
+ 
+ 	if (amdgpu_connector->ddc_bus)
+-		dret = amdgpu_ddc_probe(amdgpu_connector, false);
++		dret = amdgpu_display_ddc_probe(amdgpu_connector, false);
+ 	if (dret) {
+ 		amdgpu_connector->detected_by_load = false;
+ 		amdgpu_connector_free_edid(connector);
+@@ -1411,7 +1411,8 @@ amdgpu_connector_dp_detect(struct drm_connector *connector, bool force)
+ 			/* setup ddc on the bridge */
+ 			amdgpu_atombios_encoder_setup_ext_encoder_ddc(encoder);
+ 			/* bridge chips are always aux */
+-			if (amdgpu_ddc_probe(amdgpu_connector, true)) /* try DDC */
++			/* try DDC */
++			if (amdgpu_display_ddc_probe(amdgpu_connector, true))
+ 				ret = connector_status_connected;
+ 			else if (amdgpu_connector->dac_load_detect) { /* try load detection */
+ 				const struct drm_encoder_helper_funcs *encoder_funcs = encoder->helper_private;
+@@ -1431,7 +1432,8 @@ amdgpu_connector_dp_detect(struct drm_connector *connector, bool force)
+ 					ret = connector_status_connected;
+ 			} else {
+ 				/* try non-aux ddc (DP to DVI/HDMI/etc. adapter) */
+-				if (amdgpu_ddc_probe(amdgpu_connector, false))
++				if (amdgpu_display_ddc_probe(amdgpu_connector,
++							     false))
+ 					ret = connector_status_connected;
+ 			}
+ 		}
+diff --git a/drivers/gpu/drm/amd/amdgpu/amdgpu_display.c b/drivers/gpu/drm/amd/amdgpu/amdgpu_display.c
+index 85bb1bc..de1f879 100644
+--- a/drivers/gpu/drm/amd/amdgpu/amdgpu_display.c
++++ b/drivers/gpu/drm/amd/amdgpu/amdgpu_display.c
+@@ -437,11 +437,11 @@ void amdgpu_display_print_display_setup(struct drm_device *dev)
+ }
+ 
+ /**
+- * amdgpu_ddc_probe
++ * amdgpu_display_ddc_probe
+  *
+  */
+-bool amdgpu_ddc_probe(struct amdgpu_connector *amdgpu_connector,
+-		       bool use_aux)
++bool amdgpu_display_ddc_probe(struct amdgpu_connector *amdgpu_connector,
++			      bool use_aux)
+ {
+ 	u8 out = 0x0;
+ 	u8 buf[8];
+diff --git a/drivers/gpu/drm/amd/amdgpu/amdgpu_mode.h b/drivers/gpu/drm/amd/amdgpu/amdgpu_mode.h
+index 5879ca0..f82046c 100644
+--- a/drivers/gpu/drm/amd/amdgpu/amdgpu_mode.h
++++ b/drivers/gpu/drm/amd/amdgpu/amdgpu_mode.h
+@@ -637,7 +637,8 @@ bool amdgpu_dig_monitor_is_duallink(struct drm_encoder *encoder,
+ u16 amdgpu_encoder_get_dp_bridge_encoder_id(struct drm_encoder *encoder);
+ struct drm_encoder *amdgpu_get_external_encoder(struct drm_encoder *encoder);
+ 
+-bool amdgpu_ddc_probe(struct amdgpu_connector *amdgpu_connector, bool use_aux);
++bool amdgpu_display_ddc_probe(struct amdgpu_connector *amdgpu_connector,
++			      bool use_aux);
+ 
+ void amdgpu_encoder_set_active_device(struct drm_encoder *encoder);
+ 
+-- 
+2.7.4
+

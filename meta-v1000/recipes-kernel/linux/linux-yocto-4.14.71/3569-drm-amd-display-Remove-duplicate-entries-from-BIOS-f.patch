@@ -1,0 +1,34 @@
+From 7c41df80dc099ff8665dc49e993e067abf45f544 Mon Sep 17 00:00:00 2001
+From: Ken Chalmers <ken.chalmers@amd.com>
+Date: Wed, 7 Feb 2018 14:58:53 -0500
+Subject: [PATCH 3569/4131] drm/amd/display: Remove duplicate entries from BIOS
+ function table
+
+Identical to the two entries above them.
+
+Signed-off-by: Ken Chalmers <ken.chalmers@amd.com>
+Reviewed-by: Tony Cheng <Tony.Cheng@amd.com>
+Acked-by: Harry Wentland <harry.wentland@amd.com>
+Signed-off-by: Alex Deucher <alexander.deucher@amd.com>
+---
+ drivers/gpu/drm/amd/display/dc/bios/bios_parser.c | 4 ----
+ 1 file changed, 4 deletions(-)
+
+diff --git a/drivers/gpu/drm/amd/display/dc/bios/bios_parser.c b/drivers/gpu/drm/amd/display/dc/bios/bios_parser.c
+index fb3ccee..69c59e0 100644
+--- a/drivers/gpu/drm/amd/display/dc/bios/bios_parser.c
++++ b/drivers/gpu/drm/amd/display/dc/bios/bios_parser.c
+@@ -3795,10 +3795,6 @@ static const struct dc_vbios_funcs vbios_funcs = {
+ 
+ 	.get_gpio_pin_info = bios_parser_get_gpio_pin_info,
+ 
+-	.get_embedded_panel_info = bios_parser_get_embedded_panel_info,
+-
+-	.get_gpio_pin_info = bios_parser_get_gpio_pin_info,
+-
+ 	.get_encoder_cap_info = bios_parser_get_encoder_cap_info,
+ 
+ 	/* bios scratch register communication */
+-- 
+2.7.4
+

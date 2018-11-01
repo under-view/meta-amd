@@ -1,0 +1,41 @@
+From cb46cd9ed52329e67b92de6032b996b596df820b Mon Sep 17 00:00:00 2001
+From: Oak Zeng <Oak.Zeng@amd.com>
+Date: Wed, 25 Oct 2017 18:48:16 -0400
+Subject: [PATCH 2138/4131] drm/amdgpu: Share DRM render device minor with kfd
+
+Change-Id: I4631b8809b39a7ec65c1e269a800bc3d3918d541
+Signed-off-by: Oak Zeng <Oak.Zeng@amd.com>
+---
+ drivers/gpu/drm/amd/amdgpu/amdgpu_amdkfd.c      | 3 ++-
+ drivers/gpu/drm/amd/include/kgd_kfd_interface.h | 1 +
+ 2 files changed, 3 insertions(+), 1 deletion(-)
+
+diff --git a/drivers/gpu/drm/amd/amdgpu/amdgpu_amdkfd.c b/drivers/gpu/drm/amd/amdgpu/amdgpu_amdkfd.c
+index 1193906..5b0c6ab 100755
+--- a/drivers/gpu/drm/amd/amdgpu/amdgpu_amdkfd.c
++++ b/drivers/gpu/drm/amd/amdgpu/amdgpu_amdkfd.c
+@@ -119,7 +119,8 @@ void amdgpu_amdkfd_device_init(struct amdgpu_device *adev)
+ 			.compute_vmid_bitmap = global_compute_vmid_bitmap,
+ 			.num_pipe_per_mec = adev->gfx.mec.num_pipe_per_mec,
+ 			.num_queue_per_pipe = adev->gfx.mec.num_queue_per_pipe,
+-			.gpuvm_size = (uint64_t)amdgpu_vm_size << 30
++			.gpuvm_size = (uint64_t)amdgpu_vm_size << 30,
++			.drm_render_minor = adev->ddev->render->index
+ 		};
+ 
+ 		/* this is going to have a few of the MSBs set that we need to
+diff --git a/drivers/gpu/drm/amd/include/kgd_kfd_interface.h b/drivers/gpu/drm/amd/include/kgd_kfd_interface.h
+index 20e9369..99213fb 100644
+--- a/drivers/gpu/drm/amd/include/kgd_kfd_interface.h
++++ b/drivers/gpu/drm/amd/include/kgd_kfd_interface.h
+@@ -139,6 +139,7 @@ struct kgd2kfd_shared_resources {
+ 
+ 	/* GPUVM address space size in bytes */
+ 	uint64_t gpuvm_size;
++	int drm_render_minor;
+ };
+ 
+ struct tile_config {
+-- 
+2.7.4
+

@@ -1,0 +1,43 @@
+From 503b53e9eb04b234404a6b13a7a7f78e82a667dc Mon Sep 17 00:00:00 2001
+From: Jun Lei <Jun.Lei@amd.com>
+Date: Mon, 26 Mar 2018 14:01:41 -0400
+Subject: [PATCH 4008/4131] drm/amd/display: Fill calcs date from stream
+ src/dst if available
+
+We would otherwise fallback to the timing, which would always give us
+identity.
+
+Signed-off-by: Jun Lei <Jun.Lei@amd.com>
+Reviewed-by: Wesley Chalmers <Wesley.Chalmers@amd.com>
+Acked-by: Harry Wentland <harry.wentland@amd.com>
+---
+ drivers/gpu/drm/amd/display/dc/calcs/dce_calcs.c | 13 +++++++++++++
+ 1 file changed, 13 insertions(+)
+
+diff --git a/drivers/gpu/drm/amd/display/dc/calcs/dce_calcs.c b/drivers/gpu/drm/amd/display/dc/calcs/dce_calcs.c
+index 7cb45ee..0a5eb32 100644
+--- a/drivers/gpu/drm/amd/display/dc/calcs/dce_calcs.c
++++ b/drivers/gpu/drm/amd/display/dc/calcs/dce_calcs.c
+@@ -2932,6 +2932,19 @@ static void populate_initial_data(
+ 				data->bytes_per_pixel[num_displays + 4] = 4;
+ 				break;
+ 			}
++		} else if (pipe[i].stream->dst.width != 0 &&
++					pipe[i].stream->dst.height != 0 &&
++					pipe[i].stream->src.width != 0 &&
++					pipe[i].stream->src.height != 0) {
++			data->src_width[num_displays + 4] = bw_int_to_fixed(pipe[i].stream->src.width);
++			data->pitch_in_pixels[num_displays + 4] = data->src_width[num_displays + 4];
++			data->src_height[num_displays + 4] = bw_int_to_fixed(pipe[i].stream->src.height);
++			data->h_taps[num_displays + 4] = pipe[i].stream->src.width == pipe[i].stream->dst.width ? bw_int_to_fixed(1) : bw_int_to_fixed(2);
++			data->v_taps[num_displays + 4] = pipe[i].stream->src.height == pipe[i].stream->dst.height ? bw_int_to_fixed(1) : bw_int_to_fixed(2);
++			data->h_scale_ratio[num_displays + 4] = bw_frc_to_fixed(pipe[i].stream->src.width, pipe[i].stream->dst.width);
++			data->v_scale_ratio[num_displays + 4] = bw_frc_to_fixed(pipe[i].stream->src.height, pipe[i].stream->dst.height);
++			data->rotation_angle[num_displays + 4] = bw_int_to_fixed(0);
++			data->bytes_per_pixel[num_displays + 4] = 4;
+ 		} else {
+ 			data->src_width[num_displays + 4] = bw_int_to_fixed(pipe[i].stream->timing.h_addressable);
+ 			data->pitch_in_pixels[num_displays + 4] = data->src_width[num_displays + 4];
+-- 
+2.7.4
+

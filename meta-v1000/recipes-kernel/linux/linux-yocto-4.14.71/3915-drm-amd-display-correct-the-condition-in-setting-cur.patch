@@ -1,0 +1,43 @@
+From 1844ea0928ab3851e32aa5ade7412afa3b5c3d97 Mon Sep 17 00:00:00 2001
+From: Martin Tsai <martin.tsai@amd.com>
+Date: Wed, 7 Mar 2018 04:22:03 +0800
+Subject: [PATCH 3915/4131] drm/amd/display: correct the condition in setting
+ cursor not visible beyond left edge
+
+Signed-off-by: Martin Tsai <martin.tsai@amd.com>
+Reviewed-by: Tony Cheng <Tony.Cheng@amd.com>
+Acked-by: Harry Wentland <harry.wentland@amd.com>
+---
+ drivers/gpu/drm/amd/display/dc/dcn10/dcn10_dpp.c  | 2 +-
+ drivers/gpu/drm/amd/display/dc/dcn10/dcn10_hubp.c | 2 +-
+ 2 files changed, 2 insertions(+), 2 deletions(-)
+
+diff --git a/drivers/gpu/drm/amd/display/dc/dcn10/dcn10_dpp.c b/drivers/gpu/drm/amd/display/dc/dcn10/dcn10_dpp.c
+index e305c28..3356125 100644
+--- a/drivers/gpu/drm/amd/display/dc/dcn10/dcn10_dpp.c
++++ b/drivers/gpu/drm/amd/display/dc/dcn10/dcn10_dpp.c
+@@ -416,7 +416,7 @@ void dpp1_set_cursor_position(
+ 	if (src_x_offset >= (int)param->viewport_width)
+ 		cur_en = 0;  /* not visible beyond right edge*/
+ 
+-	if (src_x_offset + (int)width < 0)
++	if (src_x_offset + (int)width <= 0)
+ 		cur_en = 0;  /* not visible beyond left edge*/
+ 
+ 	REG_UPDATE(CURSOR0_CONTROL,
+diff --git a/drivers/gpu/drm/amd/display/dc/dcn10/dcn10_hubp.c b/drivers/gpu/drm/amd/display/dc/dcn10/dcn10_hubp.c
+index 39b72f6..81b81e6 100644
+--- a/drivers/gpu/drm/amd/display/dc/dcn10/dcn10_hubp.c
++++ b/drivers/gpu/drm/amd/display/dc/dcn10/dcn10_hubp.c
+@@ -897,7 +897,7 @@ void hubp1_cursor_set_position(
+ 	if (src_x_offset >= (int)param->viewport_width)
+ 		cur_en = 0;  /* not visible beyond right edge*/
+ 
+-	if (src_x_offset + (int)hubp->curs_attr.width < 0)
++	if (src_x_offset + (int)hubp->curs_attr.width <= 0)
+ 		cur_en = 0;  /* not visible beyond left edge*/
+ 
+ 	if (cur_en && REG_READ(CURSOR_SURFACE_ADDRESS) == 0)
+-- 
+2.7.4
+

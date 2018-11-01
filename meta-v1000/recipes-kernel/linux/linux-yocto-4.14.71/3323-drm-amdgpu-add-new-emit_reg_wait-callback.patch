@@ -1,0 +1,46 @@
+From dca7f226961869e02714dc329d75f8bc5f3624d6 Mon Sep 17 00:00:00 2001
+From: =?UTF-8?q?Christian=20K=C3=B6nig?= <christian.koenig@amd.com>
+Date: Fri, 26 Jan 2018 12:45:32 +0100
+Subject: [PATCH 3323/4131] drm/amdgpu: add new emit_reg_wait callback
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+Allows us to wait for a register value/mask on a ring.
+
+Signed-off-by: Christian König <christian.koenig@amd.com>
+Reviewed-by: Felix Kuehling <felix.kuehling@amd.com>
+Reviewed-by: Alex Deucher <alexander.deucher@amd.com>
+---
+ drivers/gpu/drm/amd/amdgpu/amdgpu.h      | 1 +
+ drivers/gpu/drm/amd/amdgpu/amdgpu_ring.h | 2 ++
+ 2 files changed, 3 insertions(+)
+
+diff --git a/drivers/gpu/drm/amd/amdgpu/amdgpu.h b/drivers/gpu/drm/amd/amdgpu/amdgpu.h
+index 4a00efb..e8017ee 100755
+--- a/drivers/gpu/drm/amd/amdgpu/amdgpu.h
++++ b/drivers/gpu/drm/amd/amdgpu/amdgpu.h
+@@ -1856,6 +1856,7 @@ amdgpu_get_sdma_instance(struct amdgpu_ring *ring)
+ #define amdgpu_ring_emit_cntxcntl(r, d) (r)->funcs->emit_cntxcntl((r), (d))
+ #define amdgpu_ring_emit_rreg(r, d) (r)->funcs->emit_rreg((r), (d))
+ #define amdgpu_ring_emit_wreg(r, d, v) (r)->funcs->emit_wreg((r), (d), (v))
++#define amdgpu_ring_emit_reg_wait(r, d, v, m) (r)->funcs->emit_reg_wait((r), (d), (v), (m))
+ #define amdgpu_ring_emit_tmz(r, b) (r)->funcs->emit_tmz((r), (b))
+ #define amdgpu_ring_pad_ib(r, ib) ((r)->funcs->pad_ib((r), (ib)))
+ #define amdgpu_ring_init_cond_exec(r) (r)->funcs->init_cond_exec((r))
+diff --git a/drivers/gpu/drm/amd/amdgpu/amdgpu_ring.h b/drivers/gpu/drm/amd/amdgpu/amdgpu_ring.h
+index 668a1ed..81b71ef 100755
+--- a/drivers/gpu/drm/amd/amdgpu/amdgpu_ring.h
++++ b/drivers/gpu/drm/amd/amdgpu/amdgpu_ring.h
+@@ -152,6 +152,8 @@ struct amdgpu_ring_funcs {
+ 	void (*emit_cntxcntl) (struct amdgpu_ring *ring, uint32_t flags);
+ 	void (*emit_rreg)(struct amdgpu_ring *ring, uint32_t reg);
+ 	void (*emit_wreg)(struct amdgpu_ring *ring, uint32_t reg, uint32_t val);
++	void (*emit_reg_wait)(struct amdgpu_ring *ring, uint32_t reg,
++			      uint32_t val, uint32_t mask);
+ 	void (*emit_tmz)(struct amdgpu_ring *ring, bool start);
+ 	/* priority functions */
+ 	void (*set_priority) (struct amdgpu_ring *ring,
+-- 
+2.7.4
+

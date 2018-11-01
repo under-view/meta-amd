@@ -1,0 +1,47 @@
+From 52d86d7cb1b40d3a2fb7a732737649d0c3bf48cd Mon Sep 17 00:00:00 2001
+From: Harry Wentland <harry.wentland@amd.com>
+Date: Thu, 7 Dec 2017 14:09:15 -0500
+Subject: [PATCH 3107/4131] drm/amd/display: Debug print when validate_stream
+ fails
+
+It might be good to understand why validate fails.
+
+Signed-off-by: Harry Wentland <harry.wentland@amd.com>
+Reviewed-by: Tony Cheng <Tony.Cheng@amd.com>
+Acked-by: Harry Wentland <harry.wentland@amd.com>
+---
+ drivers/gpu/drm/amd/display/amdgpu_dm/amdgpu_dm.c | 10 +++++++++-
+ 1 file changed, 9 insertions(+), 1 deletion(-)
+
+diff --git a/drivers/gpu/drm/amd/display/amdgpu_dm/amdgpu_dm.c b/drivers/gpu/drm/amd/display/amdgpu_dm/amdgpu_dm.c
+index 4b3e4ec..d75f0d9 100644
+--- a/drivers/gpu/drm/amd/display/amdgpu_dm/amdgpu_dm.c
++++ b/drivers/gpu/drm/amd/display/amdgpu_dm/amdgpu_dm.c
+@@ -3107,6 +3107,7 @@ int amdgpu_dm_connector_mode_valid(struct drm_connector *connector,
+ 	/* TODO: Unhardcode stream count */
+ 	struct dc_stream_state *stream;
+ 	struct amdgpu_dm_connector *aconnector = to_amdgpu_dm_connector(connector);
++	enum dc_status dc_result = DC_OK;
+ 
+ 	if ((mode->flags & DRM_MODE_FLAG_INTERLACE) ||
+ 			(mode->flags & DRM_MODE_FLAG_DBLSCAN))
+@@ -3139,8 +3140,15 @@ int amdgpu_dm_connector_mode_valid(struct drm_connector *connector,
+ 	stream->src.height = mode->vdisplay;
+ 	stream->dst = stream->src;
+ 
+-	if (dc_validate_stream(adev->dm.dc, stream) == DC_OK)
++	dc_result = dc_validate_stream(adev->dm.dc, stream);
++
++	if (dc_result == DC_OK)
+ 		result = MODE_OK;
++	else
++		DRM_DEBUG_KMS("Mode %dx%d (clk %d) failed DC validation\n",
++			      mode->vdisplay,
++			      mode->hdisplay,
++			      mode->clock);
+ 
+ 	dc_stream_release(stream);
+ 
+-- 
+2.7.4
+

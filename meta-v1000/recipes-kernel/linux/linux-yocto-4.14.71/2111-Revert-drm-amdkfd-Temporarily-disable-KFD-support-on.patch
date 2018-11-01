@@ -1,0 +1,29 @@
+From af3a7859c17967a38f24a49fff57ece997753219 Mon Sep 17 00:00:00 2001
+From: Yong Zhao <yong.zhao@amd.com>
+Date: Thu, 28 Sep 2017 18:28:21 -0400
+Subject: [PATCH 2111/4131] Revert "drm/amdkfd: Temporarily disable KFD support
+ on Raven"
+
+This reverts commit 8bec99d82585fe996148222323adf71397d8c1ca.
+
+Change-Id: I99792854e8b5aa0a2c2d4c886905ce67c7d2f099
+Signed-off-by: Yong Zhao <yong.zhao@amd.com>
+---
+ drivers/gpu/drm/amd/amdgpu/amdgpu_amdkfd.c | 1 +
+ 1 file changed, 1 insertion(+)
+
+diff --git a/drivers/gpu/drm/amd/amdgpu/amdgpu_amdkfd.c b/drivers/gpu/drm/amd/amdgpu/amdgpu_amdkfd.c
+index c99ad38..1193906 100755
+--- a/drivers/gpu/drm/amd/amdgpu/amdgpu_amdkfd.c
++++ b/drivers/gpu/drm/amd/amdgpu/amdgpu_amdkfd.c
+@@ -97,6 +97,7 @@ void amdgpu_amdkfd_device_probe(struct amdgpu_device *adev)
+ 		kfd2kgd = amdgpu_amdkfd_gfx_8_0_get_functions();
+ 		break;
+ 	case CHIP_VEGA10:
++	case CHIP_RAVEN:
+ 		kfd2kgd = amdgpu_amdkfd_gfx_9_0_get_functions();
+ 		break;
+ 	default:
+-- 
+2.7.4
+

@@ -1,0 +1,57 @@
+From 10620d1062b87470341a34aff82b78fd8d9282dc Mon Sep 17 00:00:00 2001
+From: Charlene Liu <charlene.liu@amd.com>
+Date: Thu, 1 Feb 2018 15:16:20 -0500
+Subject: [PATCH 3548/4131] drm/amd/display: add force_trigger even to static
+ screen control
+
+Signed-off-by: Charlene Liu <charlene.liu@amd.com>
+Reviewed-by: Anthony Koo <Anthony.Koo@amd.com>
+Acked-by: Harry Wentland <harry.wentland@amd.com>
+Signed-off-by: Alex Deucher <alexander.deucher@amd.com>
+---
+ drivers/gpu/drm/amd/display/dc/dc.h                         | 1 +
+ drivers/gpu/drm/amd/display/dc/dce110/dce110_hw_sequencer.c | 2 ++
+ drivers/gpu/drm/amd/display/dc/dcn10/dcn10_hw_sequencer.c   | 2 ++
+ 3 files changed, 5 insertions(+)
+
+diff --git a/drivers/gpu/drm/amd/display/dc/dc.h b/drivers/gpu/drm/amd/display/dc/dc.h
+index 052f953..78baeb8 100644
+--- a/drivers/gpu/drm/amd/display/dc/dc.h
++++ b/drivers/gpu/drm/amd/display/dc/dc.h
+@@ -95,6 +95,7 @@ struct dc_surface_dcc_cap {
+ };
+ 
+ struct dc_static_screen_events {
++	bool force_trigger;
+ 	bool cursor_update;
+ 	bool surface_update;
+ 	bool overlay_update;
+diff --git a/drivers/gpu/drm/amd/display/dc/dce110/dce110_hw_sequencer.c b/drivers/gpu/drm/amd/display/dc/dce110/dce110_hw_sequencer.c
+index 53243d5..5c387e8 100644
+--- a/drivers/gpu/drm/amd/display/dc/dce110/dce110_hw_sequencer.c
++++ b/drivers/gpu/drm/amd/display/dc/dce110/dce110_hw_sequencer.c
+@@ -1625,6 +1625,8 @@ static void set_static_screen_control(struct pipe_ctx **pipe_ctx,
+ 		value |= 0x80;
+ 	if (events->cursor_update)
+ 		value |= 0x2;
++	if (events->force_trigger)
++		value |= 0x1;
+ 
+ #if defined(CONFIG_DRM_AMD_DC_FBC)
+ 	value |= 0x84;
+diff --git a/drivers/gpu/drm/amd/display/dc/dcn10/dcn10_hw_sequencer.c b/drivers/gpu/drm/amd/display/dc/dcn10/dcn10_hw_sequencer.c
+index 5d3dedf..29dc37f 100644
+--- a/drivers/gpu/drm/amd/display/dc/dcn10/dcn10_hw_sequencer.c
++++ b/drivers/gpu/drm/amd/display/dc/dcn10/dcn10_hw_sequencer.c
+@@ -2144,6 +2144,8 @@ static void set_static_screen_control(struct pipe_ctx **pipe_ctx,
+ 		value |= 0x80;
+ 	if (events->cursor_update)
+ 		value |= 0x2;
++	if (events->force_trigger)
++		value |= 0x1;
+ 
+ 	for (i = 0; i < num_pipes; i++)
+ 		pipe_ctx[i]->stream_res.tg->funcs->
+-- 
+2.7.4
+

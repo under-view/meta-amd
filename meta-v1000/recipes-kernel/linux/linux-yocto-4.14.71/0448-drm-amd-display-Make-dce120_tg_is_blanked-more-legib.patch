@@ -1,0 +1,44 @@
+From d5d9088aa96b81785958b53b9015acb9aca263ce Mon Sep 17 00:00:00 2001
+From: Tom St Denis <tom.stdenis@amd.com>
+Date: Tue, 16 May 2017 10:22:02 -0400
+Subject: [PATCH 0448/4131] drm/amd/display: Make dce120_tg_is_blanked() more
+ legible
+
+Signed-off-by: Tom St Denis <tom.stdenis@amd.com>
+Reviewed-by: Harry Wentland <Harry.Wentland@amd.com>
+Signed-off-by: Alex Deucher <alexander.deucher@amd.com>
+---
+ .../drm/amd/display/dc/dce120/dce120_timing_generator.c | 17 ++++++++---------
+ 1 file changed, 8 insertions(+), 9 deletions(-)
+
+diff --git a/drivers/gpu/drm/amd/display/dc/dce120/dce120_timing_generator.c b/drivers/gpu/drm/amd/display/dc/dce120/dce120_timing_generator.c
+index 1c25dc6..1e2843e 100644
+--- a/drivers/gpu/drm/amd/display/dc/dce120/dce120_timing_generator.c
++++ b/drivers/gpu/drm/amd/display/dc/dce120/dce120_timing_generator.c
+@@ -746,15 +746,14 @@ bool dce120_tg_is_blanked(struct timing_generator *tg)
+ 			mmCRTC0_CRTC_BLANK_CONTROL,
+ 			tg110->offsets.crtc);
+ 
+-	if (
+-		get_reg_field_value(
+-			value,
+-			CRTC0_CRTC_BLANK_CONTROL,
+-			CRTC_BLANK_DATA_EN) == 1	&&
+-		get_reg_field_value(
+-			value,
+-			CRTC0_CRTC_BLANK_CONTROL,
+-			CRTC_CURRENT_BLANK_STATE) == 1)
++	if (get_reg_field_value(
++		value,
++		CRTC0_CRTC_BLANK_CONTROL,
++		CRTC_BLANK_DATA_EN) == 1 &&
++	    get_reg_field_value(
++		value,
++		CRTC0_CRTC_BLANK_CONTROL,
++		CRTC_CURRENT_BLANK_STATE) == 1)
+ 			return true;
+ 
+ 	return false;
+-- 
+2.7.4
+

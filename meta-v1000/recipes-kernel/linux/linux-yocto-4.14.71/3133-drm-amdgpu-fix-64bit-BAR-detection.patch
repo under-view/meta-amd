@@ -1,0 +1,35 @@
+From e8942889cbc0289d287842f8aa23612ec3ed2ff5 Mon Sep 17 00:00:00 2001
+From: =?UTF-8?q?Christian=20K=C3=B6nig?= <christian.koenig@amd.com>
+Date: Sun, 7 Jan 2018 10:18:57 +0100
+Subject: [PATCH 3133/4131] drm/amdgpu: fix 64bit BAR detection
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+Windows added by the BIOS are not marked as 64bit because they are
+usually not changeable anyway.
+
+This fixes large BAR support on my new Ryzen build system.
+
+Signed-off-by: Christian König <christian.koenig@amd.com>
+Reviewed-by: Alex Deucher <alexander.deucher@amd.com>
+---
+ drivers/gpu/drm/amd/amdgpu/amdgpu_device.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/drivers/gpu/drm/amd/amdgpu/amdgpu_device.c b/drivers/gpu/drm/amd/amdgpu/amdgpu_device.c
+index f4e0868..26343af 100644
+--- a/drivers/gpu/drm/amd/amdgpu/amdgpu_device.c
++++ b/drivers/gpu/drm/amd/amdgpu/amdgpu_device.c
+@@ -626,7 +626,7 @@ int amdgpu_device_resize_fb_bar(struct amdgpu_device *adev)
+ 		root = root->parent;
+ 
+ 	pci_bus_for_each_resource(root, res, i) {
+-		if (res && res->flags & IORESOURCE_MEM_64 &&
++		if (res && res->flags & (IORESOURCE_MEM | IORESOURCE_MEM_64) &&
+ 		    res->start > 0x100000000ull)
+ 			break;
+ 	}
+-- 
+2.7.4
+

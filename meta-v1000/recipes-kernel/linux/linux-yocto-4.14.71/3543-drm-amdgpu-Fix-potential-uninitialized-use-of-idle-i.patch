@@ -1,0 +1,32 @@
+From f74fe952acefd7bc34f2030c71705680757d805e Mon Sep 17 00:00:00 2001
+From: Harry Wentland <harry.wentland@amd.com>
+Date: Fri, 9 Feb 2018 12:15:45 -0500
+Subject: [PATCH 3543/4131] drm/amdgpu: Fix potential uninitialized use of
+ 'idle' in amdgpu_ids.c
+
+v2: Use NULL and reverse christmas tree ordering
+
+Signed-off-by: Harry Wentland <harry.wentland@amd.com>
+Reviewed-by: Alex Deucher <alexander.deucher@amd.com>
+Signed-off-by: Alex Deucher <alexander.deucher@amd.com>
+---
+ drivers/gpu/drm/amd/amdgpu/amdgpu_ids.c | 3 ++-
+ 1 file changed, 2 insertions(+), 1 deletion(-)
+
+diff --git a/drivers/gpu/drm/amd/amdgpu/amdgpu_ids.c b/drivers/gpu/drm/amd/amdgpu/amdgpu_ids.c
+index 1145583..436b281 100644
+--- a/drivers/gpu/drm/amd/amdgpu/amdgpu_ids.c
++++ b/drivers/gpu/drm/amd/amdgpu/amdgpu_ids.c
+@@ -410,7 +410,8 @@ int amdgpu_vmid_grab(struct amdgpu_vm *vm, struct amdgpu_ring *ring,
+ 	struct amdgpu_device *adev = ring->adev;
+ 	unsigned vmhub = ring->funcs->vmhub;
+ 	struct amdgpu_vmid_mgr *id_mgr = &adev->vm_manager.id_mgr[vmhub];
+-	struct amdgpu_vmid *id, *idle;
++	struct amdgpu_vmid *idle = NULL;
++	struct amdgpu_vmid *id = NULL;
+ 	int r = 0;
+ 
+ 	mutex_lock(&id_mgr->lock);
+-- 
+2.7.4
+

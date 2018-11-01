@@ -1,0 +1,108 @@
+From 8372ac8d1a3007ab55c33bb9dad15384b8cc66f7 Mon Sep 17 00:00:00 2001
+From: Tom St Denis <tom.stdenis@amd.com>
+Date: Fri, 18 Aug 2017 10:05:48 -0400
+Subject: [PATCH 0006/4131] drm/amd/amdgpu: Use new TTM populate/map helper
+ function
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+Signed-off-by: Tom St Denis <tom.stdenis@amd.com>
+Reviewed-by: Christian König <christian.koenig@amd.com>
+Signed-off-by: Alex Deucher <alexander.deucher@amd.com>
+Signed-off-by: Kalyan Alle  <kalyan.alle@amd.com>
+---
+ drivers/gpu/drm/amd/amdgpu/amdgpu_ttm.c | 33 ++-------------------------------
+ include/drm/ttm/ttm_page_alloc.h        | 11 +++++++++++
+ 2 files changed, 13 insertions(+), 31 deletions(-)
+
+diff --git a/drivers/gpu/drm/amd/amdgpu/amdgpu_ttm.c b/drivers/gpu/drm/amd/amdgpu/amdgpu_ttm.c
+index a1723a7..0d70747 100644
+--- a/drivers/gpu/drm/amd/amdgpu/amdgpu_ttm.c
++++ b/drivers/gpu/drm/amd/amdgpu/amdgpu_ttm.c
+@@ -926,7 +926,6 @@ static int amdgpu_ttm_tt_populate(struct ttm_tt *ttm)
+ {
+ 	struct amdgpu_device *adev = amdgpu_ttm_adev(ttm->bdev);
+ 	struct amdgpu_ttm_tt *gtt = (void *)ttm;
+-	unsigned i;
+ 	int r;
+ 	bool slave = !!(ttm->page_flags & TTM_PAGE_FLAG_SG);
+ 
+@@ -958,27 +957,7 @@ static int amdgpu_ttm_tt_populate(struct ttm_tt *ttm)
+ 	}
+ #endif
+ 
+-	r = ttm_pool_populate(ttm);
+-	if (r) {
+-		return r;
+-	}
+-
+-	for (i = 0; i < ttm->num_pages; i++) {
+-		gtt->ttm.dma_address[i] = pci_map_page(adev->pdev, ttm->pages[i],
+-						       0, PAGE_SIZE,
+-						       PCI_DMA_BIDIRECTIONAL);
+-		if (pci_dma_mapping_error(adev->pdev, gtt->ttm.dma_address[i])) {
+-			while (i--) {
+-				pci_unmap_page(adev->pdev, gtt->ttm.dma_address[i],
+-					       PAGE_SIZE, PCI_DMA_BIDIRECTIONAL);
+-				gtt->ttm.dma_address[i] = 0;
+-			}
+-			ttm_pool_unpopulate(ttm);
+-			return -EFAULT;
+-		}
+-	}
+-
+-	r = 0;
++	r = ttm_populate_and_map_pages(adev->dev, &gtt->ttm);
+ trace_mappings:
+ 	if (likely(!r))
+ 		amdgpu_trace_dma_map(ttm);
+@@ -989,7 +968,6 @@ static void amdgpu_ttm_tt_unpopulate(struct ttm_tt *ttm)
+ {
+ 	struct amdgpu_device *adev;
+ 	struct amdgpu_ttm_tt *gtt = (void *)ttm;
+-	unsigned i;
+ 	bool slave = !!(ttm->page_flags & TTM_PAGE_FLAG_SG);
+ 
+ 	if (gtt && gtt->userptr) {
+@@ -1012,14 +990,7 @@ static void amdgpu_ttm_tt_unpopulate(struct ttm_tt *ttm)
+ 	}
+ #endif
+ 
+-	for (i = 0; i < ttm->num_pages; i++) {
+-		if (gtt->ttm.dma_address[i]) {
+-			pci_unmap_page(adev->pdev, gtt->ttm.dma_address[i],
+-				       PAGE_SIZE, PCI_DMA_BIDIRECTIONAL);
+-		}
+-	}
+-
+-	ttm_pool_unpopulate(ttm);
++	ttm_unmap_and_unpopulate_pages(adev->dev, &gtt->ttm);
+ }
+ 
+ int amdgpu_ttm_tt_set_userptr(struct ttm_tt *ttm, uint64_t addr,
+diff --git a/include/drm/ttm/ttm_page_alloc.h b/include/drm/ttm/ttm_page_alloc.h
+index 49a8284..8695918 100644
+--- a/include/drm/ttm/ttm_page_alloc.h
++++ b/include/drm/ttm/ttm_page_alloc.h
+@@ -83,6 +83,17 @@ extern int ttm_dma_page_alloc_debugfs(struct seq_file *m, void *data);
+ extern int ttm_dma_populate(struct ttm_dma_tt *ttm_dma, struct device *dev);
+ extern void ttm_dma_unpopulate(struct ttm_dma_tt *ttm_dma, struct device *dev);
+ 
++
++/**
++ * Populates and DMA maps pages to fullfil a ttm_dma_populate() request
++ */
++int ttm_populate_and_map_pages(struct device *dev, struct ttm_dma_tt *tt);
++
++/**
++ * Unpopulates and DMA unmaps pages as part of a
++ * ttm_dma_unpopulate() request */
++void ttm_unmap_and_unpopulate_pages(struct device *dev, struct ttm_dma_tt *tt);
++
+ #else
+ static inline int ttm_dma_page_alloc_init(struct ttm_mem_global *glob,
+ 					  unsigned max_pages)
+-- 
+2.7.4
+

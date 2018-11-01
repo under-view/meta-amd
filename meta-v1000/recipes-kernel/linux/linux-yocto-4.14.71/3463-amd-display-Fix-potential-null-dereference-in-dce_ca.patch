@@ -1,0 +1,35 @@
+From ee37234da6edb8cc04d0c5677af055851757b009 Mon Sep 17 00:00:00 2001
+From: =?UTF-8?q?Ernst=20Sj=C3=B6strand?= <ernstp@gmail.com>
+Date: Wed, 8 Nov 2017 22:47:06 +0100
+Subject: [PATCH 3463/4131] amd/display: Fix potential null dereference in
+ dce_calcs.c
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+Reported by smatch:
+bw_calcs() error: potential null dereference 'data'
+
+Reviewed-by: Alex Deucher <alexander.deucher@amd.com>
+Signed-off-by: Ernst Sjöstrand <ernstp@gmail.com>
+Signed-off-by: Alex Deucher <alexander.deucher@amd.com>
+---
+ drivers/gpu/drm/amd/display/dc/calcs/dce_calcs.c | 2 ++
+ 1 file changed, 2 insertions(+)
+
+diff --git a/drivers/gpu/drm/amd/display/dc/calcs/dce_calcs.c b/drivers/gpu/drm/amd/display/dc/calcs/dce_calcs.c
+index 9462d33..f975ecd 100644
+--- a/drivers/gpu/drm/amd/display/dc/calcs/dce_calcs.c
++++ b/drivers/gpu/drm/amd/display/dc/calcs/dce_calcs.c
+@@ -2917,6 +2917,8 @@ bool bw_calcs(struct dc_context *ctx,
+ {
+ 	struct bw_calcs_data *data = kzalloc(sizeof(struct bw_calcs_data),
+ 					     GFP_KERNEL);
++	if (!data)
++		return false;
+ 
+ 	populate_initial_data(pipe, pipe_count, data);
+ 
+-- 
+2.7.4
+

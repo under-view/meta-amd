@@ -1,0 +1,96 @@
+From 9a142b6c2cbae5ab9b2f0b36b285745a44f456b7 Mon Sep 17 00:00:00 2001
+From: Chunming Zhou <david1.zhou@amd.com>
+Date: Fri, 16 Mar 2018 12:29:38 +0800
+Subject: [PATCH 3908/4131] drm/amdgpu: Don't change preferred domian when
+ fallback GTT v5
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+v2: add sanity checking
+v3: make code open
+v4: also handle visible to invisible fallback
+v5: Since two fallback cases, re-use goto retry
+
+Change-Id: I2cf672ad36b8b4cc1a6b2e704f786bf6a155d9ce
+Signed-off-by: Chunming Zhou <david1.zhou@amd.com>
+Reviewed-by: Christian König <christian.koenig@amd.com>
+---
+ drivers/gpu/drm/amd/amdgpu/amdgpu_gem.c    | 15 +--------------
+ drivers/gpu/drm/amd/amdgpu/amdgpu_object.c | 17 +++++++++++++++--
+ 2 files changed, 16 insertions(+), 16 deletions(-)
+
+diff --git a/drivers/gpu/drm/amd/amdgpu/amdgpu_gem.c b/drivers/gpu/drm/amd/amdgpu/amdgpu_gem.c
+index d6403dd..60870dd 100644
+--- a/drivers/gpu/drm/amd/amdgpu/amdgpu_gem.c
++++ b/drivers/gpu/drm/amd/amdgpu/amdgpu_gem.c
+@@ -74,26 +74,13 @@ int amdgpu_gem_object_create(struct amdgpu_device *adev, unsigned long size,
+ 		}
+ 	}
+ 
+-retry:
+ 	r = amdgpu_bo_create(adev, size, alignment, initial_domain,
+ 				flags, type, resv, &bo);
+ 	if (r) {
+-		if (r != -ERESTARTSYS) {
+-			if (flags & AMDGPU_GEM_CREATE_CPU_ACCESS_REQUIRED) {
+-				flags &= ~AMDGPU_GEM_CREATE_CPU_ACCESS_REQUIRED;
+-				goto retry;
+-			}
+-
+-			if (initial_domain == AMDGPU_GEM_DOMAIN_VRAM) {
+-				initial_domain |= AMDGPU_GEM_DOMAIN_GTT;
+-				goto retry;
+-			}
+ 			DRM_DEBUG("Failed to allocate GEM object (%ld, %d, %u, %d)\n",
+ 				  size, initial_domain, alignment, r);
+-		}
+-		return r;
++			return r;
+ 	}
+-
+ 	*obj = &bo->gem_base;
+ 
+ 	return 0;
+diff --git a/drivers/gpu/drm/amd/amdgpu/amdgpu_object.c b/drivers/gpu/drm/amd/amdgpu/amdgpu_object.c
+index 3f0012f..e105d17 100755
+--- a/drivers/gpu/drm/amd/amdgpu/amdgpu_object.c
++++ b/drivers/gpu/drm/amd/amdgpu/amdgpu_object.c
+@@ -379,6 +379,7 @@ static int amdgpu_bo_do_create(struct amdgpu_device *adev, unsigned long size,
+ 	struct amdgpu_bo *bo;
+ 	unsigned long page_align;
+ 	size_t acc_size;
++	u32 domains;
+ 	int r;
+ 
+ 	page_align = roundup(byte_align, PAGE_SIZE) >> PAGE_SHIFT;
+@@ -442,12 +443,24 @@ static int amdgpu_bo_do_create(struct amdgpu_device *adev, unsigned long size,
+ #endif
+ 
+ 	bo->tbo.bdev = &adev->mman.bdev;
+-	amdgpu_ttm_placement_from_domain(bo, domain);
++	domains = bo->preferred_domains;
++retry:
++	amdgpu_ttm_placement_from_domain(bo, domains);
+ 
+ 	r = ttm_bo_init_reserved(&adev->mman.bdev, &bo->tbo, size, type,
+ 				 &bo->placement, page_align, &ctx, acc_size,
+ 				 NULL, resv, &amdgpu_ttm_bo_destroy);
+-	if (unlikely(r != 0))
++
++        if (unlikely(r && r != -ERESTARTSYS)) {
++                if (bo->flags & AMDGPU_GEM_CREATE_CPU_ACCESS_REQUIRED) {
++                        bo->flags &= ~AMDGPU_GEM_CREATE_CPU_ACCESS_REQUIRED;
++                        goto retry;
++                } else if (domains != bo->preferred_domains) {
++                        domains = bo->allowed_domains;
++                        goto retry;
++                }
++	}
++	if (unlikely(r))
+ 		return r;
+ 
+ 	if (adev->gmc.visible_vram_size < adev->gmc.real_vram_size &&
+-- 
+2.7.4
+

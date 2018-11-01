@@ -1,0 +1,32 @@
+From 5e9d99bd5762025f5f159bc40dc327fc878acdc8 Mon Sep 17 00:00:00 2001
+From: Eric Huang <JinHuiEric.Huang@amd.com>
+Date: Mon, 26 Feb 2018 17:36:19 -0500
+Subject: [PATCH 3614/4131] drm/amd/powerplay: fix power over limit on Fiji
+
+power containment disabled only on Fiji and compute
+power profile. It violates PCIe spec and may cause power
+supply failed. Enabling it will fix the issue, even the
+fix will drop performance of some compute tests.
+
+Signed-off-by: Eric Huang <JinHuiEric.Huang@amd.com>
+Reviewed-by: Felix Kuehling <Felix.Kuehling@amd.com>
+---
+ drivers/gpu/drm/amd/amdgpu/uvd_v6_0.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/drivers/gpu/drm/amd/amdgpu/uvd_v6_0.c b/drivers/gpu/drm/amd/amdgpu/uvd_v6_0.c
+index 9241218..981e233 100644
+--- a/drivers/gpu/drm/amd/amdgpu/uvd_v6_0.c
++++ b/drivers/gpu/drm/amd/amdgpu/uvd_v6_0.c
+@@ -1615,7 +1615,7 @@ static const struct amdgpu_ring_funcs uvd_v6_0_enc_ring_vm_funcs = {
+ 		4 + /* uvd_v6_0_enc_ring_emit_pipeline_sync */
+ 		5 + /* uvd_v6_0_enc_ring_emit_vm_flush */
+ 		5 + 5 + /* uvd_v6_0_enc_ring_emit_fence x2 vm fence */
+-		1, /* uvd_v6_0_enc_ring_insert_end */
++		1, /* uvd_v6_0_enc_ring_insert_end  */
+ 	.emit_ib_size = 5, /* uvd_v6_0_enc_ring_emit_ib */
+ 	.emit_ib = uvd_v6_0_enc_ring_emit_ib,
+ 	.emit_fence = uvd_v6_0_enc_ring_emit_fence,
+-- 
+2.7.4
+

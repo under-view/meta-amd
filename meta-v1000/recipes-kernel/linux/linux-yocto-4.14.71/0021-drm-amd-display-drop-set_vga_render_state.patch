@@ -1,0 +1,43 @@
+From 648d6c7d40abc7280d94c7ade8dff1a94c29d5a1 Mon Sep 17 00:00:00 2001
+From: Alex Deucher <alexander.deucher@amd.com>
+Date: Thu, 15 Jun 2017 16:02:46 -0400
+Subject: [PATCH 0021/4131] drm/amd/display: drop set_vga_render_state
+
+no longer used.
+
+Signed-off-by: Alex Deucher <alexander.deucher@amd.com>
+---
+ drivers/gpu/drm/amd/display/amdgpu_dm/amdgpu_dm.c | 3 ---
+ 1 file changed, 3 deletions(-)
+
+diff --git a/drivers/gpu/drm/amd/display/amdgpu_dm/amdgpu_dm.c b/drivers/gpu/drm/amd/display/amdgpu_dm/amdgpu_dm.c
+index 333c835..fb108d7 100644
+--- a/drivers/gpu/drm/amd/display/amdgpu_dm/amdgpu_dm.c
++++ b/drivers/gpu/drm/amd/display/amdgpu_dm/amdgpu_dm.c
+@@ -1399,7 +1399,6 @@ static int amdgpu_notify_freesync(struct drm_device *dev, void *data,
+ 
+ #ifdef CONFIG_DRM_AMDGPU_CIK
+ static const struct amdgpu_display_funcs dm_dce_v8_0_display_funcs = {
+-	.set_vga_render_state = dce_v8_0_set_vga_render_state,
+ 	.bandwidth_update = dm_bandwidth_update, /* called unconditionally */
+ 	.vblank_get_counter = dm_vblank_get_counter,/* called unconditionally */
+ 	.vblank_wait = NULL,
+@@ -1422,7 +1421,6 @@ static const struct amdgpu_display_funcs dm_dce_v8_0_display_funcs = {
+ #endif
+ 
+ static const struct amdgpu_display_funcs dm_dce_v10_0_display_funcs = {
+-	.set_vga_render_state = dce_v10_0_set_vga_render_state,
+ 	.bandwidth_update = dm_bandwidth_update, /* called unconditionally */
+ 	.vblank_get_counter = dm_vblank_get_counter,/* called unconditionally */
+ 	.vblank_wait = NULL,
+@@ -1445,7 +1443,6 @@ static const struct amdgpu_display_funcs dm_dce_v10_0_display_funcs = {
+ };
+ 
+ static const struct amdgpu_display_funcs dm_dce_v11_0_display_funcs = {
+-	.set_vga_render_state = dce_v11_0_set_vga_render_state,
+ 	.bandwidth_update = dm_bandwidth_update, /* called unconditionally */
+ 	.vblank_get_counter = dm_vblank_get_counter,/* called unconditionally */
+ 	.vblank_wait = NULL,
+-- 
+2.7.4
+

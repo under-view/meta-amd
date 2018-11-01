@@ -1,0 +1,32 @@
+From 27832aac5872fe9da7ba184c076bf1684c5dfbbc Mon Sep 17 00:00:00 2001
+From: John Barberiz <jbarberi@amd.com>
+Date: Tue, 23 Jan 2018 11:47:15 -0500
+Subject: [PATCH 3506/4131] drm/amd/display: Fixed if statement parameters to
+ add a delay on disconnect
+
+Signed-off-by: John Barberiz <jbarberi@amd.com>
+Reviewed-by: Tony Cheng <Tony.Cheng@amd.com>
+Acked-by: Harry Wentland <harry.wentland@amd.com>
+Signed-off-by: Alex Deucher <alexander.deucher@amd.com>
+---
+ drivers/gpu/drm/amd/display/dc/core/dc_link.c | 4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
+
+diff --git a/drivers/gpu/drm/amd/display/dc/core/dc_link.c b/drivers/gpu/drm/amd/display/dc/core/dc_link.c
+index 629aa04..5f7896d 100644
+--- a/drivers/gpu/drm/amd/display/dc/core/dc_link.c
++++ b/drivers/gpu/drm/amd/display/dc/core/dc_link.c
+@@ -699,8 +699,8 @@ bool dc_link_detect(struct dc_link *link, enum dc_detect_reason reason)
+ 		}
+ 
+ 		/* Add delay for certain monitors */
+-		if (sink->edid_caps.panel_patch.disconnect_delay > 0 &&
+-				SIGNAL_TYPE_HDMI_TYPE_A)
++		if (sink->edid_caps.panel_patch.disconnect_delay > 0
++				&& sink->sink_signal == SIGNAL_TYPE_HDMI_TYPE_A)
+ 			program_hpd_filter(link, sink->edid_caps.panel_patch.disconnect_delay);
+ 		else
+ 			program_hpd_filter(link, DEFAULT_DELAY_DISCONNECT);
+-- 
+2.7.4
+

@@ -1,0 +1,47 @@
+From a12ae6f937b04d618a837cbbe81c180053041634 Mon Sep 17 00:00:00 2001
+From: Harry Wentland <harry.wentland@amd.com>
+Date: Tue, 24 Oct 2017 09:19:32 -0400
+Subject: [PATCH 2668/4131] drm/amd/display: Fix Freesync enablement
+
+With our recent change to save Freesync properties as part
+of the atomic state we removed the call to enable freesync
+when the property is being set. Apparently that is still
+needed.
+
+Signed-off-by: Harry Wentland <harry.wentland@amd.com>
+Reviewed-by: Tony Cheng <Tony.Cheng@amd.com>
+Acked-by: Harry Wentland <harry.wentland@amd.com>
+Signed-off-by: Alex Deucher <alexander.deucher@amd.com>
+---
+ drivers/gpu/drm/amd/display/amdgpu_dm/amdgpu_dm.c | 12 ++++++++++++
+ 1 file changed, 12 insertions(+)
+
+diff --git a/drivers/gpu/drm/amd/display/amdgpu_dm/amdgpu_dm.c b/drivers/gpu/drm/amd/display/amdgpu_dm/amdgpu_dm.c
+index 9c4b2d8..dd69c02 100644
+--- a/drivers/gpu/drm/amd/display/amdgpu_dm/amdgpu_dm.c
++++ b/drivers/gpu/drm/amd/display/amdgpu_dm/amdgpu_dm.c
+@@ -2625,9 +2625,21 @@ int amdgpu_dm_connector_atomic_set_property(struct drm_connector *connector,
+ 		dm_new_state->underscan_enable = val;
+ 		ret = 0;
+ 	} else if (property == adev->mode_info.freesync_property) {
++		struct amdgpu_crtc *acrtc;
++		struct dm_crtc_state *acrtc_state;
++
+ 		dm_new_state->user_enable.enable_for_gaming = val;
+ 		dm_new_state->user_enable.enable_for_static = val;
+ 		dm_new_state->user_enable.enable_for_video = val;
++
++		if (adev->dm.freesync_module && connector_state->crtc) {
++			acrtc = to_amdgpu_crtc(connector_state->crtc);
++			acrtc_state = to_dm_crtc_state(connector_state->crtc->state);
++			mod_freesync_set_user_enable(adev->dm.freesync_module,
++						     &acrtc_state->stream, 1,
++						     &dm_new_state->user_enable);
++		}
++
+ 		ret = 0;
+ 	} else if (property == adev->mode_info.freesync_capable_property) {
+ 		dm_new_state->freesync_capable = val;
+-- 
+2.7.4
+

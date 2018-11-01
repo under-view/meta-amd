@@ -1,0 +1,46 @@
+From 4f4b5676f98e82eb8e9bd56aa6c7c0fdbeabf430 Mon Sep 17 00:00:00 2001
+From: Tom St Denis <tom.stdenis@amd.com>
+Date: Fri, 1 Sep 2017 09:52:21 -0400
+Subject: [PATCH 0900/4131] drm/amd/amdgpu: Tidy up gmc_v9_0_gart_enable()
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+Signed-off-by: Tom St Denis <tom.stdenis@amd.com>
+Reviewed-by: Alex Deucher <alexander.deucher@amd.com>
+Reviewed-by: Christian König <christian.koenig@amd.com>
+---
+ drivers/gpu/drm/amd/amdgpu/gmc_v9_0.c | 6 +-----
+ 1 file changed, 1 insertion(+), 5 deletions(-)
+
+diff --git a/drivers/gpu/drm/amd/amdgpu/gmc_v9_0.c b/drivers/gpu/drm/amd/amdgpu/gmc_v9_0.c
+index 92574ee..2446b19 100644
+--- a/drivers/gpu/drm/amd/amdgpu/gmc_v9_0.c
++++ b/drivers/gpu/drm/amd/amdgpu/gmc_v9_0.c
+@@ -731,14 +731,11 @@ static int gmc_v9_0_gart_enable(struct amdgpu_device *adev)
+ 	if (r)
+ 		return r;
+ 
+-	tmp = RREG32_SOC15(HDP, 0, mmHDP_MISC_CNTL);
+-	tmp |= HDP_MISC_CNTL__FLUSH_INVALIDATE_CACHE_MASK;
+-	WREG32_SOC15(HDP, 0, mmHDP_MISC_CNTL, tmp);
++	WREG32_FIELD15(HDP, 0, HDP_MISC_CNTL, FLUSH_INVALIDATE_CACHE, 1);
+ 
+ 	tmp = RREG32_SOC15(HDP, 0, mmHDP_HOST_PATH_CNTL);
+ 	WREG32_SOC15(HDP, 0, mmHDP_HOST_PATH_CNTL, tmp);
+ 
+-
+ 	if (amdgpu_vm_fault_stop == AMDGPU_VM_FAULT_STOP_ALWAYS)
+ 		value = false;
+ 	else
+@@ -746,7 +743,6 @@ static int gmc_v9_0_gart_enable(struct amdgpu_device *adev)
+ 
+ 	gfxhub_v1_0_set_fault_enable_default(adev, value);
+ 	mmhub_v1_0_set_fault_enable_default(adev, value);
+-
+ 	gmc_v9_0_gart_flush_gpu_tlb(adev, 0);
+ 
+ 	DRM_INFO("PCIE GART of %uM enabled (table at 0x%016llX).\n",
+-- 
+2.7.4
+

@@ -1,0 +1,29 @@
+From b6321802403019b6b9c7ddde433ad556f862706a Mon Sep 17 00:00:00 2001
+From: Alex Deucher <alexander.deucher@amd.com>
+Date: Fri, 1 Sep 2017 16:50:28 -0400
+Subject: [PATCH 3875/4131] drm/amdgpu/sdma4: add clockgating support for
+ vega12
+
+Same as vega10 for now.
+
+Signed-off-by: Alex Deucher <alexander.deucher@amd.com>
+Reviewed-by: Feifei Xu <Feifei.Xu@amd.com>
+---
+ drivers/gpu/drm/amd/amdgpu/sdma_v4_0.c | 1 +
+ 1 file changed, 1 insertion(+)
+
+diff --git a/drivers/gpu/drm/amd/amdgpu/sdma_v4_0.c b/drivers/gpu/drm/amd/amdgpu/sdma_v4_0.c
+index adb0dbf..f34b63c 100644
+--- a/drivers/gpu/drm/amd/amdgpu/sdma_v4_0.c
++++ b/drivers/gpu/drm/amd/amdgpu/sdma_v4_0.c
+@@ -1507,6 +1507,7 @@ static int sdma_v4_0_set_clockgating_state(void *handle,
+ 
+ 	switch (adev->asic_type) {
+ 	case CHIP_VEGA10:
++	case CHIP_VEGA12:
+ 	case CHIP_RAVEN:
+ 		sdma_v4_0_update_medium_grain_clock_gating(adev,
+ 				state == AMD_CG_STATE_GATE ? true : false);
+-- 
+2.7.4
+

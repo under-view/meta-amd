@@ -1,0 +1,77 @@
+From 3d31f59db551e47eaca873260cf9846e101dbee8 Mon Sep 17 00:00:00 2001
+From: Tom St Denis <tom.stdenis@amd.com>
+Date: Fri, 18 Aug 2017 10:04:57 -0400
+Subject: [PATCH 0005/4131] drm/ttm: Add helper functions to populate/map in
+ one call (v2)
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+These functions replace a section of common code found
+in radeon/amdgpu drivers (and possibly others) as part
+of the ttm_tt_*populate() callbacks.
+
+v2: squash in fix for sw iommu from Tom
+
+Signed-off-by: Tom St Denis <tom.stdenis@amd.com>
+Reviewed-by: Christian König <christian.koenig@amd.com>
+Signed-off-by: Alex Deucher <alexander.deucher@amd.com>
+---
+ drivers/gpu/drm/ttm/ttm_page_alloc.c | 41 ++++++++++++++++++++++++++++++++++++
+ 1 file changed, 41 insertions(+)
+
+diff --git a/drivers/gpu/drm/ttm/ttm_page_alloc.c b/drivers/gpu/drm/ttm/ttm_page_alloc.c
+index 91f9263..cd2d4de 100644
+--- a/drivers/gpu/drm/ttm/ttm_page_alloc.c
++++ b/drivers/gpu/drm/ttm/ttm_page_alloc.c
+@@ -922,6 +922,47 @@ void ttm_pool_unpopulate(struct ttm_tt *ttm)
+ }
+ EXPORT_SYMBOL(ttm_pool_unpopulate);
+ 
++int ttm_populate_and_map_pages(struct device *dev, struct ttm_dma_tt *tt)
++{
++	unsigned i;
++	int r;
++
++	r = ttm_pool_populate(&tt->ttm);
++	if (r)
++		return r;
++
++	for (i = 0; i < tt->ttm.num_pages; i++) {
++		tt->dma_address[i] = dma_map_page(dev, tt->ttm.pages[i],
++						  0, PAGE_SIZE,
++						  DMA_BIDIRECTIONAL);
++		if (dma_mapping_error(dev, tt->dma_address[i])) {
++			while (i--) {
++				dma_unmap_page(dev, tt->dma_address[i],
++					       PAGE_SIZE, DMA_BIDIRECTIONAL);
++				tt->dma_address[i] = 0;
++			}
++			ttm_pool_unpopulate(&tt->ttm);
++			return -EFAULT;
++		}
++	}
++	return 0;
++}
++EXPORT_SYMBOL(ttm_populate_and_map_pages);
++
++void ttm_unmap_and_unpopulate_pages(struct device *dev, struct ttm_dma_tt *tt)
++{
++	unsigned i;
++	
++	for (i = 0; i < tt->ttm.num_pages; i++) {
++		if (tt->dma_address[i]) {
++			dma_unmap_page(dev, tt->dma_address[i],
++				       PAGE_SIZE, DMA_BIDIRECTIONAL);
++		}
++	}
++	ttm_pool_unpopulate(&tt->ttm);
++}
++EXPORT_SYMBOL(ttm_unmap_and_unpopulate_pages);
++
+ int ttm_page_alloc_debugfs(struct seq_file *m, void *data)
+ {
+ 	struct ttm_page_pool *p;
+-- 
+2.7.4
+

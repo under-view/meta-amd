@@ -1,0 +1,68 @@
+From 8c9d9211e241b97fa67d130436e7346bba28aeec Mon Sep 17 00:00:00 2001
+From: Roman Kapl <rka@sysgo.com>
+Date: Mon, 30 Oct 2017 11:56:13 +0100
+Subject: [PATCH 2095/4131] drm/radeon: fix atombios on big endian
+
+The function for byteswapping the data send to/from atombios was buggy for
+num_bytes not divisible by four. The function must be aware of the fact
+that after byte-swapping the u32 units, valid bytes might end up after the
+num_bytes boundary.
+
+This patch was tested on kernel 3.12 and allowed us to sucesfully use
+DisplayPort on and Radeon SI card. Namely it fixed the link training and
+EDID readout.
+
+The function is patched both in radeon and amd drivers, since the functions
+and the fixes are identical.
+
+Signed-off-by: Roman Kapl <rka@sysgo.com>
+Signed-off-by: Alex Deucher <alexander.deucher@amd.com>
+Cc: stable@vger.kernel.org
+---
+ drivers/gpu/drm/amd/amdgpu/amdgpu_atombios.c | 26 ++++++++++----------------
+ 1 file changed, 10 insertions(+), 16 deletions(-)
+
+diff --git a/drivers/gpu/drm/amd/amdgpu/amdgpu_atombios.c b/drivers/gpu/drm/amd/amdgpu/amdgpu_atombios.c
+index 31a96a3..1f32110 100644
+--- a/drivers/gpu/drm/amd/amdgpu/amdgpu_atombios.c
++++ b/drivers/gpu/drm/amd/amdgpu/amdgpu_atombios.c
+@@ -1778,26 +1778,20 @@ bool amdgpu_atombios_scratch_need_asic_init(struct amdgpu_device *adev)
+ void amdgpu_atombios_copy_swap(u8 *dst, u8 *src, u8 num_bytes, bool to_le)
+ {
+ #ifdef __BIG_ENDIAN
+-        u8 src_tmp[20], dst_tmp[20]; /* used for byteswapping */
+-        u32 *dst32, *src32;
++	u32 src_tmp[5], dst_tmp[5];
+         int i;
++	u8 align_num_bytes = ALIGN(num_bytes, 4);
+ 
+-        memcpy(src_tmp, src, num_bytes);
+-        src32 = (u32 *)src_tmp;
+-        dst32 = (u32 *)dst_tmp;
+         if (to_le) {
+-                for (i = 0; i < ((num_bytes + 3) / 4); i++)
+-                        dst32[i] = cpu_to_le32(src32[i]);
+-                memcpy(dst, dst_tmp, num_bytes);
++		memcpy(src_tmp, src, num_bytes);
++		for (i = 0; i < align_num_bytes / 4; i++)
++			dst_tmp[i] = cpu_to_le32(src_tmp[i]);
++		memcpy(dst, dst_tmp, align_num_bytes);
+         } else {
+-                u8 dws = num_bytes & ~3;
+-                for (i = 0; i < ((num_bytes + 3) / 4); i++)
+-                        dst32[i] = le32_to_cpu(src32[i]);
+-                memcpy(dst, dst_tmp, dws);
+-                if (num_bytes % 4) {
+-                        for (i = 0; i < (num_bytes % 4); i++)
+-                                dst[dws+i] = dst_tmp[dws+i];
+-                }
++		memcpy(src_tmp, src, align_num_bytes);
++		for (i = 0; i < align_num_bytes / 4; i++)
++			dst_tmp[i] = le32_to_cpu(src_tmp[i]);
++		memcpy(dst, dst_tmp, num_bytes);
+         }
+ #else
+         memcpy(dst, src, num_bytes);
+-- 
+2.7.4
+

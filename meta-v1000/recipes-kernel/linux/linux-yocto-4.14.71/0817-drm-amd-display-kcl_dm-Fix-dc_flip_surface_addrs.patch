@@ -1,0 +1,65 @@
+From 366ceaacda264c66c44a2468d89bdf4f4003a732 Mon Sep 17 00:00:00 2001
+From: "Le.Ma" <Le.Ma@amd.com>
+Date: Mon, 14 Aug 2017 19:04:57 +0800
+Subject: [PATCH 0817/4131] drm/amd/display/kcl_dm: Fix dc_flip_surface_addrs()
+
+The core_surface is rolled into dc_surface. And the struct dc_surface is
+renamed to dc_plane_state. Fix them in the interface.
+
+Change-Id: If9859277820ad4967b4691bc870cf0d2ad705b5c
+Signed-off-by: Le.Ma <Le.Ma@amd.com>
+Reviewed-by: Xiaojie Yuan <Xiaojie.Yuan@amd.com>
+---
+ drivers/gpu/drm/amd/display/dc/core/dc.c | 10 +++++-----
+ drivers/gpu/drm/amd/display/dc/dc.h      |  2 +-
+ 2 files changed, 6 insertions(+), 6 deletions(-)
+
+diff --git a/drivers/gpu/drm/amd/display/dc/core/dc.c b/drivers/gpu/drm/amd/display/dc/core/dc.c
+index 2a465b3..c9d817f 100644
+--- a/drivers/gpu/drm/amd/display/dc/core/dc.c
++++ b/drivers/gpu/drm/amd/display/dc/core/dc.c
+@@ -1771,7 +1771,7 @@ const struct audio **dc_get_audios(struct dc *dc)
+ 
+ void dc_flip_surface_addrs(
+ 		struct dc *dc,
+-		const struct dc_surface *const surfaces[],
++		struct dc_plane_state *const plane_states[],
+ 		struct dc_flip_addrs flip_addrs[],
+ 		uint32_t count)
+ {
+@@ -1779,15 +1779,15 @@ void dc_flip_surface_addrs(
+ 	int i, j;
+ 
+ 	for (i = 0; i < count; i++) {
+-		struct core_surface *surface = DC_SURFACE_TO_CORE(surfaces[i]);
++		struct dc_plane_state *plane_state = plane_states[i];
+ 
+-		surface->public.address = flip_addrs[i].address;
+-		surface->public.flip_immediate = flip_addrs[i].flip_immediate;
++		plane_state->address = flip_addrs[i].address;
++		plane_state->flip_immediate = flip_addrs[i].flip_immediate;
+ 
+ 		for (j = 0; j < core_dc->res_pool->pipe_count; j++) {
+ 			struct pipe_ctx *pipe_ctx = &core_dc->current_context->res_ctx.pipe_ctx[j];
+ 
+-			if (pipe_ctx->surface != surface)
++			if (pipe_ctx->plane_state != plane_state)
+ 				continue;
+ 
+ 			core_dc->hwss.update_plane_addr(core_dc, pipe_ctx);
+diff --git a/drivers/gpu/drm/amd/display/dc/dc.h b/drivers/gpu/drm/amd/display/dc/dc.h
+index 52f132a..9d08e68 100644
+--- a/drivers/gpu/drm/amd/display/dc/dc.h
++++ b/drivers/gpu/drm/amd/display/dc/dc.h
+@@ -418,7 +418,7 @@ struct dc_flip_addrs {
+  *   Surface flip occur at next configured time (h_sync or v_sync flip)
+  */
+ void dc_flip_surface_addrs(struct dc *dc,
+-		const struct dc_surface *const surfaces[],
++		struct dc_plane_state *const plane_states[],
+ 		struct dc_flip_addrs flip_addrs[],
+ 		uint32_t count);
+ 
+-- 
+2.7.4
+

@@ -1,0 +1,40 @@
+From fafede318a4c640bae7b6ee8708d74d76dcda099 Mon Sep 17 00:00:00 2001
+From: "Le.Ma" <Le.Ma@amd.com>
+Date: Mon, 4 Sep 2017 16:07:42 +0800
+Subject: [PATCH 0815/4131] drm/amdkcl: [4.13] Temporarily skip sync objects
+ part for kernel < 4.13
+
+The sync objects feature is introduced in 4.13 as commits below:
+
+  - 660e855 amdgpu: use drm sync objects for shared semaphores (v6)
+  - e908342 drm: introduce sync objects (v4)
+
+Since now we work for 4.13 DKMS bring up and this feature is not fully tested yet,
+just skip it as a workaround for now. Will add it for kernel < 4.13 later.
+
+Change-Id: I2a6c284365ac81a1390740c491e86608386156d2
+Signed-off-by: Le.Ma <Le.Ma@amd.com>
+Reviewed-by: Junwei Zhang <Jerry.Zhang@amd.com>
+---
+ drivers/gpu/drm/amd/amdgpu/amdgpu_drv.c | 4 ++++
+ 1 file changed, 4 insertions(+)
+
+diff --git a/drivers/gpu/drm/amd/amdgpu/amdgpu_drv.c b/drivers/gpu/drm/amd/amdgpu/amdgpu_drv.c
+index 0bf678f..6498942 100644
+--- a/drivers/gpu/drm/amd/amdgpu/amdgpu_drv.c
++++ b/drivers/gpu/drm/amd/amdgpu/amdgpu_drv.c
+@@ -812,7 +812,11 @@ static struct drm_driver kms_driver = {
+ 	.driver_features =
+ 	    DRIVER_USE_AGP |
+ 	    DRIVER_HAVE_IRQ | DRIVER_IRQ_SHARED | DRIVER_GEM |
++#if LINUX_VERSION_CODE >= KERNEL_VERSION(4, 13, 0)
+ 	    DRIVER_PRIME | DRIVER_RENDER | DRIVER_MODESET | DRIVER_SYNCOBJ,
++#else
++	    DRIVER_PRIME | DRIVER_RENDER | DRIVER_MODESET,
++#endif
+ 	.load = amdgpu_driver_load_kms,
+ 	.open = amdgpu_driver_open_kms,
+ 	.postclose = amdgpu_driver_postclose_kms,
+-- 
+2.7.4
+

@@ -1,0 +1,51 @@
+From 28cedc40dc151b707d598f536e1b807b9b4c7436 Mon Sep 17 00:00:00 2001
+From: Huang Rui <ray.huang@amd.com>
+Date: Thu, 21 Dec 2017 15:03:31 +0800
+Subject: [PATCH 4034/4131] drm/amdgpu: enter rlc safe mode before set cgpg
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+Signed-off-by: Huang Rui <ray.huang@amd.com>
+Acked-by: Hawking Zhang <Hawking.Zhang@amd.com>
+Acked-by: Alex Deucher <alexander.deucher@amd.com>
+Acked-by: Christian König <christian.koenig@amd.com>
+---
+ drivers/gpu/drm/amd/amdgpu/gfx_v9_0.c | 7 +++----
+ 1 file changed, 3 insertions(+), 4 deletions(-)
+
+diff --git a/drivers/gpu/drm/amd/amdgpu/gfx_v9_0.c b/drivers/gpu/drm/amd/amdgpu/gfx_v9_0.c
+index 17637a2..fb559a2 100644
+--- a/drivers/gpu/drm/amd/amdgpu/gfx_v9_0.c
++++ b/drivers/gpu/drm/amd/amdgpu/gfx_v9_0.c
+@@ -3390,8 +3390,7 @@ static void gfx_v9_0_exit_rlc_safe_mode(struct amdgpu_device *adev)
+ static void gfx_v9_0_update_gfx_cg_power_gating(struct amdgpu_device *adev,
+ 						bool enable)
+ {
+-	/* TODO: double check if we need to perform under safe mdoe */
+-	/* gfx_v9_0_enter_rlc_safe_mode(adev); */
++	gfx_v9_0_enter_rlc_safe_mode(adev);
+ 
+ 	if ((adev->pg_flags & AMD_PG_SUPPORT_GFX_PG) && enable) {
+ 		gfx_v9_0_enable_gfx_cg_power_gating(adev, true);
+@@ -3402,7 +3401,7 @@ static void gfx_v9_0_update_gfx_cg_power_gating(struct amdgpu_device *adev,
+ 		gfx_v9_0_enable_gfx_pipeline_powergating(adev, false);
+ 	}
+ 
+-	/* gfx_v9_0_exit_rlc_safe_mode(adev); */
++	gfx_v9_0_exit_rlc_safe_mode(adev);
+ }
+ 
+ static void gfx_v9_0_update_gfx_mg_power_gating(struct amdgpu_device *adev,
+@@ -3801,7 +3800,7 @@ static void gfx_v9_0_ring_emit_ib_gfx(struct amdgpu_ring *ring,
+ 	}
+ 
+ 	amdgpu_ring_write(ring, header);
+-BUG_ON(ib->gpu_addr & 0x3); /* Dword align */
++	BUG_ON(ib->gpu_addr & 0x3); /* Dword align */
+ 	amdgpu_ring_write(ring,
+ #ifdef __BIG_ENDIAN
+ 		(2 << 0) |
+-- 
+2.7.4
+

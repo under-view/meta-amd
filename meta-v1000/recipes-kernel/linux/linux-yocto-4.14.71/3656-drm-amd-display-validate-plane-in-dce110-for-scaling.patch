@@ -1,0 +1,49 @@
+From 4123e3a6974b911384114dae03c5204d2d7b6279 Mon Sep 17 00:00:00 2001
+From: Shirish S <shirish.s@amd.com>
+Date: Tue, 13 Feb 2018 14:11:37 +0530
+Subject: [PATCH 3656/4131] drm/amd/display: validate plane in dce110 for
+ scaling
+
+CZ & ST support uptil a limit 2:1 downscaling, this patch
+adds validate_plane hook, that shall be used to validate
+the plane attributes sent by the user space based
+on dce110 capabilities.
+
+Signed-off-by: Shirish S <shirish.s@amd.com>
+Reviewed-by: Harry Wentland <Harry.Wentland@amd.com>
+---
+ drivers/gpu/drm/amd/display/dc/dce110/dce110_resource.c | 11 +++++++++++
+ 1 file changed, 11 insertions(+)
+
+diff --git a/drivers/gpu/drm/amd/display/dc/dce110/dce110_resource.c b/drivers/gpu/drm/amd/display/dc/dce110/dce110_resource.c
+index 9b34c40..830cbbc 100644
+--- a/drivers/gpu/drm/amd/display/dc/dce110/dce110_resource.c
++++ b/drivers/gpu/drm/amd/display/dc/dce110/dce110_resource.c
+@@ -846,6 +846,16 @@ static bool dce110_validate_bandwidth(
+ 	return result;
+ }
+ 
++enum dc_status dce110_validate_plane(const struct dc_plane_state *plane_state,
++				     struct dc_caps *caps)
++{
++	if (((plane_state->dst_rect.width * 2) < plane_state->src_rect.width) ||
++	    ((plane_state->dst_rect.height * 2) < plane_state->src_rect.height))
++		return DC_FAIL_SURFACE_VALIDATE;
++
++	return DC_OK;
++}
++
+ static bool dce110_validate_surface_sets(
+ 		struct dc_state *context)
+ {
+@@ -1021,6 +1031,7 @@ static const struct resource_funcs dce110_res_pool_funcs = {
+ 	.link_enc_create = dce110_link_encoder_create,
+ 	.validate_guaranteed = dce110_validate_guaranteed,
+ 	.validate_bandwidth = dce110_validate_bandwidth,
++	.validate_plane = dce110_validate_plane,
+ 	.acquire_idle_pipe_for_layer = dce110_acquire_underlay,
+ 	.add_stream_to_ctx = dce110_add_stream_to_ctx,
+ 	.validate_global = dce110_validate_global
+-- 
+2.7.4
+

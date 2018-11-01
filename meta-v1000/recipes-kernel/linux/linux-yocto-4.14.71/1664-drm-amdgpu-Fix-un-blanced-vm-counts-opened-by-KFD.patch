@@ -1,0 +1,41 @@
+From 304bc343e8404899bb3ef6e68073e8ca12b234f5 Mon Sep 17 00:00:00 2001
+From: Shaoyun Liu <Shaoyun.Liu@amd.com>
+Date: Thu, 20 Apr 2017 14:39:48 -0400
+Subject: [PATCH 1664/4131] drm/amdgpu: Fix un-blanced vm counts opened by KFD
+
+Change-Id: I8472b7a77e0e6c05a753ba087400823f5622d343
+Signed-off-by: Shaoyun Liu <Shaoyun.Liu@amd.com>
+
+ Conflicts:
+	drivers/gpu/drm/amd/amdgpu/amdgpu_vm.c
+---
+ drivers/gpu/drm/amd/amdgpu/amdgpu_vm.c | 6 ++++--
+ 1 file changed, 4 insertions(+), 2 deletions(-)
+
+diff --git a/drivers/gpu/drm/amd/amdgpu/amdgpu_vm.c b/drivers/gpu/drm/amd/amdgpu/amdgpu_vm.c
+index 43fba1a..1c0f841 100644
+--- a/drivers/gpu/drm/amd/amdgpu/amdgpu_vm.c
++++ b/drivers/gpu/drm/amd/amdgpu/amdgpu_vm.c
+@@ -2606,7 +2606,8 @@ int amdgpu_vm_init(struct amdgpu_device *adev, struct amdgpu_vm *vm,
+ 
+ 		mutex_lock(&id_mgr->lock);
+ 
+-		if ((!amdgpu_sriov_vf(adev)) && adev->vm_manager.n_compute_vms++ == 0) {
++		if ((adev->vm_manager.n_compute_vms++ == 0) &&
++			(!amdgpu_sriov_vf(adev))) {
+ 			/* First Compute VM: enable compute power profile */
+ 			if (adev->pp_enabled)
+ 				amdgpu_dpm_switch_power_profile(adev,
+@@ -2681,7 +2682,8 @@ void amdgpu_vm_fini(struct amdgpu_device *adev, struct amdgpu_vm *vm)
+ 
+ 		WARN(adev->vm_manager.n_compute_vms == 0, "Unbalanced number of Compute VMs");
+ 
+-		if (--adev->vm_manager.n_compute_vms == 0) {
++		if ((--adev->vm_manager.n_compute_vms == 0) &&
++			(!amdgpu_sriov_vf(adev))) {
+ 			/* Last Compute VM: enable graphics power profile */
+ 			if (adev->pp_enabled)
+ 				amdgpu_dpm_switch_power_profile(adev,
+-- 
+2.7.4
+

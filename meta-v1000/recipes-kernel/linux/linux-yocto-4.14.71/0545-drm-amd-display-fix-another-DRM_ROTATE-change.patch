@@ -1,0 +1,26 @@
+From cceaa3f077f579ae7c0708aa98d5223318c297d9 Mon Sep 17 00:00:00 2001
+From: Alex Deucher <alexander.deucher@amd.com>
+Date: Tue, 27 Jun 2017 18:14:31 -0400
+Subject: [PATCH 0545/4131] drm/amd/display: fix another DRM_ROTATE change
+
+Signed-off-by: Alex Deucher <alexander.deucher@amd.com>
+---
+ drivers/gpu/drm/amd/display/amdgpu_dm/amdgpu_dm_types.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/drivers/gpu/drm/amd/display/amdgpu_dm/amdgpu_dm_types.c b/drivers/gpu/drm/amd/display/amdgpu_dm/amdgpu_dm_types.c
+index 7cfe098..5a87f1b 100644
+--- a/drivers/gpu/drm/amd/display/amdgpu_dm/amdgpu_dm_types.c
++++ b/drivers/gpu/drm/amd/display/amdgpu_dm/amdgpu_dm_types.c
+@@ -1510,7 +1510,7 @@ static void dm_drm_plane_reset(struct drm_plane *plane)
+ 	if (amdgpu_state) {
+ 		plane->state = &amdgpu_state->base;
+ 		plane->state->plane = plane;
+-		plane->state->rotation = DRM_ROTATE_0;
++		plane->state->rotation = DRM_MODE_ROTATE_0;
+ 
+ 		amdgpu_state->dc_surface = dc_create_surface(adev->dm.dc);
+ 		WARN_ON(!amdgpu_state->dc_surface);
+-- 
+2.7.4
+

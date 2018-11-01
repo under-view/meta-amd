@@ -1,0 +1,39 @@
+From 5922e6392e4f9b4d12a1d08ac3bf72d08c591585 Mon Sep 17 00:00:00 2001
+From: Alex Deucher <alexander.deucher@amd.com>
+Date: Fri, 1 Sep 2017 16:41:07 -0400
+Subject: [PATCH 3873/4131] drm/amdgpu/sdma4: specify vega12 firmware
+
+Declare the firmware and fetch the proper file.
+
+Signed-off-by: Alex Deucher <alexander.deucher@amd.com>
+Reviewed-by: Feifei Xu <Feifei.Xu@amd.com>
+---
+ drivers/gpu/drm/amd/amdgpu/sdma_v4_0.c | 5 +++++
+ 1 file changed, 5 insertions(+)
+
+diff --git a/drivers/gpu/drm/amd/amdgpu/sdma_v4_0.c b/drivers/gpu/drm/amd/amdgpu/sdma_v4_0.c
+index e9e9a1a..f2803d9 100644
+--- a/drivers/gpu/drm/amd/amdgpu/sdma_v4_0.c
++++ b/drivers/gpu/drm/amd/amdgpu/sdma_v4_0.c
+@@ -40,6 +40,8 @@
+ 
+ MODULE_FIRMWARE("amdgpu/vega10_sdma.bin");
+ MODULE_FIRMWARE("amdgpu/vega10_sdma1.bin");
++MODULE_FIRMWARE("amdgpu/vega12_sdma.bin");
++MODULE_FIRMWARE("amdgpu/vega12_sdma1.bin");
+ MODULE_FIRMWARE("amdgpu/raven_sdma.bin");
+ 
+ #define SDMA0_POWER_CNTL__ON_OFF_CONDITION_HOLD_TIME_MASK  0x000000F8L
+@@ -162,6 +164,9 @@ static int sdma_v4_0_init_microcode(struct amdgpu_device *adev)
+ 	case CHIP_VEGA10:
+ 		chip_name = "vega10";
+ 		break;
++	case CHIP_VEGA12:
++		chip_name = "vega12";
++		break;
+ 	case CHIP_RAVEN:
+ 		chip_name = "raven";
+ 		break;
+-- 
+2.7.4
+

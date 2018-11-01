@@ -1,0 +1,37 @@
+From 9fea9b6b443876e102a289f1282223f48e8b3537 Mon Sep 17 00:00:00 2001
+From: Feifei Xu <Feifei.Xu@amd.com>
+Date: Tue, 6 Mar 2018 22:47:18 -0500
+Subject: [PATCH 3877/4131] drm/amdgpu/sdma4: Update vega12 sdma golden
+ setting.
+
+Update vega12 sdma golden setting.
+
+Signed-off-by: Feifei Xu <Feifei.Xu@amd.com>
+Reviewed-by: Ken Wang <ken.wang@amd.com>
+Signed-off-by: Alex Deucher <alexander.deucher@amd.com>
+---
+ drivers/gpu/drm/amd/amdgpu/sdma_v4_0.c | 8 ++++----
+ 1 file changed, 4 insertions(+), 4 deletions(-)
+
+diff --git a/drivers/gpu/drm/amd/amdgpu/sdma_v4_0.c b/drivers/gpu/drm/amd/amdgpu/sdma_v4_0.c
+index 45841ba..320daec 100644
+--- a/drivers/gpu/drm/amd/amdgpu/sdma_v4_0.c
++++ b/drivers/gpu/drm/amd/amdgpu/sdma_v4_0.c
+@@ -87,10 +87,10 @@ static const struct soc15_reg_golden golden_settings_sdma_vg10[] = {
+ };
+ 
+ static const struct soc15_reg_golden golden_settings_sdma_vg12[] = {
+-	SOC15_REG_GOLDEN_VALUE(SDMA0, 0, mmSDMA0_GB_ADDR_CONFIG, 0x0018773f, 0x00104002),
+-	SOC15_REG_GOLDEN_VALUE(SDMA0, 0, mmSDMA0_GB_ADDR_CONFIG_READ, 0x0018773f, 0x00104002),
+-	SOC15_REG_GOLDEN_VALUE(SDMA1, 0, mmSDMA1_GB_ADDR_CONFIG, 0x0018773f, 0x00104002),
+-	SOC15_REG_GOLDEN_VALUE(SDMA1, 0, mmSDMA1_GB_ADDR_CONFIG_READ, 0x0018773f, 0x00104002)
++	SOC15_REG_GOLDEN_VALUE(SDMA0, 0, mmSDMA0_GB_ADDR_CONFIG, 0x0018773f, 0x00104001),
++	SOC15_REG_GOLDEN_VALUE(SDMA0, 0, mmSDMA0_GB_ADDR_CONFIG_READ, 0x0018773f, 0x00104001),
++	SOC15_REG_GOLDEN_VALUE(SDMA1, 0, mmSDMA1_GB_ADDR_CONFIG, 0x0018773f, 0x00104001),
++	SOC15_REG_GOLDEN_VALUE(SDMA1, 0, mmSDMA1_GB_ADDR_CONFIG_READ, 0x0018773f, 0x00104001)
+ };
+ 
+ static const struct soc15_reg_golden golden_settings_sdma_4_1[] =
+-- 
+2.7.4
+

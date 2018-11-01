@@ -1,0 +1,90 @@
+From a583de0114fc8b48ba417c9b377f586703f7c0f4 Mon Sep 17 00:00:00 2001
+From: "Le.Ma" <Le.Ma@amd.com>
+Date: Fri, 24 Nov 2017 15:19:16 +0800
+Subject: [PATCH 2244/4131] drm/amdkfd: Fix parameter changes of
+ ttm_bo_validate for kfd src
+
+Change-Id: I85f7d7aea281fdad11f421109791301ab95157d1
+Signed-off-by: Le.Ma <Le.Ma@amd.com>
+Reviewed-by: Junwei Zhang <Jerry.Zhang@amd.com>
+---
+ drivers/gpu/drm/amd/amdgpu/amdgpu_amdkfd_gpuvm.c | 14 ++++++++------
+ 1 file changed, 8 insertions(+), 6 deletions(-)
+
+diff --git a/drivers/gpu/drm/amd/amdgpu/amdgpu_amdkfd_gpuvm.c b/drivers/gpu/drm/amd/amdgpu/amdgpu_amdkfd_gpuvm.c
+index aec0d44..0efe245 100644
+--- a/drivers/gpu/drm/amd/amdgpu/amdgpu_amdkfd_gpuvm.c
++++ b/drivers/gpu/drm/amd/amdgpu/amdgpu_amdkfd_gpuvm.c
+@@ -339,6 +339,7 @@ static void amdgpu_amdkfd_add_eviction_fence(struct amdgpu_bo *bo,
+ static int amdgpu_amdkfd_bo_validate(struct amdgpu_bo *bo, uint32_t domain,
+ 				     bool wait)
+ {
++	struct ttm_operation_ctx ctx = { false, false };
+ 	int ret;
+ 
+ 	if (WARN(amdgpu_ttm_tt_get_usermm(bo->tbo.ttm),
+@@ -347,7 +348,7 @@ static int amdgpu_amdkfd_bo_validate(struct amdgpu_bo *bo, uint32_t domain,
+ 
+ 	amdgpu_ttm_placement_from_domain(bo, domain);
+ 
+-	ret = ttm_bo_validate(&bo->tbo, &bo->placement, false, false);
++	ret = ttm_bo_validate(&bo->tbo, &bo->placement, &ctx);
+ 	if (ret)
+ 		goto validate_fail;
+ 	if (wait) {
+@@ -550,6 +551,7 @@ static int init_user_pages(struct kgd_mem *mem, struct mm_struct *mm,
+ {
+ 	struct amdkfd_process_info *process_info = mem->process_info;
+ 	struct amdgpu_bo *bo = mem->bo;
++	struct ttm_operation_ctx ctx = { true, false };
+ 	int ret = 0;
+ 
+ 	mutex_lock(&process_info->lock);
+@@ -600,8 +602,7 @@ static int init_user_pages(struct kgd_mem *mem, struct mm_struct *mm,
+ 		goto release_out;
+ 	}
+ 	amdgpu_ttm_placement_from_domain(bo, mem->domain);
+-	ret = ttm_bo_validate(&bo->tbo, &bo->placement,
+-			      true, false);
++	ret = ttm_bo_validate(&bo->tbo, &bo->placement, &ctx);
+ 	if (ret)
+ 		pr_err("%s: failed to validate BO\n", __func__);
+ 	amdgpu_bo_unreserve(bo);
+@@ -1965,6 +1966,7 @@ static int update_invalid_user_pages(struct amdkfd_process_info *process_info,
+ {
+ 	struct kgd_mem *mem, *tmp_mem;
+ 	struct amdgpu_bo *bo;
++	struct ttm_operation_ctx ctx = { false, false };
+ 	int invalid, ret;
+ 
+ 	/* Move all invalidated BOs to the userptr_inval_list and
+@@ -1981,7 +1983,7 @@ static int update_invalid_user_pages(struct amdkfd_process_info *process_info,
+ 		if (amdgpu_bo_reserve(bo, true))
+ 			return -EAGAIN;
+ 		amdgpu_ttm_placement_from_domain(bo, AMDGPU_GEM_DOMAIN_CPU);
+-		ret = ttm_bo_validate(&bo->tbo, &bo->placement, false, false);
++		ret = ttm_bo_validate(&bo->tbo, &bo->placement, &ctx);
+ 		amdgpu_bo_unreserve(bo);
+ 		if (ret) {
+ 			pr_err("%s: Failed to invalidate userptr BO\n",
+@@ -2068,6 +2070,7 @@ static int validate_invalid_user_pages(struct amdkfd_process_info *process_info)
+ 	struct amdkfd_vm *peer_vm;
+ 	struct kgd_mem *mem, *tmp_mem;
+ 	struct amdgpu_bo *bo;
++	struct ttm_operation_ctx ctx = { false, false };
+ 	int i, ret;
+ 
+ 	pd_bo_list_entries = kcalloc(process_info->n_vms,
+@@ -2130,8 +2133,7 @@ static int validate_invalid_user_pages(struct amdkfd_process_info *process_info)
+ 			amdgpu_ttm_tt_set_user_pages(bo->tbo.ttm,
+ 						     mem->user_pages);
+ 			amdgpu_ttm_placement_from_domain(bo, mem->domain);
+-			ret = ttm_bo_validate(&bo->tbo, &bo->placement,
+-					      false, false);
++			ret = ttm_bo_validate(&bo->tbo, &bo->placement, &ctx);
+ 			if (ret) {
+ 				pr_err("%s: failed to validate BO\n", __func__);
+ 				goto unreserve_out;
+-- 
+2.7.4
+

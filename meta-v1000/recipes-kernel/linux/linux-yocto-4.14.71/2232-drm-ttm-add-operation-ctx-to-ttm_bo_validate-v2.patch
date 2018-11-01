@@ -1,0 +1,277 @@
+From 9a2a168c79863b8041f4faad1f48377ba5c9b7ae Mon Sep 17 00:00:00 2001
+From: Christian Koenig <christian.koenig@amd.com>
+Date: Wed, 12 Apr 2017 14:24:39 +0200
+Subject: [PATCH 2232/4131] drm/ttm: add operation ctx to ttm_bo_validate v2
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+Give moving a BO into place an operation context to work with.
+
+v2: rebased
+
+Signed-off-by: Christian König <christian.koenig@amd.com>
+Reviewed-by: Michel Dänzer <michel.daenzer@amd.com>
+Reviewed-by: Chunming Zhou <david1.zhou@amd.com>
+Tested-by: Dieter Nützel <Dieter@nuetzel-hh.de>
+Tested-by: Michel Dänzer <michel.daenzer@amd.com>
+Acked-by: Felix Kuehling <Felix.Kuehling@amd.com>
+---
+ drivers/gpu/drm/amd/amdgpu/amdgpu_cs.c     | 14 ++++++++------
+ drivers/gpu/drm/amd/amdgpu/amdgpu_gem.c    |  3 ++-
+ drivers/gpu/drm/amd/amdgpu/amdgpu_object.c | 12 ++++++++----
+ drivers/gpu/drm/amd/amdgpu/amdgpu_uvd.c    |  6 ++++--
+ drivers/gpu/drm/amd/amdgpu/amdgpu_vce.c    |  3 ++-
+ drivers/gpu/drm/amd/amdgpu/amdgpu_vcn.c    |  3 ++-
+ 6 files changed, 26 insertions(+), 15 deletions(-)
+
+diff --git a/drivers/gpu/drm/amd/amdgpu/amdgpu_cs.c b/drivers/gpu/drm/amd/amdgpu/amdgpu_cs.c
+index eec3fe2..050e62f 100644
+--- a/drivers/gpu/drm/amd/amdgpu/amdgpu_cs.c
++++ b/drivers/gpu/drm/amd/amdgpu/amdgpu_cs.c
+@@ -353,6 +353,7 @@ static int amdgpu_cs_bo_validate(struct amdgpu_cs_parser *p,
+ 				 struct amdgpu_bo *bo)
+ {
+ 	struct amdgpu_device *adev = amdgpu_ttm_adev(bo->tbo.bdev);
++	struct ttm_operation_ctx ctx = { true, false };
+ 	u64 initial_bytes_moved, bytes_moved;
+ 	uint32_t domain;
+ 	int r;
+@@ -384,7 +385,7 @@ static int amdgpu_cs_bo_validate(struct amdgpu_cs_parser *p,
+ retry:
+ 	amdgpu_ttm_placement_from_domain(bo, domain);
+ 	initial_bytes_moved = atomic64_read(&adev->num_bytes_moved);
+-	r = ttm_bo_validate(&bo->tbo, &bo->placement, true, false);
++	r = ttm_bo_validate(&bo->tbo, &bo->placement, &ctx);
+ 	bytes_moved = atomic64_read(&adev->num_bytes_moved) -
+ 		      initial_bytes_moved;
+ 	p->bytes_moved += bytes_moved;
+@@ -406,6 +407,7 @@ static bool amdgpu_cs_try_evict(struct amdgpu_cs_parser *p,
+ 				struct amdgpu_bo *validated)
+ {
+ 	uint32_t domain = validated->allowed_domains;
++	struct ttm_operation_ctx ctx = { true, false };
+ 	int r;
+ 
+ 	if (!p->evictable)
+@@ -447,7 +449,7 @@ static bool amdgpu_cs_try_evict(struct amdgpu_cs_parser *p,
+ 			bo->tbo.mem.mem_type == TTM_PL_VRAM &&
+ 			bo->tbo.mem.start < adev->mc.visible_vram_size >> PAGE_SHIFT;
+ 		initial_bytes_moved = atomic64_read(&adev->num_bytes_moved);
+-		r = ttm_bo_validate(&bo->tbo, &bo->placement, true, false);
++		r = ttm_bo_validate(&bo->tbo, &bo->placement, &ctx);
+ 		bytes_moved = atomic64_read(&adev->num_bytes_moved) -
+ 			initial_bytes_moved;
+ 		p->bytes_moved += bytes_moved;
+@@ -486,6 +488,7 @@ static int amdgpu_cs_validate(void *param, struct amdgpu_bo *bo)
+ static int amdgpu_cs_list_validate(struct amdgpu_cs_parser *p,
+ 			    struct list_head *validated)
+ {
++	struct ttm_operation_ctx ctx = { true, false };
+ 	struct amdgpu_bo_list_entry *lobj;
+ 	int r;
+ 
+@@ -503,8 +506,7 @@ static int amdgpu_cs_list_validate(struct amdgpu_cs_parser *p,
+                     lobj->user_pages) {
+                         amdgpu_ttm_placement_from_domain(bo,
+                                                          AMDGPU_GEM_DOMAIN_CPU);
+-                        r = ttm_bo_validate(&bo->tbo, &bo->placement, true,
+-                                            false);
++			r = ttm_bo_validate(&bo->tbo, &bo->placement, &ctx);
+                         if (r)
+                                 return r;
+                         amdgpu_ttm_tt_set_user_pages(bo->tbo.ttm,
+@@ -1622,6 +1624,7 @@ int amdgpu_cs_find_mapping(struct amdgpu_cs_parser *parser,
+ 			   struct amdgpu_bo_va_mapping **map)
+ {
+ 	struct amdgpu_fpriv *fpriv = parser->filp->driver_priv;
++	struct ttm_operation_ctx ctx = { false, false };
+ 	struct amdgpu_vm *vm = &fpriv->vm;
+ 	struct amdgpu_bo_va_mapping *mapping;
+ 	int r;
+@@ -1642,8 +1645,7 @@ int amdgpu_cs_find_mapping(struct amdgpu_cs_parser *parser,
+ 	if (!((*bo)->flags & AMDGPU_GEM_CREATE_VRAM_CONTIGUOUS)) {
+ 		(*bo)->flags |= AMDGPU_GEM_CREATE_VRAM_CONTIGUOUS;
+ 		amdgpu_ttm_placement_from_domain(*bo, (*bo)->allowed_domains);
+-		r = ttm_bo_validate(&(*bo)->tbo, &(*bo)->placement, false,
+-				    false);
++		r = ttm_bo_validate(&(*bo)->tbo, &(*bo)->placement, &ctx);
+ 		if (r)
+ 			return r;
+ 	}
+diff --git a/drivers/gpu/drm/amd/amdgpu/amdgpu_gem.c b/drivers/gpu/drm/amd/amdgpu/amdgpu_gem.c
+index 703578d..d85a6eb 100644
+--- a/drivers/gpu/drm/amd/amdgpu/amdgpu_gem.c
++++ b/drivers/gpu/drm/amd/amdgpu/amdgpu_gem.c
+@@ -397,6 +397,7 @@ int amdgpu_gem_find_bo_by_cpu_mapping_ioctl(struct drm_device *dev, void *data,
+ int amdgpu_gem_userptr_ioctl(struct drm_device *dev, void *data,
+ 			     struct drm_file *filp)
+ {
++	struct ttm_operation_ctx ctx = { true, false };
+ 	struct amdgpu_device *adev = dev->dev_private;
+ 	struct drm_amdgpu_gem_userptr *args = data;
+ 	struct drm_gem_object *gobj;
+@@ -450,7 +451,7 @@ int amdgpu_gem_userptr_ioctl(struct drm_device *dev, void *data,
+ 			goto free_pages;
+ 
+ 		amdgpu_ttm_placement_from_domain(bo, AMDGPU_GEM_DOMAIN_GTT);
+-		r = ttm_bo_validate(&bo->tbo, &bo->placement, true, false);
++		r = ttm_bo_validate(&bo->tbo, &bo->placement, &ctx);
+ 		amdgpu_bo_unreserve(bo);
+ 		if (r)
+ 			goto free_pages;
+diff --git a/drivers/gpu/drm/amd/amdgpu/amdgpu_object.c b/drivers/gpu/drm/amd/amdgpu/amdgpu_object.c
+index 2f7ffc0..fd5e911 100755
+--- a/drivers/gpu/drm/amd/amdgpu/amdgpu_object.c
++++ b/drivers/gpu/drm/amd/amdgpu/amdgpu_object.c
+@@ -593,6 +593,7 @@ int amdgpu_bo_backup_to_shadow(struct amdgpu_device *adev,
+ 
+ int amdgpu_bo_validate(struct amdgpu_bo *bo)
+ {
++	struct ttm_operation_ctx ctx = { false, false };
+ 	uint32_t domain;
+ 	int r;
+ 
+@@ -603,7 +604,7 @@ int amdgpu_bo_validate(struct amdgpu_bo *bo)
+ 
+ retry:
+ 	amdgpu_ttm_placement_from_domain(bo, domain);
+-	r = ttm_bo_validate(&bo->tbo, &bo->placement, false, false);
++	r = ttm_bo_validate(&bo->tbo, &bo->placement, &ctx);
+ 	if (unlikely(r == -ENOMEM) && domain != bo->allowed_domains) {
+ 		domain = bo->allowed_domains;
+ 		goto retry;
+@@ -714,6 +715,7 @@ int amdgpu_bo_pin_restricted(struct amdgpu_bo *bo, u32 domain,
+ 			     u64 *gpu_addr)
+ {
+ 	struct amdgpu_device *adev = amdgpu_ttm_adev(bo->tbo.bdev);
++	struct ttm_operation_ctx ctx = { false, false };
+ 	int r, i;
+ 
+ 	if (amdgpu_ttm_tt_get_usermm(bo->tbo.ttm))
+@@ -768,7 +770,7 @@ int amdgpu_bo_pin_restricted(struct amdgpu_bo *bo, u32 domain,
+ 		bo->placements[i].flags |= TTM_PL_FLAG_NO_EVICT;
+ 	}
+ 
+-	r = ttm_bo_validate(&bo->tbo, &bo->placement, false, false);
++	r = ttm_bo_validate(&bo->tbo, &bo->placement, &ctx);
+ 	if (unlikely(r)) {
+ 		dev_err(adev->dev, "%p pin failed\n", bo);
+ 		goto error;
+@@ -804,6 +806,7 @@ int amdgpu_bo_pin(struct amdgpu_bo *bo, u32 domain, u64 *gpu_addr)
+ int amdgpu_bo_unpin(struct amdgpu_bo *bo)
+ {
+ 	struct amdgpu_device *adev = amdgpu_ttm_adev(bo->tbo.bdev);
++	struct ttm_operation_ctx ctx = { false, false };
+ 	int r, i;
+ 
+ 	if (!bo->pin_count) {
+@@ -817,7 +820,7 @@ int amdgpu_bo_unpin(struct amdgpu_bo *bo)
+ 		bo->placements[i].lpfn = 0;
+ 		bo->placements[i].flags &= ~TTM_PL_FLAG_NO_EVICT;
+ 	}
+-	r = ttm_bo_validate(&bo->tbo, &bo->placement, false, false);
++	r = ttm_bo_validate(&bo->tbo, &bo->placement, &ctx);
+ 	if (unlikely(r)) {
+ 		dev_err(adev->dev, "%p validate failed for unpin\n", bo);
+ 		goto error;
+@@ -988,6 +991,7 @@ void amdgpu_bo_move_notify(struct ttm_buffer_object *bo,
+ int amdgpu_bo_fault_reserve_notify(struct ttm_buffer_object *bo)
+ {
+ 	struct amdgpu_device *adev = amdgpu_ttm_adev(bo->bdev);
++	struct ttm_operation_ctx ctx = { false, false };
+ 	struct amdgpu_bo *abo;
+ 	unsigned long offset, size;
+ 	int r;
+@@ -1021,7 +1025,7 @@ int amdgpu_bo_fault_reserve_notify(struct ttm_buffer_object *bo)
+ 	abo->placement.num_busy_placement = 1;
+ 	abo->placement.busy_placement = &abo->placements[1];
+ 
+-	r = ttm_bo_validate(bo, &abo->placement, false, false);
++	r = ttm_bo_validate(bo, &abo->placement, &ctx);
+ 	if (unlikely(r != 0))
+ 		return r;
+ 
+diff --git a/drivers/gpu/drm/amd/amdgpu/amdgpu_uvd.c b/drivers/gpu/drm/amd/amdgpu/amdgpu_uvd.c
+index af7e83d..67f1e97 100644
+--- a/drivers/gpu/drm/amd/amdgpu/amdgpu_uvd.c
++++ b/drivers/gpu/drm/amd/amdgpu/amdgpu_uvd.c
+@@ -411,6 +411,7 @@ static u64 amdgpu_uvd_get_addr_from_ctx(struct amdgpu_uvd_cs_ctx *ctx)
+  */
+ static int amdgpu_uvd_cs_pass1(struct amdgpu_uvd_cs_ctx *ctx)
+ {
++	struct ttm_operation_ctx tctx = { false, false };
+ 	struct amdgpu_bo_va_mapping *mapping;
+ 	struct amdgpu_bo *bo;
+ 	uint32_t cmd;
+@@ -433,7 +434,7 @@ static int amdgpu_uvd_cs_pass1(struct amdgpu_uvd_cs_ctx *ctx)
+ 		}
+ 		amdgpu_uvd_force_into_uvd_segment(bo);
+ 
+-		r = ttm_bo_validate(&bo->tbo, &bo->placement, false, false);
++		r = ttm_bo_validate(&bo->tbo, &bo->placement, &tctx);
+ 	}
+ 
+ 	return r;
+@@ -952,6 +953,7 @@ int amdgpu_uvd_ring_parse_cs(struct amdgpu_cs_parser *parser, uint32_t ib_idx)
+ static int amdgpu_uvd_send_msg(struct amdgpu_ring *ring, struct amdgpu_bo *bo,
+ 			       bool direct, struct dma_fence **fence)
+ {
++	struct ttm_operation_ctx ctx = { true, false };
+ 	struct ttm_validate_buffer tv;
+ 	struct ww_acquire_ctx ticket;
+ 	struct list_head head;
+@@ -978,7 +980,7 @@ static int amdgpu_uvd_send_msg(struct amdgpu_ring *ring, struct amdgpu_bo *bo,
+ 		amdgpu_uvd_force_into_uvd_segment(bo);
+ 	}
+ 
+-	r = ttm_bo_validate(&bo->tbo, &bo->placement, true, false);
++	r = ttm_bo_validate(&bo->tbo, &bo->placement, &ctx);
+ 	if (r)
+ 		goto err;
+ 
+diff --git a/drivers/gpu/drm/amd/amdgpu/amdgpu_vce.c b/drivers/gpu/drm/amd/amdgpu/amdgpu_vce.c
+index a91abfb..ba6d846 100644
+--- a/drivers/gpu/drm/amd/amdgpu/amdgpu_vce.c
++++ b/drivers/gpu/drm/amd/amdgpu/amdgpu_vce.c
+@@ -558,6 +558,7 @@ static int amdgpu_vce_validate_bo(struct amdgpu_cs_parser *p, uint32_t ib_idx,
+ 				  int lo, int hi, unsigned size, int32_t index)
+ {
+ 	int64_t offset = ((uint64_t)size) * ((int64_t)index);
++	struct ttm_operation_ctx ctx = { false, false };
+ 	struct amdgpu_bo_va_mapping *mapping;
+ 	unsigned i, fpfn, lpfn;
+ 	struct amdgpu_bo *bo;
+@@ -587,7 +588,7 @@ static int amdgpu_vce_validate_bo(struct amdgpu_cs_parser *p, uint32_t ib_idx,
+ 		bo->placements[i].lpfn = bo->placements[i].fpfn ?
+ 			min(bo->placements[i].fpfn, lpfn) : lpfn;
+ 	}
+-	return ttm_bo_validate(&bo->tbo, &bo->placement, false, false);
++	return ttm_bo_validate(&bo->tbo, &bo->placement, &ctx);
+ }
+ 
+ 
+diff --git a/drivers/gpu/drm/amd/amdgpu/amdgpu_vcn.c b/drivers/gpu/drm/amd/amdgpu/amdgpu_vcn.c
+index e34b07f..3b1ef8b 100644
+--- a/drivers/gpu/drm/amd/amdgpu/amdgpu_vcn.c
++++ b/drivers/gpu/drm/amd/amdgpu/amdgpu_vcn.c
+@@ -278,6 +278,7 @@ int amdgpu_vcn_dec_ring_test_ring(struct amdgpu_ring *ring)
+ static int amdgpu_vcn_dec_send_msg(struct amdgpu_ring *ring, struct amdgpu_bo *bo,
+ 			       bool direct, struct dma_fence **fence)
+ {
++	struct ttm_operation_ctx ctx = { true, false };
+ 	struct ttm_validate_buffer tv;
+ 	struct ww_acquire_ctx ticket;
+ 	struct list_head head;
+@@ -298,7 +299,7 @@ static int amdgpu_vcn_dec_send_msg(struct amdgpu_ring *ring, struct amdgpu_bo *b
+ 	if (r)
+ 		return r;
+ 
+-	r = ttm_bo_validate(&bo->tbo, &bo->placement, true, false);
++	r = ttm_bo_validate(&bo->tbo, &bo->placement, &ctx);
+ 	if (r)
+ 		goto err;
+ 
+-- 
+2.7.4
+

@@ -1,0 +1,62 @@
+From f8844f48015ce06e7f507192a6a962ae5fa121c0 Mon Sep 17 00:00:00 2001
+From: Rex Zhu <Rex.Zhu@amd.com>
+Date: Thu, 21 Sep 2017 13:40:49 +0800
+Subject: [PATCH 1928/4131] drm/amd/powerplay: export new smu interface to
+ hwmgr
+
+Change-Id: I6ec95625584d06899a5e46055129e742c3e20945
+---
+ drivers/gpu/drm/amd/powerplay/inc/smumgr.h    |  4 ++++
+ drivers/gpu/drm/amd/powerplay/smumgr/smumgr.c | 25 +++++++++++++++++++++++++
+ 2 files changed, 29 insertions(+)
+
+diff --git a/drivers/gpu/drm/amd/powerplay/inc/smumgr.h b/drivers/gpu/drm/amd/powerplay/inc/smumgr.h
+index 7c9aba8..a04cd53 100644
+--- a/drivers/gpu/drm/amd/powerplay/inc/smumgr.h
++++ b/drivers/gpu/drm/amd/powerplay/inc/smumgr.h
+@@ -129,5 +129,9 @@ extern int smum_populate_requested_graphic_levels(struct pp_hwmgr *hwmgr,
+ 
+ extern bool smum_is_hw_avfs_present(struct pp_hwmgr *hwmgr);
+ 
++extern bool smum_smu_init(struct pp_hwmgr *hwmgr);
+ 
++extern bool smum_smu_fini(struct pp_hwmgr *hwmgr);
++
++extern bool smum_start_smu(struct pp_hwmgr *hwmgr);
+ #endif
+diff --git a/drivers/gpu/drm/amd/powerplay/smumgr/smumgr.c b/drivers/gpu/drm/amd/powerplay/smumgr/smumgr.c
+index 8673884..f08c309 100644
+--- a/drivers/gpu/drm/amd/powerplay/smumgr/smumgr.c
++++ b/drivers/gpu/drm/amd/powerplay/smumgr/smumgr.c
+@@ -253,3 +253,28 @@ bool smum_is_hw_avfs_present(struct pp_hwmgr *hwmgr)
+ 
+ 	return false;
+ }
++
++
++bool smum_smu_init(struct pp_hwmgr *hwmgr)
++{
++	if (hwmgr->smumgr_funcs->smu_init)
++		return hwmgr->smumgr_funcs->smu_init(hwmgr);
++
++	return false;
++}
++
++bool smum_smu_fini(struct pp_hwmgr *hwmgr)
++{
++	if (hwmgr->smumgr_funcs->smu_fini)
++		return hwmgr->smumgr_funcs->smu_fini(hwmgr);
++
++	return false;
++}
++
++bool smum_start_smu(struct pp_hwmgr *hwmgr)
++{
++	if (hwmgr->smumgr_funcs->start_smu)
++		return hwmgr->smumgr_funcs->start_smu(hwmgr);
++
++	return false;
++}
+-- 
+2.7.4
+

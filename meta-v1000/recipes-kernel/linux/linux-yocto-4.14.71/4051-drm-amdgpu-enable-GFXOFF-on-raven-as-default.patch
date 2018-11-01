@@ -1,0 +1,28 @@
+From e11bc9dfea47788d18bed56c692c110847118749 Mon Sep 17 00:00:00 2001
+From: Jim Qu <Jim.Qu@amd.com>
+Date: Mon, 14 May 2018 15:30:35 +0800
+Subject: [PATCH 4051/4131] drm/amdgpu: enable GFXOFF on raven as default
+
+Change-Id: Ia951b999f559fdbfc26b6ece8ac310b6dac735ee
+Signed-off-by: Jim Qu <Jim.Qu@amd.com>
+Reviewed-by: Huang Rui <ray.huang@amd.com>
+---
+ drivers/gpu/drm/amd/amdgpu/amdgpu_drv.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/drivers/gpu/drm/amd/amdgpu/amdgpu_drv.c b/drivers/gpu/drm/amd/amdgpu/amdgpu_drv.c
+index 8dbf579..a8b473d 100644
+--- a/drivers/gpu/drm/amd/amdgpu/amdgpu_drv.c
++++ b/drivers/gpu/drm/amd/amdgpu/amdgpu_drv.c
+@@ -124,7 +124,7 @@ uint amdgpu_pg_mask = 0xffffffff;
+ uint amdgpu_sdma_phase_quantum = 32;
+ char *amdgpu_disable_cu = NULL;
+ char *amdgpu_virtual_display = NULL;
+-uint amdgpu_pp_feature_mask = 0xffff3fff; /* gfxoff (bit 15) disabled by default */
++uint amdgpu_pp_feature_mask = 0xffffbfff;
+ int amdgpu_ngg = 0;
+ int amdgpu_prim_buf_per_se = 0;
+ int amdgpu_pos_buf_per_se = 0;
+-- 
+2.7.4
+

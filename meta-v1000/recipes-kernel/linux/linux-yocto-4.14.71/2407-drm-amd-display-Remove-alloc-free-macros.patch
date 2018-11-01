@@ -1,0 +1,32 @@
+From 24519972c2369a18abde9189dd03004db32806e6 Mon Sep 17 00:00:00 2001
+From: Harry Wentland <harry.wentland@amd.com>
+Date: Wed, 27 Sep 2017 10:55:47 -0400
+Subject: [PATCH 2407/4131] drm/amd/display: Remove alloc/free macros
+
+Now that we don't abstract kernel alloc interfaces we don't need
+those anymore.
+
+Signed-off-by: Harry Wentland <harry.wentland@amd.com>
+Reviewed-by: Alex Deucher <alexander.deucher@amd.com>
+---
+ drivers/gpu/drm/amd/display/dc/dm_services.h | 4 ----
+ 1 file changed, 4 deletions(-)
+
+diff --git a/drivers/gpu/drm/amd/display/dc/dm_services.h b/drivers/gpu/drm/amd/display/dc/dm_services.h
+index e94da74..e43f9b2 100644
+--- a/drivers/gpu/drm/amd/display/dc/dm_services.h
++++ b/drivers/gpu/drm/amd/display/dc/dm_services.h
+@@ -79,10 +79,6 @@
+ #include <asm/fpu/api.h>
+ #endif
+ 
+-#define dm_alloc(size) kzalloc(size, GFP_KERNEL)
+-#define dm_realloc(ptr, size) krealloc(ptr, size, GFP_KERNEL)
+-#define dm_free(ptr) kfree(ptr)
+-
+ irq_handler_idx dm_register_interrupt(
+ 	struct dc_context *ctx,
+ 	struct dc_interrupt_params *int_params,
+-- 
+2.7.4
+

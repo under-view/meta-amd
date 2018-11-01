@@ -1,0 +1,36 @@
+From f2752b752e568296d7c248fddcb30ab1eec5ae4e Mon Sep 17 00:00:00 2001
+From: Harry Wentland <harry.wentland@amd.com>
+Date: Thu, 26 Oct 2017 15:35:14 -0400
+Subject: [PATCH 2630/4131] drm/amd/display: Don't print error when bo_pin is
+ interrupted
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+v2: Also don't print for ERESTARTSYS or EAGAIN
+v3: Best practice is to only ignore ERESTARTSYS
+
+Signed-off-by: Harry Wentland <harry.wentland@amd.com>
+Reviewed-by: Christian König <christian.koenig@amd.com>
+Signed-off-by: Alex Deucher <alexander.deucher@amd.com>
+---
+ drivers/gpu/drm/amd/display/amdgpu_dm/amdgpu_dm.c | 3 ++-
+ 1 file changed, 2 insertions(+), 1 deletion(-)
+
+diff --git a/drivers/gpu/drm/amd/display/amdgpu_dm/amdgpu_dm.c b/drivers/gpu/drm/amd/display/amdgpu_dm/amdgpu_dm.c
+index 0abcb16..76990cb 100644
+--- a/drivers/gpu/drm/amd/display/amdgpu_dm/amdgpu_dm.c
++++ b/drivers/gpu/drm/amd/display/amdgpu_dm/amdgpu_dm.c
+@@ -3090,7 +3090,8 @@ static int dm_plane_helper_prepare_fb(struct drm_plane *plane,
+ 	amdgpu_bo_unreserve(rbo);
+ 
+ 	if (unlikely(r != 0)) {
+-		DRM_ERROR("Failed to pin framebuffer\n");
++		if (r != -ERESTARTSYS)
++			DRM_ERROR("Failed to pin framebuffer with error %d\n", r);
+ 		return r;
+ 	}
+ 
+-- 
+2.7.4
+

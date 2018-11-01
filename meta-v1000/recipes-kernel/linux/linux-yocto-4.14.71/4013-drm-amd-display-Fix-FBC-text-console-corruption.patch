@@ -1,0 +1,100 @@
+From 4d34a58edc0089162f42475b4d3c6f428cc7cd3c Mon Sep 17 00:00:00 2001
+From: Roman Li <roman.li@amd.com>
+Date: Thu, 29 Mar 2018 11:14:25 -0400
+Subject: [PATCH 4013/4131] drm/amd/display: Fix FBC text console corruption
+
+Signed-off-by: Roman Li <roman.li@amd.com>
+Reviewed-by: Charlene Liu <Charlene.Liu@amd.com>
+Acked-by: Harry Wentland <harry.wentland@amd.com>
+---
+ .../drm/amd/display/dc/dce110/dce110_compressor.c  | 67 +++++++++++++++++-----
+ 1 file changed, 54 insertions(+), 13 deletions(-)
+
+diff --git a/drivers/gpu/drm/amd/display/dc/dce110/dce110_compressor.c b/drivers/gpu/drm/amd/display/dc/dce110/dce110_compressor.c
+index 775d3bf..9150d26 100644
+--- a/drivers/gpu/drm/amd/display/dc/dce110/dce110_compressor.c
++++ b/drivers/gpu/drm/amd/display/dc/dce110/dce110_compressor.c
+@@ -102,6 +102,43 @@ static uint32_t align_to_chunks_number_per_line(uint32_t pixels)
+ 	return 256 * ((pixels + 255) / 256);
+ }
+ 
++static void reset_lb_on_vblank(struct dc_context *ctx)
++{
++	uint32_t value, frame_count;
++	uint32_t retry = 0;
++	uint32_t status_pos =
++			dm_read_reg(ctx, mmCRTC_STATUS_POSITION);
++
++
++	/* Only if CRTC is enabled and counter is moving we wait for one frame. */
++	if (status_pos != dm_read_reg(ctx, mmCRTC_STATUS_POSITION)) {
++		/* Resetting LB on VBlank */
++		value = dm_read_reg(ctx, mmLB_SYNC_RESET_SEL);
++		set_reg_field_value(value, 3, LB_SYNC_RESET_SEL, LB_SYNC_RESET_SEL);
++		set_reg_field_value(value, 1, LB_SYNC_RESET_SEL, LB_SYNC_RESET_SEL2);
++		dm_write_reg(ctx, mmLB_SYNC_RESET_SEL, value);
++
++		frame_count = dm_read_reg(ctx, mmCRTC_STATUS_FRAME_COUNT);
++
++
++		for (retry = 100; retry > 0; retry--) {
++			if (frame_count != dm_read_reg(ctx, mmCRTC_STATUS_FRAME_COUNT))
++				break;
++			msleep(1);
++		}
++		if (!retry)
++			dm_error("Frame count did not increase for 100ms.\n");
++
++		/* Resetting LB on VBlank */
++		value = dm_read_reg(ctx, mmLB_SYNC_RESET_SEL);
++		set_reg_field_value(value, 2, LB_SYNC_RESET_SEL, LB_SYNC_RESET_SEL);
++		set_reg_field_value(value, 0, LB_SYNC_RESET_SEL, LB_SYNC_RESET_SEL2);
++		dm_write_reg(ctx, mmLB_SYNC_RESET_SEL, value);
++
++	}
++
++}
++
+ static void wait_for_fbc_state_changed(
+ 	struct dce110_compressor *cp110,
+ 	bool enabled)
+@@ -232,19 +269,23 @@ void dce110_compressor_disable_fbc(struct compressor *compressor)
+ {
+ 	struct dce110_compressor *cp110 = TO_DCE110_COMPRESSOR(compressor);
+ 
+-	if (compressor->options.bits.FBC_SUPPORT &&
+-		dce110_compressor_is_fbc_enabled_in_hw(compressor, NULL)) {
+-		uint32_t reg_data;
+-		/* Turn off compression */
+-		reg_data = dm_read_reg(compressor->ctx, mmFBC_CNTL);
+-		set_reg_field_value(reg_data, 0, FBC_CNTL, FBC_GRPH_COMP_EN);
+-		dm_write_reg(compressor->ctx, mmFBC_CNTL, reg_data);
+-
+-		/* Reset enum controller_id to undefined */
+-		compressor->attached_inst = 0;
+-		compressor->is_enabled = false;
+-
+-		wait_for_fbc_state_changed(cp110, false);
++	if (compressor->options.bits.FBC_SUPPORT) {
++		if (dce110_compressor_is_fbc_enabled_in_hw(compressor, NULL)) {
++			uint32_t reg_data;
++			/* Turn off compression */
++			reg_data = dm_read_reg(compressor->ctx, mmFBC_CNTL);
++			set_reg_field_value(reg_data, 0, FBC_CNTL, FBC_GRPH_COMP_EN);
++			dm_write_reg(compressor->ctx, mmFBC_CNTL, reg_data);
++
++			/* Reset enum controller_id to undefined */
++			compressor->attached_inst = 0;
++			compressor->is_enabled = false;
++
++			wait_for_fbc_state_changed(cp110, false);
++		}
++
++		/* Sync line buffer  - dce100/110 only*/
++		reset_lb_on_vblank(compressor->ctx);
+ 	}
+ }
+ 
+-- 
+2.7.4
+

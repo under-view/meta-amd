@@ -1,0 +1,77 @@
+From 2bd6fc752ce3fc93c0eba01a8726858ff656a198 Mon Sep 17 00:00:00 2001
+From: "Leo (Sunpeng) Li" <sunpeng.li@amd.com>
+Date: Tue, 30 Jan 2018 11:14:27 -0500
+Subject: [PATCH 3561/4131] drm/amd/display: Refactor max color lut entries
+ into a macro.
+
+Signed-off-by: Leo (Sunpeng) Li <sunpeng.li@amd.com>
+Reviewed-by: Harry Wentland <Harry.Wentland@amd.com>
+Signed-off-by: Alex Deucher <alexander.deucher@amd.com>
+Signed-off-by: Kalyan Alle <kalyan.alle@amd.com>
+---
+ drivers/gpu/drm/amd/display/amdgpu_dm/amdgpu_dm.c       | 5 +++--
+ drivers/gpu/drm/amd/display/amdgpu_dm/amdgpu_dm.h       | 2 ++
+ drivers/gpu/drm/amd/display/amdgpu_dm/amdgpu_dm_color.c | 7 ++-----
+ 3 files changed, 7 insertions(+), 7 deletions(-)
+
+diff --git a/drivers/gpu/drm/amd/display/amdgpu_dm/amdgpu_dm.c b/drivers/gpu/drm/amd/display/amdgpu_dm/amdgpu_dm.c
+index 6cf7d0c..b82d76e 100644
+--- a/drivers/gpu/drm/amd/display/amdgpu_dm/amdgpu_dm.c
++++ b/drivers/gpu/drm/amd/display/amdgpu_dm/amdgpu_dm.c
+@@ -3301,8 +3301,9 @@ static int amdgpu_dm_crtc_init(struct amdgpu_display_manager *dm,
+ 	acrtc->base.enabled = false;
+ 
+ 	dm->adev->mode_info.crtcs[crtc_index] = acrtc;
+-	drm_crtc_enable_color_mgmt(&acrtc->base, 256, true, 256);
+-	drm_mode_crtc_set_gamma_size(&acrtc->base, 256);
++	drm_crtc_enable_color_mgmt(&acrtc->base, MAX_COLOR_LUT_ENTRIES,
++				   true, MAX_COLOR_LUT_ENTRIES);
++	drm_mode_crtc_set_gamma_size(&acrtc->base, MAX_COLOR_LUT_ENTRIES);
+ 
+ 	return 0;
+ 
+diff --git a/drivers/gpu/drm/amd/display/amdgpu_dm/amdgpu_dm.h b/drivers/gpu/drm/amd/display/amdgpu_dm/amdgpu_dm.h
+index 7e5d5cd..c40c13a 100644
+--- a/drivers/gpu/drm/amd/display/amdgpu_dm/amdgpu_dm.h
++++ b/drivers/gpu/drm/amd/display/amdgpu_dm/amdgpu_dm.h
+@@ -269,6 +269,8 @@ void amdgpu_dm_crtc_handle_crc_irq(struct drm_crtc *crtc);
+ #define amdgpu_dm_crtc_handle_crc_irq(x)
+ #endif
+ 
++#define MAX_COLOR_LUT_ENTRIES 256
++
+ void amdgpu_dm_init_color_mod(void);
+ int amdgpu_dm_set_degamma_lut(struct drm_crtc_state *crtc_state,
+ 			      struct dc_plane_state *dc_plane_state);
+diff --git a/drivers/gpu/drm/amd/display/amdgpu_dm/amdgpu_dm_color.c b/drivers/gpu/drm/amd/display/amdgpu_dm/amdgpu_dm_color.c
+index cc3ee07..eeaf392 100644
+--- a/drivers/gpu/drm/amd/display/amdgpu_dm/amdgpu_dm_color.c
++++ b/drivers/gpu/drm/amd/display/amdgpu_dm/amdgpu_dm_color.c
+@@ -27,9 +27,6 @@
+ #include "amdgpu_dm.h"
+ #include "modules/color/color_gamma.h"
+ 
+-
+-#define MAX_LUT_ENTRIES 256
+-
+ /*
+  * Return true if the given lut is a linear mapping of values, i.e. it acts
+  * like a bypass LUT.
+@@ -44,12 +41,12 @@ static bool __is_lut_linear(struct drm_color_lut *lut)
+ 	uint32_t expected;
+ 	int delta;
+ 
+-	for (i = 0; i < MAX_LUT_ENTRIES; i++) {
++	for (i = 0; i < MAX_COLOR_LUT_ENTRIES; i++) {
+ 		/* All color values should equal */
+ 		if ((lut[i].red != lut[i].green) || (lut[i].green != lut[i].blue))
+ 			return false;
+ 
+-		expected = i * max_os / (MAX_LUT_ENTRIES-1);
++		expected = i * max_os / (MAX_COLOR_LUT_ENTRIES-1);
+ 
+ 		/* Allow a +/-1 error. */
+ 		delta = lut[i].red - expected;
+-- 
+2.7.4
+

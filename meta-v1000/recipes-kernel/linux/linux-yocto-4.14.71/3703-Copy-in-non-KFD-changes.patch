@@ -1,0 +1,556 @@
+From acb3a8afcbab8507fb044ac3d6f62e9fad717f0b Mon Sep 17 00:00:00 2001
+From: Kent Russell <kent.russell@amd.com>
+Date: Tue, 14 Nov 2017 13:03:12 -0500
+Subject: [PATCH 3703/4131] Copy in non-KFD changes
+
+These include amdgpu changes, as well as any changes we had to make to
+the include files, radeon, etc.
+
+Change-Id: Ic6291c17e4168c757ab172235342e3e407b285a1
+
+ Conflicts[4.14-rc1]:
+        drivers/gpu/drm/amd/amdgpu/amdgpu.h
+        drivers/gpu/drm/amd/amdgpu/amdgpu_ttm.c
+
+ Conflicts[4.15-rc2]:
+        drivers/gpu/drm/amd/amdgpu/amdgpu_sync.h
+        drivers/gpu/drm/amd/amdgpu/amdgpu_ttm.c
+
+ Conflicts[4.15-rc4]:
+        drivers/gpu/drm/amd/amdgpu/amdgpu_prime.c
+        drivers/gpu/drm/amd/amdgpu/amdgpu_ttm.c
+        drivers/gpu/drm/amd/amdgpu/gfx_v7_0.c
+        drivers/gpu/drm/amd/amdgpu/gfx_v8_0.c
+
+ Conflicts[4.16-rc1]:
+        drivers/gpu/drm/amd/amdgpu/amdgpu.h
+        drivers/gpu/drm/amd/amdgpu/amdgpu_object.c
+        drivers/gpu/drm/amd/amdgpu/amdgpu_ttm.c
+        drivers/gpu/drm/amd/amdgpu/gmc_v8_0.c
+        include/linux/pci.h
+        include/uapi/linux/pci_regs.h
+
+Conflicts:
+      drivers/gpu/drm/amd/amdgpu/amdgpu_drv.c
+      drivers/gpu/drm/amd/amdgpu/amdgpu_mn.c
+      drivers/gpu/drm/amd/amdgpu/amdgpu_object.c
+      drivers/gpu/drm/amd/amdgpu/amdgpu_ttm.c
+      drivers/gpu/drm/amd/amdgpu/amdgpu_vm.c
+      drivers/iommu/amd_iommu.c
+---
+ drivers/gpu/drm/amd/amdgpu/amdgpu_cs.c        |  3 +-
+ drivers/gpu/drm/amd/amdgpu/amdgpu_mn.c        | 77 +++++++++++++++++++--------
+ drivers/gpu/drm/amd/amdgpu/amdgpu_object.h    |  2 +-
+ drivers/gpu/drm/amd/amdgpu/amdgpu_sync.c      | 22 ++++++--
+ drivers/gpu/drm/amd/amdgpu/amdgpu_sync.h      |  3 +-
+ drivers/gpu/drm/amd/amdgpu/amdgpu_ttm.c       | 19 ++-----
+ drivers/gpu/drm/amd/amdgpu/amdgpu_vm.c        | 27 ++++++++--
+ drivers/gpu/drm/amd/amdgpu/gfx_v7_0.c         | 17 ++++--
+ drivers/gpu/drm/amd/amdgpu/gfx_v8_0.c         | 20 +++++--
+ drivers/gpu/drm/amd/amdgpu/gfx_v9_0.c         | 14 +++++
+ drivers/gpu/drm/amd/amdgpu/gmc_v7_0.c         |  2 +-
+ drivers/gpu/drm/amd/amdgpu/gmc_v8_0.c         |  2 +-
+ drivers/gpu/drm/amd/display/dc/core/dc_link.c |  2 +-
+ 13 files changed, 147 insertions(+), 63 deletions(-)
+
+diff --git a/drivers/gpu/drm/amd/amdgpu/amdgpu_cs.c b/drivers/gpu/drm/amd/amdgpu/amdgpu_cs.c
+index 9e9a299..1d4a277 100644
+--- a/drivers/gpu/drm/amd/amdgpu/amdgpu_cs.c
++++ b/drivers/gpu/drm/amd/amdgpu/amdgpu_cs.c
+@@ -1585,7 +1585,8 @@ int amdgpu_cs_find_mapping(struct amdgpu_cs_parser *parser,
+ 	addr /= AMDGPU_GPU_PAGE_SIZE;
+ 	
+ 	mapping = amdgpu_vm_bo_lookup_mapping(vm, addr);
+-	if (!mapping || !mapping->bo_va || !mapping->bo_va->base.bo)
++	if (!mapping || !mapping->bo_va || !mapping->bo_va->base.bo ||
++		amdgpu_ttm_adev(mapping->bo_va->base.bo->tbo.bdev) != parser->adev)
+ 		return -EINVAL;
+ 
+ 	*bo = mapping->bo_va->base.bo;
+diff --git a/drivers/gpu/drm/amd/amdgpu/amdgpu_mn.c b/drivers/gpu/drm/amd/amdgpu/amdgpu_mn.c
+index 91c7f2a..e3e5646 100644
+--- a/drivers/gpu/drm/amd/amdgpu/amdgpu_mn.c
++++ b/drivers/gpu/drm/amd/amdgpu/amdgpu_mn.c
+@@ -53,7 +53,11 @@ struct amdgpu_mn {
+ 
+ 	/* objects protected by lock */
+ 	struct rw_semaphore	lock;
++#if LINUX_VERSION_CODE < KERNEL_VERSION(4, 14, 0)
++	struct rb_root		objects;
++#else
+ 	struct rb_root_cached	objects;
++#endif
+ 	struct mutex		read_lock;
+ 	atomic_t		recursion;
+ };
+@@ -80,8 +84,12 @@ static void amdgpu_mn_destroy(struct work_struct *work)
+ 	mutex_lock(&adev->mn_lock);
+ 	down_write(&rmn->lock);
+ 	hash_del(&rmn->node);
+-	rbtree_postorder_for_each_entry_safe(node, next_node, 
++	rbtree_postorder_for_each_entry_safe(node, next_node,
++#if LINUX_VERSION_CODE < KERNEL_VERSION(4, 14, 0)
++					     &rmn->objects, it.rb) {
++#else
+ 					     &rmn->objects.rb_root, it.rb) {
++#endif
+ 		list_for_each_entry_safe(bo, next_bo, &node->bos, mn_list) {
+ 			bo->mn = NULL;
+ 			list_del_init(&bo->mn_list);
+@@ -169,21 +177,21 @@ static void amdgpu_mn_invalidate_node(struct amdgpu_mn_node *node,
+ 				      unsigned long start,
+ 				      unsigned long end)
+ {
+-        struct amdgpu_bo *bo;
+-        long r;
++	struct amdgpu_bo *bo;
++	long r;
+ 
+-        list_for_each_entry(bo, &node->bos, mn_list) {
++	list_for_each_entry(bo, &node->bos, mn_list) {
+ 
+-                if (!amdgpu_ttm_tt_affect_userptr(bo->tbo.ttm, start, end))
+-                        continue;
++		if (!amdgpu_ttm_tt_affect_userptr(bo->tbo.ttm, start, end))
++			continue;
+ 
+-                r = reservation_object_wait_timeout_rcu(bo->tbo.resv,
+-                        true, false, MAX_SCHEDULE_TIMEOUT);
+-                if (r <= 0)
+-                        DRM_ERROR("(%ld) failed to wait for user bo\n", r);
++		r = kcl_reservation_object_wait_timeout_rcu(bo->tbo.resv,
++			true, false, MAX_SCHEDULE_TIMEOUT);
++		if (r <= 0)
++			DRM_ERROR("(%ld) failed to wait for user bo\n", r);
+ 
+-                amdgpu_ttm_tt_mark_user_pages(bo->tbo.ttm);
+-        }
++		amdgpu_ttm_tt_mark_user_pages(bo->tbo.ttm);
++	}
+ }
+ 
+ /**
+@@ -222,7 +230,7 @@ static void amdgpu_mn_invalidate_range_start_gfx(struct mmu_notifier *mn,
+ }
+ 
+ /**
+- * amdgpu_mn_invalidate_range_end - callback to notify about mm change
++ * amdgpu_mn_invalidate_range_end_gfx - callback to notify about mm change
+  *
+  * @mn: our notifier
+  * @mn: the mm this callback is about
+@@ -231,10 +239,10 @@ static void amdgpu_mn_invalidate_range_start_gfx(struct mmu_notifier *mn,
+  *
+  * Release the lock again to allow new command submissions.
+  */
+-static void amdgpu_mn_invalidate_range_end(struct mmu_notifier *mn,
+-					   struct mm_struct *mm,
+-					   unsigned long start,
+-					   unsigned long end)
++static void amdgpu_mn_invalidate_range_end_gfx(struct mmu_notifier *mn,
++					       struct mm_struct *mm,
++					       unsigned long start,
++					       unsigned long end)
+ {
+ 	struct amdgpu_mn *rmn = container_of(mn, struct amdgpu_mn, mn);
+ 
+@@ -284,16 +292,26 @@ static void amdgpu_mn_invalidate_range_start_hsa(struct mmu_notifier *mn,
+ 	}
+ }
+ 
++static void amdgpu_mn_invalidate_range_end_hsa(struct mmu_notifier *mn,
++					       struct mm_struct *mm,
++					       unsigned long start,
++					       unsigned long end)
++{
++	struct amdgpu_mn *rmn = container_of(mn, struct amdgpu_mn, mn);
++
++	amdgpu_mn_read_unlock(rmn);
++}
++
+ static const struct mmu_notifier_ops amdgpu_mn_ops[] = {
+ 	[AMDGPU_MN_TYPE_GFX] = {
+ 		.release = amdgpu_mn_release,
+ 		.invalidate_range_start = amdgpu_mn_invalidate_range_start_gfx,
+-		.invalidate_range_end = amdgpu_mn_invalidate_range_end,
++		.invalidate_range_end = amdgpu_mn_invalidate_range_end_gfx,
+ 	},
+ 	[AMDGPU_MN_TYPE_HSA] = {
+ 		.release = amdgpu_mn_release,
+ 		.invalidate_range_start = amdgpu_mn_invalidate_range_start_hsa,
+-		.invalidate_range_end = amdgpu_mn_invalidate_range_end,
++		.invalidate_range_end = amdgpu_mn_invalidate_range_end_hsa,
+ 	},
+ };
+ 
+@@ -311,20 +329,31 @@ static const struct mmu_notifier_ops amdgpu_mn_ops[] = {
+  * Creates a notifier context for current->mm.
+  */
+ struct amdgpu_mn *amdgpu_mn_get(struct amdgpu_device *adev,
+-				       enum amdgpu_mn_type type)
++				enum amdgpu_mn_type type)
+ {
+ 	struct mm_struct *mm = current->mm;
+ 	struct amdgpu_mn *rmn;
+ 	unsigned long key = AMDGPU_MN_KEY(mm, type);
+ 	int r;
++#if LINUX_VERSION_CODE < KERNEL_VERSION(3, 9, 0)
++	struct hlist_node *node;
++#endif
+ 
+ 	mutex_lock(&adev->mn_lock);
++#if LINUX_VERSION_CODE < KERNEL_VERSION(4, 7, 0)
++	down_write(&mm->mmap_sem);
++#else
+ 	if (down_write_killable(&mm->mmap_sem)) {
+ 		mutex_unlock(&adev->mn_lock);
+ 		return ERR_PTR(-EINTR);
+ 	}
++#endif
+ 
++#if LINUX_VERSION_CODE < KERNEL_VERSION(3, 9, 0)
++	hash_for_each_possible(adev->mn_hash, rmn, node, node, key)
++#else
+ 	hash_for_each_possible(adev->mn_hash, rmn, node, key)
++#endif
+ 		if (AMDGPU_MN_KEY(rmn->mm, rmn->type) == key)
+ 			goto release_locks;
+ 
+@@ -336,10 +365,14 @@ struct amdgpu_mn *amdgpu_mn_get(struct amdgpu_device *adev,
+ 
+ 	rmn->adev = adev;
+ 	rmn->mm = mm;
+-	rmn->type = type;
+-	rmn->mn.ops = &amdgpu_mn_ops[type];
+ 	init_rwsem(&rmn->lock);
++#if LINUX_VERSION_CODE < KERNEL_VERSION(4, 14, 0)
++	rmn->objects = RB_ROOT;
++#else
+ 	rmn->objects = RB_ROOT_CACHED;
++#endif
++	rmn->type = type;
++	rmn->mn.ops = &amdgpu_mn_ops[type];
+ 	mutex_init(&rmn->read_lock);
+ 	atomic_set(&rmn->recursion, 0);
+ 
+diff --git a/drivers/gpu/drm/amd/amdgpu/amdgpu_object.h b/drivers/gpu/drm/amd/amdgpu/amdgpu_object.h
+index 818b31b..b6a580e 100755
+--- a/drivers/gpu/drm/amd/amdgpu/amdgpu_object.h
++++ b/drivers/gpu/drm/amd/amdgpu/amdgpu_object.h
+@@ -90,12 +90,12 @@ struct amdgpu_bo {
+ 
+ 	struct ttm_bo_kmap_obj		dma_buf_vmap;
+ 	struct amdgpu_mn		*mn;
+-	struct kgd_mem			*kfd_bo;
+ 
+ 	union {
+ 		struct list_head	mn_list;
+ 		struct list_head	shadow_list;
+ 	};
++	struct kgd_mem                  *kfd_bo;
+ };
+ 
+ static inline struct amdgpu_bo *ttm_to_amdgpu_bo(struct ttm_buffer_object *tbo)
+diff --git a/drivers/gpu/drm/amd/amdgpu/amdgpu_sync.c b/drivers/gpu/drm/amd/amdgpu/amdgpu_sync.c
+index 10059d9..065e1ad 100755
+--- a/drivers/gpu/drm/amd/amdgpu/amdgpu_sync.c
++++ b/drivers/gpu/drm/amd/amdgpu/amdgpu_sync.c
+@@ -214,6 +214,9 @@ int amdgpu_sync_resv(struct amdgpu_device *adev,
+ 	for (i = 0; i < flist->shared_count; ++i) {
+ 		f = rcu_dereference_protected(flist->shared[i],
+ 					      reservation_object_held(resv));
++		/* We only want to trigger KFD eviction fences on
++		* evict or move jobs. Skip KFD fences otherwise.
++		*/
+ 		fence_owner = amdgpu_sync_get_owner(f);
+ 		if (fence_owner == AMDGPU_FENCE_OWNER_KFD &&
+ 			owner != AMDGPU_FENCE_OWNER_UNDEFINED)
+@@ -320,9 +323,16 @@ struct dma_fence *amdgpu_sync_get_fence(struct amdgpu_sync *sync, bool *explicit
+ 	return NULL;
+ }
+ 
+-int amdgpu_sync_clone(struct amdgpu_device *adev,
+-					 struct amdgpu_sync *source,
+-					 struct amdgpu_sync *clone)
++/**
++ * amdgpu_sync_clone - clone a sync object
++ *
++ * @source: sync object to clone
++ * @clone: pointer to destination sync object
++ *
++ * Adds references to all unsignaled fences in @source to @clone. Also
++ * removes signaled fences from @source while at it.
++ */
++int amdgpu_sync_clone(struct amdgpu_sync *source, struct amdgpu_sync *clone)
+ {
+ 	struct amdgpu_sync_entry *e;
+ 	struct hlist_node *tmp;
+@@ -330,10 +340,9 @@ int amdgpu_sync_clone(struct amdgpu_device *adev,
+ 	int i, r;
+ 
+ 	hash_for_each_safe(source->fences, i, tmp, e, node) {
+-
+ 		f = e->fence;
+ 		if (!dma_fence_is_signaled(f)) {
+-			r = amdgpu_sync_fence(adev, clone, f, false);
++			r = amdgpu_sync_fence(NULL, clone, f, e->explicit);
+ 			if (r)
+ 				return r;
+ 		} else {
+@@ -342,6 +351,9 @@ int amdgpu_sync_clone(struct amdgpu_device *adev,
+ 			kmem_cache_free(amdgpu_sync_slab, e);
+ 		}
+ 	}
++
++	dma_fence_put(clone->last_vm_update);
++	clone->last_vm_update = dma_fence_get(source->last_vm_update);
+ 	return 0;
+ }
+ 
+diff --git a/drivers/gpu/drm/amd/amdgpu/amdgpu_sync.h b/drivers/gpu/drm/amd/amdgpu/amdgpu_sync.h
+index 6d428da..8cfedf5 100755
+--- a/drivers/gpu/drm/amd/amdgpu/amdgpu_sync.h
++++ b/drivers/gpu/drm/amd/amdgpu/amdgpu_sync.h
+@@ -50,8 +50,7 @@ int amdgpu_sync_resv(struct amdgpu_device *adev,
+ struct dma_fence *amdgpu_sync_peek_fence(struct amdgpu_sync *sync,
+ 				     struct amdgpu_ring *ring);
+ struct dma_fence *amdgpu_sync_get_fence(struct amdgpu_sync *sync, bool *explicit);
+-int amdgpu_sync_clone(struct amdgpu_device *adev, struct amdgpu_sync *source,
+-					 struct amdgpu_sync *clone);
++int amdgpu_sync_clone(struct amdgpu_sync *source, struct amdgpu_sync *clone);
+ int amdgpu_sync_wait(struct amdgpu_sync *sync, bool intr);
+ void amdgpu_sync_free(struct amdgpu_sync *sync);
+ int amdgpu_sync_init(void);
+diff --git a/drivers/gpu/drm/amd/amdgpu/amdgpu_ttm.c b/drivers/gpu/drm/amd/amdgpu/amdgpu_ttm.c
+index 826f76d..6bf6134 100644
+--- a/drivers/gpu/drm/amd/amdgpu/amdgpu_ttm.c
++++ b/drivers/gpu/drm/amd/amdgpu/amdgpu_ttm.c
+@@ -276,33 +276,20 @@ static void amdgpu_evict_flags(struct ttm_buffer_object *bo,
+ 
+ static int amdgpu_verify_access(struct ttm_buffer_object *bo, struct file *filp)
+ {
+-	struct amdgpu_bo *abo;
+-	struct drm_file *file_priv;
+-	struct amdgpu_gem_object *gobj;
+-
++	struct amdgpu_bo *abo = ttm_to_amdgpu_bo(bo);
+ 
+-	abo = ttm_to_amdgpu_bo(bo);
+ 	/*
+ 	 * Don't verify access for KFD BO as it doesn't necessary has
+ 	 * KGD file pointer
+ 	 */
+ 	if (!abo || abo->kfd_bo || !filp)
+ 		return 0;
+-	file_priv = filp->private_data;
+ 
+ 	if (amdgpu_ttm_tt_get_usermm(bo->ttm))
+ 		return -EPERM;
+ 
+-	ww_mutex_lock(&abo->tbo.resv->lock, NULL);
+-	list_for_each_entry(gobj, &abo->gem_objects, list) {
+-		if (gobj->base.dev != file_priv->minor->dev)
+-			continue;
+-
+-		ww_mutex_unlock(&abo->tbo.resv->lock);
+-		return drm_vma_node_verify_access(&gobj->base.vma_node,
+-                                        filp->private_data);
+-	}
+-        ww_mutex_unlock(&abo->tbo.resv->lock);
++	return drm_vma_node_verify_access(&abo->gem_base.vma_node,
++					  filp->private_data);
+ 
+         return -EPERM;
+ }
+diff --git a/drivers/gpu/drm/amd/amdgpu/amdgpu_vm.c b/drivers/gpu/drm/amd/amdgpu/amdgpu_vm.c
+index 1833ecb..77f15fe 100644
+--- a/drivers/gpu/drm/amd/amdgpu/amdgpu_vm.c
++++ b/drivers/gpu/drm/amd/amdgpu/amdgpu_vm.c
+@@ -1473,6 +1473,9 @@ static int amdgpu_vm_bo_split_mapping(struct amdgpu_device *adev,
+ 			default:
+ 				break;
+ 			}
++		} else if (flags & AMDGPU_PTE_VALID) {
++			addr += vram_base_offset;
++			addr += pfn << PAGE_SHIFT;
+ 		} else {
+ 			addr = 0;
+ 			max_entries = S64_MAX;
+@@ -2407,6 +2410,10 @@ int amdgpu_vm_init(struct amdgpu_device *adev, struct amdgpu_vm *vm,
+ 	unsigned long size;
+ 	uint64_t flags;
+ 	int r, i;
++	
++	/* Temporary use only the first VM manager */
++	unsigned vmhub = 0; /*ring->funcs->vmhub;*/
++	struct amdgpu_vmid_mgr *id_mgr = &adev->vm_manager.id_mgr[vmhub];
+ 
+ 	vm->va = RB_ROOT_CACHED;
+ 	for (i = 0; i < AMDGPU_MAX_VMHUBS; i++)
+@@ -2489,10 +2496,20 @@ int amdgpu_vm_init(struct amdgpu_device *adev, struct amdgpu_vm *vm,
+ 
+ 	INIT_KFIFO(vm->faults);
+ 	vm->fault_credit = 16;
+-
++	
+ 	vm->vm_context = vm_context;
+-	if (vm_context == AMDGPU_VM_CONTEXT_COMPUTE)
+-		amdgpu_inc_compute_vms(adev);
++	if (vm_context == AMDGPU_VM_CONTEXT_COMPUTE) {
++		mutex_lock(&id_mgr->lock);
++
++		if ((adev->vm_manager.n_compute_vms++ == 0) &&
++			(!amdgpu_sriov_vf(adev))) {
++			/* First Compute VM: enable compute power profile */
++			if (adev->powerplay.pp_funcs->switch_power_profile)
++				amdgpu_dpm_switch_power_profile(adev,
++						AMD_PP_COMPUTE_PROFILE);
++		}
++		mutex_unlock(&id_mgr->lock);
++	}
+ 
+ 	return 0;
+ 
+@@ -2658,10 +2675,10 @@ void amdgpu_vm_fini(struct amdgpu_device *adev, struct amdgpu_vm *vm)
+ 
+ 		if ((--adev->vm_manager.n_compute_vms == 0) &&
+ 			(!amdgpu_sriov_vf(adev))) {
+-			/* Last Compute VM: enable graphics power profile */
++			/* Last KFD VM: enable graphics power profile */
+ 			if (adev->powerplay.pp_funcs->switch_power_profile)
+ 				amdgpu_dpm_switch_power_profile(adev,
+-							PP_SMC_POWER_PROFILE_COMPUTE, true);
++						AMD_PP_GFX_PROFILE);
+ 		}
+ 		mutex_unlock(&id_mgr->lock);
+ 	}
+diff --git a/drivers/gpu/drm/amd/amdgpu/gfx_v7_0.c b/drivers/gpu/drm/amd/amdgpu/gfx_v7_0.c
+index eb819f9..e203049 100644
+--- a/drivers/gpu/drm/amd/amdgpu/gfx_v7_0.c
++++ b/drivers/gpu/drm/amd/amdgpu/gfx_v7_0.c
+@@ -5250,10 +5250,19 @@ static void gfx_v7_0_get_cu_info(struct amdgpu_device *adev)
+ 	cu_info->number = active_cu_number;
+ 	cu_info->ao_cu_mask = ao_cu_mask;
+ 	cu_info->simd_per_cu = NUM_SIMD_PER_CU;
+-	cu_info->max_waves_per_simd = 10;
+-	cu_info->max_scratch_slots_per_cu = 32;
+-	cu_info->wave_front_size = 64;
+-	cu_info->lds_size = 64;
++	switch (adev->asic_type) {
++	case CHIP_KAVERI:
++	case CHIP_HAWAII:
++		cu_info->max_waves_per_simd = 10;
++		cu_info->max_scratch_slots_per_cu = 32;
++		cu_info->wave_front_size = 64;
++		cu_info->lds_size = 64;
++		break;
++	default:
++		dev_warn(adev->dev, "CU info asic_type [0x%x] not supported\n",
++				adev->asic_type);
++		break;
++	}
+ }
+ 
+ const struct amdgpu_ip_block_version gfx_v7_0_ip_block =
+diff --git a/drivers/gpu/drm/amd/amdgpu/gfx_v8_0.c b/drivers/gpu/drm/amd/amdgpu/gfx_v8_0.c
+index 668cd05..af7b01e 100644
+--- a/drivers/gpu/drm/amd/amdgpu/gfx_v8_0.c
++++ b/drivers/gpu/drm/amd/amdgpu/gfx_v8_0.c
+@@ -7111,10 +7111,22 @@ static void gfx_v8_0_get_cu_info(struct amdgpu_device *adev)
+ 	cu_info->number = active_cu_number;
+ 	cu_info->ao_cu_mask = ao_cu_mask;
+ 	cu_info->simd_per_cu = NUM_SIMD_PER_CU;
+-        cu_info->max_waves_per_simd = 10;
+-        cu_info->max_scratch_slots_per_cu = 32;
+-        cu_info->wave_front_size = 64;
+-        cu_info->lds_size = 64;
++        switch (adev->asic_type) {
++        case CHIP_CARRIZO:
++        case CHIP_TONGA:
++        case CHIP_FIJI:
++        case CHIP_POLARIS10:
++        case CHIP_POLARIS11:
++                cu_info->max_waves_per_simd = 10;
++                cu_info->max_scratch_slots_per_cu = 32;
++                cu_info->wave_front_size = 64;
++                cu_info->lds_size = 64;
++                break;
++        default:
++                dev_warn(adev->dev, "CU info asic_type [0x%x] not supported\n",
++                                        adev->asic_type);
++        }
++
+ 
+ }
+ 
+diff --git a/drivers/gpu/drm/amd/amdgpu/gfx_v9_0.c b/drivers/gpu/drm/amd/amdgpu/gfx_v9_0.c
+index b603f40..50a708f 100644
+--- a/drivers/gpu/drm/amd/amdgpu/gfx_v9_0.c
++++ b/drivers/gpu/drm/amd/amdgpu/gfx_v9_0.c
+@@ -4573,6 +4573,20 @@ static int gfx_v9_0_get_cu_info(struct amdgpu_device *adev,
+ 	cu_info->number = active_cu_number;
+ 	cu_info->ao_cu_mask = ao_cu_mask;
+ 	cu_info->simd_per_cu = NUM_SIMD_PER_CU;
++	cu_info->simd_per_cu = NUM_SIMD_PER_CU;
++
++	switch (adev->asic_type) {
++	case CHIP_VEGA10: /* TODO: check if any of this changed */
++	case CHIP_RAVEN:
++		cu_info->max_waves_per_simd = 10;
++		cu_info->max_scratch_slots_per_cu = 32;
++		cu_info->wave_front_size = 64;
++		cu_info->lds_size = 64;
++		break;
++	default:
++		dev_warn(adev->dev, "CU info asic_type [0x%x] not supported\n",
++					adev->asic_type);
++	}
+ 
+ 	return 0;
+ }
+diff --git a/drivers/gpu/drm/amd/amdgpu/gmc_v7_0.c b/drivers/gpu/drm/amd/amdgpu/gmc_v7_0.c
+index 5c0298b..a1348d5 100644
+--- a/drivers/gpu/drm/amd/amdgpu/gmc_v7_0.c
++++ b/drivers/gpu/drm/amd/amdgpu/gmc_v7_0.c
+@@ -1072,9 +1072,9 @@ static int gmc_v7_0_sw_fini(void *handle)
+ {
+ 	struct amdgpu_device *adev = (struct amdgpu_device *)handle;
+ 
+-	kfree(adev->gmc.vm_fault_info);
+ 	amdgpu_gem_force_release(adev);
+ 	amdgpu_vm_manager_fini(adev);
++	kfree(adev->gmc.vm_fault_info);
+ 	gmc_v7_0_gart_fini(adev);
+ 	amdgpu_bo_fini(adev);
+ 	release_firmware(adev->gmc.fw);
+diff --git a/drivers/gpu/drm/amd/amdgpu/gmc_v8_0.c b/drivers/gpu/drm/amd/amdgpu/gmc_v8_0.c
+index 8211f70..4e1b464 100644
+--- a/drivers/gpu/drm/amd/amdgpu/gmc_v8_0.c
++++ b/drivers/gpu/drm/amd/amdgpu/gmc_v8_0.c
+@@ -1174,9 +1174,9 @@ static int gmc_v8_0_sw_fini(void *handle)
+ {
+ 	struct amdgpu_device *adev = (struct amdgpu_device *)handle;
+ 
+-	kfree(adev->gmc.vm_fault_info);
+ 	amdgpu_gem_force_release(adev);
+ 	amdgpu_vm_manager_fini(adev);
++	kfree(adev->gmc.vm_fault_info);
+ 	gmc_v8_0_gart_fini(adev);
+ 	amdgpu_bo_fini(adev);
+ 	release_firmware(adev->gmc.fw);
+diff --git a/drivers/gpu/drm/amd/display/dc/core/dc_link.c b/drivers/gpu/drm/amd/display/dc/core/dc_link.c
+index f8c09273..f3973a5 100644
+--- a/drivers/gpu/drm/amd/display/dc/core/dc_link.c
++++ b/drivers/gpu/drm/amd/display/dc/core/dc_link.c
+@@ -1843,7 +1843,7 @@ static void disable_link(struct dc_link *link, enum signal_type signal)
+ 
+ static bool dp_active_dongle_validate_timing(
+ 		const struct dc_crtc_timing *timing,
+-		const struct dc_dongle_caps *dongle_caps)
++		const struct dpcd_caps *dpcd_caps)
+ {
+ 	unsigned int required_pix_clk = timing->pix_clk_khz;
+ 
+-- 
+2.7.4
+

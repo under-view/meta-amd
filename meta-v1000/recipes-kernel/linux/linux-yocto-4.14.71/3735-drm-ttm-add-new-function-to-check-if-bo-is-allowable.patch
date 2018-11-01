@@ -1,0 +1,157 @@
+From aadb7464c2d8a5379549882b063b63552c66591b Mon Sep 17 00:00:00 2001
+From: Roger He <Hongbo.He@amd.com>
+Date: Thu, 21 Dec 2017 17:42:52 +0800
+Subject: [PATCH 3735/4131] drm/ttm: add new function to check if bo is
+ allowable to evict or swapout
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+extract a function as ttm_bo_evict_swapout_allowable since eviction and
+swapout can share same logic.
+
+v2: modify commit message and add description in the code
+
+Reviewed-by: Thomas Hellström <thellstrom@vmware.com>
+Reviewed-by: Christian König <christian.koenig@amd.com>
+Reviewed-by: Chuming Zhou <david1.zhou@amd.com>
+Signed-off-by: Roger He <Hongbo.He@amd.com>
+Signed-off-by: Alex Deucher <alexander.deucher@amd.com>
+---
+ drivers/gpu/drm/ttm/ttm_bo.c | 92 ++++++++++++++++++++++++++++++--------------
+ 1 file changed, 64 insertions(+), 28 deletions(-)
+
+diff --git a/drivers/gpu/drm/ttm/ttm_bo.c b/drivers/gpu/drm/ttm/ttm_bo.c
+index 9c1930d..d3ea59c 100644
+--- a/drivers/gpu/drm/ttm/ttm_bo.c
++++ b/drivers/gpu/drm/ttm/ttm_bo.c
+@@ -725,6 +725,35 @@ bool ttm_bo_eviction_valuable(struct ttm_buffer_object *bo,
+ }
+ EXPORT_SYMBOL(ttm_bo_eviction_valuable);
+ 
++/**
++ * Check the target bo is allowable to be evicted or swapout, including cases:
++ *
++ * a. if share same reservation object with ctx->resv, have assumption
++ * reservation objects should already be locked, so not lock again and
++ * return true directly when either the opreation allow_reserved_eviction
++ * or the target bo already is in delayed free list;
++ *
++ * b. Otherwise, trylock it.
++ */
++static bool ttm_bo_evict_swapout_allowable(struct ttm_buffer_object *bo,
++                       struct ttm_operation_ctx *ctx, bool *locked)
++{
++       bool ret = false;
++
++       *locked = false;
++       if (bo->resv == ctx->resv) {
++               reservation_object_assert_held(bo->resv);
++               if (ctx->allow_reserved_eviction || !list_empty(&bo->ddestroy))
++                       ret = true;
++       } else {
++               *locked = reservation_object_trylock(bo->resv);
++               ret = *locked;
++       }
++
++       return ret;
++}
++
++
+ static int ttm_mem_evict_first(struct ttm_bo_device *bdev,
+ 				uint32_t mem_type,
+ 				const struct ttm_place *place,
+@@ -732,55 +761,62 @@ static int ttm_mem_evict_first(struct ttm_bo_device *bdev,
+ {
+ 	struct ttm_bo_global *glob = bdev->glob;
+ 	struct ttm_mem_type_manager *man = &bdev->man[mem_type];
+-	struct ttm_buffer_object *bo;
+-	int ret = -EBUSY;
++	struct ttm_buffer_object *bo = NULL;
++	bool locked = false;
++	int ret;
+ 	unsigned i;
+ 
+ 	spin_lock(&glob->lru_lock);
+ 	for (i = 0; i < TTM_MAX_BO_PRIORITY; ++i) {
+ 		list_for_each_entry(bo, &man->lru[i], lru) {
+-			ret = __ttm_bo_reserve(bo, false, true, NULL);
+-			if (ret)
++			if (!ttm_bo_evict_swapout_allowable(bo, ctx, &locked))
+ 				continue;
+ 
+ 			if (place && !bdev->driver->eviction_valuable(bo,
+ 								      place)) {
+-				__ttm_bo_unreserve(bo);
+-				ret = -EBUSY;
++				if (locked)
++					reservation_object_unlock(bo->resv);
+ 				continue;
+ 			}
+-
+ 			break;
+ 		}
+-
+-		if (!ret)
++	
++		/* If the inner loop terminated early, we have our candidate */
++		if (&bo->lru != &man->lru[i])
+ 			break;
+-	}
+ 
+-	if (ret) {
+-		spin_unlock(&glob->lru_lock);
+-		return ret;
++		bo = NULL;
+ 	}
+ 
+-	kref_get(&bo->list_kref);
++        if (!bo) {
++                spin_unlock(&glob->lru_lock);
++                return -EBUSY;
++        }
+ 
+-	if (!list_empty(&bo->ddestroy)) {
+-		ret = ttm_bo_cleanup_refs(bo, ctx->interruptible,
+-					ctx->no_wait_gpu, locked);
+-		kref_put(&bo->list_kref, ttm_bo_release_list);
+-		return ret;
+-	}
++        kref_get(&bo->list_kref);
+ 
+-	ttm_bo_del_from_lru(bo);
+-	spin_unlock(&glob->lru_lock);
++        if (!list_empty(&bo->ddestroy)) {
++                ret = ttm_bo_cleanup_refs(bo, ctx->interruptible,
++                                          ctx->no_wait_gpu, locked);
++                kref_put(&bo->list_kref, ttm_bo_release_list);
++                return ret;
++        }
+ 
+-	BUG_ON(ret != 0);
+-	
+-	ret = ttm_bo_evict(bo, ctx);
+-	ttm_bo_unreserve(bo);
++        ttm_bo_del_from_lru(bo);
++        spin_unlock(&glob->lru_lock);
++
++        ret = ttm_bo_evict(bo, ctx);
++        if (locked) {
++                ttm_bo_unreserve(bo);
++        } else {
++                spin_lock(&glob->lru_lock);
++                ttm_bo_add_to_lru(bo);
++                spin_unlock(&glob->lru_lock);
++        }
++
++        kref_put(&bo->list_kref, ttm_bo_release_list);
++        return ret;
+ 
+-	kref_put(&bo->list_kref, ttm_bo_release_list);
+-	return ret;
+ }
+ 
+ void ttm_bo_mem_put(struct ttm_buffer_object *bo, struct ttm_mem_reg *mem)
+-- 
+2.7.4
+

@@ -1,0 +1,34 @@
+From 77181601c44ba3f2874b41c2e23e969004af1a48 Mon Sep 17 00:00:00 2001
+From: Rex Zhu <Rex.Zhu@amd.com>
+Date: Tue, 13 Mar 2018 13:40:00 +0800
+Subject: [PATCH 3796/4131] drm/amd/pp: Fix function parameter not correct
+
+caused by "commit dcefb7668e5b4fb56099b16d1790cd3056322b03"
+
+Change-Id: I06aa6000afbc0484e40ce28789ad10062284a243
+Reviewed-by: Evan Quan <evan.quan@amd.com>
+Signed-off-by: Rex Zhu <Rex.Zhu@amd.com>
+---
+ drivers/gpu/drm/amd/powerplay/smumgr/rv_smumgr.c | 4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
+
+diff --git a/drivers/gpu/drm/amd/powerplay/smumgr/rv_smumgr.c b/drivers/gpu/drm/amd/powerplay/smumgr/rv_smumgr.c
+index 5dbef41..3dec481 100644
+--- a/drivers/gpu/drm/amd/powerplay/smumgr/rv_smumgr.c
++++ b/drivers/gpu/drm/amd/powerplay/smumgr/rv_smumgr.c
+@@ -234,10 +234,10 @@ static int rv_smu_fini(struct pp_hwmgr *hwmgr)
+ 		rv_smc_disable_vcn(hwmgr);
+ 		amdgpu_bo_free_kernel(&priv->smu_tables.entry[SMU10_WMTABLE].handle,
+ 					&priv->smu_tables.entry[SMU10_WMTABLE].mc_addr,
+-					priv->smu_tables.entry[SMU10_WMTABLE].table);
++					&priv->smu_tables.entry[SMU10_WMTABLE].table);
+ 		amdgpu_bo_free_kernel(&priv->smu_tables.entry[SMU10_CLOCKTABLE].handle,
+ 					&priv->smu_tables.entry[SMU10_CLOCKTABLE].mc_addr,
+-					priv->smu_tables.entry[SMU10_CLOCKTABLE].table);
++					&priv->smu_tables.entry[SMU10_CLOCKTABLE].table);
+ 		kfree(hwmgr->smu_backend);
+ 		hwmgr->smu_backend = NULL;
+ 	}
+-- 
+2.7.4
+

@@ -1,0 +1,32 @@
+From 7e9f057b0bea04c1a0d50d5eb0118a02d5544952 Mon Sep 17 00:00:00 2001
+From: Harish Kasiviswanathan <Harish.Kasiviswanathan@amd.com>
+Date: Thu, 31 Mar 2016 16:13:28 -0400
+Subject: [PATCH 1415/4131] drm/amdkgd: Temporary fix for HBM width
+
+The current computation for vram width is outdated. For permanent
+solution this has to be fixed.
+
+Change-Id: I1ec2895fae698def72d5047961bdf041f92f8194
+Signed-off-by: Harish Kasiviswanathan <Harish.Kasiviswanathan@amd.com>
+---
+ drivers/gpu/drm/amd/amdgpu/gmc_v8_0.c | 4 ++++
+ 1 file changed, 4 insertions(+)
+
+diff --git a/drivers/gpu/drm/amd/amdgpu/gmc_v8_0.c b/drivers/gpu/drm/amd/amdgpu/gmc_v8_0.c
+index e306006..d956df4 100644
+--- a/drivers/gpu/drm/amd/amdgpu/gmc_v8_0.c
++++ b/drivers/gpu/drm/amd/amdgpu/gmc_v8_0.c
+@@ -543,6 +543,10 @@ static int gmc_v8_0_mc_init(struct amdgpu_device *adev)
+ 			break;
+ 		}
+ 		adev->mc.vram_width = numchan * chansize;
++		/* FIXME: The above calculation is outdated.
++		 * For HBM provide a temporary fix */
++		if (adev->mc.vram_type == AMDGPU_VRAM_TYPE_HBM)
++			adev->mc.vram_width = AMDGPU_VRAM_TYPE_HBM_WIDTH;
+ 	}
+ 	/* Could aper size report 0 ? */
+ 	adev->mc.aper_base = pci_resource_start(adev->pdev, 0);
+-- 
+2.7.4
+

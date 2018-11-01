@@ -1,0 +1,30 @@
+From 3beae0414b764d920c9e960bb10ae3723e665046 Mon Sep 17 00:00:00 2001
+From: Shaoyun Liu <Shaoyun.Liu@amd.com>
+Date: Tue, 6 Feb 2018 17:29:35 -0500
+Subject: [PATCH 3530/4131] drm/amdgpu: Avoid get vram info from atom bios on
+ emulation mode
+
+Signed-off-by: Shaoyun Liu <Shaoyun.Liu@amd.com>
+Reviewed-by: Alex Deucher <alexander.deucher@amd.com>
+Signed-off-by: Alex Deucher <alexander.deucher@amd.com>
+---
+ drivers/gpu/drm/amd/amdgpu/gmc_v9_0.c | 3 ++-
+ 1 file changed, 2 insertions(+), 1 deletion(-)
+
+diff --git a/drivers/gpu/drm/amd/amdgpu/gmc_v9_0.c b/drivers/gpu/drm/amd/amdgpu/gmc_v9_0.c
+index 75adf9b..be40aa7 100644
+--- a/drivers/gpu/drm/amd/amdgpu/gmc_v9_0.c
++++ b/drivers/gpu/drm/amd/amdgpu/gmc_v9_0.c
+@@ -711,7 +711,8 @@ static int gmc_v9_0_mc_init(struct amdgpu_device *adev)
+ 	int chansize, numchan;
+ 	int r;
+ 
+-	adev->gmc.vram_width = amdgpu_atomfirmware_get_vram_width(adev);
++	if (amdgpu_emu_mode != 1)
++		adev->gmc.vram_width = amdgpu_atomfirmware_get_vram_width(adev);
+ 	if (!adev->gmc.vram_width) {
+ 		/* hbm memory channel size */
+ 		if (adev->flags & AMD_IS_APU)
+-- 
+2.7.4
+

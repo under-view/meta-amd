@@ -1,0 +1,32 @@
+From 5723f660d989eb3093054bcc4cc036ba41db9119 Mon Sep 17 00:00:00 2001
+From: =?UTF-8?q?Christian=20K=C3=B6nig?= <christian.koenig@amd.com>
+Date: Mon, 23 Oct 2017 17:29:36 +0200
+Subject: [PATCH 2080/4131] drm/amdgpu: fix pin domain compatibility check
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+We need to test if any domain fits, not all of them.
+
+Signed-off-by: Christian König <christian.koenig@amd.com>
+Reviewed-by: Alex Deucher <alexander.deucher@amd.com>
+---
+ drivers/gpu/drm/amd/amdgpu/amdgpu_object.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/drivers/gpu/drm/amd/amdgpu/amdgpu_object.c b/drivers/gpu/drm/amd/amdgpu/amdgpu_object.c
+index 6643ed1..b63e8ee 100755
+--- a/drivers/gpu/drm/amd/amdgpu/amdgpu_object.c
++++ b/drivers/gpu/drm/amd/amdgpu/amdgpu_object.c
+@@ -692,7 +692,7 @@ int amdgpu_bo_pin_restricted(struct amdgpu_bo *bo, u32 domain,
+ 	if (bo->pin_count) {
+ 		uint32_t mem_type = bo->tbo.mem.mem_type;
+ 
+-		if (domain != amdgpu_mem_type_to_domain(mem_type))
++		if (!(domain & amdgpu_mem_type_to_domain(mem_type)))
+ 			return -EINVAL;
+ 
+ 		bo->pin_count++;
+-- 
+2.7.4
+

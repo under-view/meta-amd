@@ -1,0 +1,93 @@
+From 8a2b2aa9ad5bb0741860809064def43e5cb4c47d Mon Sep 17 00:00:00 2001
+From: Kalyan Alle <kalyan.alle@amd.com>
+Date: Wed, 2 May 2018 11:35:32 +0530
+Subject: [PATCH 2074/4131] Compilation issue fixes v3
+
+This patch fixes the compilation issues popped up
+during porting
+till commit : 84b83f5256d3b84123170fdd46713a213b25cfba
+repo:brahma/ec/linux , branch : amd-18.10
+
+Signed-off-by: kalyan alle <kalyan.alle@amd.com>
+---
+ drivers/gpu/drm/amd/amdgpu/uvd_v6_0.c | 20 +++++++++++++++-----
+ include/uapi/drm/amdgpu_drm.h         | 16 ++++++++++++----
+ 2 files changed, 27 insertions(+), 9 deletions(-)
+
+diff --git a/drivers/gpu/drm/amd/amdgpu/uvd_v6_0.c b/drivers/gpu/drm/amd/amdgpu/uvd_v6_0.c
+index dc5a00e..1cfaa69 100644
+--- a/drivers/gpu/drm/amd/amdgpu/uvd_v6_0.c
++++ b/drivers/gpu/drm/amd/amdgpu/uvd_v6_0.c
+@@ -562,16 +562,26 @@ static int uvd_v6_0_hw_fini(void *handle)
+ 
+ static int uvd_v6_0_suspend(void *handle)
+ {
+-	return amdgpu_uvd_suspend(adev);
++        int r;
++        struct amdgpu_device *adev = (struct amdgpu_device *)handle;
++
++        r = uvd_v6_0_hw_fini(adev);
++        if (r)
++                return r;
++
++        return amdgpu_uvd_suspend(adev);
+ }
+ 
+ static int uvd_v6_0_resume(void *handle)
+ {
+-	r = amdgpu_uvd_resume(adev);
+-	if (r)
+-		return r;
++        int r;
++        struct amdgpu_device *adev = (struct amdgpu_device *)handle;
++
++        r = amdgpu_uvd_resume(adev);
++        if (r)
++                return r;
+ 
+-	return uvd_v6_0_hw_init(adev);
++        return uvd_v6_0_hw_init(adev);
+ }
+ 
+ /**
+diff --git a/include/uapi/drm/amdgpu_drm.h b/include/uapi/drm/amdgpu_drm.h
+index c81a4f8..dcd2e3c 100644
+--- a/include/uapi/drm/amdgpu_drm.h
++++ b/include/uapi/drm/amdgpu_drm.h
+@@ -178,6 +178,7 @@ union drm_amdgpu_bo_list {
+ #define AMDGPU_CTX_OP_ALLOC_CTX	1
+ #define AMDGPU_CTX_OP_FREE_CTX	2
+ #define AMDGPU_CTX_OP_QUERY_STATE	3
++#define AMDGPU_CTX_OP_QUERY_STATE2      4
+ 
+ /* GPU reset status */
+ #define AMDGPU_CTX_NO_RESET		0
+@@ -188,14 +189,21 @@ union drm_amdgpu_bo_list {
+ /* unknown cause */
+ #define AMDGPU_CTX_UNKNOWN_RESET	3
+ 
++/* indicate gpu reset occured after ctx created */
++#define AMDGPU_CTX_QUERY2_FLAGS_RESET    (1<<0)
++/* indicate vram lost occured after ctx created */
++#define AMDGPU_CTX_QUERY2_FLAGS_VRAMLOST (1<<1)
++/* indicate some job from this context once cause gpu hang */
++#define AMDGPU_CTX_QUERY2_FLAGS_GUILTY   (1<<2)
++
+ /* Context priority level */
+ #define AMDGPU_CTX_PRIORITY_UNSET       -2048
+-#define AMDGPU_CTX_PRIORITY_LOW_HW      -1023
+-#define AMDGPU_CTX_PRIORITY_LOW_SW      -512
++#define AMDGPU_CTX_PRIORITY_VERY_LOW    -1023
++#define AMDGPU_CTX_PRIORITY_LOW         -512
+ #define AMDGPU_CTX_PRIORITY_NORMAL      0
+ /* Selecting a priority above NORMAL requires CAP_SYS_NICE or DRM_MASTER */
+-#define AMDGPU_CTX_PRIORITY_HIGH_SW     512
+-#define AMDGPU_CTX_PRIORITY_HIGH_HW     1023
++#define AMDGPU_CTX_PRIORITY_HIGH        512
++#define AMDGPU_CTX_PRIORITY_VERY_HIGH   1023
+ 
+ struct drm_amdgpu_ctx_in {
+ 	/** AMDGPU_CTX_OP_* */
+-- 
+2.7.4
+

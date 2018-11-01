@@ -1,0 +1,44 @@
+From 46436c81ff244d48b435d36bc4a1db53bb0f9fba Mon Sep 17 00:00:00 2001
+From: Tony Cheng <tony.cheng@amd.com>
+Date: Sat, 19 Aug 2017 08:55:58 -0400
+Subject: [PATCH 2308/4131] drm/amd/display: version 3.1.01
+
+Signed-off-by: Tony Cheng <tony.cheng@amd.com>
+Reviewed-by: Tony Cheng <Tony.Cheng@amd.com>
+Acked-by: Harry Wentland <Harry.Wentland@amd.com>
+Signed-off-by: Alex Deucher <alexander.deucher@amd.com>
+---
+ drivers/gpu/drm/amd/display/dc/core/dc.c | 3 +++
+ drivers/gpu/drm/amd/display/dc/dc.h      | 2 +-
+ 2 files changed, 4 insertions(+), 1 deletion(-)
+
+diff --git a/drivers/gpu/drm/amd/display/dc/core/dc.c b/drivers/gpu/drm/amd/display/dc/core/dc.c
+index 2dbadb8..11c2699 100644
+--- a/drivers/gpu/drm/amd/display/dc/core/dc.c
++++ b/drivers/gpu/drm/amd/display/dc/core/dc.c
+@@ -48,6 +48,9 @@
+ #include "dm_helpers.h"
+ #include "mem_input.h"
+ 
++
++char dc_ver[] = DC_VER;
++
+ /*******************************************************************************
+  * Private functions
+  ******************************************************************************/
+diff --git a/drivers/gpu/drm/amd/display/dc/dc.h b/drivers/gpu/drm/amd/display/dc/dc.h
+index be169df..47493d3 100644
+--- a/drivers/gpu/drm/amd/display/dc/dc.h
++++ b/drivers/gpu/drm/amd/display/dc/dc.h
+@@ -38,7 +38,7 @@
+ #include "inc/compressor.h"
+ #include "dml/display_mode_lib.h"
+ 
+-
++#define DC_VER "3.1.01"
+ 
+ #define MAX_SURFACES 3
+ #define MAX_STREAMS 6
+-- 
+2.7.4
+

@@ -1,0 +1,51 @@
+From 5fa26796bf1cacee044198e94f99a829249ed282 Mon Sep 17 00:00:00 2001
+From: Felix Kuehling <Felix.Kuehling@amd.com>
+Date: Fri, 23 Feb 2018 15:58:59 -0500
+Subject: [PATCH 3706/4131] drm/amdgpu: Revert more changes related to shared
+ BOs
+
+These changes are no longer needed without the ability to import
+foreign BOs through GEM.
+
+Change-Id: I6fe89662f0be4bd787bac09f8a22a43b661b5cb8
+Signed-off-by: Felix Kuehling <Felix.Kuehling@amd.com>
+Signed-off-by: Kalyan Alle <kalyan.alle@amd.com>
+---
+ drivers/gpu/drm/amd/amdgpu/amdgpu_cs.c      | 3 +--
+ drivers/gpu/drm/amd/amdgpu/amdgpu_display.c | 6 ------
+ 2 files changed, 1 insertion(+), 8 deletions(-)
+
+diff --git a/drivers/gpu/drm/amd/amdgpu/amdgpu_cs.c b/drivers/gpu/drm/amd/amdgpu/amdgpu_cs.c
+index 1d4a277..9e9a299 100644
+--- a/drivers/gpu/drm/amd/amdgpu/amdgpu_cs.c
++++ b/drivers/gpu/drm/amd/amdgpu/amdgpu_cs.c
+@@ -1585,8 +1585,7 @@ int amdgpu_cs_find_mapping(struct amdgpu_cs_parser *parser,
+ 	addr /= AMDGPU_GPU_PAGE_SIZE;
+ 	
+ 	mapping = amdgpu_vm_bo_lookup_mapping(vm, addr);
+-	if (!mapping || !mapping->bo_va || !mapping->bo_va->base.bo ||
+-		amdgpu_ttm_adev(mapping->bo_va->base.bo->tbo.bdev) != parser->adev)
++	if (!mapping || !mapping->bo_va || !mapping->bo_va->base.bo)
+ 		return -EINVAL;
+ 
+ 	*bo = mapping->bo_va->base.bo;
+diff --git a/drivers/gpu/drm/amd/amdgpu/amdgpu_display.c b/drivers/gpu/drm/amd/amdgpu/amdgpu_display.c
+index ee3f851..10b25d9 100644
+--- a/drivers/gpu/drm/amd/amdgpu/amdgpu_display.c
++++ b/drivers/gpu/drm/amd/amdgpu/amdgpu_display.c
+@@ -184,12 +184,6 @@ int amdgpu_display_crtc_page_flip_target(struct drm_crtc *crtc,
+ 	obj = new_amdgpu_fb->obj;
+ 	new_abo = gem_to_amdgpu_bo(obj);
+ 
+-	if (amdgpu_ttm_adev(new_abo->tbo.bdev) != adev) {
+-		DRM_ERROR("Foreign BOs not allowed in the display engine\n");
+-		r = -EINVAL;
+-		goto cleanup;
+-	}
+-
+ 	/* pin the new buffer */
+ 	r = amdgpu_bo_reserve(new_abo, false);
+ 	if (unlikely(r != 0)) {
+-- 
+2.7.4
+

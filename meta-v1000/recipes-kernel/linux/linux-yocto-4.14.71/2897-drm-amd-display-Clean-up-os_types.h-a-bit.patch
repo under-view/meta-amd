@@ -1,0 +1,46 @@
+From 0312f3f2d0c28df8a87aa4e1e299d982ce12d84f Mon Sep 17 00:00:00 2001
+From: Harry Wentland <harry.wentland@amd.com>
+Date: Wed, 15 Nov 2017 19:27:37 -0500
+Subject: [PATCH 2897/4131] drm/amd/display: Clean up os_types.h a bit
+
+Signed-off-by: Harry Wentland <harry.wentland@amd.com>
+Reviewed-by: Tony Cheng <Tony.Cheng@amd.com>
+Acked-by: Harry Wentland <harry.wentland@amd.com>
+
+ Conflicts:
+        drivers/gpu/drm/amd/display/dc/os_types.h
+
+Change-Id: I6fb64473ef3ace0fa77419df026d1282d054c7d9
+---
+ drivers/gpu/drm/amd/display/dc/os_types.h | 8 ++++++--
+ 1 file changed, 6 insertions(+), 2 deletions(-)
+
+diff --git a/drivers/gpu/drm/amd/display/dc/os_types.h b/drivers/gpu/drm/amd/display/dc/os_types.h
+index a87c032..0bdbab3 100644
+--- a/drivers/gpu/drm/amd/display/dc/os_types.h
++++ b/drivers/gpu/drm/amd/display/dc/os_types.h
+@@ -26,8 +26,6 @@
+ #ifndef _OS_TYPES_H_
+ #define _OS_TYPES_H_
+ 
+-#if defined __KERNEL__
+-
+ #include <asm/byteorder.h>
+ #include <linux/types.h>
+ #include <drm/drmP.h>
+@@ -54,6 +52,12 @@
+ 
+ #define dm_vlog(fmt, args) vprintk(fmt, args)
+ 
++#if LINUX_VERSION_CODE >= KERNEL_VERSION(4, 2, 0)
++#if defined(CONFIG_DRM_AMD_DC_DCN1_0)
++#include <asm/fpu/api.h>
++#endif
++#else
++#include <asm/i387.h>
+ #endif
+ 
+ /*
+-- 
+2.7.4
+

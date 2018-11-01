@@ -1,0 +1,127 @@
+From ade0551fdca553b43b6368e83f9944f3bc647c67 Mon Sep 17 00:00:00 2001
+From: Chaudhary Amit Kumar <chaudharyamit.kumar@amd.com>
+Date: Wed, 17 Oct 2018 17:09:45 +0530
+Subject: [PATCH 0957/4131] drm/amdgpu: move taking mmap_sem into
+ get_user_pages v2
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+This didn't helped as intended, just simplify the code.
+
+v2: unlock mmap_sem in the error path as well
+
+Signed-off-by: Christian König <christian.koenig@amd.com>
+Reviewed-by: Felix Kuehling <Felix.Kuehling@amd.com>
+Signed-off-by: Kalyan Alle <kalyan.alle@amd.com>
+Signed-off-by: Chaudhary Amit Kumar <chaudharyamit.kumar@amd.com>
+---
+ drivers/gpu/drm/amd/amdgpu/amdgpu_cs.c  | 9 ---------
+ drivers/gpu/drm/amd/amdgpu/amdgpu_gem.c | 4 ----
+ drivers/gpu/drm/amd/amdgpu/amdgpu_ttm.c | 8 +++++++-
+ 3 files changed, 7 insertions(+), 14 deletions(-)
+
+diff --git a/drivers/gpu/drm/amd/amdgpu/amdgpu_cs.c b/drivers/gpu/drm/amd/amdgpu/amdgpu_cs.c
+index 98ba5e2..ff6f90a 100644
+--- a/drivers/gpu/drm/amd/amdgpu/amdgpu_cs.c
++++ b/drivers/gpu/drm/amd/amdgpu/amdgpu_cs.c
+@@ -511,7 +511,6 @@ static int amdgpu_cs_parser_bos(struct amdgpu_cs_parser *p,
+ 	struct amdgpu_fpriv *fpriv = p->filp->driver_priv;
+ 	struct amdgpu_bo_list_entry *e;
+ 	struct list_head duplicates;
+-	bool need_mmap_lock = false;
+ 	unsigned i, tries = 10;
+ 	int r;
+ 
+@@ -519,8 +518,6 @@ static int amdgpu_cs_parser_bos(struct amdgpu_cs_parser *p,
+ 
+ 	p->bo_list = amdgpu_bo_list_get(fpriv, cs->in.bo_list_handle);
+ 	if (p->bo_list) {
+-		need_mmap_lock = p->bo_list->first_userptr !=
+-			p->bo_list->num_entries;
+ 		amdgpu_bo_list_get_list(p->bo_list, &p->validated);
+ 		if (p->bo_list->first_userptr != p->bo_list->num_entries)
+ 			p->mn = amdgpu_mn_get(p->adev);
+@@ -532,9 +529,6 @@ static int amdgpu_cs_parser_bos(struct amdgpu_cs_parser *p,
+ 	if (p->uf_entry.robj && !p->uf_entry.robj->parent)
+ 		list_add(&p->uf_entry.tv.head, &p->validated);
+ 
+-	if (need_mmap_lock)
+-		down_read(&current->mm->mmap_sem);
+-
+ 	while (1) {
+ 		struct list_head need_pages;
+ 		unsigned i;
+@@ -689,9 +683,6 @@ static int amdgpu_cs_parser_bos(struct amdgpu_cs_parser *p,
+ 
+ error_free_pages:
+ 
+-	if (need_mmap_lock)
+-		up_read(&current->mm->mmap_sem);
+-
+ 	if (p->bo_list) {
+ 		for (i = p->bo_list->first_userptr;
+ 		     i < p->bo_list->num_entries; ++i) {
+diff --git a/drivers/gpu/drm/amd/amdgpu/amdgpu_gem.c b/drivers/gpu/drm/amd/amdgpu/amdgpu_gem.c
+index b6ce2b2..bbc3d1e 100644
+--- a/drivers/gpu/drm/amd/amdgpu/amdgpu_gem.c
++++ b/drivers/gpu/drm/amd/amdgpu/amdgpu_gem.c
+@@ -433,8 +433,6 @@ int amdgpu_gem_userptr_ioctl(struct drm_device *dev, void *data,
+ 	}
+ 
+ 	if (args->flags & AMDGPU_GEM_USERPTR_VALIDATE) {
+-		down_read(&current->mm->mmap_sem);
+-
+ 		r = amdgpu_ttm_tt_get_user_pages(bo->tbo.ttm,
+ 						 bo->tbo.ttm->pages);
+ 		if (r)
+@@ -449,8 +447,6 @@ int amdgpu_gem_userptr_ioctl(struct drm_device *dev, void *data,
+ 		amdgpu_bo_unreserve(bo);
+ 		if (r)
+ 			goto free_pages;
+-
+-		up_read(&current->mm->mmap_sem);
+ 	}
+ 
+ 	r = drm_gem_handle_create(filp, gobj, &handle);
+diff --git a/drivers/gpu/drm/amd/amdgpu/amdgpu_ttm.c b/drivers/gpu/drm/amd/amdgpu/amdgpu_ttm.c
+index a95bbc2..dd9e59a 100644
+--- a/drivers/gpu/drm/amd/amdgpu/amdgpu_ttm.c
++++ b/drivers/gpu/drm/amd/amdgpu/amdgpu_ttm.c
+@@ -680,6 +680,8 @@ int amdgpu_ttm_tt_get_user_pages(struct ttm_tt *ttm, struct page **pages)
+ 	if (!(gtt->userflags & AMDGPU_GEM_USERPTR_READONLY))
+ 		flags |= FOLL_WRITE;
+ 
++	down_read(&current->mm->mmap_sem);
++
+ 	if (gtt->userflags & AMDGPU_GEM_USERPTR_ANONONLY) {
+ 		/* check that we only use anonymous memory
+ 		   to prevent problems with writeback */
+@@ -687,8 +689,10 @@ int amdgpu_ttm_tt_get_user_pages(struct ttm_tt *ttm, struct page **pages)
+ 		struct vm_area_struct *vma;
+ 
+ 		vma = find_vma(mm, gtt->userptr);
+-		if (!vma || vma->vm_file || vma->vm_end < end)
++		if (!vma || vma->vm_file || vma->vm_end < end) {
++			up_read(&current->mm->mmap_sem);
+ 			return -EPERM;
++		}
+ 	}
+ 
+ 	do {
+@@ -715,10 +719,12 @@ int amdgpu_ttm_tt_get_user_pages(struct ttm_tt *ttm, struct page **pages)
+ 
+ 	} while (pinned < ttm->num_pages);
+ 
++	up_read(&current->mm->mmap_sem);
+ 	return 0;
+ 
+ release_pages:
+ 	release_pages(pages, pinned, 0);
++	up_read(&current->mm->mmap_sem);
+ 	return r;
+ }
+ 
+-- 
+2.7.4
+

@@ -1,0 +1,38 @@
+From 9e94bb6a71a2409388473346fa5edb5b4f317a0f Mon Sep 17 00:00:00 2001
+From: Mikita Lipski <mikita.lipski@amd.com>
+Date: Wed, 14 Mar 2018 13:41:29 -0400
+Subject: [PATCH 3825/4131] drm/amdgpu: Use atomic function to disable crtcs
+ with dc enabled
+
+This change fixes the deadlock when unloading the driver with displays
+connected.
+
+Signed-off-by: Mikita Lipski <mikita.lipski@amd.com>
+Reviewed-by: Andrey Grodzovsky <andrey.grodzovsky@amd.com>
+---
+ drivers/gpu/drm/amd/amdgpu/amdgpu_device.c | 9 ++++++---
+ 1 file changed, 6 insertions(+), 3 deletions(-)
+
+diff --git a/drivers/gpu/drm/amd/amdgpu/amdgpu_device.c b/drivers/gpu/drm/amd/amdgpu/amdgpu_device.c
+index cf36eca..023be4b 100644
+--- a/drivers/gpu/drm/amd/amdgpu/amdgpu_device.c
++++ b/drivers/gpu/drm/amd/amdgpu/amdgpu_device.c
+@@ -2164,9 +2164,12 @@ void amdgpu_device_fini(struct amdgpu_device *adev)
+ 
+ 	DRM_INFO("amdgpu: finishing device.\n");
+ 	adev->shutdown = true;
+-	if (adev->mode_info.mode_config_initialized)
+-		drm_crtc_force_disable_all(adev->ddev);
+-
++	if (adev->mode_info.mode_config_initialized){
++		if (!amdgpu_device_has_dc_support(adev))
++			drm_crtc_force_disable_all(adev->ddev);
++		else
++			drm_atomic_helper_shutdown(adev->ddev);
++	}
+ 	amdgpu_ib_pool_fini(adev);
+ 	amdgpu_fence_driver_fini(adev);
+ 	amdgpu_pm_sysfs_fini(adev);
+-- 
+2.7.4
+

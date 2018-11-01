@@ -1,0 +1,45 @@
+From eedce95949b9538ae2effdd655e9c3200e00af86 Mon Sep 17 00:00:00 2001
+From: Harry Wentland <harry.wentland@amd.com>
+Date: Tue, 30 Jan 2018 14:58:42 -0500
+Subject: [PATCH 3549/4131] drm/amd/display: Change blackout time to 0 on CZ/ST
+
+These should only be non-0 if big hammer w/a is implemented. Currently
+DC doesn't implement it, so leave them 0.
+
+Signed-off-by: Harry Wentland <harry.wentland@amd.com>
+Reviewed-by: Charlene Liu <Charlene.Liu@amd.com>
+Acked-by: Harry Wentland <harry.wentland@amd.com>
+Signed-off-by: Alex Deucher <alexander.deucher@amd.com>
+---
+ drivers/gpu/drm/amd/display/dc/calcs/dce_calcs.c | 8 ++++----
+ 1 file changed, 4 insertions(+), 4 deletions(-)
+
+diff --git a/drivers/gpu/drm/amd/display/dc/calcs/dce_calcs.c b/drivers/gpu/drm/amd/display/dc/calcs/dce_calcs.c
+index 4e565da..3632b55 100644
+--- a/drivers/gpu/drm/amd/display/dc/calcs/dce_calcs.c
++++ b/drivers/gpu/drm/amd/display/dc/calcs/dce_calcs.c
+@@ -2034,8 +2034,8 @@ void bw_calcs_init(struct bw_calcs_dceip *bw_dceip,
+ 		vbios.cursor_width = 32;
+ 		vbios.average_compression_rate = 4;
+ 		vbios.number_of_request_slots_gmc_reserves_for_dmif_per_channel = 256;
+-		vbios.blackout_duration = bw_int_to_fixed(18); /* us */
+-		vbios.maximum_blackout_recovery_time = bw_int_to_fixed(20);
++		vbios.blackout_duration = bw_int_to_fixed(0); /* us */
++		vbios.maximum_blackout_recovery_time = bw_int_to_fixed(0);
+ 
+ 		dceip.large_cursor = false;
+ 		dceip.dmif_request_buffer_size = bw_int_to_fixed(768);
+@@ -2480,8 +2480,8 @@ void bw_calcs_init(struct bw_calcs_dceip *bw_dceip,
+ 		vbios.cursor_width = 32;
+ 		vbios.average_compression_rate = 4;
+ 		vbios.number_of_request_slots_gmc_reserves_for_dmif_per_channel = 256;
+-		vbios.blackout_duration = bw_int_to_fixed(18); /* us */
+-		vbios.maximum_blackout_recovery_time = bw_int_to_fixed(20);
++		vbios.blackout_duration = bw_int_to_fixed(0); /* us */
++		vbios.maximum_blackout_recovery_time = bw_int_to_fixed(0);
+ 
+ 		dceip.large_cursor = false;
+ 		dceip.dmif_request_buffer_size = bw_int_to_fixed(768);
+-- 
+2.7.4
+

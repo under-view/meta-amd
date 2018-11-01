@@ -1,0 +1,31 @@
+From bc38d57cb5e12989e643560711407afe0221e44a Mon Sep 17 00:00:00 2001
+From: Yong Zhao <Yong.Zhao@amd.com>
+Date: Fri, 21 Jul 2017 21:10:41 -0400
+Subject: [PATCH 1744/4131] drm/amdgpu: Prepare Raven for KFD Enablement at
+ amdgpu side
+
+Change-Id: I0dce344631eb379d59c354c4326ef7df6a70da9f
+Signed-off-by: Yong Zhao <Yong.Zhao@amd.com>
+---
+ drivers/gpu/drm/amd/amdgpu/amdgpu_amdkfd.c | 2 ++
+ 1 file changed, 2 insertions(+)
+
+diff --git a/drivers/gpu/drm/amd/amdgpu/amdgpu_amdkfd.c b/drivers/gpu/drm/amd/amdgpu/amdgpu_amdkfd.c
+index 51fd0ed..6d81727 100755
+--- a/drivers/gpu/drm/amd/amdgpu/amdgpu_amdkfd.c
++++ b/drivers/gpu/drm/amd/amdgpu/amdgpu_amdkfd.c
+@@ -85,9 +85,11 @@ bool amdgpu_amdkfd_load_interface(struct amdgpu_device *adev)
+ 		kfd2kgd = amdgpu_amdkfd_gfx_8_0_get_functions();
+ 		break;
+ 	case CHIP_VEGA10:
++	case CHIP_RAVEN:
+ 		kfd2kgd = amdgpu_amdkfd_gfx_9_0_get_functions();
+ 		break;
+ 	default:
++		dev_info(adev->dev, "kfd not supported on this ASIC\n");
+ 		return false;
+ 	}
+ 
+-- 
+2.7.4
+

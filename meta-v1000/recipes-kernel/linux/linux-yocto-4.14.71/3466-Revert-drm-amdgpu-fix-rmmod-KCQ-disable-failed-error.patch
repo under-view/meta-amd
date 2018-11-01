@@ -1,0 +1,33 @@
+From c64862766203bc390e9ac9fbf67bfc428061d1d1 Mon Sep 17 00:00:00 2001
+From: Alex Deucher <alexander.deucher@amd.com>
+Date: Mon, 27 Nov 2017 17:46:50 -0500
+Subject: [PATCH 3466/4131] Revert "drm/amdgpu: fix rmmod KCQ disable failed
+ error"
+
+This reverts commit 446947b44fb8cabc0213ff4efd706931e36b1963.
+
+this patch is incorrrect, amdgpu_ucode_bo_fini always
+called after gfx_hw_fini.
+
+Signed-off-by: Alex Deucher <alexander.deucher@amd.com>
+Signed-off-by: Kalyan Alle <kalyan.alle@amd.com>
+---
+ drivers/gpu/drm/amd/amdgpu/amdgpu_psp.c | 2 ++
+ 1 file changed, 2 insertions(+)
+
+diff --git a/drivers/gpu/drm/amd/amdgpu/amdgpu_psp.c b/drivers/gpu/drm/amd/amdgpu/amdgpu_psp.c
+index c63516b..d9e395c 100644
+--- a/drivers/gpu/drm/amd/amdgpu/amdgpu_psp.c
++++ b/drivers/gpu/drm/amd/amdgpu/amdgpu_psp.c
+@@ -432,6 +432,8 @@ static int psp_hw_fini(void *handle)
+ 	if (adev->firmware.load_type != AMDGPU_FW_LOAD_PSP)
+ 		return 0;
+ 
++	amdgpu_ucode_fini_bo(adev);
++
+ 	psp_ring_destroy(psp, PSP_RING_TYPE__KM);
+ 
+ 	amdgpu_bo_free_kernel(&psp->tmr_bo, &psp->tmr_mc_addr, &psp->tmr_buf);
+-- 
+2.7.4
+

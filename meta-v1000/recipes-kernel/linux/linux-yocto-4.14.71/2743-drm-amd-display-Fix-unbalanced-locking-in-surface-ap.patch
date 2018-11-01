@@ -1,0 +1,49 @@
+From 2a1a35b4492f3042c164c4d0633facdb6e656db3 Mon Sep 17 00:00:00 2001
+From: Roman Li <Roman.Li@amd.com>
+Date: Tue, 7 Nov 2017 10:58:40 -0500
+Subject: [PATCH 2743/4131] drm/amd/display: Fix unbalanced locking in surface
+ apply
+
+also simplifying syntax and removing unused variable in
+dce110_apply_ctx_for_surface()
+
+Signed-off-by: Roman Li <Roman.Li@amd.com>
+Reviewed-by: Tony Cheng <Tony.Cheng@amd.com>
+Acked-by: Harry Wentland <harry.wentland@amd.com>
+Signed-off-by: Alex Deucher <alexander.deucher@amd.com>
+---
+ drivers/gpu/drm/amd/display/dc/dce110/dce110_hw_sequencer.c | 7 ++-----
+ 1 file changed, 2 insertions(+), 5 deletions(-)
+
+diff --git a/drivers/gpu/drm/amd/display/dc/dce110/dce110_hw_sequencer.c b/drivers/gpu/drm/amd/display/dc/dce110/dce110_hw_sequencer.c
+index 28c977f4..ee3b944 100644
+--- a/drivers/gpu/drm/amd/display/dc/dce110/dce110_hw_sequencer.c
++++ b/drivers/gpu/drm/amd/display/dc/dce110/dce110_hw_sequencer.c
+@@ -2847,22 +2847,19 @@ static void dce110_apply_ctx_for_surface(
+ 		int num_planes,
+ 		struct dc_state *context)
+ {
+-	int i, be_idx;
++	int i;
+ 
+ 	if (num_planes == 0)
+ 		return;
+ 
+-	be_idx = -1;
+ 	for (i = 0; i < dc->res_pool->pipe_count; i++) {
+ 		struct pipe_ctx *pipe_ctx = &context->res_ctx.pipe_ctx[i];
+ 		struct pipe_ctx *old_pipe_ctx = &dc->current_state->res_ctx.pipe_ctx[i];
+ 
+-		if (stream == context->res_ctx.pipe_ctx[i].stream) {
+-			be_idx = context->res_ctx.pipe_ctx[i].stream_res.tg->inst;
++		if (stream == pipe_ctx->stream) {
+ 			if (!pipe_ctx->top_pipe &&
+ 				(pipe_ctx->plane_state || old_pipe_ctx->plane_state))
+ 				dc->hwss.pipe_control_lock(dc, pipe_ctx, true);
+-			break;
+ 		}
+ 	}
+ 
+-- 
+2.7.4
+

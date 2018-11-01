@@ -1,0 +1,75 @@
+From 47e9bdad67b1267519cbd804b14978a1be79c6cb Mon Sep 17 00:00:00 2001
+From: Harry Wentland <harry.wentland@amd.com>
+Date: Wed, 29 Mar 2017 11:25:24 -0400
+Subject: [PATCH 0580/4131] drm/amd/display: Add validate_context to
+ atomic_state
+
+Signed-off-by: Harry Wentland <harry.wentland@amd.com>
+Reviewed-by: Tony Cheng <Tony.Cheng@amd.com>
+Acked-by: Harry Wentland <Harry.Wentland@amd.com>
+Signed-off-by: Alex Deucher <alexander.deucher@amd.com>
+---
+ .../gpu/drm/amd/display/amdgpu_dm/amdgpu_dm_types.c    | 18 ++----------------
+ .../gpu/drm/amd/display/amdgpu_dm/amdgpu_dm_types.h    |  2 +-
+ 2 files changed, 3 insertions(+), 17 deletions(-)
+
+diff --git a/drivers/gpu/drm/amd/display/amdgpu_dm/amdgpu_dm_types.c b/drivers/gpu/drm/amd/display/amdgpu_dm/amdgpu_dm_types.c
+index ee07b8c..8ce7d3e 100644
+--- a/drivers/gpu/drm/amd/display/amdgpu_dm/amdgpu_dm_types.c
++++ b/drivers/gpu/drm/amd/display/amdgpu_dm/amdgpu_dm_types.c
+@@ -3126,7 +3126,6 @@ int amdgpu_dm_atomic_check(struct drm_device *dev,
+ 	struct amdgpu_device *adev = dev->dev_private;
+ 	struct dc *dc = adev->dm.dc;
+ 	bool need_to_validate = false;
+-	struct validate_context *context;
+ 	struct drm_connector *connector;
+ 	struct drm_connector_state *conn_state;
+ 	/*
+@@ -3361,10 +3360,9 @@ int amdgpu_dm_atomic_check(struct drm_device *dev,
+ 		}
+ 	}
+ 
+-	context = dc_get_validate_context(dc, dm_state->set, dm_state->set_count);
+-
+-	if (need_to_validate == false || dm_state->set_count == 0 || context) {
++	dm_state->context = dc_get_validate_context(dc, dm_state->set, dm_state->set_count);
+ 
++	if (need_to_validate == false || dm_state->set_count == 0 || dm_state->context) {
+ 		ret = 0;
+ 		/*
+ 		 * For full updates case when
+@@ -3380,18 +3378,6 @@ int amdgpu_dm_atomic_check(struct drm_device *dev,
+ 
+ 	}
+ 
+-	if (context) {
+-		dc_resource_validate_ctx_destruct(context);
+-		dm_free(context);
+-	}
+-
+-	for (i = 0; i < dm_state->set_count; i++)
+-		for (j = 0; j < dm_state->set[i].surface_count; j++)
+-			dc_surface_release(dm_state->set[i].surfaces[j]);
+-
+-	for (i = 0; i < new_stream_count; i++)
+-		dc_stream_release(new_streams[i]);
+-
+ 	if (ret != 0) {
+ 		if (ret == -EDEADLK)
+ 			DRM_DEBUG_KMS("Atomic check stopped due to to deadlock.\n");
+diff --git a/drivers/gpu/drm/amd/display/amdgpu_dm/amdgpu_dm_types.h b/drivers/gpu/drm/amd/display/amdgpu_dm/amdgpu_dm_types.h
+index a7adf8d..1e444cb 100644
+--- a/drivers/gpu/drm/amd/display/amdgpu_dm/amdgpu_dm_types.h
++++ b/drivers/gpu/drm/amd/display/amdgpu_dm/amdgpu_dm_types.h
+@@ -55,7 +55,7 @@ struct dm_atomic_state {
+ 
+ 	struct dc_validation_set set[MAX_STREAMS];
+ 	int set_count;
+-
++	struct validate_context *context;
+ };
+ 
+ #define to_dm_atomic_state(x) container_of(x, struct dm_atomic_state, base)
+-- 
+2.7.4
+
