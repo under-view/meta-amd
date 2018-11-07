@@ -42,7 +42,18 @@ APPEND += "${APPEND_ADDITIONAL}"
 
 EXTRA_OECONF_append_pn-matchbox-panel-2 = " --with-battery=acpi"
 
+# IMAGE_FSTYPES "live" is enabled by default in oe-core which is
+# responsible for building both "iso" & "hddimg". Although the 
+# right way to specify which ones to build is using NOISO & NOHDD
+# vars, there's a specific scenario where Toaster build artifacts
+# collection mechanism depends on the IMAGE_FSTYPES variable to
+# specify the image types explicitly (See: commit a5b1aa4).
+# Also, "iso" doesn't get built even if specified explicitly
+# because NOISO = "1" by default (See c787dcd in oe-core).
+# Therefore, we do as follows:
 IMAGE_FSTYPES += "hddimg iso"
+NOISO = "0"
+NOHDD = "0"
 
 IMAGE_OVERHEAD_FACTOR = "1.1"
 
