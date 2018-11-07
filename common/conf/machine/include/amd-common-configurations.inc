@@ -51,9 +51,28 @@ EXTRA_OECONF_append_pn-matchbox-panel-2 = " --with-battery=acpi"
 # Also, "iso" doesn't get built even if specified explicitly
 # because NOISO = "1" by default (See c787dcd in oe-core).
 # Therefore, we do as follows:
-IMAGE_FSTYPES += "hddimg iso"
+IMAGE_FSTYPES += "wic hddimg iso"
 NOISO = "0"
 NOHDD = "0"
+
+WKS_FILES ?= "amd-usbimage.wks"
+
+# Contents of IMAGE_BOOT_FILES are deployed into "amd-usbimage.wks" wic image
+IMAGE_BOOT_FILES ?= " \
+        ${EFIIMGDIR}${EFIDIR}/*;EFI/BOOT/ \
+        ${EFIIMGDIR}/startup.nsh;startup.nsh \
+        ${STAGING_DATADIR}/syslinux/vesamenu.c32;vesamenu.c32 \
+        ${STAGING_DATADIR}/syslinux/libcom32.c32;libcom32.c32 \
+        ${STAGING_DATADIR}/syslinux/libutil.c32;libutil.c32 \
+        ${STAGING_DATADIR}/syslinux/ldlinux.sys;ldlinux.sys \
+        ${SYSLINUX_CFG_LIVE};syslinux.cfg \
+        ${KERNEL_IMAGETYPE} \
+        ${INITRD_IMAGE_LIVE}-${MACHINE}.cpio.gz;initrd \
+        ${ROOTFS};rootfs.img \
+"
+
+# This makes sure that boot files are deployed before do_image_wic starts execution
+do_image_wic[depends] += "${IMAGE_BASENAME}:do_bootimg"
 
 IMAGE_OVERHEAD_FACTOR = "1.1"
 
