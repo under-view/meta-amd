@@ -51,9 +51,9 @@ EXTRA_OECONF_append_pn-matchbox-panel-2 = " --with-battery=acpi"
 # Also, "iso" doesn't get built even if specified explicitly
 # because NOISO = "1" by default (See c787dcd in oe-core).
 # Therefore, we do as follows:
-IMAGE_FSTYPES += "wic hddimg iso"
+IMAGE_FSTYPES += "wic iso"
 NOISO = "0"
-NOHDD = "0"
+NOHDD = "1"
 
 WKS_FILES ?= "amd-usbimage.wks"
 
