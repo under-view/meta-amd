@@ -1,0 +1,47 @@
+From 94af8ef283d8f92f24c12a0777c8a427fe008cef Mon Sep 17 00:00:00 2001
+From: =?UTF-8?q?Christian=20K=C3=B6nig?= <christian.koenig@amd.com>
+Date: Fri, 25 Aug 2017 09:14:43 +0200
+Subject: [PATCH 1792/4131] drm/amdgpu: add IOCTL interface for per VM BOs v3
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+Add the IOCTL interface so that applications can allocate per VM BOs.
+
+Still WIP since not all corner cases are tested yet, but this reduces average
+CS overhead for 10K BOs from 21ms down to 48us.
+
+v2: add some extra checks, remove the WIP tag
+v3: rename new flag to AMDGPU_GEM_CREATE_VM_ALWAYS_VALID
+
+Change-Id: I1746d681781b20d6240a85a7f681df9afb245d11
+Signed-off-by: Christian König <christian.koenig@amd.com>
+Reviewed-by: Felix Kuehling <Felix.Kuehling@amd.com>
+
+ Conflicts:
+        drivers/gpu/drm/amd/amdgpu/amdgpu_gem.c
+---
+ drivers/gpu/drm/amd/amdgpu/amdgpu.h | 7 ++++---
+ 1 file changed, 4 insertions(+), 3 deletions(-)
+
+diff --git a/drivers/gpu/drm/amd/amdgpu/amdgpu.h b/drivers/gpu/drm/amd/amdgpu/amdgpu.h
+index 265ddb3..4183d4d 100755
+--- a/drivers/gpu/drm/amd/amdgpu/amdgpu.h
++++ b/drivers/gpu/drm/amd/amdgpu/amdgpu.h
+@@ -473,9 +473,10 @@ struct amdgpu_sa_bo {
+  */
+ void amdgpu_gem_force_release(struct amdgpu_device *adev);
+ int amdgpu_gem_object_create(struct amdgpu_device *adev, unsigned long size,
+-				int alignment, u32 initial_domain,
+-				u64 flags, bool kernel,
+-				struct drm_gem_object **obj);
++			     int alignment, u32 initial_domain,
++			     u64 flags, bool kernel,
++			     struct reservation_object *resv,
++			     struct drm_gem_object **obj);
+ 
+ int amdgpu_mode_dumb_create(struct drm_file *file_priv,
+ 			    struct drm_device *dev,
+-- 
+2.7.4
+

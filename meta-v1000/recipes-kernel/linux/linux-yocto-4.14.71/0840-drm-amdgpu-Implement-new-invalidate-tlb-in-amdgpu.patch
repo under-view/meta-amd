@@ -1,0 +1,52 @@
+From c0c8b1270c5f3bbc2b668116bd48e2cdd000c61f Mon Sep 17 00:00:00 2001
+From: Shaoyun Liu <Shaoyun.Liu@amd.com>
+Date: Mon, 24 Apr 2017 10:57:54 -0400
+Subject: [PATCH 0840/4131] drm/amdgpu: Implement new invalidate tlb in amdgpu
+
+1. Add invalidate tlb interface in kfd2kgd.
+2. Switch to use command package for tlb invalidation on asic newer than v8
+   when kiq is enabled.
+
+Change-Id: Ia6c04ca7a3a57423cc1ab95c42d0787705957151
+Signed-off-by: Shaoyun Liu <Shaoyun.Liu@amd.com>
+
+ Conflicts:
+	drivers/gpu/drm/amd/amdgpu/soc15d.h
+	drivers/gpu/drm/amd/amdgpu/vid.h
+---
+ drivers/gpu/drm/amd/amdgpu/soc15d.h | 3 +++
+ drivers/gpu/drm/amd/amdgpu/vid.h    | 4 ++++
+ 2 files changed, 7 insertions(+)
+
+diff --git a/drivers/gpu/drm/amd/amdgpu/soc15d.h b/drivers/gpu/drm/amd/amdgpu/soc15d.h
+index 7f408f8..9f353b2 100644
+--- a/drivers/gpu/drm/amd/amdgpu/soc15d.h
++++ b/drivers/gpu/drm/amd/amdgpu/soc15d.h
+@@ -268,6 +268,9 @@
+ 			 * x=1: tmz_end
+ 			 */
+ 
++#define	PACKET3_INVALIDATE_TLBS				0x98
++#              define PACKET3_INVALIDATE_TLBS_DST_SEL(x)     ((x) << 0)
++#              define PACKET3_INVALIDATE_TLBS_PASID(x)       ((x) << 5)
+ #define PACKET3_SET_RESOURCES				0xA0
+ /* 1. header
+  * 2. CONTROL
+diff --git a/drivers/gpu/drm/amd/amdgpu/vid.h b/drivers/gpu/drm/amd/amdgpu/vid.h
+index a648525..323e21c 100644
+--- a/drivers/gpu/drm/amd/amdgpu/vid.h
++++ b/drivers/gpu/drm/amd/amdgpu/vid.h
+@@ -367,6 +367,10 @@
+ 			 * x=0: tmz_begin
+ 			 * x=1: tmz_end
+ 			 */
++#define	PACKET3_INVALIDATE_TLBS				0x98
++#              define PACKET3_INVALIDATE_TLBS_DST_SEL(x)     ((x) << 0)
++#              define PACKET3_INVALIDATE_TLBS_PASID(x)       ((x) << 5)
++
+ #define	PACKET3_SET_RESOURCES				0xA0
+ /* 1. header
+  * 2. CONTROL
+-- 
+2.7.4
+

@@ -1,0 +1,83 @@
+From 183d5adc7e0d17e709c56580691397279e9e5cea Mon Sep 17 00:00:00 2001
+From: Sudheesh Mavila <sudheesh.mavila@amd.com>
+Date: Mon, 20 Aug 2018 00:42:49 +0530
+Subject: [PATCH 4125/4131] mp2-i2c lock is used in i2c_amd_xfer This fix is
+ required to avoid the crash when i2c0 and i2c1 are used simultaneously.
+
+Signed-off-by: Sudheesh Mavila <sudheesh.mavila@amd.com>
+---
+ drivers/i2c/busses/i2c-amd-platdrv.c | 20 ++++++++++++++++----
+ 1 file changed, 16 insertions(+), 4 deletions(-)
+
+diff --git a/drivers/i2c/busses/i2c-amd-platdrv.c b/drivers/i2c/busses/i2c-amd-platdrv.c
+index 38358f8..97a918a 100644
+--- a/drivers/i2c/busses/i2c-amd-platdrv.c
++++ b/drivers/i2c/busses/i2c-amd-platdrv.c
+@@ -72,6 +72,7 @@ struct amd_i2c_dev {
+ };
+ 
+ struct amd_i2c_dev *i2c_dev_table[i2c_bus_max];
++static DEFINE_SPINLOCK(lock);
+ struct amd_i2c_dev *port = 0;
+ 
+ static int i2c_amd_read_completion(struct i2c_event event, u8 bus_id)
+@@ -196,9 +197,11 @@ static int i2c_amd_xfer(struct i2c_adapter *adap, struct i2c_msg *msgs, int num)
+ 
+ 	dma_addr_t phys;
+ 
++	spin_lock(&lock);
+ 	reinit_completion(&dev->msg_complete);
+ 	ret = i2c_amd_pci_configure(dev, msgs->addr);
+ 	if(ret) {
++		spin_unlock(&lock);
+ 		return -EIO;
+ 	}
+ 
+@@ -209,6 +212,7 @@ static int i2c_amd_xfer(struct i2c_adapter *adap, struct i2c_msg *msgs, int num)
+ 				buf = kzalloc(pmsg->len, GFP_KERNEL);
+ 				if (!buf) {
+ 					pr_err("Allocation failed\n");
++					spin_unlock(&lock);
+ 					return -ENOMEM;
+ 				}
+ 				i2c_common->read_cfg.buf = buf;
+@@ -234,10 +238,13 @@ static int i2c_amd_xfer(struct i2c_adapter *adap, struct i2c_msg *msgs, int num)
+ 						  pmsg->len, buf, phys);
+ 						  
+ 			if((timeout == 0)||(dev->err != i2c_readcomplete_event)) {
+-				if(dev->err != i2c_readcomplete_event) 
++				if(dev->err != i2c_readcomplete_event) {
++					spin_unlock(&lock);
+ 					return -EIO;
+-				else
++				} else {
++					spin_unlock(&lock);
+ 					return -ETIMEDOUT;
++				}
+ 			}
+ 		} else {
+ 			i2c_common->write_cfg.buf = (unsigned int *)pmsg->buf;
+@@ -248,13 +255,18 @@ static int i2c_amd_xfer(struct i2c_adapter *adap, struct i2c_msg *msgs, int num)
+ 			timeout = wait_for_completion_timeout
+ 						(&dev->msg_complete, 50);
+ 			if((timeout == 0)||(dev->err != i2c_writecomplete_event)) {
+-				if(dev->err != i2c_writecomplete_event) 
++				if(dev->err != i2c_writecomplete_event) {
++					spin_unlock(&lock);
+ 					return -EIO;
+-				else 
++				} else {
++					spin_unlock(&lock);
+ 					return -ETIMEDOUT;
++				}
+ 			}
+ 		}
+ 	}
++	
++	spin_unlock(&lock);
+ 	return num;
+ }
+ 
+-- 
+2.7.4
+

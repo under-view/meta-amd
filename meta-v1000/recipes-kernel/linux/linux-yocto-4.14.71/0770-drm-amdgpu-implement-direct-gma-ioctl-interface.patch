@@ -1,0 +1,135 @@
+From a9f9049fe4f5a4abb45ea66b5e499d0fa561d5ad Mon Sep 17 00:00:00 2001
+From: Flora Cui <Flora.Cui@amd.com>
+Date: Thu, 11 Aug 2016 14:41:08 +0800
+Subject: [PATCH 0770/4131] drm/amdgpu: implement direct gma ioctl interface
+
+Change-Id: Ibe3d5eca19e84b21dda183010ebd229434cd2f6c
+Signed-off-by: Flora Cui <Flora.Cui@amd.com>
+Reviewed-by: Hawking Zhang <Hawking.Zhang@amd.com>
+Signed-off-by: Kalyan Alle <kalyan.alle@amd.com>
+
+ Conflicts:
+        include/uapi/drm/amdgpu_drm.h
+---
+ drivers/gpu/drm/amd/amdgpu/amdgpu.h     |  3 ++
+ drivers/gpu/drm/amd/amdgpu/amdgpu_gem.c | 75 +++++++++++++++++++++++++++++++++
+ drivers/gpu/drm/amd/amdgpu/amdgpu_kms.c |  3 +-
+ 3 files changed, 80 insertions(+), 1 deletion(-)
+
+diff --git a/drivers/gpu/drm/amd/amdgpu/amdgpu.h b/drivers/gpu/drm/amd/amdgpu/amdgpu.h
+index b7db1d1..31738e5 100644
+--- a/drivers/gpu/drm/amd/amdgpu/amdgpu.h
++++ b/drivers/gpu/drm/amd/amdgpu/amdgpu.h
+@@ -1317,6 +1317,9 @@ int amdgpu_gem_metadata_ioctl(struct drm_device *dev, void *data,
+ int amdgpu_freesync_ioctl(struct drm_device *dev, void *data,
+ 			    struct drm_file *filp);
+ 
++int amdgpu_gem_dgma_ioctl(struct drm_device *dev, void *data,
++			   struct drm_file *filp);
++
+ /* VRAM scratch page for HDP bug, default vram page */
+ struct amdgpu_vram_scratch {
+ 	struct amdgpu_bo		*robj;
+diff --git a/drivers/gpu/drm/amd/amdgpu/amdgpu_gem.c b/drivers/gpu/drm/amd/amdgpu/amdgpu_gem.c
+index cd3642c..38db03f 100644
+--- a/drivers/gpu/drm/amd/amdgpu/amdgpu_gem.c
++++ b/drivers/gpu/drm/amd/amdgpu/amdgpu_gem.c
+@@ -326,6 +326,81 @@ int amdgpu_gem_userptr_ioctl(struct drm_device *dev, void *data,
+ 	return r;
+ }
+ 
++int amdgpu_gem_dgma_ioctl(struct drm_device *dev, void *data,
++			   struct drm_file *filp)
++{
++	struct amdgpu_device *adev = dev->dev_private;
++	struct drm_amdgpu_gem_dgma *args = data;
++	struct drm_gem_object *gobj;
++	struct amdgpu_bo *abo;
++	dma_addr_t *dma_addr;
++	uint32_t handle, flags, offset;
++	int i, r = 0;
++
++	switch (args->op) {
++	case AMDGPU_GEM_DGMA_IMPORT:
++		/* create a gem object to contain this object in */
++		r = amdgpu_gem_object_create(adev, args->size, 0,
++					     AMDGPU_GEM_DOMAIN_DGMA_IMPORT, 0,
++					     0, &gobj);
++		if (r)
++			return r;
++
++		abo = gem_to_amdgpu_bo(gobj);
++		r = amdgpu_bo_reserve(abo, true);
++		if (unlikely(r))
++			goto release_object;
++
++		dma_addr = kmalloc_array(abo->tbo.num_pages, sizeof(dma_addr_t), GFP_KERNEL);
++		if (unlikely(dma_addr == NULL)) {
++			amdgpu_bo_unreserve(abo);
++			goto release_object;
++		}
++		for (i = 0; i < abo->tbo.num_pages; i++)
++			dma_addr[i] = args->addr + i * PAGE_SIZE;
++
++		flags = AMDGPU_PTE_VALID | AMDGPU_PTE_READABLE | AMDGPU_PTE_WRITEABLE;
++		if (adev->asic_type >= CHIP_TONGA)
++			flags |= AMDGPU_PTE_EXECUTABLE;
++
++		offset = amdgpu_bo_gpu_offset(abo);
++		offset -= adev->mman.bdev.man[TTM_PL_TT].gpu_offset;
++		r = amdgpu_gart_bind(adev, offset, abo->tbo.num_pages,
++					NULL, dma_addr, flags);
++		kfree(dma_addr);
++		amdgpu_bo_unreserve(abo);
++		if (unlikely(r))
++			goto release_object;
++
++		abo->tbo.mem.bus.base = args->addr;
++		abo->tbo.mem.bus.offset = 0;
++
++		r = drm_gem_handle_create(filp, gobj, &handle);
++		args->handle = handle;
++		break;
++	case AMDGPU_GEM_DGMA_QUERY_PHYS_ADDR:
++		gobj = kcl_drm_gem_object_lookup(dev, filp, args->handle);
++		if (gobj == NULL)
++			return -ENOENT;
++
++		abo = gem_to_amdgpu_bo(gobj);
++		if (abo->tbo.mem.mem_type != AMDGPU_PL_DGMA) {
++			r = -EINVAL;
++			goto release_object;
++		}
++		args->addr = amdgpu_bo_gpu_offset(abo);
++		args->addr -= adev->mc.vram_start;
++		args->addr += adev->mc.aper_base;
++		break;
++	default:
++		return -EINVAL;
++	}
++
++release_object:
++	drm_gem_object_unreference_unlocked(gobj);
++	return r;
++}
++
+ int amdgpu_mode_dumb_mmap(struct drm_file *filp,
+ 			  struct drm_device *dev,
+ 			  uint32_t handle, uint64_t *offset_p)
+diff --git a/drivers/gpu/drm/amd/amdgpu/amdgpu_kms.c b/drivers/gpu/drm/amd/amdgpu/amdgpu_kms.c
+index 81cfc34..34c2d1b 100644
+--- a/drivers/gpu/drm/amd/amdgpu/amdgpu_kms.c
++++ b/drivers/gpu/drm/amd/amdgpu/amdgpu_kms.c
+@@ -1054,7 +1054,8 @@ const struct drm_ioctl_desc amdgpu_ioctls_kms[] = {
+ 	DRM_IOCTL_DEF_DRV(AMDGPU_GEM_VA, amdgpu_gem_va_ioctl, DRM_AUTH|DRM_RENDER_ALLOW),
+ 	DRM_IOCTL_DEF_DRV(AMDGPU_GEM_OP, amdgpu_gem_op_ioctl, DRM_AUTH|DRM_RENDER_ALLOW),
+ 	DRM_IOCTL_DEF_DRV(AMDGPU_GEM_USERPTR, amdgpu_gem_userptr_ioctl, DRM_AUTH|DRM_RENDER_ALLOW),
+-	DRM_IOCTL_DEF_DRV(AMDGPU_FREESYNC, amdgpu_freesync_ioctl, DRM_MASTER)
++	DRM_IOCTL_DEF_DRV(AMDGPU_FREESYNC, amdgpu_freesync_ioctl, DRM_MASTER),
++	DRM_IOCTL_DEF_DRV(AMDGPU_GEM_DGMA, amdgpu_gem_dgma_ioctl, DRM_AUTH|DRM_RENDER_ALLOW)
+ };
+ const int amdgpu_max_kms_ioctl = ARRAY_SIZE(amdgpu_ioctls_kms);
+ 
+-- 
+2.7.4
+

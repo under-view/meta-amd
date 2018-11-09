@@ -1,0 +1,61 @@
+From 0bc9519301ed7c7cc31ccaa49c2baecb0bb34d95 Mon Sep 17 00:00:00 2001
+From: Shirish S <shirish.s@amd.com>
+Date: Fri, 16 Feb 2018 11:44:22 +0530
+Subject: [PATCH 3655/4131] drm/amd/display: defer modeset check in
+ dm_update_planes_state
+
+amdgpu_dm_atomic_check() is used to validate the entire configuration of
+planes and crtc's that the user space wants to commit.
+
+However amdgpu_dm_atomic_check() depends upon DRM_MODE_ATOMIC_ALLOW_MODESET
+flag else its mostly dummy.
+Its not mandatory for the user space to set DRM_MODE_ATOMIC_ALLOW_MODESET,
+and in general its not set either along with DRM_MODE_ATOMIC_TEST_ONLY.
+
+Considering its importantance, this patch defers the allow_modeset check
+in dm_update_planes_state(), so that there shall be scope to validate
+the configuration sent from user space, without impacting the population
+of dc/dm related data structures.
+
+Signed-off-by: Shirish S <shirish.s@amd.com>
+Reviewed-by: Harry Wentland <Harry.Wentland@amd.com>
+Signed-off-by: Kalyan Alle <kalyan.alle@amd.com>
+---
+ drivers/gpu/drm/amd/display/amdgpu_dm/amdgpu_dm.c | 7 ++++---
+ 1 file changed, 4 insertions(+), 3 deletions(-)
+
+diff --git a/drivers/gpu/drm/amd/display/amdgpu_dm/amdgpu_dm.c b/drivers/gpu/drm/amd/display/amdgpu_dm/amdgpu_dm.c
+index 718e731..c61650d 100644
+--- a/drivers/gpu/drm/amd/display/amdgpu_dm/amdgpu_dm.c
++++ b/drivers/gpu/drm/amd/display/amdgpu_dm/amdgpu_dm.c
+@@ -4801,9 +4801,6 @@ static int dm_update_planes_state(struct dc *dc,
+ 	bool pflip_needed  = !state->allow_modeset;
+ 	int ret = 0;
+ 
+-	if (pflip_needed)
+-		return ret;
+-
+ 	/* Add new planes */
+ 	for_each_oldnew_plane_in_state(state, plane, old_plane_state, new_plane_state, i) {
+ 		new_plane_crtc = new_plane_state->crtc;
+@@ -4817,6 +4814,8 @@ static int dm_update_planes_state(struct dc *dc,
+ 
+ 		/* Remove any changed/removed planes */
+ 		if (!enable) {
++			if (pflip_needed)
++				continue;
+ 
+ 			if (!old_plane_crtc)
+ 				continue;
+@@ -4861,6 +4860,8 @@ static int dm_update_planes_state(struct dc *dc,
+ 			if (!dm_new_crtc_state->stream)
+ 				continue;
+ 
++			if (pflip_needed)
++				continue;
+ 
+ 			WARN_ON(dm_new_plane_state->dc_state);
+ 
+-- 
+2.7.4
+

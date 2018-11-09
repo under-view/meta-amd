@@ -1,0 +1,36 @@
+From 78a46711a25229b748eac055ff7125a90c6de09a Mon Sep 17 00:00:00 2001
+From: Kevin Wang <Kevin1.Wang@amd.com>
+Date: Thu, 22 Mar 2018 16:07:53 +0800
+Subject: [PATCH 3834/4131] drm/amdkcl: [rhel6.9] fix
+ drm_atomic_helper_shutdown func compile error
+
+Change-Id: I72b821e0ee5dd63b454de67005bb1a49de7fcf59
+Signed-off-by: Kevin.Wang <Kevin1.Wang@amd.com>
+Reviewed-by: Le Ma <Le.Ma@amd.com>
+---
+ drivers/gpu/drm/amd/amdgpu/amdgpu_device.c | 8 +++++---
+ 1 file changed, 5 insertions(+), 3 deletions(-)
+
+diff --git a/drivers/gpu/drm/amd/amdgpu/amdgpu_device.c b/drivers/gpu/drm/amd/amdgpu/amdgpu_device.c
+index 5026ff0..6889c49 100644
+--- a/drivers/gpu/drm/amd/amdgpu/amdgpu_device.c
++++ b/drivers/gpu/drm/amd/amdgpu/amdgpu_device.c
+@@ -2162,10 +2162,12 @@ void amdgpu_device_fini(struct amdgpu_device *adev)
+ 	/* disable all interrupts */
+ 	amdgpu_irq_disable_all(adev);
+ 	if (adev->mode_info.mode_config_initialized){
+-		if (!amdgpu_device_has_dc_support(adev))
+-			drm_crtc_force_disable_all(adev->ddev);
+-		else
++#if LINUX_VERSION_CODE >= KERNEL_VERSION(4, 12, 0)
++		if (amdgpu_device_has_dc_support(adev))
+ 			drm_atomic_helper_shutdown(adev->ddev);
++		else
++#endif
++			drm_crtc_force_disable_all(adev->ddev);
+ 	}
+ 	amdgpu_ib_pool_fini(adev);
+ 	amdgpu_fence_driver_fini(adev);
+-- 
+2.7.4
+

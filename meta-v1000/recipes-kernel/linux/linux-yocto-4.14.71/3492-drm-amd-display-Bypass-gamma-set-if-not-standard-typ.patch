@@ -1,0 +1,49 @@
+From 9c80a82c037ae0cf2183102f00166a82fe45849d Mon Sep 17 00:00:00 2001
+From: John Barberiz <jbarberi@amd.com>
+Date: Thu, 18 Jan 2018 12:22:11 -0500
+Subject: [PATCH 3492/4131] drm/amd/display: Bypass gamma set if not standard
+ type
+
+If non-standard gamma type detected set identity matrix flag
+so that we can bypass the gamma mode.
+
+Signed-off-by: John Barberiz <jbarberi@amd.com>
+Reviewed-by: Krunoslav Kovac <Krunoslav.Kovac@amd.com>
+Acked-by: Harry Wentland <harry.wentland@amd.com>
+Signed-off-by: Alex Deucher <alexander.deucher@amd.com>
+---
+ drivers/gpu/drm/amd/display/dc/dc_hw_types.h              | 2 ++
+ drivers/gpu/drm/amd/display/dc/dcn10/dcn10_hw_sequencer.c | 4 +++-
+ 2 files changed, 5 insertions(+), 1 deletion(-)
+
+diff --git a/drivers/gpu/drm/amd/display/dc/dc_hw_types.h b/drivers/gpu/drm/amd/display/dc/dc_hw_types.h
+index 1110408..e91ac68 100644
+--- a/drivers/gpu/drm/amd/display/dc/dc_hw_types.h
++++ b/drivers/gpu/drm/amd/display/dc/dc_hw_types.h
+@@ -436,6 +436,8 @@ struct dc_gamma {
+ 
+ 	/* private to DC core */
+ 	struct dc_context *ctx;
++
++	bool is_identity;
+ };
+ 
+ /* Used by both ipp amd opp functions*/
+diff --git a/drivers/gpu/drm/amd/display/dc/dcn10/dcn10_hw_sequencer.c b/drivers/gpu/drm/amd/display/dc/dcn10/dcn10_hw_sequencer.c
+index f261c7c..8ce9a4e 100644
+--- a/drivers/gpu/drm/amd/display/dc/dcn10/dcn10_hw_sequencer.c
++++ b/drivers/gpu/drm/amd/display/dc/dcn10/dcn10_hw_sequencer.c
+@@ -900,7 +900,9 @@ static bool dcn10_set_input_transfer_func(struct pipe_ctx *pipe_ctx,
+ 	if (plane_state->in_transfer_func)
+ 		tf = plane_state->in_transfer_func;
+ 
+-	if (plane_state->gamma_correction && dce_use_lut(plane_state->format))
++	if (plane_state->gamma_correction->is_identity)
++		dpp_base->funcs->dpp_set_degamma(dpp_base, IPP_DEGAMMA_MODE_BYPASS);
++	else if (plane_state->gamma_correction && dce_use_lut(plane_state->format))
+ 		dpp_base->funcs->dpp_program_input_lut(dpp_base, plane_state->gamma_correction);
+ 
+ 	if (tf == NULL)
+-- 
+2.7.4
+

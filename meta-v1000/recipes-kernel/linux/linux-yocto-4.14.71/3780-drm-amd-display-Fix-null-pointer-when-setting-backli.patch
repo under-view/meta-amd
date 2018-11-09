@@ -1,0 +1,38 @@
+From 0acc355594273135cf21ef74c5a41e40e2a2b400 Mon Sep 17 00:00:00 2001
+From: Harry Wentland <harry.wentland@amd.com>
+Date: Mon, 12 Mar 2018 13:43:36 -0400
+Subject: [PATCH 3780/4131] drm/amd/display: Fix null pointer when setting
+ backlight
+
+Fixes: c894d9f208f9 (drm/amd/display: Fixed dim around 1sec when resume
+from S3)
+
+Signed-off-by: Harry Wentland <harry.wentland@amd.com>
+Acked-by: Alex Deucher <alexander.deucher@amd.com>
+---
+ drivers/gpu/drm/amd/display/dc/core/dc_link.c | 8 +++++---
+ 1 file changed, 5 insertions(+), 3 deletions(-)
+
+diff --git a/drivers/gpu/drm/amd/display/dc/core/dc_link.c b/drivers/gpu/drm/amd/display/dc/core/dc_link.c
+index fd7db8f..68c7196 100644
+--- a/drivers/gpu/drm/amd/display/dc/core/dc_link.c
++++ b/drivers/gpu/drm/amd/display/dc/core/dc_link.c
+@@ -1973,10 +1973,12 @@ bool dc_link_set_backlight_level(const struct dc_link *link, uint32_t level,
+ 		(abm->funcs->set_backlight_level == NULL))
+ 		return false;
+ 
+-	if (stream->bl_pwm_level == 0)
+-		frame_ramp = 0;
++	if (stream) {
++		if (stream->bl_pwm_level == 0)
++			frame_ramp = 0;
+ 
+-	((struct dc_stream_state *)stream)->bl_pwm_level = level;
++		((struct dc_stream_state *)stream)->bl_pwm_level = level;
++	}
+ 
+ 	use_smooth_brightness = dmcu->funcs->is_dmcu_initialized(dmcu);
+ 
+-- 
+2.7.4
+

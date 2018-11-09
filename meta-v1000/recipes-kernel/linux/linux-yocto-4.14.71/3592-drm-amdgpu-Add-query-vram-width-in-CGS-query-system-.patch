@@ -1,0 +1,46 @@
+From 25dac69c63fa00fd61f005fcc2c05050ee808eec Mon Sep 17 00:00:00 2001
+From: Rex Zhu <Rex.Zhu@amd.com>
+Date: Thu, 8 Feb 2018 15:57:10 +0800
+Subject: [PATCH 3592/4131] drm/amdgpu: Add query vram width in CGS query
+ system info
+
+powerplay need vram width to set default mclk optimization
+settings(uphyst/downhyst/activity threshold)
+
+Reviewed-by: Alex Deucher <alexander.deucher@amd.com>
+Signed-off-by: Rex Zhu <Rex.Zhu@amd.com>
+Signed-off-by: Alex Deucher <alexander.deucher@amd.com>
+---
+ drivers/gpu/drm/amd/amdgpu/amdgpu_cgs.c  | 3 +++
+ drivers/gpu/drm/amd/include/cgs_common.h | 1 +
+ 2 files changed, 4 insertions(+)
+
+diff --git a/drivers/gpu/drm/amd/amdgpu/amdgpu_cgs.c b/drivers/gpu/drm/amd/amdgpu/amdgpu_cgs.c
+index dc3360b..72c9a7e2 100644
+--- a/drivers/gpu/drm/amd/amdgpu/amdgpu_cgs.c
++++ b/drivers/gpu/drm/amd/amdgpu/amdgpu_cgs.c
+@@ -905,6 +905,9 @@ static int amdgpu_cgs_query_system_info(struct cgs_device *cgs_device,
+ 	case CGS_SYSTEM_INFO_PCIE_BUS_DEVFN:
+ 		sys_info->value = adev->pdev->devfn;
+ 		break;
++	case CGS_SYSTEM_INFO_VRAM_WIDTH:
++		sys_info->value = adev->gmc.vram_width;
++		break;
+ 	default:
+ 		return -ENODEV;
+ 	}
+diff --git a/drivers/gpu/drm/amd/include/cgs_common.h b/drivers/gpu/drm/amd/include/cgs_common.h
+index f5c7397..98cf4ce 100644
+--- a/drivers/gpu/drm/amd/include/cgs_common.h
++++ b/drivers/gpu/drm/amd/include/cgs_common.h
+@@ -101,6 +101,7 @@ enum cgs_system_info_id {
+ 	CGS_SYSTEM_INFO_PCIE_SUB_SYS_ID,
+ 	CGS_SYSTEM_INFO_PCIE_SUB_SYS_VENDOR_ID,
+ 	CGS_SYSTEM_INFO_PCIE_BUS_DEVFN,
++	CGS_SYSTEM_INFO_VRAM_WIDTH,
+ 	CGS_SYSTEM_INFO_ID_MAXIMUM,
+ };
+ 
+-- 
+2.7.4
+

@@ -1,0 +1,41 @@
+From dec22ddfd540e1cba1b5e40d48925a1484309a9d Mon Sep 17 00:00:00 2001
+From: Jay Cornwall <Jay.Cornwall@amd.com>
+Date: Thu, 1 Dec 2016 19:39:17 -0600
+Subject: [PATCH 0834/4131] drm/amdkfd: Reject devices without host atomic
+ support
+
+HSA requires atomic operations from device to host for all ASICs from
+Gfx8 onwards. APUs implicitly support this through ATS. Discrete GPUs
+require PCI support to route atomics to the host bridge and complete
+them.
+
+Do not bind to PCI devices which cannot route atomics to the host.
+
+Change-Id: Ieea113713229a81296a8f2565762b422eaf7122c
+Signed-off-by: Jay Cornwall <Jay.Cornwall@amd.com>
+Signed-off-by: Kalyan Alle <kalyan.alle@amd.com>
+
+ Conflicts:
+        drivers/gpu/drm/amd/amdgpu/gmc_v8_0.c
+---
+ drivers/gpu/drm/amd/amdgpu/gmc_v8_0.c | 4 ----
+ 1 file changed, 4 deletions(-)
+
+diff --git a/drivers/gpu/drm/amd/amdgpu/gmc_v8_0.c b/drivers/gpu/drm/amd/amdgpu/gmc_v8_0.c
+index 6a8d7cb..3b3326d 100644
+--- a/drivers/gpu/drm/amd/amdgpu/gmc_v8_0.c
++++ b/drivers/gpu/drm/amd/amdgpu/gmc_v8_0.c
+@@ -1136,10 +1136,6 @@ static int gmc_v8_0_sw_init(void *handle)
+ 		adev->vm_manager.vram_base_offset = 0;
+ 	}
+ 
+-	/* Allow BIF to recode atomics to PCIe 3.0 AtomicOps.
+-	 */
+-	pci_enable_atomic_ops_to_root(adev->pdev);
+-
+ 	return 0;
+ }
+ 
+-- 
+2.7.4
+

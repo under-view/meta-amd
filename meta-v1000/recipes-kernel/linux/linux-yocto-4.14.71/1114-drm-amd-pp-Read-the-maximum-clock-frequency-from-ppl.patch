@@ -1,0 +1,34 @@
+From afe99791053bac27ca62418e9d38b1fd5ca3390e Mon Sep 17 00:00:00 2001
+From: Rex Zhu <Rex.Zhu@amd.com>
+Date: Wed, 8 Nov 2017 16:39:00 +0800
+Subject: [PATCH 1114/4131] drm/amd/pp: Read the maximum clock frequency from
+ pplib using pp_dpm_get_sclk() and pp_dpm_get_mclk() incase of failure when
+ using phm_get_max_high_clocks()
+
+Change-Id: I40368191a98165b6f93ed35f3ff46a41f065b174
+Signed-off-by: Raveendra Talabattula <raveendra.talabattula@amd.com>
+---
+ drivers/gpu/drm/amd/powerplay/amd_powerplay.c | 9 +++++++--
+ 1 file changed, 7 insertions(+), 2 deletions(-)
+
+diff --git a/drivers/gpu/drm/amd/powerplay/amd_powerplay.c b/drivers/gpu/drm/amd/powerplay/amd_powerplay.c
+index 2634d79..9f51222 100644
+--- a/drivers/gpu/drm/amd/powerplay/amd_powerplay.c
++++ b/drivers/gpu/drm/amd/powerplay/amd_powerplay.c
+@@ -1429,6 +1429,11 @@ int amd_powerplay_get_display_mode_validation_clocks(void *handle,
+ 		ret = phm_get_max_high_clocks(hwmgr, clocks);
+ 
+ 	mutex_unlock(&pp_handle->pp_lock);
+-	return ret;
+-}
++	
++	if (ret) {
++		clocks->memory_max_clock = pp_dpm_get_mclk(handle, false);
++		clocks->engine_max_clock = pp_dpm_get_sclk(handle, false);
++	}
+ 
++	return 0;
++}
+-- 
+2.7.4
+

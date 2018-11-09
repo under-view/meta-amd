@@ -1,0 +1,56 @@
+From af748c309741e970a1dac09928e558490b6f5ef2 Mon Sep 17 00:00:00 2001
+From: Andrey Grodzovsky <andrey.grodzovsky@amd.com>
+Date: Wed, 13 Dec 2017 14:36:53 -0500
+Subject: [PATCH 3860/4131] drm/amdgpu: Simplify amdgpu_lockup_timeout usage.
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+With introduction of amdgpu_gpu_recovery we don't need any more
+to rely on amdgpu_lockup_timeout == 0 for disabling GPU reset.
+
+Signed-off-by: Andrey Grodzovsky <andrey.grodzovsky@amd.com>
+Reviewed-by: Christian König <christian.koenig@amd.com>
+Signed-off-by: Alex Deucher <alexander.deucher@amd.com>
+---
+ drivers/gpu/drm/amd/amdgpu/amdgpu_device.c | 10 ++++++++--
+ 1 file changed, 8 insertions(+), 2 deletions(-)
+
+diff --git a/drivers/gpu/drm/amd/amdgpu/amdgpu_device.c b/drivers/gpu/drm/amd/amdgpu/amdgpu_device.c
+index 9407694..1ca6e6b 100644
+--- a/drivers/gpu/drm/amd/amdgpu/amdgpu_device.c
++++ b/drivers/gpu/drm/amd/amdgpu/amdgpu_device.c
+@@ -867,7 +867,7 @@ static void amdgpu_device_check_arguments(struct amdgpu_device *adev)
+ 	/* Compute the GPU VM space only if the user
+ 	 * hasn't changed it from the default.
+ 	 */
+-	if (amdgpu_vm_size == -1 && adev->asic_type != CHIP_RAVEN) {
++	if (amdgpu_vm_size == -1) {
+ 		/* Computation depends on the amount of physical RAM available.
+ 		 * Cannot exceed 1TB.
+ 		 */
+@@ -902,6 +902,12 @@ static void amdgpu_device_check_arguments(struct amdgpu_device *adev)
+ 			 amdgpu_vram_page_split);
+ 		amdgpu_vram_page_split = 1024;
+ 	}
++
++	if (amdgpu_lockup_timeout == 0) {
++		dev_warn(adev->dev, "lockup_timeout msut be > 0, adjusting to 10000\n");
++		amdgpu_lockup_timeout = 10000;
++	}
++
+ 	/* Max DGMA size is 96M Bytes */
+ 	amdgpu_direct_gma_size = min(amdgpu_direct_gma_size, 96);
+ 	
+@@ -2386,7 +2392,7 @@ int amdgpu_device_resume(struct drm_device *dev, bool resume, bool fbcon)
+ 	}
+ 	r = amdgpu_amdkfd_resume(adev);
+ 	if (r)
+-		goto unlock;
++		return r;
+ 
+ 	/* blat the mode back in */
+ 	if (fbcon) {
+-- 
+2.7.4
+

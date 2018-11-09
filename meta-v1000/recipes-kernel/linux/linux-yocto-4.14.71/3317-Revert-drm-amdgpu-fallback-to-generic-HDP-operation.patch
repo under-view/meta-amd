@@ -1,0 +1,58 @@
+From 33822afeb490c42daf024d5dcfd4c2841fa2c2cc Mon Sep 17 00:00:00 2001
+From: Jim Qu <Jim.Qu@amd.com>
+Date: Thu, 1 Feb 2018 15:08:13 +0800
+Subject: [PATCH 3317/4131] Revert "drm/amdgpu: fallback to generic HDP
+ operation"
+
+This reverts commit 5835ba224d0606ff109ec84a7a6641263bea25c7.
+---
+ drivers/gpu/drm/amd/amdgpu/amdgpu_ib.c | 22 ++++++++--------------
+ 1 file changed, 8 insertions(+), 14 deletions(-)
+
+diff --git a/drivers/gpu/drm/amd/amdgpu/amdgpu_ib.c b/drivers/gpu/drm/amd/amdgpu/amdgpu_ib.c
+index 1b2b7c1..e0b9200 100644
+--- a/drivers/gpu/drm/amd/amdgpu/amdgpu_ib.c
++++ b/drivers/gpu/drm/amd/amdgpu/amdgpu_ib.c
+@@ -192,15 +192,12 @@ int amdgpu_ib_schedule(struct amdgpu_ring *ring, unsigned num_ibs,
+ 	if (ring->funcs->init_cond_exec)
+ 		patch_offset = amdgpu_ring_init_cond_exec(ring);
+ 
++	if (ring->funcs->emit_hdp_flush
+ #ifdef CONFIG_X86_64
+-	if (!(adev->flags & AMD_IS_APU))
++	    && !(adev->flags & AMD_IS_APU)
+ #endif
+-	{
+-		if (ring->funcs->emit_hdp_flush)
+-			amdgpu_ring_emit_hdp_flush(ring);
+-		else
+-			amdgpu_asic_flush_hdp(adev, ring);
+-	}
++	   )
++		amdgpu_ring_emit_hdp_flush(ring);
+ 
+ 	skip_preamble = ring->current_ctx == fence_ctx;
+ 	need_ctx_switch = ring->current_ctx != fence_ctx;
+@@ -230,15 +227,12 @@ int amdgpu_ib_schedule(struct amdgpu_ring *ring, unsigned num_ibs,
+ 	if (ring->funcs->emit_tmz)
+ 		amdgpu_ring_emit_tmz(ring, false);
+ 
++	if (ring->funcs->emit_hdp_invalidate
+ #ifdef CONFIG_X86_64
+-	if (!(adev->flags & AMD_IS_APU))
++	    && !(adev->flags & AMD_IS_APU)
+ #endif
+-	{
+-		if (ring->funcs->emit_hdp_invalidate)
+-			amdgpu_ring_emit_hdp_invalidate(ring);
+-		else
+-			amdgpu_asic_invalidate_hdp(adev, ring);
+-	}
++	   )
++		amdgpu_ring_emit_hdp_invalidate(ring);
+ 
+ 	r = amdgpu_fence_emit(ring, f);
+ 	if (r) {
+-- 
+2.7.4
+

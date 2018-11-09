@@ -1,0 +1,68 @@
+From dc6fd0f39993a1836c7bd5bf36328dc206990bd7 Mon Sep 17 00:00:00 2001
+From: Dave Airlie <airlied@redhat.com>
+Date: Fri, 29 Sep 2017 10:12:53 +1000
+Subject: [PATCH 1936/4131] amdgfx/gfx: don't use static objects for ce/de
+ meta. (v2)
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+This isn't safe if we have multiple GPUs plugged in, since
+there is only one copy of this struct in the bss, just allocate
+on stack, it's 40/108 bytes which should be safe.
+
+Reviewed-by: Christian König <christian.koenig@amd.com>
+Signed-off-by: Dave Airlie <airlied@redhat.com>
+Signed-off-by: Alex Deucher <alexander.deucher@amd.com>
+---
+ drivers/gpu/drm/amd/amdgpu/gfx_v8_0.c | 4 ++--
+ drivers/gpu/drm/amd/amdgpu/gfx_v9_0.c | 4 ++--
+ 2 files changed, 4 insertions(+), 4 deletions(-)
+
+diff --git a/drivers/gpu/drm/amd/amdgpu/gfx_v8_0.c b/drivers/gpu/drm/amd/amdgpu/gfx_v8_0.c
+index b5e7049..444f48b 100644
+--- a/drivers/gpu/drm/amd/amdgpu/gfx_v8_0.c
++++ b/drivers/gpu/drm/amd/amdgpu/gfx_v8_0.c
+@@ -7065,7 +7065,7 @@ static void gfx_v8_0_ring_emit_ce_meta(struct amdgpu_ring *ring)
+ {
+ 	uint64_t ce_payload_addr;
+ 	int cnt_ce;
+-	static union {
++	union {
+ 		struct vi_ce_ib_state regular;
+ 		struct vi_ce_ib_state_chained_ib chained;
+ 	} ce_payload = {};
+@@ -7094,7 +7094,7 @@ static void gfx_v8_0_ring_emit_de_meta(struct amdgpu_ring *ring)
+ {
+ 	uint64_t de_payload_addr, gds_addr, csa_addr;
+ 	int cnt_de;
+-	static union {
++	union {
+ 		struct vi_de_ib_state regular;
+ 		struct vi_de_ib_state_chained_ib chained;
+ 	} de_payload = {};
+diff --git a/drivers/gpu/drm/amd/amdgpu/gfx_v9_0.c b/drivers/gpu/drm/amd/amdgpu/gfx_v9_0.c
+index 7014128..f2351e0a 100644
+--- a/drivers/gpu/drm/amd/amdgpu/gfx_v9_0.c
++++ b/drivers/gpu/drm/amd/amdgpu/gfx_v9_0.c
+@@ -3822,7 +3822,7 @@ static void gfx_v9_ring_emit_sb(struct amdgpu_ring *ring)
+ 
+ static void gfx_v9_0_ring_emit_ce_meta(struct amdgpu_ring *ring)
+ {
+-	static struct v9_ce_ib_state ce_payload = {0};
++	struct v9_ce_ib_state ce_payload = {0};
+ 	uint64_t csa_addr;
+ 	int cnt;
+ 
+@@ -3841,7 +3841,7 @@ static void gfx_v9_0_ring_emit_ce_meta(struct amdgpu_ring *ring)
+ 
+ static void gfx_v9_0_ring_emit_de_meta(struct amdgpu_ring *ring)
+ {
+-	static struct v9_de_ib_state de_payload = {0};
++	struct v9_de_ib_state de_payload = {0};
+ 	uint64_t csa_addr, gds_addr;
+ 	int cnt;
+ 
+-- 
+2.7.4
+

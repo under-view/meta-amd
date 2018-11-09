@@ -1,0 +1,98 @@
+From 310809445887a7146c65575b76b67943baf11078 Mon Sep 17 00:00:00 2001
+From: Harry Wentland <harry.wentland@amd.com>
+Date: Mon, 16 Oct 2017 22:10:19 -0400
+Subject: [PATCH 3460/4131] Revert "amdgpu/dc: inline dml_round_to_multiple"
+
+This reverts commit d8c893b44b2199f5935fe8667708253c38353782.
+
+Unfortunately these clash with our DML update from the HW guys.
+Will attempt to reroll them after.
+
+Signed-off-by: Alex Deucher <alexander.deucher@amd.com>
+Signed-off-by: Kalyan Alle <kalyan.alle@amd.com>
+---
+ .../gpu/drm/amd/display/dc/dml/dml_common_defs.c    | 21 ++++++++++++++++++++-
+ .../gpu/drm/amd/display/dc/dml/dml_common_defs.h    |  2 ++
+ .../gpu/drm/amd/display/dc/dml/dml_inline_defs.h    | 19 -------------------
+ 3 files changed, 22 insertions(+), 20 deletions(-)
+
+diff --git a/drivers/gpu/drm/amd/display/dc/dml/dml_common_defs.c b/drivers/gpu/drm/amd/display/dc/dml/dml_common_defs.c
+index b953b02..edda8cf 100644
+--- a/drivers/gpu/drm/amd/display/dc/dml/dml_common_defs.c
++++ b/drivers/gpu/drm/amd/display/dc/dml/dml_common_defs.c
+@@ -27,7 +27,6 @@
+ #include "../calcs/dcn_calc_math.h"
+ 
+ #include "dml_inline_defs.h"
+-
+ double dml_round(double a)
+ {
+ 	double round_pt = 0.5;
+@@ -40,4 +39,24 @@ double dml_round(double a)
+ 		return floor;
+ }
+ 
++unsigned int dml_round_to_multiple(
++        unsigned int num,
++        unsigned int multiple,
++        bool up)
++{
++        unsigned int remainder;
++
++        if (multiple == 0)
++                return num;
++
++        remainder = num % multiple;
++
++        if (remainder == 0)
++                return num;
++
++        if (up)
++                return (num + multiple - remainder);
++        else
++                return (num - remainder);
++}
+ 
+diff --git a/drivers/gpu/drm/amd/display/dc/dml/dml_common_defs.h b/drivers/gpu/drm/amd/display/dc/dml/dml_common_defs.h
+index b2847bc..2354f83 100644
+--- a/drivers/gpu/drm/amd/display/dc/dml/dml_common_defs.h
++++ b/drivers/gpu/drm/amd/display/dc/dml/dml_common_defs.h
+@@ -35,5 +35,7 @@
+ #define DTRACE(str, ...) {dm_logger_write(mode_lib->logger, LOG_DML, str, ##__VA_ARGS__); }
+ 
+ double dml_round(double a);
++unsigned int dml_round_to_multiple(
++                        unsigned int num, unsigned int multiple, bool up);
+ 
+ #endif /* __DC_COMMON_DEFS_H__ */
+diff --git a/drivers/gpu/drm/amd/display/dc/dml/dml_inline_defs.h b/drivers/gpu/drm/amd/display/dc/dml/dml_inline_defs.h
+index e68086b..105c672 100644
+--- a/drivers/gpu/drm/amd/display/dc/dml/dml_inline_defs.h
++++ b/drivers/gpu/drm/amd/display/dc/dml/dml_inline_defs.h
+@@ -99,23 +99,4 @@ static inline double dml_log(double x, double base)
+ 	return (double) dcn_bw_log(x, base);
+ }
+ 
+-static inline unsigned int dml_round_to_multiple(unsigned int num,
+-						 unsigned int multiple,
+-						 bool up)
+-{
+-	unsigned int remainder;
+-
+-	if (multiple == 0)
+-		return num;
+-
+-	remainder = num % multiple;
+-
+-	if (remainder == 0)
+-		return num;
+-
+-	if (up)
+-		return (num + multiple - remainder);
+-	else
+-		return (num - remainder);
+-}
+ #endif
+-- 
+2.7.4
+

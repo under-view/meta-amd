@@ -1,0 +1,494 @@
+From 93de3d5c16a780e515ff255734efa31d7c49ec75 Mon Sep 17 00:00:00 2001
+From: Christian Koenig <christian.koenig@amd.com>
+Date: Wed, 21 Feb 2018 13:59:50 +0100
+Subject: [PATCH 3722/4131] drm/amdgpu: explicit give BO type to
+ amdgpu_bo_create
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+Drop the "kernel" and sg parameter and give the BO type to create
+explicit to amdgpu_bo_create instead of figuring it out from the
+parameters.
+
+Signed-off-by: Christian König <christian.koenig@amd.com>
+Reviewed-by: Roger He <Hongbo.He@amd.com>
+
+Conflicts:
+      drivers/gpu/drm/amd/amdgpu/amdgpu_amdkfd.c
+      drivers/gpu/drm/amd/amdgpu/amdgpu_object.c
+
+Change-Id: I6e3d25f33969a5402836ebc5d282665badd9079e
+---
+ drivers/gpu/drm/amd/amdgpu/amdgpu.h           |  2 +-
+ drivers/gpu/drm/amd/amdgpu/amdgpu_amdkfd.c    | 11 ++----
+ drivers/gpu/drm/amd/amdgpu/amdgpu_benchmark.c |  8 ++--
+ drivers/gpu/drm/amd/amdgpu/amdgpu_gart.c      |  7 ++--
+ drivers/gpu/drm/amd/amdgpu/amdgpu_gem.c       |  6 +--
+ drivers/gpu/drm/amd/amdgpu/amdgpu_object.c    | 54 +++++++++++----------------
+ drivers/gpu/drm/amd/amdgpu/amdgpu_object.h    | 11 +++---
+ drivers/gpu/drm/amd/amdgpu/amdgpu_prime.c     | 10 +++--
+ drivers/gpu/drm/amd/amdgpu/amdgpu_test.c      | 11 +++---
+ drivers/gpu/drm/amd/amdgpu/amdgpu_ttm.c       | 19 +++++-----
+ drivers/gpu/drm/amd/amdgpu/amdgpu_vm.c        |  8 ++--
+ drivers/gpu/drm/ttm/ttm_bo.c                  |  5 ++-
+ include/drm/ttm/ttm_bo_api.h                  | 10 ++---
+ 13 files changed, 75 insertions(+), 87 deletions(-)
+
+diff --git a/drivers/gpu/drm/amd/amdgpu/amdgpu.h b/drivers/gpu/drm/amd/amdgpu/amdgpu.h
+index 6805ea8..2dc34f0 100644
+--- a/drivers/gpu/drm/amd/amdgpu/amdgpu.h
++++ b/drivers/gpu/drm/amd/amdgpu/amdgpu.h
+@@ -457,7 +457,7 @@ struct amdgpu_sa_bo {
+ void amdgpu_gem_force_release(struct amdgpu_device *adev);
+ int amdgpu_gem_object_create(struct amdgpu_device *adev, unsigned long size,
+ 			     int alignment, u32 initial_domain,
+-			     u64 flags, bool kernel,
++			     u64 flags, enum ttm_bo_type type,
+ 			     struct reservation_object *resv,
+ 			     struct drm_gem_object **obj);
+ 
+diff --git a/drivers/gpu/drm/amd/amdgpu/amdgpu_amdkfd.c b/drivers/gpu/drm/amd/amdgpu/amdgpu_amdkfd.c
+index 62e3a04..bb1e7d0 100644
+--- a/drivers/gpu/drm/amd/amdgpu/amdgpu_amdkfd.c
++++ b/drivers/gpu/drm/amd/amdgpu/amdgpu_amdkfd.c
+@@ -285,9 +285,10 @@ int alloc_gtt_mem(struct kgd_dev *kgd, size_t size,
+ 	int r;
+ 	uint64_t gpu_addr_tmp = 0;
+ 	void *cpu_ptr_tmp = NULL;
+-
+-	r = amdgpu_bo_create(adev, size, PAGE_SIZE, true, AMDGPU_GEM_DOMAIN_GTT,
+-				AMDGPU_GEM_CREATE_CPU_GTT_USWC, NULL, NULL, &bo);
++	
++	r = amdgpu_bo_create(adev, size, PAGE_SIZE, AMDGPU_GEM_DOMAIN_GTT,
++				AMDGPU_GEM_CREATE_CPU_GTT_USWC, ttm_bo_type_kernel,
++				NULL, &bo);
+ 	if (r) {
+ 		dev_err(adev->dev,
+ 			"failed to allocate BO for amdkfd (%d)\n", r);
+@@ -446,10 +447,6 @@ int amdgpu_amdkfd_get_dmabuf_info(struct kgd_dev *kgd, int dma_buf_fd,
+         if (IS_ERR(dma_buf))
+                 return PTR_ERR(dma_buf);
+ 
+-        if (dma_buf->ops != &drm_gem_prime_dmabuf_ops)
+-                /* Can't handle non-graphics buffers */
+-               goto out_put;
+-
+         obj = dma_buf->priv;
+         if (obj->dev->driver != adev->ddev->driver)
+                 /* Can't handle buffers from different drivers */
+diff --git a/drivers/gpu/drm/amd/amdgpu/amdgpu_benchmark.c b/drivers/gpu/drm/amd/amdgpu/amdgpu_benchmark.c
+index 2fb299a..02b849b 100644
+--- a/drivers/gpu/drm/amd/amdgpu/amdgpu_benchmark.c
++++ b/drivers/gpu/drm/amd/amdgpu/amdgpu_benchmark.c
+@@ -80,8 +80,8 @@ static void amdgpu_benchmark_move(struct amdgpu_device *adev, unsigned size,
+ 	int time;
+ 
+ 	n = AMDGPU_BENCHMARK_ITERATIONS;
+-	r = amdgpu_bo_create(adev, size, PAGE_SIZE, true, sdomain, 0, NULL,
+-			     NULL, &sobj);
++	r = amdgpu_bo_create(adev, size, PAGE_SIZE,sdomain, 0,
++			     ttm_bo_type_kernel, NULL, &sobj);
+ 	if (r) {
+ 		goto out_cleanup;
+ 	}
+@@ -93,8 +93,8 @@ static void amdgpu_benchmark_move(struct amdgpu_device *adev, unsigned size,
+ 	if (r) {
+ 		goto out_cleanup;
+ 	}
+-	r = amdgpu_bo_create(adev, size, PAGE_SIZE, true, ddomain, 0, NULL,
+-			     NULL, &dobj);
++	r = amdgpu_bo_create(adev, size, PAGE_SIZE, ddomain, 0,
++			     ttm_bo_type_kernel, NULL, &dobj);
+ 	if (r) {
+ 		goto out_cleanup;
+ 	}
+diff --git a/drivers/gpu/drm/amd/amdgpu/amdgpu_gart.c b/drivers/gpu/drm/amd/amdgpu/amdgpu_gart.c
+index dc8d9f3..cf0f186 100644
+--- a/drivers/gpu/drm/amd/amdgpu/amdgpu_gart.c
++++ b/drivers/gpu/drm/amd/amdgpu/amdgpu_gart.c
+@@ -113,11 +113,12 @@ int amdgpu_gart_table_vram_alloc(struct amdgpu_device *adev)
+ 	int r;
+ 
+ 	if (adev->gart.robj == NULL) {
+-		r = amdgpu_bo_create(adev, adev->gart.table_size,
+-				     PAGE_SIZE, true, AMDGPU_GEM_DOMAIN_VRAM,
++		r = amdgpu_bo_create(adev, adev->gart.table_size, PAGE_SIZE,
++				     AMDGPU_GEM_DOMAIN_VRAM,
+ 				     AMDGPU_GEM_CREATE_CPU_ACCESS_REQUIRED |
+ 				     AMDGPU_GEM_CREATE_VRAM_CONTIGUOUS,
+-				     NULL, NULL, &adev->gart.robj);
++				     ttm_bo_type_kernel, NULL,
++				     &adev->gart.robj);
+ 		if (r) {
+ 			return r;
+ 		}
+diff --git a/drivers/gpu/drm/amd/amdgpu/amdgpu_gem.c b/drivers/gpu/drm/amd/amdgpu/amdgpu_gem.c
+index 586a77b..81c6748 100644
+--- a/drivers/gpu/drm/amd/amdgpu/amdgpu_gem.c
++++ b/drivers/gpu/drm/amd/amdgpu/amdgpu_gem.c
+@@ -52,7 +52,7 @@ void amdgpu_gem_object_free(struct drm_gem_object *gobj)
+ 
+ int amdgpu_gem_object_create(struct amdgpu_device *adev, unsigned long size,
+ 			     int alignment, u32 initial_domain,
+-			     u64 flags, bool kernel,
++			     u64 flags, enum ttm_bo_type type,
+ 			     struct reservation_object *resv,
+ 			     struct drm_gem_object **obj)
+ {
+@@ -85,8 +85,8 @@ int amdgpu_gem_object_create(struct amdgpu_device *adev, unsigned long size,
+ 	}
+ 
+ retry:
+-	r = amdgpu_bo_create(adev, size, alignment, kernel, initial_domain,
+-			     flags, NULL, resv, &robj);
++	r = amdgpu_bo_create(adev, size, alignment, initial_domain,
++				flags, type, resv, &bo);
+ 	if (r) {
+ 		if (r != -ERESTARTSYS) {
+ 			if (flags & AMDGPU_GEM_CREATE_CPU_ACCESS_REQUIRED) {
+diff --git a/drivers/gpu/drm/amd/amdgpu/amdgpu_object.c b/drivers/gpu/drm/amd/amdgpu/amdgpu_object.c
+index 2e0482e..0b85e49 100755
+--- a/drivers/gpu/drm/amd/amdgpu/amdgpu_object.c
++++ b/drivers/gpu/drm/amd/amdgpu/amdgpu_object.c
+@@ -213,10 +213,10 @@ int amdgpu_bo_create_reserved(struct amdgpu_device *adev,
+ 	int r;
+ 
+ 	if (!*bo_ptr) {
+-		r = amdgpu_bo_create(adev, size, align, true, domain,
++		r = amdgpu_bo_create(adev, size, align, domain,
+ 				     AMDGPU_GEM_CREATE_CPU_ACCESS_REQUIRED |
+ 				     AMDGPU_GEM_CREATE_VRAM_CONTIGUOUS,
+-				     NULL, NULL, bo_ptr);
++				     ttm_bo_type_kernel, NULL, bo_ptr);
+ 		if (r) {
+ 			dev_err(adev->dev, "(%d) failed to allocate kernel bo\n",
+ 				r);
+@@ -357,16 +357,14 @@ static bool amdgpu_bo_validate_size(struct amdgpu_device *adev,
+ 	return false;
+ }
+ 
+-static int amdgpu_bo_do_create(struct amdgpu_device *adev,
+-			       unsigned long size, int byte_align,
+-			       bool kernel, u32 domain, u64 flags,
+-			       struct sg_table *sg,
+-			       struct reservation_object *resv,
+-			       struct amdgpu_bo **bo_ptr)
++static int amdgpu_bo_do_create(struct amdgpu_device *adev, unsigned long size,
++				int byte_align, u32 domain,
++				u64 flags, enum ttm_bo_type type,
++				struct reservation_object *resv,
++				struct amdgpu_bo **bo_ptr)
+ {
+ 	struct ttm_operation_ctx ctx = { !kernel, false };
+ 	struct amdgpu_bo *bo;
+-	enum ttm_bo_type type;
+ 	unsigned long page_align;
+ 	size_t acc_size;
+ 	int r;
+@@ -377,13 +375,6 @@ static int amdgpu_bo_do_create(struct amdgpu_device *adev,
+ 	if (!amdgpu_bo_validate_size(adev, size, domain))
+ 		return -ENOMEM;
+ 
+-	if (kernel) {
+-		type = ttm_bo_type_kernel;
+-	} else if (sg) {
+-		type = ttm_bo_type_sg;
+-	} else {
+-		type = ttm_bo_type_device;
+-	}
+ 	*bo_ptr = NULL;
+ 
+ 	acc_size = ttm_bo_dma_acc_size(&adev->mman.bdev, size,
+@@ -406,7 +397,8 @@ static int amdgpu_bo_do_create(struct amdgpu_device *adev,
+ 					 AMDGPU_GEM_DOMAIN_DGMA |
+ 					 AMDGPU_GEM_DOMAIN_DGMA_IMPORT);
+ 	bo->allowed_domains = bo->preferred_domains;
+-	if (!kernel && bo->allowed_domains == AMDGPU_GEM_DOMAIN_VRAM)
++	if (type != ttm_bo_type_kernel &&
++		bo->allowed_domains == AMDGPU_GEM_DOMAIN_VRAM)
+ 		bo->allowed_domains |= AMDGPU_GEM_DOMAIN_GTT;
+ 
+ 	bo->flags = flags;
+@@ -444,7 +436,7 @@ static int amdgpu_bo_do_create(struct amdgpu_device *adev,
+ 
+ 	r = ttm_bo_init_reserved(&adev->mman.bdev, &bo->tbo, size, type,
+ 				 &bo->placement, page_align, &ctx, NULL,
+-				 acc_size, sg, resv, &amdgpu_ttm_bo_destroy);
++				 NULL, resv, &amdgpu_ttm_bo_destroy);
+ 	if (unlikely(r != 0))
+ 		return r;
+ 
+@@ -459,7 +451,7 @@ static int amdgpu_bo_do_create(struct amdgpu_device *adev,
+ 	if (domain & AMDGPU_GEM_DOMAIN_DGMA && adev->ssg.enabled)
+ 		bo->tbo.ssg_can_map = true;
+ 
+-	if (kernel)
++	if (type == ttm_bo_type_kernel)
+ 		bo->tbo.priority = 1;
+ 
+ 	if (flags & AMDGPU_GEM_CREATE_VRAM_CLEARED &&
+@@ -515,13 +507,12 @@ static int amdgpu_bo_create_shadow(struct amdgpu_device *adev,
+ 
+ 	if (bo->shadow)
+ 		return 0;
+-
+-	r = amdgpu_bo_do_create(adev, size, byte_align, true,
+-				AMDGPU_GEM_DOMAIN_GTT,
++	
++	r = amdgpu_bo_do_create(adev, size, byte_align, AMDGPU_GEM_DOMAIN_GTT,
+ 				AMDGPU_GEM_CREATE_CPU_GTT_USWC |
+ 				AMDGPU_GEM_CREATE_SHADOW,
+-				NULL, bo->tbo.resv,
+-				&bo->shadow);
++				ttm_bo_type_kernel,
++				bo->tbo.resv, &bo->shadow);
+ 	if (!r) {
+ 		bo->shadow->parent = amdgpu_bo_ref(bo);
+ 		mutex_lock(&adev->shadow_list_lock);
+@@ -532,18 +523,17 @@ static int amdgpu_bo_create_shadow(struct amdgpu_device *adev,
+ 	return r;
+ }
+ 
+-int amdgpu_bo_create(struct amdgpu_device *adev,
+-		     unsigned long size, int byte_align,
+-		     bool kernel, u32 domain, u64 flags,
+-		     struct sg_table *sg,
+-		     struct reservation_object *resv,
+-		     struct amdgpu_bo **bo_ptr)
++int amdgpu_bo_create(struct amdgpu_device *adev, unsigned long size,
++			int byte_align, u32 domain,
++			u64 flags, enum ttm_bo_type type,
++			struct reservation_object *resv,
++			struct amdgpu_bo **bo_ptr)
+ {
+ 	uint64_t parent_flags = flags & ~AMDGPU_GEM_CREATE_SHADOW;
+ 	int r;
+ 
+-	r = amdgpu_bo_do_create(adev, size, byte_align, kernel, domain,
+-				parent_flags, sg, resv, bo_ptr);
++	r = amdgpu_bo_do_create(adev, size, byte_align, domain,
++				parent_flags, type, resv, bo_ptr);
+ 	if (r)
+ 		return r;
+ 
+diff --git a/drivers/gpu/drm/amd/amdgpu/amdgpu_object.h b/drivers/gpu/drm/amd/amdgpu/amdgpu_object.h
+index b6a580e..092e853 100755
+--- a/drivers/gpu/drm/amd/amdgpu/amdgpu_object.h
++++ b/drivers/gpu/drm/amd/amdgpu/amdgpu_object.h
+@@ -214,12 +214,11 @@ static inline bool amdgpu_bo_explicit_sync(struct amdgpu_bo *bo)
+ 	return bo->flags & AMDGPU_GEM_CREATE_EXPLICIT_SYNC;
+ }
+ 
+-int amdgpu_bo_create(struct amdgpu_device *adev,
+-			    unsigned long size, int byte_align,
+-			    bool kernel, u32 domain, u64 flags,
+-			    struct sg_table *sg,
+-			    struct reservation_object *resv,
+-			    struct amdgpu_bo **bo_ptr);
++int amdgpu_bo_create(struct amdgpu_device *adev, unsigned long size,
++		     int byte_align, u32 domain,
++		     u64 flags, enum ttm_bo_type type,
++		     struct reservation_object *resv,
++		     struct amdgpu_bo **bo_ptr);
+ int amdgpu_bo_create_reserved(struct amdgpu_device *adev,
+ 			      unsigned long size, int align,
+ 			      u32 domain, struct amdgpu_bo **bo_ptr,
+diff --git a/drivers/gpu/drm/amd/amdgpu/amdgpu_prime.c b/drivers/gpu/drm/amd/amdgpu/amdgpu_prime.c
+index 46e8898..a6cac1f 100644
+--- a/drivers/gpu/drm/amd/amdgpu/amdgpu_prime.c
++++ b/drivers/gpu/drm/amd/amdgpu/amdgpu_prime.c
+@@ -103,11 +103,15 @@ amdgpu_gem_prime_import_sg_table(struct drm_device *dev,
+ 	int ret;
+ 
+ 	ww_mutex_lock(&resv->lock, NULL);
+-	ret = amdgpu_bo_create(adev, attach->dmabuf->size, PAGE_SIZE, false,
+-				AMDGPU_GEM_DOMAIN_CPU, 0, sg, resv, &bo);
++	ret = amdgpu_bo_create(adev, attach->dmabuf->size, PAGE_SIZE,
++				AMDGPU_GEM_DOMAIN_CPU, 0, ttm_bo_type_sg,
++				resv, &bo);
+ 	if (ret)
+ 		goto error;
+-	
++
++	bo->tbo.sg = sg;
++	bo->tbo.ttm->sg = sg;	
++
+ 	bo->allowed_domains = AMDGPU_GEM_DOMAIN_GTT;
+ 	bo->preferred_domains = AMDGPU_GEM_DOMAIN_GTT;
+ 
+diff --git a/drivers/gpu/drm/amd/amdgpu/amdgpu_test.c b/drivers/gpu/drm/amd/amdgpu/amdgpu_test.c
+index f3d81b6..2dbe875 100644
+--- a/drivers/gpu/drm/amd/amdgpu/amdgpu_test.c
++++ b/drivers/gpu/drm/amd/amdgpu/amdgpu_test.c
+@@ -59,9 +59,8 @@ static void amdgpu_do_test_moves(struct amdgpu_device *adev)
+ 		goto out_cleanup;
+ 	}
+ 
+-	r = amdgpu_bo_create(adev, size, PAGE_SIZE, true,
+-			     AMDGPU_GEM_DOMAIN_VRAM, 0,
+-			     NULL, NULL, &vram_obj);
++	r = amdgpu_bo_create(adev, size, PAGE_SIZE, AMDGPU_GEM_DOMAIN_VRAM, 0,
++			     ttm_bo_type_kernel, NULL, &vram_obj);
+ 	if (r) {
+ 		DRM_ERROR("Failed to create VRAM object\n");
+ 		goto out_cleanup;
+@@ -80,9 +79,9 @@ static void amdgpu_do_test_moves(struct amdgpu_device *adev)
+ 		void **vram_start, **vram_end;
+ 		struct dma_fence *fence = NULL;
+ 
+-		r = amdgpu_bo_create(adev, size, PAGE_SIZE, true,
+-				     AMDGPU_GEM_DOMAIN_GTT, 0, NULL,
+-				     NULL, gtt_obj + i);
++		r = amdgpu_bo_create(adev, size, PAGE_SIZE,
++				     AMDGPU_GEM_DOMAIN_GTT, 0,
++				     ttm_bo_type_kernel, NULL, gtt_obj + i);
+ 		if (r) {
+ 			DRM_ERROR("Failed to create GTT object %d\n", i);
+ 			goto out_lclean;
+diff --git a/drivers/gpu/drm/amd/amdgpu/amdgpu_ttm.c b/drivers/gpu/drm/amd/amdgpu/amdgpu_ttm.c
+index 5d37184..f7673d0 100644
+--- a/drivers/gpu/drm/amd/amdgpu/amdgpu_ttm.c
++++ b/drivers/gpu/drm/amd/amdgpu/amdgpu_ttm.c
+@@ -296,8 +296,6 @@ static int amdgpu_verify_access(struct ttm_buffer_object *bo, struct file *filp)
+ 
+ 	return drm_vma_node_verify_access(&abo->gem_base.vma_node,
+ 					  filp->private_data);
+-
+-        return -EPERM;
+ }
+ 
+ static void amdgpu_move_null(struct ttm_buffer_object *bo,
+@@ -729,7 +727,8 @@ static unsigned long amdgpu_ttm_io_mem_pfn(struct ttm_buffer_object *bo,
+ 			(offset >> PAGE_SHIFT);
+ 	}
+ 
+-	return ttm_bo_default_io_mem_pfn(bo, page_offset);
++	return ((bo->mem.bus.base + bo->mem.bus.offset) >> PAGE_SHIFT)
++	+ page_offset;
+ }
+ 
+ /*
+@@ -1529,6 +1528,7 @@ static void amdgpu_ttm_fw_reserve_vram_fini(struct amdgpu_device *adev)
+  */
+ static int amdgpu_ttm_fw_reserve_vram_init(struct amdgpu_device *adev)
+ {
++	struct ttm_operation_ctx ctx = { false, false };
+ 	int r = 0;
+ 	int i;
+ 	u64 vram_size = adev->gmc.visible_vram_size;
+@@ -1542,11 +1542,12 @@ static int amdgpu_ttm_fw_reserve_vram_init(struct amdgpu_device *adev)
+ 	if (adev->fw_vram_usage.size > 0 &&
+ 		adev->fw_vram_usage.size <= vram_size) {
+ 
+-		r = amdgpu_bo_create(adev, adev->fw_vram_usage.size,
+-			PAGE_SIZE, true, AMDGPU_GEM_DOMAIN_VRAM,
+-			AMDGPU_GEM_CREATE_CPU_ACCESS_REQUIRED |
+-			AMDGPU_GEM_CREATE_VRAM_CONTIGUOUS, NULL, NULL,
+-			&adev->fw_vram_usage.reserved_bo);
++		r = amdgpu_bo_create(adev, adev->fw_vram_usage.size, PAGE_SIZE,
++				     AMDGPU_GEM_DOMAIN_VRAM,
++				     AMDGPU_GEM_CREATE_CPU_ACCESS_REQUIRED |
++				     AMDGPU_GEM_CREATE_VRAM_CONTIGUOUS,
++				     ttm_bo_type_kernel, NULL,
++				     &adev->fw_vram_usage.reserved_bo);
+ 		if (r)
+ 			goto error_create;
+ 
+@@ -1673,8 +1674,6 @@ int amdgpu_ttm_init(struct amdgpu_device *adev)
+ 	} else
+ 		gtt_size = (uint64_t)amdgpu_gtt_size << 20;
+ 
+-	/* reserve for DGMA import domain */
+-	gtt_size -= (uint64_t)amdgpu_direct_gma_size << 20;
+ 	r = ttm_bo_init_mm(&adev->mman.bdev, TTM_PL_TT, gtt_size >> PAGE_SHIFT);
+ 	if (r) {
+ 		DRM_ERROR("Failed initializing GTT heap.\n");
+diff --git a/drivers/gpu/drm/amd/amdgpu/amdgpu_vm.c b/drivers/gpu/drm/amd/amdgpu/amdgpu_vm.c
+index f1cd42d..1132678 100644
+--- a/drivers/gpu/drm/amd/amdgpu/amdgpu_vm.c
++++ b/drivers/gpu/drm/amd/amdgpu/amdgpu_vm.c
+@@ -413,9 +413,9 @@ static int amdgpu_vm_alloc_levels(struct amdgpu_device *adev,
+ 		if (!entry->base.bo) {
+ 			r = amdgpu_bo_create(adev,
+ 					     amdgpu_vm_bo_size(adev, level),
+-					     AMDGPU_GPU_PAGE_SIZE, true,
++					     AMDGPU_GPU_PAGE_SIZE,
+ 					     AMDGPU_GEM_DOMAIN_VRAM, flags,
+-					     NULL, resv, &pt);
++					     ttm_bo_type_kernel, resv, &pt);
+ 			if (r)
+ 				return r;
+ 
+@@ -2457,8 +2457,8 @@ int amdgpu_vm_init(struct amdgpu_device *adev, struct amdgpu_vm *vm,
+ 				AMDGPU_GEM_CREATE_SHADOW);
+ 
+ 	size = amdgpu_vm_bo_size(adev, adev->vm_manager.root_level);
+-	r = amdgpu_bo_create(adev, size, align, true, AMDGPU_GEM_DOMAIN_VRAM,
+-			     flags, NULL, NULL, &vm->root.base.bo);
++	r = amdgpu_bo_create(adev, size, align, AMDGPU_GEM_DOMAIN_VRAM, flags,
++			     ttm_bo_type_kernel, NULL, &vm->root.base.bo);
+ 	if (r)
+ 		goto error_free_sched_entity;
+ 
+diff --git a/drivers/gpu/drm/ttm/ttm_bo.c b/drivers/gpu/drm/ttm/ttm_bo.c
+index b100343..901d1ec 100644
+--- a/drivers/gpu/drm/ttm/ttm_bo.c
++++ b/drivers/gpu/drm/ttm/ttm_bo.c
+@@ -1137,7 +1137,7 @@ int ttm_bo_init_reserved(struct ttm_bo_device *bdev,
+ 			 enum ttm_bo_type type,
+ 			 struct ttm_placement *placement,
+ 			 uint32_t page_alignment,
+-			 bool interruptible,
++			 struct ttm_operation_ctx *ctx,
+ 			 struct file *persistent_swap_storage,
+ 			 size_t acc_size,
+ 			 struct sg_table *sg,
+@@ -1224,7 +1224,7 @@ int ttm_bo_init_reserved(struct ttm_bo_device *bdev,
+ 	}
+ 
+ 	if (likely(!ret))
+-		ret = ttm_bo_validate(bo, placement, interruptible, false);
++		ret = ttm_bo_validate(bo, placement, ctx);
+ 
+ 	if (unlikely(ret)) {
+ 		if (!resv)
+@@ -1257,6 +1257,7 @@ int ttm_bo_init(struct ttm_bo_device *bdev,
+ 		struct reservation_object *resv,
+ 		void (*destroy) (struct ttm_buffer_object *))
+ {
++	struct ttm_operation_ctx ctx = { interruptible, false };
+ 	int ret;
+ 
+ 	ret = ttm_bo_init_reserved(bdev, bo, size, type, placement,
+diff --git a/include/drm/ttm/ttm_bo_api.h b/include/drm/ttm/ttm_bo_api.h
+index ae5048b..ab5810d 100644
+--- a/include/drm/ttm/ttm_bo_api.h
++++ b/include/drm/ttm/ttm_bo_api.h
+@@ -325,8 +325,7 @@ extern bool ttm_bo_mem_compat(struct ttm_placement *placement,
+  *
+  * @bo: The buffer object.
+  * @placement: Proposed placement for the buffer object.
+- * @interruptible: Sleep interruptible if sleeping.
+- * @no_wait_gpu: Return immediately if the GPU is busy.
++ * @ctx: validation parameters.
+  *
+  * Changes placement and caching policy of the buffer object
+  * according proposed placement.
+@@ -336,10 +335,9 @@ extern bool ttm_bo_mem_compat(struct ttm_placement *placement,
+  * -EBUSY if no_wait is true and buffer busy.
+  * -ERESTARTSYS if interrupted by a signal.
+  */
+-extern int ttm_bo_validate(struct ttm_buffer_object *bo,
+-				struct ttm_placement *placement,
+-				bool interruptible,
+-				bool no_wait_gpu);
++int ttm_bo_validate(struct ttm_buffer_object *bo,
++                    struct ttm_placement *placement,
++                    struct ttm_operation_ctx *ctx);
+ 
+ /**
+  * ttm_bo_unref
+-- 
+2.7.4
+

@@ -1,0 +1,33 @@
+From 4c0e41f8384bb9c662a3f5f0498bba9ae8a89252 Mon Sep 17 00:00:00 2001
+From: =?UTF-8?q?Christian=20K=C3=B6nig?= <christian.koenig@amd.com>
+Date: Mon, 9 Oct 2017 17:53:06 +0200
+Subject: [PATCH 2006/4131] drm/amdgpu: add VRAM lost query
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+Allows userspace to figure out if VRAM was lost.
+
+Signed-off-by: Christian König <christian.koenig@amd.com>
+Reviewed-by: Nicolai Hähnle <nicolai.haehnle@amd.com>
+---
+ drivers/gpu/drm/amd/amdgpu/amdgpu_kms.c | 3 +++
+ 1 file changed, 3 insertions(+)
+
+diff --git a/drivers/gpu/drm/amd/amdgpu/amdgpu_kms.c b/drivers/gpu/drm/amd/amdgpu/amdgpu_kms.c
+index b529d7e..4a35d1b 100644
+--- a/drivers/gpu/drm/amd/amdgpu/amdgpu_kms.c
++++ b/drivers/gpu/drm/amd/amdgpu/amdgpu_kms.c
+@@ -807,6 +807,9 @@ static int amdgpu_info_ioctl(struct drm_device *dev, void *data, struct drm_file
+ 		}
+ 		return copy_to_user(out, &ui32, min(size, 4u)) ? -EFAULT : 0;
+ 	}
++	case AMDGPU_INFO_VRAM_LOST_COUNTER:
++		ui32 = atomic_read(&adev->vram_lost_counter);
++		return copy_to_user(out, &ui32, min(size, 4u)) ? -EFAULT : 0;
+ 	default:
+ 		DRM_DEBUG_KMS("Invalid request %d\n", info->query);
+ 		return -EINVAL;
+-- 
+2.7.4
+

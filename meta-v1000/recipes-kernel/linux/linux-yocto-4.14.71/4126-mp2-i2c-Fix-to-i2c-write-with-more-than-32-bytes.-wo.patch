@@ -1,0 +1,55 @@
+From 03876a41e97e0e1fa643f55539bd11bfee73003d Mon Sep 17 00:00:00 2001
+From: Sudheesh Mavila <sudheesh.mavila@amd.com>
+Date: Mon, 20 Aug 2018 14:49:18 +0530
+Subject: [PATCH 4126/4131] mp2-i2c Fix to i2c write with more than 32 bytes.
+ works only with iommu=off
+
+Signed-off-by: Sudheesh Mavila <sudheesh.mavila@amd.com>
+---
+ drivers/i2c/busses/i2c-amd-platdrv.c | 18 ++++++++++++++++--
+ 1 file changed, 16 insertions(+), 2 deletions(-)
+
+diff --git a/drivers/i2c/busses/i2c-amd-platdrv.c b/drivers/i2c/busses/i2c-amd-platdrv.c
+index 97a918a..186992b 100644
+--- a/drivers/i2c/busses/i2c-amd-platdrv.c
++++ b/drivers/i2c/busses/i2c-amd-platdrv.c
+@@ -227,6 +227,7 @@ static int i2c_amd_xfer(struct i2c_adapter *adap, struct i2c_msg *msgs, int num)
+ 				i2c_common->read_cfg.phy_addr = phys;
+ 			}
+ 			dev->msg_buf = pmsg;
++			reinit_completion(&dev->msg_complete);
+ 			amd_mp2_read(i2c_common->pdev,
+ 				     i2c_common->read_cfg);
+ 			timeout = wait_for_completion_timeout
+@@ -247,13 +248,26 @@ static int i2c_amd_xfer(struct i2c_adapter *adap, struct i2c_msg *msgs, int num)
+ 				}
+ 			}
+ 		} else {
+-			i2c_common->write_cfg.buf = (unsigned int *)pmsg->buf;
+-			i2c_common->write_cfg.length = pmsg->len;
++			if (pmsg->len <= 32) {
++				i2c_common->write_cfg.buf = (unsigned int *)pmsg->buf;
++				i2c_common->write_cfg.length = pmsg->len;
++			} else {
++				buf = (u8 *)dma_alloc_coherent(&i2c_common->pdev->dev,
++							pmsg->len, &phys, GFP_KERNEL);
++
++				memcpy(buf,pmsg->buf,pmsg->len);
++				i2c_common->write_cfg.buf = (unsigned int *)buf;
++				i2c_common->write_cfg.length = pmsg->len;
++				i2c_common->write_cfg.phy_addr = phys;				
++			}
++			reinit_completion(&dev->msg_complete);
+ 			amd_mp2_write(i2c_common->pdev,
+ 				      i2c_common->write_cfg);
+ 
+ 			timeout = wait_for_completion_timeout
+ 						(&dev->msg_complete, 50);
++		    	if (pmsg->len > 32)
++				dma_free_coherent(&i2c_common->pdev->dev, pmsg->len, buf, phys);
+ 			if((timeout == 0)||(dev->err != i2c_writecomplete_event)) {
+ 				if(dev->err != i2c_writecomplete_event) {
+ 					spin_unlock(&lock);
+-- 
+2.7.4
+

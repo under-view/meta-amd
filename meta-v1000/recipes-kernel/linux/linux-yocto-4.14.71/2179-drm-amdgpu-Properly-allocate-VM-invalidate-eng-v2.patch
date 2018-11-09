@@ -1,0 +1,32 @@
+From 43dd0f5e69db40fcd21fa2c0d86b8be3aa813527 Mon Sep 17 00:00:00 2001
+From: Oak Zeng <Oak.Zeng@amd.com>
+Date: Tue, 6 Jun 2017 10:53:28 -0500
+Subject: [PATCH 2179/4131] drm/amdgpu: Properly allocate VM invalidate eng v2
+
+v1: Properly allocate TLB invalidation engine to avoid conflict.
+v2: Added comments to codes
+
+Change-Id: I9a32cbcb133c07d7efad1a7bd07c6e2098c747e7
+Signed-off-by: Oak Zeng <Oak.Zeng@amd.com>
+Reviewed-by: Alex Deucher <alexander.deucher@amd.com>
+Acked-by: Christian Konig <christian.koenig@amd.com>
+---
+ drivers/gpu/drm/amd/amdgpu/gmc_v9_0.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/drivers/gpu/drm/amd/amdgpu/gmc_v9_0.c b/drivers/gpu/drm/amd/amdgpu/gmc_v9_0.c
+index 047e7d7..c5d45a5 100644
+--- a/drivers/gpu/drm/amd/amdgpu/gmc_v9_0.c
++++ b/drivers/gpu/drm/amd/amdgpu/gmc_v9_0.c
+@@ -416,7 +416,7 @@ static int gmc_v9_0_late_init(void *handle)
+ 
+ 	/* Engine 16 is used for KFD and 17 for GART flushes */
+ 	for(i = 0; i < AMDGPU_MAX_VMHUBS; ++i)
+-		BUG_ON(vm_inv_eng[i] > 17);
++		BUG_ON(vm_inv_eng[i] > 16);
+ 
+ 	return amdgpu_irq_get(adev, &adev->mc.vm_fault, 0);
+ }
+-- 
+2.7.4
+

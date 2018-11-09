@@ -1,0 +1,28 @@
+From f13557db83971ca7ca536da4cd316eaeb76ff60e Mon Sep 17 00:00:00 2001
+From: Charlene Liu <charlene.liu@amd.com>
+Date: Tue, 23 May 2017 17:15:54 -0400
+Subject: [PATCH 0470/4131] drm/amd/display: Add disable_psr debug flag
+
+Signed-off-by: Charlene Liu <charlene.liu@amd.com>
+Reviewed-by: Charlene Liu <Charlene.Liu@amd.com>
+Acked-by: Harry Wentland <Harry.Wentland@amd.com>
+Signed-off-by: Alex Deucher <alexander.deucher@amd.com>
+---
+ drivers/gpu/drm/amd/display/dc/dc.h | 1 +
+ 1 file changed, 1 insertion(+)
+
+diff --git a/drivers/gpu/drm/amd/display/dc/dc.h b/drivers/gpu/drm/amd/display/dc/dc.h
+index 0d3b73a..ce052d1 100644
+--- a/drivers/gpu/drm/amd/display/dc/dc.h
++++ b/drivers/gpu/drm/amd/display/dc/dc.h
+@@ -180,6 +180,7 @@ struct dc_debug {
+ 	bool disable_pplib_clock_request;
+ 	bool disable_clock_gate;
+ 	bool disable_dmcu;
++	bool disable_psr;
+ 	bool force_abm_enable;
+ };
+ 
+-- 
+2.7.4
+

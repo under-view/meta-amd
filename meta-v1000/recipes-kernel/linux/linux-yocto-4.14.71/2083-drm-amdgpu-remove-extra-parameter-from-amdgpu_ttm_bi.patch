@@ -1,0 +1,93 @@
+From 443f4a76030d37d6aa58c97485d77f921e8953d8 Mon Sep 17 00:00:00 2001
+From: =?UTF-8?q?Christian=20K=C3=B6nig?= <christian.koenig@amd.com>
+Date: Mon, 16 Oct 2017 17:24:21 +0200
+Subject: [PATCH 2083/4131] drm/amdgpu: remove extra parameter from
+ amdgpu_ttm_bind() v2
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+We always use the BO mem now.
+
+v2: minor rebase
+
+Signed-off-by: Christian König <christian.koenig@amd.com>
+Reviewed-by: Michel Dänzer <michel.daenzer@amd.com>
+---
+ drivers/gpu/drm/amd/amdgpu/amdgpu_cs.c     | 4 ++--
+ drivers/gpu/drm/amd/amdgpu/amdgpu_object.c | 2 +-
+ drivers/gpu/drm/amd/amdgpu/amdgpu_ttm.c    | 4 ++--
+ drivers/gpu/drm/amd/amdgpu/amdgpu_ttm.h    | 2 +-
+ 4 files changed, 6 insertions(+), 6 deletions(-)
+
+diff --git a/drivers/gpu/drm/amd/amdgpu/amdgpu_cs.c b/drivers/gpu/drm/amd/amdgpu/amdgpu_cs.c
+index 0d32ada..c5bf728 100644
+--- a/drivers/gpu/drm/amd/amdgpu/amdgpu_cs.c
++++ b/drivers/gpu/drm/amd/amdgpu/amdgpu_cs.c
+@@ -712,7 +712,7 @@ static int amdgpu_cs_parser_bos(struct amdgpu_cs_parser *p,
+ 	if (!r && p->uf_entry.robj) {
+ 		struct amdgpu_bo *uf = p->uf_entry.robj;
+ 
+-		r = amdgpu_ttm_bind(&uf->tbo, &uf->tbo.mem);
++		r = amdgpu_ttm_bind(&uf->tbo);
+ 		p->job->uf_addr += amdgpu_bo_gpu_offset(uf);
+ 	}
+ 
+@@ -1645,5 +1645,5 @@ int amdgpu_cs_find_mapping(struct amdgpu_cs_parser *parser,
+ 			return r;
+ 	}
+ 
+-	return amdgpu_ttm_bind(&(*bo)->tbo, &(*bo)->tbo.mem);
++	return amdgpu_ttm_bind(&(*bo)->tbo);
+ }
+diff --git a/drivers/gpu/drm/amd/amdgpu/amdgpu_object.c b/drivers/gpu/drm/amd/amdgpu/amdgpu_object.c
+index b63e8ee..2678270 100755
+--- a/drivers/gpu/drm/amd/amdgpu/amdgpu_object.c
++++ b/drivers/gpu/drm/amd/amdgpu/amdgpu_object.c
+@@ -735,7 +735,7 @@ int amdgpu_bo_pin_restricted(struct amdgpu_bo *bo, u32 domain,
+ 
+ 	bo->pin_count = 1;
+ 	if (gpu_addr != NULL) {
+-		r = amdgpu_ttm_bind(&bo->tbo, &bo->tbo.mem);
++		r = amdgpu_ttm_bind(&bo->tbo);
+ 		if (unlikely(r)) {
+ 			dev_err(adev->dev, "%p bind failed\n", bo);
+ 			goto error;
+diff --git a/drivers/gpu/drm/amd/amdgpu/amdgpu_ttm.c b/drivers/gpu/drm/amd/amdgpu/amdgpu_ttm.c
+index 7a7872b..885dbf6 100644
+--- a/drivers/gpu/drm/amd/amdgpu/amdgpu_ttm.c
++++ b/drivers/gpu/drm/amd/amdgpu/amdgpu_ttm.c
+@@ -955,7 +955,7 @@ bool amdgpu_ttm_is_bound(struct ttm_tt *ttm)
+ 	return gtt && !list_empty(&gtt->list);
+ }
+ 
+-int amdgpu_ttm_bind(struct ttm_buffer_object *bo, struct ttm_mem_reg *bo_mem)
++int amdgpu_ttm_bind(struct ttm_buffer_object *bo)
+ {
+ 	struct amdgpu_device *adev = amdgpu_ttm_adev(bo->bdev);
+ 	struct ttm_tt *ttm = bo->ttm;
+@@ -1918,7 +1918,7 @@ int amdgpu_fill_buffer(struct amdgpu_bo *bo,
+ 	}
+ 
+ 	if (bo->tbo.mem.mem_type == TTM_PL_TT) {
+-		r = amdgpu_ttm_bind(&bo->tbo, &bo->tbo.mem);
++		r = amdgpu_ttm_bind(&bo->tbo);
+ 		if (r)
+ 			return r;
+ 	}
+diff --git a/drivers/gpu/drm/amd/amdgpu/amdgpu_ttm.h b/drivers/gpu/drm/amd/amdgpu/amdgpu_ttm.h
+index f4692cb..7349ee5 100644
+--- a/drivers/gpu/drm/amd/amdgpu/amdgpu_ttm.h
++++ b/drivers/gpu/drm/amd/amdgpu/amdgpu_ttm.h
+@@ -98,7 +98,7 @@ int amdgpu_mmap(struct file *filp, struct vm_area_struct *vma);
+ int amdgpu_bo_mmap(struct file *filp, struct vm_area_struct *vma,
+ 		   struct ttm_bo_device *bdev);
+ bool amdgpu_ttm_is_bound(struct ttm_tt *ttm);
+-int amdgpu_ttm_bind(struct ttm_buffer_object *bo, struct ttm_mem_reg *bo_mem);
++int amdgpu_ttm_bind(struct ttm_buffer_object *bo);
+ int amdgpu_ttm_recover_gart(struct amdgpu_device *adev);
+ 
+ int amdgpu_ttm_tt_get_user_pages(struct ttm_tt *ttm, struct page **pages);
+-- 
+2.7.4
+

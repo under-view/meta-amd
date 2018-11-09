@@ -1,0 +1,62 @@
+From 9f7ef0a319b470b9ed4a1d6ba14dcb264ac17818 Mon Sep 17 00:00:00 2001
+From: Felix Kuehling <Felix.Kuehling@amd.com>
+Date: Tue, 31 Oct 2017 13:39:45 -0400
+Subject: [PATCH 2137/4131] drm/amdgpu: Remove eviction fence from pinned BOs
+
+Once BOs are pinned, they won't move. So no need to ever trigger an
+eviction on them.
+
+Also improved error handling to removing the BO from the validation
+list only after pinning and kmapping succeeded.
+
+Change-Id: I7bf1cc7cd6637e357343af436ab51815a6529f96
+Signed-off-by: Felix Kuehling <Felix.Kuehling@amd.com>
+---
+ drivers/gpu/drm/amd/amdgpu/amdgpu_amdkfd_gpuvm.c | 10 ++++++----
+ 1 file changed, 6 insertions(+), 4 deletions(-)
+
+diff --git a/drivers/gpu/drm/amd/amdgpu/amdgpu_amdkfd_gpuvm.c b/drivers/gpu/drm/amd/amdgpu/amdgpu_amdkfd_gpuvm.c
+index 8deb247..1ce6359 100644
+--- a/drivers/gpu/drm/amd/amdgpu/amdgpu_amdkfd_gpuvm.c
++++ b/drivers/gpu/drm/amd/amdgpu/amdgpu_amdkfd_gpuvm.c
+@@ -1326,7 +1326,7 @@ int amdgpu_amdkfd_gpuvm_map_memory_to_gpu(
+ 			pr_err("Unable to pin DGMA BO\n");
+ 			goto map_bo_to_gpuvm_failed;
+ 		}
+-	} else if (amdgpu_ttm_tt_get_usermm(bo->tbo.ttm) == NULL)
++	} else if (!amdgpu_ttm_tt_get_usermm(bo->tbo.ttm) && !bo->pin_count)
+ 		amdgpu_bo_fence(bo,
+ 				&kfd_vm->process_info->eviction_fence->base,
+ 				true);
+@@ -1595,7 +1595,7 @@ int amdgpu_amdkfd_gpuvm_unmap_memory_from_gpu(
+ 	if (mem->mapped_to_gpu_memory == 0) {
+ 		if (mem->domain & AMDGPU_GEM_DOMAIN_DGMA)
+ 			amdgpu_bo_unpin(mem->bo);
+-		else if (!amdgpu_ttm_tt_get_usermm(mem->bo->tbo.ttm))
++		else if (!amdgpu_ttm_tt_get_usermm(mem->bo->tbo.ttm) && !mem->bo->pin_count)
+ 			amdgpu_amdkfd_remove_eviction_fence(mem->bo,
+ 						process_info->eviction_fence,
+ 						NULL, NULL);
+@@ -1643,8 +1643,6 @@ int amdgpu_amdkfd_gpuvm_map_gtt_bo_to_kernel(struct kgd_dev *kgd,
+ 	 */
+ 	mutex_lock(&mem->process_info->lock);
+ 
+-	list_del_init(&mem->validate_list.head);
+-
+ 	ret = amdgpu_bo_reserve(bo, true);
+ 	if (ret) {
+ 		pr_err("Failed to reserve bo. ret %d\n", ret);
+@@ -1663,6 +1661,10 @@ int amdgpu_amdkfd_gpuvm_map_gtt_bo_to_kernel(struct kgd_dev *kgd,
+ 		goto kmap_failed;
+ 	}
+ 
++	amdgpu_amdkfd_remove_eviction_fence(
++		bo, mem->process_info->eviction_fence, NULL, NULL);
++	list_del_init(&mem->validate_list.head);
++
+ 	amdgpu_bo_unreserve(bo);
+ 
+ 	mem->kptr = *kptr;
+-- 
+2.7.4
+

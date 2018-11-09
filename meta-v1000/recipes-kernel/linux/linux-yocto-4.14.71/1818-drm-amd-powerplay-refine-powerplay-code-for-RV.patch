@@ -1,0 +1,31 @@
+From a512d9ba6adac2921515f17c4f498dfda1133e35 Mon Sep 17 00:00:00 2001
+From: Rex Zhu <Rex.Zhu@amd.com>
+Date: Mon, 4 Sep 2017 18:11:52 +0800
+Subject: [PATCH 1818/4131] drm/amd/powerplay: refine powerplay code for RV
+
+use function points instand of function table.
+
+Change-Id: I5b1e733481aac04b831255334e2102b2c9350531
+Reviewed-by: Alex Deucher <alexander.deucher@amd.com>
+Signed-off-by: Rex Zhu <Rex.Zhu@amd.com>
+---
+ drivers/gpu/drm/amd/powerplay/hwmgr/rv_hwmgr.c | 3 +++
+ 1 file changed, 3 insertions(+)
+
+diff --git a/drivers/gpu/drm/amd/powerplay/hwmgr/rv_hwmgr.c b/drivers/gpu/drm/amd/powerplay/hwmgr/rv_hwmgr.c
+index 0162456..4298362 100644
+--- a/drivers/gpu/drm/amd/powerplay/hwmgr/rv_hwmgr.c
++++ b/drivers/gpu/drm/amd/powerplay/hwmgr/rv_hwmgr.c
+@@ -455,6 +455,9 @@ static int rv_hwmgr_backend_init(struct pp_hwmgr *hwmgr)
+ 		return -ENOMEM;
+ 
+ 	hwmgr->backend = data;
++	
++	phm_cap_set(hwmgr->platform_descriptor.platformCaps,
++			PHM_PlatformCaps_TablelessHardwareInterface);
+ 
+ 	result = rv_initialize_dpm_defaults(hwmgr);
+ 	if (result != 0) {
+-- 
+2.7.4
+

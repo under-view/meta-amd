@@ -1,0 +1,69 @@
+From 1a45012a48c621d2f1fafb6986448af751ce9a52 Mon Sep 17 00:00:00 2001
+From: Kalyan Alle <kalyan.alle@amd.com>
+Date: Mon, 23 Apr 2018 14:07:33 +0530
+Subject: [PATCH 1981/4131] Fixes compilation issues v2
+
+This patch fixes the compilation issues popped
+up during porting
+
+till commit : 9bb7d919e787ce6b6a8e55e3b22d96eebfb7ae8e
+repo: brahma/ec/linux , branch : amd-18.10
+
+Signed-off-by: kalyan alle <kalyan.alle@amd.com>
+---
+ include/uapi/drm/amdgpu_drm.h | 18 ++++++++++++++++++
+ 1 file changed, 18 insertions(+)
+
+diff --git a/include/uapi/drm/amdgpu_drm.h b/include/uapi/drm/amdgpu_drm.h
+index a03a782..c81a4f8 100644
+--- a/include/uapi/drm/amdgpu_drm.h
++++ b/include/uapi/drm/amdgpu_drm.h
+@@ -53,6 +53,7 @@ extern "C" {
+ #define DRM_AMDGPU_WAIT_FENCES		0x12
+ #define DRM_AMDGPU_VM			0x13
+ #define DRM_AMDGPU_FENCE_TO_HANDLE      0x14
++#define DRM_AMDGPU_SCHED                0x15
+ 
+ /* hybrid specific ioctls */
+ #define DRM_AMDGPU_FREESYNC             0x5d
+@@ -75,6 +76,7 @@ extern "C" {
+ #define DRM_IOCTL_AMDGPU_WAIT_FENCES	DRM_IOWR(DRM_COMMAND_BASE + DRM_AMDGPU_WAIT_FENCES, union drm_amdgpu_wait_fences)
+ #define DRM_IOCTL_AMDGPU_VM		DRM_IOWR(DRM_COMMAND_BASE + DRM_AMDGPU_VM, union drm_amdgpu_vm)
+ #define DRM_IOCTL_AMDGPU_FENCE_TO_HANDLE DRM_IOWR(DRM_COMMAND_BASE + DRM_AMDGPU_FENCE_TO_HANDLE, union drm_amdgpu_fence_to_handle)
++#define DRM_IOCTL_AMDGPU_SCHED          DRM_IOW(DRM_COMMAND_BASE + DRM_AMDGPU_SCHED, union drm_amdgpu_sched)
+ 
+ /* hybrid specific ioctls */
+ #define DRM_IOCTL_AMDGPU_FREESYNC       DRM_IOWR(DRM_COMMAND_BASE + DRM_AMDGPU_FREESYNC, struct drm_amdgpu_freesync)
+@@ -187,6 +189,7 @@ union drm_amdgpu_bo_list {
+ #define AMDGPU_CTX_UNKNOWN_RESET	3
+ 
+ /* Context priority level */
++#define AMDGPU_CTX_PRIORITY_UNSET       -2048
+ #define AMDGPU_CTX_PRIORITY_LOW_HW      -1023
+ #define AMDGPU_CTX_PRIORITY_LOW_SW      -512
+ #define AMDGPU_CTX_PRIORITY_NORMAL      0
+@@ -273,6 +276,21 @@ union drm_amdgpu_vm {
+ 	struct drm_amdgpu_vm_out out;
+ };
+ 
++/* sched ioctl */
++#define AMDGPU_SCHED_OP_PROCESS_PRIORITY_OVERRIDE       1
++
++struct drm_amdgpu_sched_in {
++        /* AMDGPU_SCHED_OP_* */
++        __u32   op;
++        __u32   fd;
++        __s32   priority;
++        __u32   flags;
++};
++
++union drm_amdgpu_sched {
++        struct drm_amdgpu_sched_in in;
++};
++
+ /*
+  * This is not a reliable API and you should expect it to fail for any
+  * number of reasons and have fallback path that do not use userptr to
+-- 
+2.7.4
+

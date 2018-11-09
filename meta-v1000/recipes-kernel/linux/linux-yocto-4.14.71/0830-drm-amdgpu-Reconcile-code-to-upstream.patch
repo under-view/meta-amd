@@ -1,0 +1,87 @@
+From fe2bd8e7356e063fbb593150e5d222c2822aa130 Mon Sep 17 00:00:00 2001
+From: Kent Russell <kent.russell@amd.com>
+Date: Wed, 18 Jan 2017 12:21:03 -0500
+Subject: [PATCH 0830/4131] drm/amdgpu: Reconcile code to upstream
+
+Replace bo->adev with amdgpu_ttm_adev(bo->tbo.bdev), replace entry.robj
+with bo, remove references to gem_base
+
+Change-Id: Ia215797588ec78070ac1aa904712f46b46535caf
+Signed-off-by: Kent Russell <kent.russell@amd.com>
+Signed-off-by: Kalyan Alle <kalyan.alle@amd.com>
+---
+ drivers/gpu/drm/amd/amdgpu/amdgpu_cs.c      | 2 +-
+ drivers/gpu/drm/amd/amdgpu/amdgpu_display.c | 2 +-
+ drivers/gpu/drm/amd/amdgpu/amdgpu_object.c  | 9 ++++++++-
+ drivers/gpu/drm/amd/amdgpu/amdgpu_ttm.c     | 2 +-
+ 4 files changed, 11 insertions(+), 4 deletions(-)
+
+diff --git a/drivers/gpu/drm/amd/amdgpu/amdgpu_cs.c b/drivers/gpu/drm/amd/amdgpu/amdgpu_cs.c
+index b243d30..2e7292c 100644
+--- a/drivers/gpu/drm/amd/amdgpu/amdgpu_cs.c
++++ b/drivers/gpu/drm/amd/amdgpu/amdgpu_cs.c
+@@ -1482,7 +1482,7 @@ amdgpu_cs_find_mapping(struct amdgpu_cs_parser *parser,
+ 		struct amdgpu_bo_list_entry *lobj;
+ 
+ 		lobj = &parser->bo_list->array[i];
+-		if (!lobj->bo_va || lobj->bo_va->bo->adev != parser->adev)
++		if (!lobj->bo_va || amdgpu_ttm_adev(lobj->bo_va->base.bo->tbo.bdev) != parser->adev)
+ 			continue;
+ 
+ 		list_for_each_entry(mapping, &lobj->bo_va->valids, list) {
+diff --git a/drivers/gpu/drm/amd/amdgpu/amdgpu_display.c b/drivers/gpu/drm/amd/amdgpu/amdgpu_display.c
+index 06a1b82..4723df7 100644
+--- a/drivers/gpu/drm/amd/amdgpu/amdgpu_display.c
++++ b/drivers/gpu/drm/amd/amdgpu/amdgpu_display.c
+@@ -181,7 +181,7 @@ int amdgpu_crtc_page_flip_target(struct drm_crtc *crtc,
+ 	obj = new_amdgpu_fb->obj;
+ 	new_abo = gem_to_amdgpu_bo(obj);
+ 
+-	if (new_rbo->adev != adev) {
++	if (amdgpu_ttm_adev(new_abo->tbo.bdev) != adev) {
+ 		DRM_ERROR("Foreign BOs not allowed in the display engine\n");
+ 		r = -EINVAL;
+ 		goto cleanup;
+diff --git a/drivers/gpu/drm/amd/amdgpu/amdgpu_object.c b/drivers/gpu/drm/amd/amdgpu/amdgpu_object.c
+index 1a22368..69b2f39 100644
+--- a/drivers/gpu/drm/amd/amdgpu/amdgpu_object.c
++++ b/drivers/gpu/drm/amd/amdgpu/amdgpu_object.c
+@@ -336,6 +336,7 @@ int amdgpu_bo_create_restricted(struct amdgpu_device *adev,
+ 				struct amdgpu_bo **bo_ptr)
+ {
+ 	struct amdgpu_bo *bo;
++	struct amdgpu_gem_object *gobj;
+ 	enum ttm_bo_type type;
+ 	unsigned long page_align;
+ 	u64 initial_bytes_moved, bytes_moved;
+@@ -360,7 +361,13 @@ int amdgpu_bo_create_restricted(struct amdgpu_device *adev,
+ 	bo = kzalloc(sizeof(struct amdgpu_bo), GFP_KERNEL);
+ 	if (bo == NULL)
+ 		return -ENOMEM;
+-	r = drm_gem_object_init(adev->ddev, &bo->gem_base, size);
++	gobj = kzalloc(sizeof(struct amdgpu_gem_object), GFP_KERNEL);
++	if (unlikely(!gobj)) {
++		amdgpu_bo_unref(&bo);
++		return -ENOMEM;
++	}
++
++	r = drm_gem_object_init(adev->ddev, &gobj->base, size);
+ 	if (unlikely(r)) {
+ 		kfree(bo);
+ 		return r;
+diff --git a/drivers/gpu/drm/amd/amdgpu/amdgpu_ttm.c b/drivers/gpu/drm/amd/amdgpu/amdgpu_ttm.c
+index 48e1ca2..8ec6d92 100644
+--- a/drivers/gpu/drm/amd/amdgpu/amdgpu_ttm.c
++++ b/drivers/gpu/drm/amd/amdgpu/amdgpu_ttm.c
+@@ -1569,7 +1569,7 @@ static int amdgpu_ttm_bo_access_vram(struct amdgpu_bo *abo,
+ 				     unsigned long offset,
+ 				     void *buf, int len, int write)
+ {
+-	struct amdgpu_device *adev = abo->adev;
++	struct amdgpu_device *adev = amdgpu_ttm_adev(abo->tbo.bdev);
+ 	uint64_t pos = amdgpu_bo_gpu_offset(abo) + offset;
+ 	uint32_t value = 0;
+ 	unsigned long flags;
+-- 
+2.7.4
+

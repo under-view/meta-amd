@@ -1,0 +1,150 @@
+From 01e2711f46622227b7c9c658cd5f383b3469aa94 Mon Sep 17 00:00:00 2001
+From: Marek Olsak <marek.olsak@amd.com>
+Date: Tue, 12 Sep 2017 16:49:54 +0200
+Subject: [PATCH 1969/4131] drm/amdgpu: add FENCE_TO_HANDLE ioctl that returns
+ syncobj or sync_file
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+for being able to convert an amdgpu fence into one of the handles.
+Mesa will use this.
+
+Signed-off-by: Marek Olšák <marek.olsak@amd.com>
+Reviewed-by: Dave Airlie <airlied@redhat.com>
+
+ Conflicts:
+        include/uapi/drm/amdgpu_drm.h
+
+Change-Id: Icad647d766c48e04338a12982be1a147392170b6
+---
+ drivers/gpu/drm/amd/amdgpu/amdgpu.h     |  2 ++
+ drivers/gpu/drm/amd/amdgpu/amdgpu_cs.c  | 61 +++++++++++++++++++++++++++++++++
+ drivers/gpu/drm/amd/amdgpu/amdgpu_drv.c |  4 ++-
+ drivers/gpu/drm/amd/amdgpu/amdgpu_kms.c |  1 +
+ 4 files changed, 67 insertions(+), 1 deletion(-)
+
+diff --git a/drivers/gpu/drm/amd/amdgpu/amdgpu.h b/drivers/gpu/drm/amd/amdgpu/amdgpu.h
+index 7758192..45087d7 100755
+--- a/drivers/gpu/drm/amd/amdgpu/amdgpu.h
++++ b/drivers/gpu/drm/amd/amdgpu/amdgpu.h
+@@ -1341,6 +1341,8 @@ int amdgpu_gem_va_ioctl(struct drm_device *dev, void *data,
+ int amdgpu_gem_op_ioctl(struct drm_device *dev, void *data,
+ 			struct drm_file *filp);
+ int amdgpu_cs_ioctl(struct drm_device *dev, void *data, struct drm_file *filp);
++int amdgpu_cs_fence_to_handle_ioctl(struct drm_device *dev, void *data,
++				    struct drm_file *filp);
+ int amdgpu_cs_wait_ioctl(struct drm_device *dev, void *data, struct drm_file *filp);
+ int amdgpu_cs_wait_fences_ioctl(struct drm_device *dev, void *data,
+ 				struct drm_file *filp);
+diff --git a/drivers/gpu/drm/amd/amdgpu/amdgpu_cs.c b/drivers/gpu/drm/amd/amdgpu/amdgpu_cs.c
+index 8d0ad30..9404e65 100644
+--- a/drivers/gpu/drm/amd/amdgpu/amdgpu_cs.c
++++ b/drivers/gpu/drm/amd/amdgpu/amdgpu_cs.c
+@@ -25,6 +25,7 @@
+  *    Jerome Glisse <glisse@freedesktop.org>
+  */
+ #include <linux/pagemap.h>
++#include <linux/sync_file.h>
+ #include <drm/drmP.h>
+ #include <drm/amdgpu_drm.h>
+ #include <drm/drm_syncobj.h>
+@@ -1379,6 +1380,66 @@ static struct dma_fence *amdgpu_cs_get_fence(struct amdgpu_device *adev,
+ 	return fence;
+ }
+ 
++int amdgpu_cs_fence_to_handle_ioctl(struct drm_device *dev, void *data,
++				    struct drm_file *filp)
++{
++	struct amdgpu_device *adev = dev->dev_private;
++	struct amdgpu_fpriv *fpriv = filp->driver_priv;
++	union drm_amdgpu_fence_to_handle *info = data;
++	struct dma_fence *fence;
++	struct drm_syncobj *syncobj;
++	struct sync_file *sync_file;
++	int fd, r;
++
++	if (amdgpu_kms_vram_lost(adev, fpriv))
++		return -ENODEV;
++
++	fence = amdgpu_cs_get_fence(adev, filp, &info->in.fence);
++	if (IS_ERR(fence))
++		return PTR_ERR(fence);
++
++	switch (info->in.what) {
++	case AMDGPU_FENCE_TO_HANDLE_GET_SYNCOBJ:
++		r = drm_syncobj_create(&syncobj, 0, fence);
++		dma_fence_put(fence);
++		if (r)
++			return r;
++		r = drm_syncobj_get_handle(filp, syncobj, &info->out.handle);
++		drm_syncobj_put(syncobj);
++		return r;
++
++	case AMDGPU_FENCE_TO_HANDLE_GET_SYNCOBJ_FD:
++		r = drm_syncobj_create(&syncobj, 0, fence);
++		dma_fence_put(fence);
++		if (r)
++			return r;
++		r = drm_syncobj_get_fd(syncobj, (int*)&info->out.handle);
++		drm_syncobj_put(syncobj);
++		return r;
++
++	case AMDGPU_FENCE_TO_HANDLE_GET_SYNC_FILE_FD:
++		fd = get_unused_fd_flags(O_CLOEXEC);
++		if (fd < 0) {
++			dma_fence_put(fence);
++			return fd;
++		}
++
++		sync_file = sync_file_create(fence);
++		dma_fence_put(fence);
++		if (!sync_file) {
++			put_unused_fd(fd);
++			return -ENOMEM;
++		}
++
++		fd_install(fd, sync_file->file);
++		info->out.handle = fd;
++		return 0;
++
++	default:
++		return -EINVAL;
++	}
++}
++
+ /**
+  * amdgpu_cs_wait_all_fence - wait on all fences to signal
+  *
+diff --git a/drivers/gpu/drm/amd/amdgpu/amdgpu_drv.c b/drivers/gpu/drm/amd/amdgpu/amdgpu_drv.c
+index ddc6278..6b21b1b 100644
+--- a/drivers/gpu/drm/amd/amdgpu/amdgpu_drv.c
++++ b/drivers/gpu/drm/amd/amdgpu/amdgpu_drv.c
+@@ -69,9 +69,11 @@
+  * - 3.17.0 - Add AMDGPU_NUM_VRAM_CPU_PAGE_FAULTS.
+  * - 3.18.0 - Export gpu always on cu bitmap
+  * - 3.19.0 - Add support for UVD MJPEG decode
++ * - 3.20.0 - Add support for local BOs
++ * - 3.21.0 - Add DRM_AMDGPU_FENCE_TO_HANDLE ioctl
+  */
+ #define KMS_DRIVER_MAJOR	3
+-#define KMS_DRIVER_MINOR	20
++#define KMS_DRIVER_MINOR	21
+ #define KMS_DRIVER_PATCHLEVEL	0
+ 
+ int amdgpu_vram_limit = 0;
+diff --git a/drivers/gpu/drm/amd/amdgpu/amdgpu_kms.c b/drivers/gpu/drm/amd/amdgpu/amdgpu_kms.c
+index dd9b245..298cbb2 100644
+--- a/drivers/gpu/drm/amd/amdgpu/amdgpu_kms.c
++++ b/drivers/gpu/drm/amd/amdgpu/amdgpu_kms.c
+@@ -1141,6 +1141,7 @@ const struct drm_ioctl_desc amdgpu_ioctls_kms[] = {
+ 	DRM_IOCTL_DEF_DRV(AMDGPU_CTX, amdgpu_ctx_ioctl, DRM_AUTH|DRM_RENDER_ALLOW),
+ 	DRM_IOCTL_DEF_DRV(AMDGPU_VM, amdgpu_vm_ioctl, DRM_AUTH|DRM_RENDER_ALLOW),
+ 	DRM_IOCTL_DEF_DRV(AMDGPU_BO_LIST, amdgpu_bo_list_ioctl, DRM_AUTH|DRM_RENDER_ALLOW),
++	DRM_IOCTL_DEF_DRV(AMDGPU_FENCE_TO_HANDLE, amdgpu_cs_fence_to_handle_ioctl, DRM_AUTH|DRM_RENDER_ALLOW),
+ 	/* KMS */
+ 	DRM_IOCTL_DEF_DRV(AMDGPU_GEM_MMAP, amdgpu_gem_mmap_ioctl, DRM_AUTH|DRM_RENDER_ALLOW),
+ 	DRM_IOCTL_DEF_DRV(AMDGPU_GEM_WAIT_IDLE, amdgpu_gem_wait_idle_ioctl, DRM_AUTH|DRM_RENDER_ALLOW),
+-- 
+2.7.4
+

@@ -1,0 +1,32 @@
+From 7a1c8233c8879ace4c5774ca43d207321c69cc0a Mon Sep 17 00:00:00 2001
+From: Tony Cheng <tony.cheng@amd.com>
+Date: Thu, 12 Oct 2017 22:18:12 -0400
+Subject: [PATCH 2598/4131] drm/amd/display: dal 3.1.07
+
+- regression fixes in dal 3.1.06
+- more linux upstream backport
+
+Signed-off-by: Tony Cheng <tony.cheng@amd.com>
+Reviewed-by: Tony Cheng <Tony.Cheng@amd.com>
+Acked-by: Harry Wentland <Harry.Wentland@amd.com>
+---
+ drivers/gpu/drm/amd/display/dc/dc.h | 3 +--
+ 1 file changed, 1 insertion(+), 2 deletions(-)
+
+diff --git a/drivers/gpu/drm/amd/display/dc/dc.h b/drivers/gpu/drm/amd/display/dc/dc.h
+index 5257e77..ce6d494 100644
+--- a/drivers/gpu/drm/amd/display/dc/dc.h
++++ b/drivers/gpu/drm/amd/display/dc/dc.h
+@@ -38,8 +38,7 @@
+ #include "inc/compressor.h"
+ #include "dml/display_mode_lib.h"
+ 
+-#define DC_VER "3.1.06"
+-
++#define DC_VER "3.1.07"
+ 
+ #define MAX_SURFACES 3
+ #define MAX_STREAMS 6
+-- 
+2.7.4
+

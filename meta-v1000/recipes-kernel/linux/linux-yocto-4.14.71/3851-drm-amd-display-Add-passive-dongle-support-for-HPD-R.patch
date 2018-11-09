@@ -1,0 +1,81 @@
+From e96c0b6126544b1af03029008f85f87f51d9a36c Mon Sep 17 00:00:00 2001
+From: John Barberiz <jbarberi@amd.com>
+Date: Fri, 9 Feb 2018 17:48:18 -0500
+Subject: [PATCH 3851/4131] drm/amd/display: Add passive dongle support for HPD
+ Rearch
+
+Add HPD delay timer support to
+1. Single/dual link DVI.
+2. DP to HDMI passive dongle
+3. DP to DVI passive dongle.
+
+Change-Id: I07abda93e8a8fb98da82a7701f59387f22392a8e
+Signed-off-by: John Barberiz <jbarberi@amd.com>
+Reviewed-by: Tony Cheng <Tony.Cheng@amd.com>
+Acked-by: Harry Wentland <harry.wentland@amd.com>
+---
+ drivers/gpu/drm/amd/display/amdgpu_dm/amdgpu_dm.c | 10 ++--------
+ 1 file changed, 2 insertions(+), 8 deletions(-)
+
+diff --git a/drivers/gpu/drm/amd/display/amdgpu_dm/amdgpu_dm.c b/drivers/gpu/drm/amd/display/amdgpu_dm/amdgpu_dm.c
+index c389e75..094b1c6 100644
+--- a/drivers/gpu/drm/amd/display/amdgpu_dm/amdgpu_dm.c
++++ b/drivers/gpu/drm/amd/display/amdgpu_dm/amdgpu_dm.c
+@@ -2619,7 +2619,6 @@ static const struct drm_crtc_funcs amdgpu_dm_crtc_funcs = {
+ 	.destroy = amdgpu_dm_crtc_destroy,
+ 	.gamma_set = drm_atomic_helper_legacy_gamma_set,
+ 	.set_config = drm_atomic_helper_set_config,
+-	.set_property = drm_atomic_helper_crtc_set_property,
+ 	.page_flip = drm_atomic_helper_page_flip,
+ 	.atomic_duplicate_state = dm_crtc_duplicate_state,
+ 	.atomic_destroy_state = dm_crtc_destroy_state,
+@@ -2831,11 +2830,9 @@ amdgpu_dm_connector_atomic_duplicate_state(struct drm_connector *connector)
+ }
+ 
+ static const struct drm_connector_funcs amdgpu_dm_connector_funcs = {
+-	.dpms = drm_atomic_helper_connector_dpms,
+ 	.reset = amdgpu_dm_connector_funcs_reset,
+ 	.detect = amdgpu_dm_connector_detect,
+ 	.fill_modes = drm_helper_probe_single_connector_modes,
+-	.set_property = drm_atomic_helper_connector_set_property,
+ 	.destroy = amdgpu_dm_connector_destroy,
+ 	.atomic_duplicate_state = amdgpu_dm_connector_atomic_duplicate_state,
+ 	.atomic_destroy_state = drm_atomic_helper_connector_destroy_state,
+@@ -3096,7 +3093,6 @@ static const struct drm_plane_funcs dm_plane_funcs = {
+ 	.update_plane	= drm_atomic_helper_update_plane,
+ 	.disable_plane	= drm_atomic_helper_disable_plane,
+ 	.destroy	= drm_plane_cleanup,
+-	.set_property	= drm_atomic_helper_plane_set_property,
+ 	.reset = dm_drm_plane_reset,
+ 	.atomic_duplicate_state = dm_drm_plane_duplicate_state,
+ 	.atomic_destroy_state = dm_drm_plane_destroy_state,
+@@ -3355,7 +3351,7 @@ static int amdgpu_dm_crtc_init(struct amdgpu_display_manager *dm,
+ 	dm->adev->mode_info.crtcs[crtc_index] = acrtc;
+ 	drm_crtc_enable_color_mgmt(&acrtc->base, MAX_COLOR_LUT_ENTRIES,
+ 				   true, MAX_COLOR_LUT_ENTRIES);
+-	drm_mode_crtc_set_gamma_size(&acrtc->base, MAX_COLOR_LUT_ENTRIES);
++	drm_mode_crtc_set_gamma_size(&acrtc->base, MAX_COLOR_LEGACY_LUT_ENTRIES);
+ 
+ 	return 0;
+ 
+@@ -4696,8 +4692,6 @@ static int dm_update_crtcs_state(struct dc *dc,
+ 				break;
+ 			}
+ 
+-			DRM_DEBUG_DRIVER("Mode change not required, setting mode_changed to %d",
+-					 new_crtc_state->mode_changed);
+ 			if (dc_is_stream_unchanged(new_stream, dm_old_crtc_state->stream) &&
+ 			    dc_is_stream_scaling_unchanged(new_stream, dm_old_crtc_state->stream)) {
+ 				new_crtc_state->mode_changed = false;
+@@ -4838,7 +4832,7 @@ static int dm_update_planes_state(struct dc *dc,
+ 	int ret = 0;
+ 
+ 	/* Add new planes */
+-	for_each_oldnew_plane_in_state(state, plane, old_plane_state, new_plane_state, i) {
++	for_each_oldnew_plane_in_state_reverse(state, plane, old_plane_state, new_plane_state, i) {
+ 		new_plane_crtc = new_plane_state->crtc;
+ 		old_plane_crtc = old_plane_state->crtc;
+ 		dm_new_plane_state = to_dm_plane_state(new_plane_state);
+-- 
+2.7.4
+

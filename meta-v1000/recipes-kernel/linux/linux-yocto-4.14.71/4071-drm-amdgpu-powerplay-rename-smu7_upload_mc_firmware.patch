@@ -1,0 +1,41 @@
+From 83cf7788aa656a6d71190a1c58ee5a20234d7f68 Mon Sep 17 00:00:00 2001
+From: Alex Deucher <alexander.deucher@amd.com>
+Date: Wed, 11 Apr 2018 18:09:39 -0500
+Subject: [PATCH 4071/4131] drm/amdgpu/powerplay: rename
+ smu7_upload_mc_firmware
+
+It doesn't actually upload any firmware is just
+checks the version.  The actual upload happens in
+the gmc modules.
+
+Reviewed-by: Rex Zhu <Rex.Zhu@amd.com>
+Signed-off-by: Alex Deucher <alexander.deucher@amd.com>
+---
+ drivers/gpu/drm/amd/powerplay/hwmgr/smu7_hwmgr.c | 4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
+
+diff --git a/drivers/gpu/drm/amd/powerplay/hwmgr/smu7_hwmgr.c b/drivers/gpu/drm/amd/powerplay/hwmgr/smu7_hwmgr.c
+index 15d127e..09c5ed1 100644
+--- a/drivers/gpu/drm/amd/powerplay/hwmgr/smu7_hwmgr.c
++++ b/drivers/gpu/drm/amd/powerplay/hwmgr/smu7_hwmgr.c
+@@ -4042,7 +4042,7 @@ static int smu7_check_states_equal(struct pp_hwmgr *hwmgr,
+ 	return 0;
+ }
+ 
+-static int smu7_upload_mc_firmware(struct pp_hwmgr *hwmgr)
++static int smu7_check_mc_firmware(struct pp_hwmgr *hwmgr)
+ {
+ 	struct smu7_hwmgr *data = (struct smu7_hwmgr *)(hwmgr->backend);
+ 
+@@ -4171,7 +4171,7 @@ static int smu7_setup_asic_task(struct pp_hwmgr *hwmgr)
+ {
+ 	int tmp_result, result = 0;
+ 
+-	smu7_upload_mc_firmware(hwmgr);
++	smu7_check_mc_firmware(hwmgr);
+ 
+ 	tmp_result = smu7_read_clock_registers(hwmgr);
+ 	PP_ASSERT_WITH_CODE((0 == tmp_result),
+-- 
+2.7.4
+

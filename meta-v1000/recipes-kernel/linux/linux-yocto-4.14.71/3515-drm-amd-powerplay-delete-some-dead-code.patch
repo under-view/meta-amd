@@ -1,0 +1,45 @@
+From a7165c3161918f1bf0dd16be85133cf3886e43c5 Mon Sep 17 00:00:00 2001
+From: Dan Carpenter <dan.carpenter@oracle.com>
+Date: Tue, 6 Feb 2018 15:35:00 +0300
+Subject: [PATCH 3515/4131] drm/amd/powerplay: delete some dead code
+
+We deleted some code in e154162ef75d ("drm/amd/powerplay: refine pp code
+for raven") but there were a few related bits that were missed.  Let's
+delete them as well.
+
+Signed-off-by: Dan Carpenter <dan.carpenter@oracle.com>
+Signed-off-by: Alex Deucher <alexander.deucher@amd.com>
+---
+ drivers/gpu/drm/amd/powerplay/hwmgr/processpptables.c | 3 ---
+ drivers/gpu/drm/amd/powerplay/inc/hwmgr.h             | 1 -
+ 2 files changed, 4 deletions(-)
+
+diff --git a/drivers/gpu/drm/amd/powerplay/hwmgr/processpptables.c b/drivers/gpu/drm/amd/powerplay/hwmgr/processpptables.c
+index 815c9bc..36ca7c4 100644
+--- a/drivers/gpu/drm/amd/powerplay/hwmgr/processpptables.c
++++ b/drivers/gpu/drm/amd/powerplay/hwmgr/processpptables.c
+@@ -1696,9 +1696,6 @@ static int pp_tables_uninitialize(struct pp_hwmgr *hwmgr)
+ 	kfree(hwmgr->dyn_state.vdd_gfx_dependency_on_sclk);
+ 	hwmgr->dyn_state.vdd_gfx_dependency_on_sclk = NULL;
+ 
+-	kfree(hwmgr->dyn_state.vq_budgeting_table);
+-	hwmgr->dyn_state.vq_budgeting_table = NULL;
+-
+ 	return 0;
+ }
+ 
+diff --git a/drivers/gpu/drm/amd/powerplay/inc/hwmgr.h b/drivers/gpu/drm/amd/powerplay/inc/hwmgr.h
+index 5512dc2..cea4ce7 100644
+--- a/drivers/gpu/drm/amd/powerplay/inc/hwmgr.h
++++ b/drivers/gpu/drm/amd/powerplay/inc/hwmgr.h
+@@ -616,7 +616,6 @@ struct phm_dynamic_state_info {
+ 	struct phm_ppm_table                          *ppm_parameter_table;
+ 	struct phm_cac_tdp_table                      *cac_dtp_table;
+ 	struct phm_clock_voltage_dependency_table	*vdd_gfx_dependency_on_sclk;
+-	struct phm_vq_budgeting_table				*vq_budgeting_table;
+ };
+ 
+ struct pp_fan_info {
+-- 
+2.7.4
+

@@ -1,0 +1,30 @@
+From d388faa3d4fdc234527aad9f966d0178746fa102 Mon Sep 17 00:00:00 2001
+From: Xiaojie Yuan <Xiaojie.Yuan@amd.com>
+Date: Thu, 27 Jul 2017 09:55:38 -0400
+Subject: [PATCH 0818/4131] drm/amd/display/kcl_dm: Rename more dc_surface
+ stuff to plane_state
+
+Change-Id: I0545a0ae541831ede2c1dc769aabac217ccfa7fd
+Signed-off-by: Xiaojie Yuan <Xiaojie.Yuan@amd.com>
+Signed-off-by: Harry Wentland <harry.wentland@amd.com>
+Reviewed-by: Harry Wentland <harry.wentland@amd.com>
+---
+ drivers/gpu/drm/amd/display/dc/core/dc.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/drivers/gpu/drm/amd/display/dc/core/dc.c b/drivers/gpu/drm/amd/display/dc/core/dc.c
+index c9d817f..929d949 100644
+--- a/drivers/gpu/drm/amd/display/dc/core/dc.c
++++ b/drivers/gpu/drm/amd/display/dc/core/dc.c
+@@ -1769,7 +1769,7 @@ const struct audio **dc_get_audios(struct dc *dc)
+ 	return (const struct audio **)core_dc->res_pool->audios;
+ }
+ 
+-void dc_flip_surface_addrs(
++void dc_flip_plane_addrs(
+ 		struct dc *dc,
+ 		struct dc_plane_state *const plane_states[],
+ 		struct dc_flip_addrs flip_addrs[],
+-- 
+2.7.4
+

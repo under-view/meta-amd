@@ -1,0 +1,3083 @@
+From aa33eea42cbe52ddc48370eeda7fd75b7df27b69 Mon Sep 17 00:00:00 2001
+From: Kalyan Alle <kalyan.alle@amd.com>
+Date: Thu, 3 May 2018 11:57:42 +0530
+Subject: [PATCH 3332/4131] drm/amd/: Reverting the kcl changes
+
+in the code.
+
+This patch reverts all the kcl related changes some of which are
+considered while porting (to ensure that the next subsequent
+patches applies cleanly).
+
+Signed-off-by: kalyan alle <kalyan.alle@amd.com>
+---
+ drivers/gpu/drm/Kconfig                            |   2 +-
+ drivers/gpu/drm/amd/amdgpu/amdgpu_amdkfd.c         |   2 -
+ drivers/gpu/drm/amd/amdgpu/amdgpu_amdkfd_gpuvm.c   |  26 --
+ drivers/gpu/drm/amd/amdgpu/amdgpu_atpx_handler.c   |  26 --
+ drivers/gpu/drm/amd/amdgpu/amdgpu_cs.c             |  45 --
+ drivers/gpu/drm/amd/amdgpu/amdgpu_debugfs.c        |  21 -
+ drivers/gpu/drm/amd/amdgpu/amdgpu_device.c         |   5 +-
+ drivers/gpu/drm/amd/amdgpu/amdgpu_dpm.h            |   1 -
+ drivers/gpu/drm/amd/amdgpu/amdgpu_kms.c            |  83 ----
+ drivers/gpu/drm/amd/amdgpu/amdgpu_mn.c             |  11 -
+ drivers/gpu/drm/amd/amdgpu/amdgpu_mode.h           |  26 --
+ drivers/gpu/drm/amd/amdgpu/amdgpu_vm.c             |   9 -
+ drivers/gpu/drm/amd/amdgpu/dce_v10_0.c             |  27 +-
+ drivers/gpu/drm/amd/amdgpu/dce_v11_0.c             |  29 +-
+ drivers/gpu/drm/amd/amdgpu/dce_v6_0.c              |  28 +-
+ drivers/gpu/drm/amd/amdgpu/dce_v8_0.c              |  29 +-
+ drivers/gpu/drm/amd/amdgpu/dce_virtual.c           |  23 +
+ drivers/gpu/drm/amd/amdgpu/gmc_v6_0.c              |   2 -
+ drivers/gpu/drm/amd/amdgpu/gmc_v7_0.c              |   2 -
+ drivers/gpu/drm/amd/amdgpu/gmc_v8_0.c              |   2 -
+ drivers/gpu/drm/amd/amdgpu/gmc_v9_0.c              |   2 -
+ drivers/gpu/drm/amd/amdkfd/kfd_chardev.c           |  64 ---
+ drivers/gpu/drm/amd/amdkfd/kfd_crat.c              |   4 -
+ drivers/gpu/drm/amd/amdkfd/kfd_device.c            |  12 -
+ drivers/gpu/drm/amd/amdkfd/kfd_events.c            |   6 -
+ drivers/gpu/drm/amd/amdkfd/kfd_interrupt.c         |  11 -
+ drivers/gpu/drm/amd/amdkfd/kfd_ipc.c               |   9 -
+ drivers/gpu/drm/amd/amdkfd/kfd_mqd_manager_cik.c   |   5 -
+ drivers/gpu/drm/amd/amdkfd/kfd_mqd_manager_v9.c    |   5 -
+ drivers/gpu/drm/amd/amdkfd/kfd_mqd_manager_vi.c    |   5 -
+ drivers/gpu/drm/amd/amdkfd/kfd_packet_manager.c    |   3 -
+ drivers/gpu/drm/amd/amdkfd/kfd_process.c           |  50 ---
+ drivers/gpu/drm/amd/amdkfd/kfd_topology.c          |  23 -
+ drivers/gpu/drm/amd/amdkfd/kfd_topology.h          |   7 -
+ drivers/gpu/drm/amd/display/amdgpu_dm/amdgpu_dm.c  | 491 ---------------------
+ drivers/gpu/drm/amd/display/amdgpu_dm/amdgpu_dm.h  |   2 +-
+ .../gpu/drm/amd/display/amdgpu_dm/amdgpu_dm_crc.c  |   7 -
+ .../drm/amd/display/amdgpu_dm/amdgpu_dm_helpers.c  |  14 -
+ .../amd/display/amdgpu_dm/amdgpu_dm_mst_types.c    |   5 -
+ drivers/gpu/drm/amd/display/dc/inc/bw_fixed.h      |   4 -
+ drivers/gpu/drm/amd/display/dc/os_types.h          |   4 -
+ 41 files changed, 109 insertions(+), 1023 deletions(-)
+
+diff --git a/drivers/gpu/drm/Kconfig b/drivers/gpu/drm/Kconfig
+index e486c52e9..acd8f98 100644
+--- a/drivers/gpu/drm/Kconfig
++++ b/drivers/gpu/drm/Kconfig
+@@ -168,7 +168,6 @@ config DRM_RADEON
+ 	select BACKLIGHT_CLASS_DEVICE
+ 	select BACKLIGHT_LCD_SUPPORT
+ 	select INTERVAL_TREE
+-	select CHASH
+ 	help
+ 	  Choose this option if you have an ATI Radeon graphics card.  There
+ 	  are both PCI and AGP versions.  You don't need to choose this to
+@@ -190,6 +189,7 @@ config DRM_AMDGPU
+ 	select BACKLIGHT_CLASS_DEVICE
+ 	select BACKLIGHT_LCD_SUPPORT
+ 	select INTERVAL_TREE
++	select CHASH
+ 	help
+ 	  Choose this option if you have a recent AMD Radeon graphics card.
+ 
+diff --git a/drivers/gpu/drm/amd/amdgpu/amdgpu_amdkfd.c b/drivers/gpu/drm/amd/amdgpu/amdgpu_amdkfd.c
+index 930869f..750de9b 100755
+--- a/drivers/gpu/drm/amd/amdgpu/amdgpu_amdkfd.c
++++ b/drivers/gpu/drm/amd/amdgpu/amdgpu_amdkfd.c
+@@ -98,12 +98,10 @@ void amdgpu_amdkfd_device_probe(struct amdgpu_device *adev)
+ 		break;
+ 	case CHIP_VEGA10:
+ 	case CHIP_RAVEN:
+-#if LINUX_VERSION_CODE < KERNEL_VERSION(4, 16, 0)
+ 		if (adev->asic_type == CHIP_RAVEN) {
+ 			dev_dbg(adev->dev, "DKMS installed kfd does not support Raven for kernel < 4.16\n");
+ 			return;
+ 		}
+-#endif
+ 		kfd2kgd = amdgpu_amdkfd_gfx_9_0_get_functions();
+ 		break;
+ 	default:
+diff --git a/drivers/gpu/drm/amd/amdgpu/amdgpu_amdkfd_gpuvm.c b/drivers/gpu/drm/amd/amdgpu/amdgpu_amdkfd_gpuvm.c
+index d3a0726..e5471be 100644
+--- a/drivers/gpu/drm/amd/amdgpu/amdgpu_amdkfd_gpuvm.c
++++ b/drivers/gpu/drm/amd/amdgpu/amdgpu_amdkfd_gpuvm.c
+@@ -24,14 +24,11 @@
+ #define pr_fmt(fmt) "kfd2kgd: " fmt
+ 
+ #include <linux/module.h>
+-#include <linux/version.h>
+ #include <linux/fdtable.h>
+ #include <linux/uaccess.h>
+ #include <linux/firmware.h>
+ #include <linux/list.h>
+-#if LINUX_VERSION_CODE >= KERNEL_VERSION(4, 11, 0)
+ #include <linux/sched/mm.h>
+-#endif
+ #include <drm/drmP.h>
+ #include <linux/dma-buf.h>
+ #include <linux/pagemap.h>
+@@ -614,14 +611,9 @@ static int init_user_pages(struct kgd_mem *mem, struct mm_struct *mm,
+ 	 */
+ 	WARN(mem->user_pages, "Leaking user_pages array");
+ 
+-#if LINUX_VERSION_CODE < KERNEL_VERSION(4, 12, 0)
+-	mem->user_pages = drm_calloc_large(bo->tbo.ttm->num_pages,
+-					   sizeof(struct page *));
+-#else
+ 	mem->user_pages = kvmalloc_array(bo->tbo.ttm->num_pages,
+ 					   sizeof(struct page *),
+ 					   GFP_KERNEL | __GFP_ZERO);
+-#endif
+ 	if (!mem->user_pages) {
+ 		pr_err("%s: Failed to allocate pages array\n", __func__);
+ 		ret = -ENOMEM;
+@@ -651,11 +643,7 @@ static int init_user_pages(struct kgd_mem *mem, struct mm_struct *mm,
+ 	if (ret)
+ 		release_pages(mem->user_pages, bo->tbo.ttm->num_pages, 0);
+ free_out:
+-#if LINUX_VERSION_CODE < KERNEL_VERSION(4, 12, 0)
+-	drm_free_large(mem->user_pages);
+-#else
+ 	kvfree(mem->user_pages);
+-#endif
+ 	mem->user_pages = NULL;
+ unregister_out:
+ 	if (ret)
+@@ -1183,11 +1171,7 @@ int amdgpu_amdkfd_gpuvm_free_memory_of_gpu(
+ 		if (mem->user_pages[0])
+ 			release_pages(mem->user_pages,
+ 				      mem->bo->tbo.ttm->num_pages, 0);
+-#if LINUX_VERSION_CODE < KERNEL_VERSION(4, 12, 0)
+-		drm_free_large(mem->user_pages);
+-#else
+ 		kvfree(mem->user_pages);
+-#endif
+ 	}
+ 
+ 	ret = reserve_bo_and_cond_vms(mem, NULL, VA_DO_NOT_CARE, &ctx);
+@@ -2022,16 +2006,10 @@ static int update_invalid_user_pages(struct amdkfd_process_info *process_info,
+ 		bo = mem->bo;
+ 
+ 		if (!mem->user_pages) {
+-#if LINUX_VERSION_CODE < KERNEL_VERSION(4, 12, 0)
+-			mem->user_pages =
+-				drm_calloc_large(bo->tbo.ttm->num_pages,
+-						 sizeof(struct page *));
+-#else
+ 			mem->user_pages =
+ 				kvmalloc_array(bo->tbo.ttm->num_pages,
+ 					   sizeof(struct page *),
+ 					   GFP_KERNEL | __GFP_ZERO);
+-#endif
+ 			if (!mem->user_pages) {
+ 				pr_err("%s: Failed to allocate pages array\n",
+ 				       __func__);
+@@ -2156,11 +2134,7 @@ static int validate_invalid_user_pages(struct amdkfd_process_info *process_info)
+ 		 * the userptr_valid_list. If we need to revalidate
+ 		 * it, we need to start from scratch.
+ 		 */
+-#if LINUX_VERSION_CODE < KERNEL_VERSION(4, 12, 0)
+-		drm_free_large(mem->user_pages);
+-#else
+ 		kvfree(mem->user_pages);
+-#endif
+ 		mem->user_pages = NULL;
+ 		list_move_tail(&mem->validate_list.head,
+ 			       &process_info->userptr_valid_list);
+diff --git a/drivers/gpu/drm/amd/amdgpu/amdgpu_atpx_handler.c b/drivers/gpu/drm/amd/amdgpu/amdgpu_atpx_handler.c
+index cde9c3f..a3de103 100644
+--- a/drivers/gpu/drm/amd/amdgpu/amdgpu_atpx_handler.c
++++ b/drivers/gpu/drm/amd/amdgpu/amdgpu_atpx_handler.c
+@@ -7,7 +7,6 @@
+  * ATPX support for both Intel/ATI
+  */
+ #include <linux/vga_switcheroo.h>
+-#include <linux/version.h>
+ #include <linux/slab.h>
+ #include <linux/acpi.h>
+ #include <linux/pci.h>
+@@ -35,9 +34,7 @@ struct amdgpu_atpx {
+ 
+ static struct amdgpu_atpx_priv {
+ 	bool atpx_detected;
+-#if LINUX_VERSION_CODE >= KERNEL_VERSION(4, 9, 0)
+ 	bool bridge_pm_usable;
+-#endif
+ 	/* handle for device - and atpx */
+ 	acpi_handle dhandle;
+ 	acpi_handle other_handle;
+@@ -209,18 +206,11 @@ static int amdgpu_atpx_validate(struct amdgpu_atpx *atpx)
+ 	atpx->is_hybrid = false;
+ 	if (valid_bits & ATPX_MS_HYBRID_GFX_SUPPORTED) {
+                 printk("ATPX Hybrid Graphics\n");
+-#if LINUX_VERSION_CODE >= KERNEL_VERSION(4, 9, 0)
+ 			/*
+ 			 * Disable legacy PM methods only when pcie port PM is usable,
+ 			 * otherwise the device might fail to power off or power on.
+ 			 */
+ 			atpx->functions.power_cntl = !amdgpu_atpx_priv.bridge_pm_usable;
+-#else
+-                /*
+-                 * This is a temporary hack for the kernel doesn't support D3.
+-                 */
+-                atpx->functions.power_cntl = true;
+-#endif
+ 		atpx->is_hybrid = true;
+ 	}
+ 
+@@ -550,11 +540,7 @@ static int amdgpu_atpx_get_client_id(struct pci_dev *pdev)
+ 	else
+ 		return VGA_SWITCHEROO_DIS;
+ }
+-#if LINUX_VERSION_CODE < KERNEL_VERSION(4, 4, 0)
+-static struct vga_switcheroo_handler amdgpu_atpx_handler = {
+-#else
+ static const struct vga_switcheroo_handler amdgpu_atpx_handler = {
+-#endif /* LINUX_VERSION_CODE < KERNEL_VERSION(4, 4, 0) */
+ 	.switchto = amdgpu_atpx_switchto,
+ 	.power_state = amdgpu_atpx_power_state,
+ 	.get_client_id = amdgpu_atpx_get_client_id,
+@@ -573,20 +559,16 @@ static bool amdgpu_atpx_detect(void)
+ 	struct pci_dev *pdev = NULL;
+ 	bool has_atpx = false;
+ 	int vga_count = 0;
+-#if LINUX_VERSION_CODE >= KERNEL_VERSION(4, 9, 0)
+ 	bool d3_supported = false;
+ 	struct pci_dev *parent_pdev;
+-#endif
+ 
+ 	while ((pdev = pci_get_class(PCI_CLASS_DISPLAY_VGA << 8, pdev)) != NULL) {
+ 		vga_count++;
+ 
+ 		has_atpx |= (amdgpu_atpx_pci_probe_handle(pdev) == true);
+ 
+-#if LINUX_VERSION_CODE >= KERNEL_VERSION(4, 9, 0)
+ 		parent_pdev = pci_upstream_bridge(pdev);
+ 		d3_supported |= parent_pdev && parent_pdev->bridge_d3;
+-#endif
+ 	}
+ 
+ 	while ((pdev = pci_get_class(PCI_CLASS_DISPLAY_OTHER << 8, pdev)) != NULL) {
+@@ -594,10 +576,8 @@ static bool amdgpu_atpx_detect(void)
+ 
+ 		has_atpx |= (amdgpu_atpx_pci_probe_handle(pdev) == true);
+ 
+-#if LINUX_VERSION_CODE >= KERNEL_VERSION(4, 9, 0)
+ 		parent_pdev = pci_upstream_bridge(pdev);
+ 		d3_supported |= parent_pdev && parent_pdev->bridge_d3;
+-#endif
+ 	}
+ 
+ 	if (has_atpx && vga_count == 2) {
+@@ -605,9 +585,7 @@ static bool amdgpu_atpx_detect(void)
+ 		pr_info("vga_switcheroo: detected switching method %s handle\n",
+ 			acpi_method_name);
+ 		amdgpu_atpx_priv.atpx_detected = true;
+-#if LINUX_VERSION_CODE >= KERNEL_VERSION(4, 9, 0)
+ 		amdgpu_atpx_priv.bridge_pm_usable = d3_supported;
+-#endif
+ 		amdgpu_atpx_init();
+ 		return true;
+ 	}
+@@ -622,11 +600,7 @@ static bool amdgpu_atpx_detect(void)
+ void amdgpu_register_atpx_handler(void)
+ {
+ 	bool r;
+-#if LINUX_VERSION_CODE < KERNEL_VERSION(4, 6, 0)
+-	int handler_flags = 0;
+-#else
+ 	enum vga_switcheroo_handler_flags_t handler_flags = 0;
+-#endif
+ 
+ 	/* detect if we have any ATPX + 2 VGA in the system */
+ 	r = amdgpu_atpx_detect();
+diff --git a/drivers/gpu/drm/amd/amdgpu/amdgpu_cs.c b/drivers/gpu/drm/amd/amdgpu/amdgpu_cs.c
+index 58abb55..2683278 100644
+--- a/drivers/gpu/drm/amd/amdgpu/amdgpu_cs.c
++++ b/drivers/gpu/drm/amd/amdgpu/amdgpu_cs.c
+@@ -132,11 +132,7 @@ static int amdgpu_cs_parser_init(struct amdgpu_cs_parser *p, void *data)
+ 		size = p->chunks[i].length_dw;
+ 		cdata = u64_to_user_ptr(user_chunk.chunk_data);
+ 
+-#if LINUX_VERSION_CODE < KERNEL_VERSION(4, 12, 0)
+-		p->chunks[i].kdata = drm_malloc_ab(size, sizeof(uint32_t));
+-#else
+ 		p->chunks[i].kdata = kvmalloc_array(size, sizeof(uint32_t), GFP_KERNEL);
+-#endif
+ 		if (p->chunks[i].kdata == NULL) {
+ 			ret = -ENOMEM;
+ 			i--;
+@@ -168,10 +164,8 @@ static int amdgpu_cs_parser_init(struct amdgpu_cs_parser *p, void *data)
+ 			break;
+ 
+ 		case AMDGPU_CHUNK_ID_DEPENDENCIES:
+-#if LINUX_VERSION_CODE >= KERNEL_VERSION(4, 13, 0)
+ 		case AMDGPU_CHUNK_ID_SYNCOBJ_IN:
+ 		case AMDGPU_CHUNK_ID_SYNCOBJ_OUT:
+-#endif
+ 			break;
+ 
+ 		default:
+@@ -198,11 +192,7 @@ static int amdgpu_cs_parser_init(struct amdgpu_cs_parser *p, void *data)
+ 	i = p->nchunks - 1;
+ free_partial_kdata:
+ 	for (; i >= 0; i--)
+-#if LINUX_VERSION_CODE < KERNEL_VERSION(4, 12, 0)
+-		drm_free_large(p->chunks[i].kdata);
+-#else
+ 		kvfree(p->chunks[i].kdata);
+-#endif
+ 	kfree(p->chunks);
+ 	p->chunks = NULL;
+ 	p->nchunks = 0;
+@@ -521,11 +511,7 @@ static int amdgpu_cs_list_validate(struct amdgpu_cs_parser *p,
+ 			return r;
+ 
+ 		if (binding_userptr) {
+-#if LINUX_VERSION_CODE < KERNEL_VERSION(4, 12, 0)
+-			drm_free_large(lobj->user_pages);
+-#else
+ 			kvfree(lobj->user_pages);
+-#endif
+ 			lobj->user_pages = NULL;
+ 		}
+ 	}
+@@ -589,11 +575,7 @@ static int amdgpu_cs_parser_bos(struct amdgpu_cs_parser *p,
+ 				release_pages(e->user_pages,
+ 					      bo->tbo.ttm->num_pages,
+ 					      false);
+-#if LINUX_VERSION_CODE < KERNEL_VERSION(4, 12, 0)
+-				drm_free_large(e->user_pages);
+-#else
+ 				kvfree(e->user_pages);
+-#endif
+ 				e->user_pages = NULL;
+ 			}
+ 
+@@ -623,14 +605,9 @@ static int amdgpu_cs_parser_bos(struct amdgpu_cs_parser *p,
+ 		list_for_each_entry(e, &need_pages, tv.head) {
+ 			struct ttm_tt *ttm = e->robj->tbo.ttm;
+ 
+-#if LINUX_VERSION_CODE < KERNEL_VERSION(4, 12, 0)
+-			e->user_pages = drm_calloc_large(ttm->num_pages,
+-							 sizeof(struct page*));
+-#else
+ 			e->user_pages = kvmalloc_array(ttm->num_pages,
+ 							 sizeof(struct page*),
+ 							 GFP_KERNEL | __GFP_ZERO);
+-#endif
+ 			if (!e->user_pages) {
+ 				r = -ENOMEM;
+ 				DRM_ERROR("calloc failure in %s\n", __func__);
+@@ -640,11 +617,7 @@ static int amdgpu_cs_parser_bos(struct amdgpu_cs_parser *p,
+ 			r = amdgpu_ttm_tt_get_user_pages(ttm, e->user_pages);
+ 			if (r) {
+ 				DRM_ERROR("amdgpu_ttm_tt_get_user_pages failed.\n");
+-#if LINUX_VERSION_CODE < KERNEL_VERSION(4, 12, 0)
+-				drm_free_large(e->user_pages);
+-#else
+ 				kvfree(e->user_pages);
+-#endif
+ 				e->user_pages = NULL;
+ 				goto error_free_pages;
+ 			}
+@@ -734,11 +707,7 @@ static int amdgpu_cs_parser_bos(struct amdgpu_cs_parser *p,
+ 			release_pages(e->user_pages,
+ 				      e->robj->tbo.ttm->num_pages,
+ 				      false);
+-#if LINUX_VERSION_CODE < KERNEL_VERSION(4, 12, 0)
+-			drm_free_large(e->user_pages);
+-#else
+ 			kvfree(e->user_pages);
+-#endif
+ 		}
+ 	}
+ 
+@@ -778,11 +747,9 @@ static void amdgpu_cs_parser_fini(struct amdgpu_cs_parser *parser, int error,
+ 		ttm_eu_backoff_reservation(&parser->ticket,
+ 					   &parser->validated);
+ 
+-#if LINUX_VERSION_CODE >= KERNEL_VERSION(4, 13, 0)
+ 	for (i = 0; i < parser->num_post_dep_syncobjs; i++)
+ 		drm_syncobj_put(parser->post_dep_syncobjs[i]);
+ 	kfree(parser->post_dep_syncobjs);
+-#endif
+ 
+ 	dma_fence_put(parser->fence);
+ 
+@@ -794,11 +761,7 @@ static void amdgpu_cs_parser_fini(struct amdgpu_cs_parser *parser, int error,
+ 		amdgpu_bo_list_put(parser->bo_list);
+ 
+ 	for (i = 0; i < parser->nchunks; i++)
+-#if LINUX_VERSION_CODE < KERNEL_VERSION(4, 12, 0)
+-		drm_free_large(parser->chunks[i].kdata);
+-#else
+ 		kvfree(parser->chunks[i].kdata);
+-#endif
+ 	kfree(parser->chunks);
+ 	if (parser->job)
+ 		amdgpu_job_free(parser->job);
+@@ -1090,7 +1053,6 @@ static int amdgpu_cs_process_fence_dep(struct amdgpu_cs_parser *p,
+ 	return 0;
+ }
+ 
+-#if LINUX_VERSION_CODE >= KERNEL_VERSION(4, 13, 0)
+ static int amdgpu_syncobj_lookup_and_add_to_sync(struct amdgpu_cs_parser *p,
+ 						 uint32_t handle)
+ {
+@@ -1151,7 +1113,6 @@ static int amdgpu_cs_process_syncobj_out_dep(struct amdgpu_cs_parser *p,
+ 	}
+ 	return 0;
+ }
+-#endif
+ 
+ static int amdgpu_cs_dependencies(struct amdgpu_device *adev,
+ 				  struct amdgpu_cs_parser *p)
+@@ -1167,7 +1128,6 @@ static int amdgpu_cs_dependencies(struct amdgpu_device *adev,
+ 			r = amdgpu_cs_process_fence_dep(p, chunk);
+ 			if (r)
+ 				return r;
+-#if LINUX_VERSION_CODE >= KERNEL_VERSION(4, 13, 0)
+ 		} else if (chunk->chunk_id == AMDGPU_CHUNK_ID_SYNCOBJ_IN) {
+ 			r = amdgpu_cs_process_syncobj_in_dep(p, chunk);
+ 			if (r)
+@@ -1176,14 +1136,12 @@ static int amdgpu_cs_dependencies(struct amdgpu_device *adev,
+ 			r = amdgpu_cs_process_syncobj_out_dep(p, chunk);
+ 			if (r)
+ 				return r;
+-#endif
+ 		}
+ 	}
+ 
+ 	return amdgpu_sem_add_cs(p->ctx, p->job->ring, &p->job->sync);
+ }
+ 
+-#if LINUX_VERSION_CODE >= KERNEL_VERSION(4, 13, 0)
+ static void amdgpu_cs_post_dependencies(struct amdgpu_cs_parser *p)
+ {
+ 	int i;
+@@ -1191,7 +1149,6 @@ static void amdgpu_cs_post_dependencies(struct amdgpu_cs_parser *p)
+ 	for (i = 0; i < p->num_post_dep_syncobjs; ++i)
+ 		drm_syncobj_replace_fence(p->post_dep_syncobjs[i], p->fence);
+ }
+-#endif
+ 
+ static int amdgpu_cs_submit(struct amdgpu_cs_parser *p,
+ 			    union drm_amdgpu_cs *cs)
+@@ -1240,9 +1197,7 @@ static int amdgpu_cs_submit(struct amdgpu_cs_parser *p,
+ 		return r;
+ 	}
+ 
+-#if LINUX_VERSION_CODE >= KERNEL_VERSION(4, 13, 0)
+ 	amdgpu_cs_post_dependencies(p);
+-#endif
+ 
+ 	cs->out.handle = seq;
+ 	job->uf_sequence = seq;
+diff --git a/drivers/gpu/drm/amd/amdgpu/amdgpu_debugfs.c b/drivers/gpu/drm/amd/amdgpu/amdgpu_debugfs.c
+index e0838b2..6765ae7 100644
+--- a/drivers/gpu/drm/amd/amdgpu/amdgpu_debugfs.c
++++ b/drivers/gpu/drm/amd/amdgpu/amdgpu_debugfs.c
+@@ -62,27 +62,6 @@ int amdgpu_debugfs_add_files(struct amdgpu_device *adev,
+ 	return 0;
+ }
+ 
+-#if defined(BUILD_AS_DKMS) &&  LINUX_VERSION_CODE < KERNEL_VERSION(4, 11, 0)
+-void amdgpu_debugfs_cleanup(struct drm_minor *minor)
+-{
+-	struct drm_info_node *node, *tmp;
+-
+-	if (!&minor->debugfs_root)
+-		return 0;
+-
+-	mutex_lock(&minor->debugfs_lock);
+-	list_for_each_entry_safe(node, tmp,
+-		&minor->debugfs_list, list) {
+-		debugfs_remove(node->dent);
+-		list_del(&node->list);
+-		kfree(node);
+-	}
+-	mutex_unlock(&minor->debugfs_lock);
+-
+-	return 0;
+-}
+-#endif
+-
+ #if defined(CONFIG_DEBUG_FS)
+ 
+ static ssize_t amdgpu_debugfs_regs_read(struct file *f, char __user *buf,
+diff --git a/drivers/gpu/drm/amd/amdgpu/amdgpu_device.c b/drivers/gpu/drm/amd/amdgpu/amdgpu_device.c
+index e9a8561..9087019 100644
+--- a/drivers/gpu/drm/amd/amdgpu/amdgpu_device.c
++++ b/drivers/gpu/drm/amd/amdgpu/amdgpu_device.c
+@@ -59,6 +59,7 @@
+ #include "amdgpu_pm.h"
+ 
+ MODULE_FIRMWARE("amdgpu/vega10_gpu_info.bin");
++MODULE_FIRMWARE("amdgpu/raven_gpu_info.bin");
+ 
+ #define AMDGPU_RESUME_MS		2000
+ 
+@@ -596,7 +597,6 @@ void amdgpu_device_gart_location(struct amdgpu_device *adev,
+ 			mc->gart_size >> 20, mc->gart_start, mc->gart_end);
+ }
+ 
+-#if !defined(BUILD_AS_DKMS) ||  LINUX_VERSION_CODE >= KERNEL_VERSION(4, 15, 0)
+ /**
+  * amdgpu_device_resize_fb_bar - try to resize FB BAR
+  *
+@@ -666,7 +666,6 @@ int amdgpu_device_resize_fb_bar(struct amdgpu_device *adev)
+ 
+ 	return 0;
+ }
+-#endif
+ 
+ /*
+  * GPU helpers function.
+@@ -2110,9 +2109,7 @@ void amdgpu_device_fini(struct amdgpu_device *adev)
+ 	amdgpu_atombios_fini(adev);
+ 	kfree(adev->bios);
+ 	adev->bios = NULL;
+-#if LINUX_VERSION_CODE >= KERNEL_VERSION(4, 12, 0)
+ 	if (!pci_is_thunderbolt_attached(adev->pdev))
+-#endif
+ 		vga_switcheroo_unregister_client(adev->pdev);
+ 	if (adev->flags & AMD_IS_PX)
+ 		vga_switcheroo_fini_domain_pm_ops(adev->dev);
+diff --git a/drivers/gpu/drm/amd/amdgpu/amdgpu_dpm.h b/drivers/gpu/drm/amd/amdgpu/amdgpu_dpm.h
+index e2d600e..c489c69 100644
+--- a/drivers/gpu/drm/amd/amdgpu/amdgpu_dpm.h
++++ b/drivers/gpu/drm/amd/amdgpu/amdgpu_dpm.h
+@@ -446,7 +446,6 @@ struct amdgpu_pm {
+ 	struct amdgpu_dpm       dpm;
+ 	const struct firmware	*fw;	/* SMC firmware */
+ 	uint32_t                fw_version;
+-	const struct amdgpu_dpm_funcs *funcs;
+ 	uint32_t                pcie_gen_mask;
+ 	uint32_t                pcie_mlw_mask;
+ 	struct amd_pp_display_configuration pm_display_cfg;/* set by dc */
+diff --git a/drivers/gpu/drm/amd/amdgpu/amdgpu_kms.c b/drivers/gpu/drm/amd/amdgpu/amdgpu_kms.c
+index 2608e5a..6d5062e 100644
+--- a/drivers/gpu/drm/amd/amdgpu/amdgpu_kms.c
++++ b/drivers/gpu/drm/amd/amdgpu/amdgpu_kms.c
+@@ -45,20 +45,12 @@
+  * This is the main unload function for KMS (all asics).
+  * Returns 0 on success.
+  */
+-#if LINUX_VERSION_CODE < KERNEL_VERSION(4, 11, 0)
+-int amdgpu_driver_unload_kms(struct drm_device *dev)
+-#else
+ void amdgpu_driver_unload_kms(struct drm_device *dev)
+-#endif
+ {
+ 	struct amdgpu_device *adev = dev->dev_private;
+ 
+ 	if (adev == NULL)
+-#if LINUX_VERSION_CODE < KERNEL_VERSION(4, 11, 0)
+-		return 0;
+-#else
+ 		return;
+-#endif
+ 
+ 	if (adev->rmmio == NULL)
+ 		goto done_free;
+@@ -78,9 +70,6 @@ void amdgpu_driver_unload_kms(struct drm_device *dev)
+ done_free:
+ 	kfree(adev);
+ 	dev->dev_private = NULL;
+-#if LINUX_VERSION_CODE < KERNEL_VERSION(4, 11, 0)
+-	return 0;
+-#endif
+ }
+ 
+ /**
+@@ -140,12 +129,8 @@ int amdgpu_driver_load_kms(struct drm_device *dev, unsigned long flags)
+ 	    amdgpu_has_atpx() &&
+ 	    (amdgpu_is_atpx_hybrid() ||
+ 	     amdgpu_has_atpx_dgpu_power_cntl()) &&
+-#if LINUX_VERSION_CODE < KERNEL_VERSION(4, 12, 0)
+-	    ((flags & AMD_IS_APU) == 0))
+-#else
+ 	    ((flags & AMD_IS_APU) == 0) &&
+ 	    !pci_is_thunderbolt_attached(dev->pdev))
+-#endif
+ 		flags |= AMD_IS_PX;
+ 
+ 	/* amdgpu_device_init should report only fatal error
+@@ -1100,73 +1085,6 @@ void amdgpu_disable_vblank_kms(struct drm_device *dev, unsigned int pipe)
+     amdgpu_irq_put(adev, &adev->crtc_irq, idx);
+ }
+ 
+-#if LINUX_VERSION_CODE < KERNEL_VERSION(4, 13, 0)
+-/**
+- * amdgpu_get_vblank_timestamp_kms - get vblank timestamp
+- *
+- * @dev: drm dev pointer
+- * @crtc: crtc to get the timestamp for
+- * @max_error: max error
+- * @vblank_time: time value
+- * @flags: flags passed to the driver
+- *
+- * Gets the timestamp on the requested crtc based on the
+- * scanout position.  (all asics).
+- * Returns postive status flags on success, negative error on failure.
+- */
+-int amdgpu_get_vblank_timestamp_kms(struct drm_device *dev, unsigned int pipe,
+-                                    int *max_error,
+-                                    struct timeval *vblank_time,
+-                                    unsigned flags)
+-{
+-    struct drm_crtc *crtc;
+-    struct amdgpu_device *adev = dev->dev_private;
+-
+-    if (pipe >= dev->num_crtcs) {
+-        DRM_ERROR("Invalid crtc %u\n", pipe);
+-        return -EINVAL;
+-    }
+-
+-    /* Get associated drm_crtc: */
+-    crtc = &adev->mode_info.crtcs[pipe]->base;
+-    if (!crtc) {
+-        /* This can occur on driver load if some component fails to
+-         * initialize completely and driver is unloaded */
+-        DRM_ERROR("Uninitialized crtc %d\n", pipe);
+-        return -EINVAL;
+-    }
+-
+-    /* Helper routine in DRM core does all the work: */
+-    return kcl_drm_calc_vbltimestamp_from_scanoutpos(dev, pipe, max_error,
+-                                                     vblank_time, flags,
+-                                                     crtc, &crtc->hwmode);
+-}
+-#endif
+-
+-#if LINUX_VERSION_CODE < KERNEL_VERSION(4, 4, 0)
+-const struct drm_ioctl_desc amdgpu_ioctls_kms[] = {
+-    DRM_IOCTL_DEF_DRV(AMDGPU_GEM_CREATE, amdgpu_gem_create_ioctl, DRM_AUTH|DRM_UNLOCKED|DRM_RENDER_ALLOW),
+-    DRM_IOCTL_DEF_DRV(AMDGPU_CTX, amdgpu_ctx_ioctl, DRM_AUTH|DRM_UNLOCKED|DRM_RENDER_ALLOW),
+-    DRM_IOCTL_DEF_DRV(AMDGPU_VM, amdgpu_vm_ioctl, DRM_AUTH|DRM_UNLOCKED|DRM_RENDER_ALLOW),
+-    DRM_IOCTL_DEF_DRV(AMDGPU_BO_LIST, amdgpu_bo_list_ioctl, DRM_AUTH|DRM_UNLOCKED|DRM_RENDER_ALLOW),
+-    /* KMS */
+-    DRM_IOCTL_DEF_DRV(AMDGPU_GEM_MMAP, amdgpu_gem_mmap_ioctl, DRM_AUTH|DRM_UNLOCKED|DRM_RENDER_ALLOW),
+-    DRM_IOCTL_DEF_DRV(AMDGPU_GEM_WAIT_IDLE, amdgpu_gem_wait_idle_ioctl, DRM_AUTH|DRM_UNLOCKED|DRM_RENDER_ALLOW),
+-    DRM_IOCTL_DEF_DRV(AMDGPU_CS, amdgpu_cs_ioctl, DRM_AUTH|DRM_UNLOCKED|DRM_RENDER_ALLOW),
+-    DRM_IOCTL_DEF_DRV(AMDGPU_INFO, amdgpu_info_ioctl, DRM_AUTH|DRM_UNLOCKED|DRM_RENDER_ALLOW),
+-    DRM_IOCTL_DEF_DRV(AMDGPU_WAIT_CS, amdgpu_cs_wait_ioctl, DRM_AUTH|DRM_UNLOCKED|DRM_RENDER_ALLOW),
+-    DRM_IOCTL_DEF_DRV(AMDGPU_WAIT_FENCES, amdgpu_cs_wait_fences_ioctl, DRM_AUTH|DRM_UNLOCKED|DRM_RENDER_ALLOW),
+-    DRM_IOCTL_DEF_DRV(AMDGPU_GEM_METADATA, amdgpu_gem_metadata_ioctl, DRM_AUTH|DRM_UNLOCKED|DRM_RENDER_ALLOW),
+-    DRM_IOCTL_DEF_DRV(AMDGPU_GEM_VA, amdgpu_gem_va_ioctl, DRM_AUTH|DRM_UNLOCKED|DRM_RENDER_ALLOW),
+-    DRM_IOCTL_DEF_DRV(AMDGPU_GEM_OP, amdgpu_gem_op_ioctl, DRM_AUTH|DRM_UNLOCKED|DRM_RENDER_ALLOW),
+-    DRM_IOCTL_DEF_DRV(AMDGPU_GEM_USERPTR, amdgpu_gem_userptr_ioctl, DRM_AUTH|DRM_UNLOCKED|DRM_RENDER_ALLOW),
+-    DRM_IOCTL_DEF_DRV(AMDGPU_GEM_FIND_BO, amdgpu_gem_find_bo_by_cpu_mapping_ioctl, DRM_AUTH|DRM_UNLOCKED|DRM_RENDER_ALLOW),
+-    DRM_IOCTL_DEF_DRV(AMDGPU_FREESYNC, amdgpu_display_freesync_ioctl, DRM_MASTER|DRM_UNLOCKED),
+-    DRM_IOCTL_DEF_DRV(AMDGPU_GEM_FIND_BO, amdgpu_gem_find_bo_by_cpu_mapping_ioctl, DRM_AUTH|DRM_UNLOCKED|DRM_RENDER_ALLOW),
+-    DRM_IOCTL_DEF_DRV(AMDGPU_GEM_DGMA, amdgpu_gem_dgma_ioctl, DRM_AUTH|DRM_UNLOCKED|DRM_RENDER_ALLOW),
+-    DRM_IOCTL_DEF_DRV(AMDGPU_SEM, amdgpu_sem_ioctl, DRM_AUTH|DRM_UNLOCKED|DRM_RENDER_ALLOW),
+-};
+-#else
+ const struct drm_ioctl_desc amdgpu_ioctls_kms[] = {
+     DRM_IOCTL_DEF_DRV(AMDGPU_GEM_CREATE, amdgpu_gem_create_ioctl, DRM_AUTH|DRM_RENDER_ALLOW),
+     DRM_IOCTL_DEF_DRV(AMDGPU_CTX, amdgpu_ctx_ioctl, DRM_AUTH|DRM_RENDER_ALLOW),
+@@ -1190,7 +1108,6 @@ const struct drm_ioctl_desc amdgpu_ioctls_kms[] = {
+     DRM_IOCTL_DEF_DRV(AMDGPU_GEM_DGMA, amdgpu_gem_dgma_ioctl, DRM_AUTH|DRM_RENDER_ALLOW),
+     DRM_IOCTL_DEF_DRV(AMDGPU_SEM, amdgpu_sem_ioctl, DRM_AUTH|DRM_UNLOCKED|DRM_RENDER_ALLOW),
+ };
+-#endif /* LINUX_VERSION_CODE < KERNEL_VERSION(4, 4, 0) */
+ const int amdgpu_max_kms_ioctl = ARRAY_SIZE(amdgpu_ioctls_kms);
+ 
+ /*
+diff --git a/drivers/gpu/drm/amd/amdgpu/amdgpu_mn.c b/drivers/gpu/drm/amd/amdgpu/amdgpu_mn.c
+index 6c79b6f..91c7f2a 100644
+--- a/drivers/gpu/drm/amd/amdgpu/amdgpu_mn.c
++++ b/drivers/gpu/drm/amd/amdgpu/amdgpu_mn.c
+@@ -317,25 +317,14 @@ struct amdgpu_mn *amdgpu_mn_get(struct amdgpu_device *adev,
+ 	struct amdgpu_mn *rmn;
+ 	unsigned long key = AMDGPU_MN_KEY(mm, type);
+ 	int r;
+-#if LINUX_VERSION_CODE < KERNEL_VERSION(3, 9, 0)
+-	struct hlist_node *node;
+-#endif
+ 
+ 	mutex_lock(&adev->mn_lock);
+-#if LINUX_VERSION_CODE < KERNEL_VERSION(4, 7, 0)
+-	down_write(&mm->mmap_sem);
+-#else
+ 	if (down_write_killable(&mm->mmap_sem)) {
+ 		mutex_unlock(&adev->mn_lock);
+ 		return ERR_PTR(-EINTR);
+ 	}
+-#endif
+ 
+-#if LINUX_VERSION_CODE < KERNEL_VERSION(3, 9, 0)
+-	hash_for_each_possible(adev->mn_hash, rmn, node, node, key)
+-#else
+ 	hash_for_each_possible(adev->mn_hash, rmn, node, key)
+-#endif
+ 		if (AMDGPU_MN_KEY(rmn->mm, rmn->type) == key)
+ 			goto release_locks;
+ 
+diff --git a/drivers/gpu/drm/amd/amdgpu/amdgpu_mode.h b/drivers/gpu/drm/amd/amdgpu/amdgpu_mode.h
+index 2320283..9165b73 100644
+--- a/drivers/gpu/drm/amd/amdgpu/amdgpu_mode.h
++++ b/drivers/gpu/drm/amd/amdgpu/amdgpu_mode.h
+@@ -32,9 +32,7 @@
+ 
+ #include <drm/drm_crtc.h>
+ #include <drm/drm_edid.h>
+-#if LINUX_VERSION_CODE >= KERNEL_VERSION(4, 11, 0)
+ #include <drm/drm_encoder.h>
+-#endif
+ #include <drm/drm_dp_helper.h>
+ #include <drm/drm_fixed.h>
+ #include <drm/drm_crtc_helper.h>
+@@ -440,9 +438,6 @@ struct amdgpu_crtc {
+ 	enum amdgpu_interrupt_state vsync_timer_enabled;
+ 
+ 	int otg_inst;
+-#if LINUX_VERSION_CODE < KERNEL_VERSION(4, 12, 0)
+-	uint32_t flip_flags;
+-#endif
+ 	struct drm_pending_vblank_event *event;
+ };
+ 
+@@ -649,13 +644,7 @@ int amdgpu_display_get_crtc_scanoutpos(struct drm_device *dev,
+ 
+ int amdgpu_display_framebuffer_init(struct drm_device *dev,
+ 			     struct amdgpu_framebuffer *rfb,
+-#if LINUX_VERSION_CODE >= KERNEL_VERSION(4, 5, 0) || \
+-			defined(OS_NAME_RHEL_7_3) || \
+-			defined(OS_NAME_RHEL_7_4)
+ 				const struct drm_mode_fb_cmd2 *mode_cmd,
+-#else
+-				struct drm_mode_fb_cmd2 *mode_cmd,
+-#endif
+ 			     struct drm_gem_object *obj);
+ 
+ int amdgpufb_remove(struct drm_device *dev, struct drm_framebuffer *fb);
+@@ -685,28 +674,13 @@ int amdgpu_align_pitch(struct amdgpu_device *adev, int width, int bpp, bool tile
+ /* amdgpu_display.c */
+ void amdgpu_display_print_display_setup(struct drm_device *dev);
+ int amdgpu_display_modeset_create_props(struct amdgpu_device *adev);
+-#if LINUX_VERSION_CODE >= KERNEL_VERSION(4, 12, 0)
+ int amdgpu_display_crtc_set_config(struct drm_mode_set *set,
+ 			   struct drm_modeset_acquire_ctx *ctx);
+-#else
+-int amdgpu_display_crtc_set_config(struct drm_mode_set *set);
+-#endif
+-#if LINUX_VERSION_CODE >= KERNEL_VERSION(4, 9, 0) || defined(OS_NAME_RHEL_7_4)
+ int amdgpu_display_crtc_page_flip_target(struct drm_crtc *crtc,
+ 				 struct drm_framebuffer *fb,
+ 				 struct drm_pending_vblank_event *event,
+-#if LINUX_VERSION_CODE >= KERNEL_VERSION(4, 12, 0)
+ 				 uint32_t page_flip_flags, uint32_t target,
+ 				 struct drm_modeset_acquire_ctx *ctx);
+-#else
+-				 uint32_t page_flip_flags, uint32_t target);
+-#endif
+-#else
+-int amdgpu_crtc_page_flip(struct drm_crtc *crtc,
+-			  struct drm_framebuffer *fb,
+-			  struct drm_pending_vblank_event *event,
+-			  uint32_t page_flip_flags);
+-#endif
+ extern const struct drm_mode_config_funcs amdgpu_mode_funcs;
+ 
+ #endif
+diff --git a/drivers/gpu/drm/amd/amdgpu/amdgpu_vm.c b/drivers/gpu/drm/amd/amdgpu/amdgpu_vm.c
+index 3d6d64c..00477a8 100644
+--- a/drivers/gpu/drm/amd/amdgpu/amdgpu_vm.c
++++ b/drivers/gpu/drm/amd/amdgpu/amdgpu_vm.c
+@@ -368,14 +368,9 @@ static int amdgpu_vm_alloc_levels(struct amdgpu_device *adev,
+ 	if (!parent->entries) {
+ 		unsigned num_entries = amdgpu_vm_num_entries(adev, level);
+ 
+-#if LINUX_VERSION_CODE < KERNEL_VERSION(4, 12, 0)
+-		parent->entries = drm_calloc_large(num_entries,
+-						   sizeof(struct amdgpu_vm_pt));
+-#else
+ 		parent->entries = kvmalloc_array(num_entries,
+ 						   sizeof(struct amdgpu_vm_pt),
+ 						   GFP_KERNEL | __GFP_ZERO);
+-#endif
+ 		if (!parent->entries)
+ 			return -ENOMEM;
+ 		memset(parent->entries, 0 , sizeof(struct amdgpu_vm_pt));
+@@ -2503,11 +2498,7 @@ static void amdgpu_vm_free_levels(struct amdgpu_device *adev,
+ 			amdgpu_vm_free_levels(adev, &parent->entries[i],
+ 					      level + 1);
+ 
+-#if LINUX_VERSION_CODE < KERNEL_VERSION(4, 12, 0)
+-	drm_free_large(parent->entries);
+-#else
+ 	kvfree(parent->entries);
+-#endif
+ }
+ 
+ /**
+diff --git a/drivers/gpu/drm/amd/amdgpu/dce_v10_0.c b/drivers/gpu/drm/amd/amdgpu/dce_v10_0.c
+index c7d1ef0..9f5bcc6 100644
+--- a/drivers/gpu/drm/amd/amdgpu/dce_v10_0.c
++++ b/drivers/gpu/drm/amd/amdgpu/dce_v10_0.c
+@@ -2139,7 +2139,6 @@ static void dce_v10_0_crtc_load_lut(struct drm_crtc *crtc)
+ 	struct amdgpu_crtc *amdgpu_crtc = to_amdgpu_crtc(crtc);
+ 	struct drm_device *dev = crtc->dev;
+ 	struct amdgpu_device *adev = dev->dev_private;
+-	u16 *r, *g, *b;
+ 	int i;
+ 	u32 tmp;
+ 
+@@ -2177,14 +2176,11 @@ static void dce_v10_0_crtc_load_lut(struct drm_crtc *crtc)
+ 	WREG32(mmDC_LUT_WRITE_EN_MASK + amdgpu_crtc->crtc_offset, 0x00000007);
+ 
+ 	WREG32(mmDC_LUT_RW_INDEX + amdgpu_crtc->crtc_offset, 0);
+-	r = crtc->gamma_store;
+-	g = r + crtc->gamma_size;
+-	b = g + crtc->gamma_size;
+ 	for (i = 0; i < 256; i++) {
+ 		WREG32(mmDC_LUT_30_COLOR + amdgpu_crtc->crtc_offset,
+-		       ((*r++ & 0xffc0) << 14) |
+-		       ((*g++ & 0xffc0) << 4) |
+-		       (*b++ >> 6));
++		       (amdgpu_crtc->lut_r[i] << 20) |
++		       (amdgpu_crtc->lut_g[i] << 10) |
++		       (amdgpu_crtc->lut_b[i] << 0));
+ 	}
+ 
+ 	tmp = RREG32(mmDEGAMMA_CONTROL + amdgpu_crtc->crtc_offset);
+@@ -2500,6 +2496,15 @@ static int dce_v10_0_crtc_gamma_set(struct drm_crtc *crtc, u16 *red, u16 *green,
+ 				    u16 *blue, uint32_t size,
+ 				    struct drm_modeset_acquire_ctx *ctx)
+ {
++	struct amdgpu_crtc *amdgpu_crtc = to_amdgpu_crtc(crtc);
++	int i;
++
++	/* userspace palettes are always correct as is */
++	for (i = 0; i < size; i++) {
++		amdgpu_crtc->lut_r[i] = red[i] >> 6;
++		amdgpu_crtc->lut_g[i] = green[i] >> 6;
++		amdgpu_crtc->lut_b[i] = blue[i] >> 6;
++	}
+ 	dce_v10_0_crtc_load_lut(crtc);
+ 
+ 	return 0;
+@@ -2712,12 +2717,14 @@ static const struct drm_crtc_helper_funcs dce_v10_0_crtc_helper_funcs = {
+ 	.mode_set_base_atomic = dce_v10_0_crtc_set_base_atomic,
+ 	.prepare = dce_v10_0_crtc_prepare,
+ 	.commit = dce_v10_0_crtc_commit,
++	.load_lut = dce_v10_0_crtc_load_lut,
+ 	.disable = dce_v10_0_crtc_disable,
+ };
+ 
+ static int dce_v10_0_crtc_init(struct amdgpu_device *adev, int index)
+ {
+ 	struct amdgpu_crtc *amdgpu_crtc;
++	int i;
+ 
+ 	amdgpu_crtc = kzalloc(sizeof(struct amdgpu_crtc) +
+ 			      (AMDGPUFB_CONN_LIMIT * sizeof(struct drm_connector *)), GFP_KERNEL);
+@@ -2734,6 +2741,12 @@ static int dce_v10_0_crtc_init(struct amdgpu_device *adev, int index)
+ 	amdgpu_crtc->max_cursor_height = 128;
+ 	adev->ddev->mode_config.cursor_width = amdgpu_crtc->max_cursor_width;
+ 	adev->ddev->mode_config.cursor_height = amdgpu_crtc->max_cursor_height;
++	
++	for (i = 0; i < 256; i++) {
++		amdgpu_crtc->lut_r[i] = i << 2;
++		amdgpu_crtc->lut_g[i] = i << 2;
++		amdgpu_crtc->lut_b[i] = i << 2;
++	}
+ 
+ 	switch (amdgpu_crtc->crtc_id) {
+ 	case 0:
+diff --git a/drivers/gpu/drm/amd/amdgpu/dce_v11_0.c b/drivers/gpu/drm/amd/amdgpu/dce_v11_0.c
+index 99bc1f36..fe9c538 100644
+--- a/drivers/gpu/drm/amd/amdgpu/dce_v11_0.c
++++ b/drivers/gpu/drm/amd/amdgpu/dce_v11_0.c
+@@ -2178,7 +2178,6 @@ static void dce_v11_0_crtc_load_lut(struct drm_crtc *crtc)
+ 	struct amdgpu_crtc *amdgpu_crtc = to_amdgpu_crtc(crtc);
+ 	struct drm_device *dev = crtc->dev;
+ 	struct amdgpu_device *adev = dev->dev_private;
+-	u16 *r, *g, *b;
+ 	int i;
+ 	u32 tmp;
+ 
+@@ -2210,14 +2209,11 @@ static void dce_v11_0_crtc_load_lut(struct drm_crtc *crtc)
+ 	WREG32(mmDC_LUT_WRITE_EN_MASK + amdgpu_crtc->crtc_offset, 0x00000007);
+ 
+ 	WREG32(mmDC_LUT_RW_INDEX + amdgpu_crtc->crtc_offset, 0);
+-	r = crtc->gamma_store;
+-	g = r + crtc->gamma_size;
+-	b = g + crtc->gamma_size;
+ 	for (i = 0; i < 256; i++) {
+ 		WREG32(mmDC_LUT_30_COLOR + amdgpu_crtc->crtc_offset,
+-		       ((*r++ & 0xffc0) << 14) |
+-		       ((*g++ & 0xffc0) << 4) |
+-		       (*b++ >> 6));
++			(amdgpu_crtc->lut_r[i] << 20) |
++			(amdgpu_crtc->lut_g[i] << 10) |
++			(amdgpu_crtc->lut_b[i] << 0));
+ 	}
+ 
+ 	tmp = RREG32(mmDEGAMMA_CONTROL + amdgpu_crtc->crtc_offset);
+@@ -2574,7 +2570,16 @@ static void dce_v11_0_cursor_reset(struct drm_crtc *crtc)
+ static int dce_v11_0_crtc_gamma_set(struct drm_crtc *crtc, u16 *red, u16 *green,
+ 				    u16 *blue, uint32_t size,
+ 				    struct drm_modeset_acquire_ctx *ctx)
+-{
++{	
++	struct amdgpu_crtc *amdgpu_crtc = to_amdgpu_crtc(crtc);
++	int i;
++
++	/* userspace palettes are always correct as is */
++	for (i = 0; i < size; i++) {
++		amdgpu_crtc->lut_r[i] = red[i] >> 6;
++		amdgpu_crtc->lut_g[i] = green[i] >> 6;
++		amdgpu_crtc->lut_b[i] = blue[i] >> 6;
++	}
+ 	dce_v11_0_crtc_load_lut(crtc);
+ 
+ 	return 0;
+@@ -2815,12 +2820,14 @@ static const struct drm_crtc_helper_funcs dce_v11_0_crtc_helper_funcs = {
+ 	.mode_set_base_atomic = dce_v11_0_crtc_set_base_atomic,
+ 	.prepare = dce_v11_0_crtc_prepare,
+ 	.commit = dce_v11_0_crtc_commit,
++	.load_lut = dce_v11_0_crtc_load_lut,
+ 	.disable = dce_v11_0_crtc_disable,
+ };
+ 
+ static int dce_v11_0_crtc_init(struct amdgpu_device *adev, int index)
+ {
+ 	struct amdgpu_crtc *amdgpu_crtc;
++	int i;
+ 
+ 	amdgpu_crtc = kzalloc(sizeof(struct amdgpu_crtc) +
+ 			      (AMDGPUFB_CONN_LIMIT * sizeof(struct drm_connector *)), GFP_KERNEL);
+@@ -2837,6 +2844,12 @@ static int dce_v11_0_crtc_init(struct amdgpu_device *adev, int index)
+ 	amdgpu_crtc->max_cursor_height = 128;
+ 	adev->ddev->mode_config.cursor_width = amdgpu_crtc->max_cursor_width;
+ 	adev->ddev->mode_config.cursor_height = amdgpu_crtc->max_cursor_height;
++	
++	for (i = 0; i < 256; i++) {
++		amdgpu_crtc->lut_r[i] = i << 2;
++		amdgpu_crtc->lut_g[i] = i << 2;
++		amdgpu_crtc->lut_b[i] = i << 2;
++	}
+ 
+ 	switch (amdgpu_crtc->crtc_id) {
+ 	case 0:
+diff --git a/drivers/gpu/drm/amd/amdgpu/dce_v6_0.c b/drivers/gpu/drm/amd/amdgpu/dce_v6_0.c
+index 24de4aa..614bacb 100644
+--- a/drivers/gpu/drm/amd/amdgpu/dce_v6_0.c
++++ b/drivers/gpu/drm/amd/amdgpu/dce_v6_0.c
+@@ -2072,7 +2072,6 @@ static void dce_v6_0_crtc_load_lut(struct drm_crtc *crtc)
+ 	struct amdgpu_crtc *amdgpu_crtc = to_amdgpu_crtc(crtc);
+ 	struct drm_device *dev = crtc->dev;
+ 	struct amdgpu_device *adev = dev->dev_private;
+-	u16 *r, *g, *b;
+ 	int i;
+ 
+ 	DRM_DEBUG_KMS("%d\n", amdgpu_crtc->crtc_id);
+@@ -2102,14 +2101,12 @@ static void dce_v6_0_crtc_load_lut(struct drm_crtc *crtc)
+ 	WREG32(mmDC_LUT_WRITE_EN_MASK + amdgpu_crtc->crtc_offset, 0x00000007);
+ 
+ 	WREG32(mmDC_LUT_RW_INDEX + amdgpu_crtc->crtc_offset, 0);
+-	r = crtc->gamma_store;
+-	g = r + crtc->gamma_size;
+-	b = g + crtc->gamma_size;
++
+ 	for (i = 0; i < 256; i++) {
+ 		WREG32(mmDC_LUT_30_COLOR + amdgpu_crtc->crtc_offset,
+-		       ((*r++ & 0xffc0) << 14) |
+-		       ((*g++ & 0xffc0) << 4) |
+-		       (*b++ >> 6));
++		       (amdgpu_crtc->lut_r[i] << 20) |
++		       (amdgpu_crtc->lut_g[i] << 10) |
++		       (amdgpu_crtc->lut_b[i] << 0));
+ 	}
+ 
+ 	WREG32(mmDEGAMMA_CONTROL + amdgpu_crtc->crtc_offset,
+@@ -2390,6 +2387,15 @@ static int dce_v6_0_crtc_gamma_set(struct drm_crtc *crtc, u16 *red, u16 *green,
+ 				   u16 *blue, uint32_t size,
+ 				   struct drm_modeset_acquire_ctx *ctx)
+ {
++	struct amdgpu_crtc *amdgpu_crtc = to_amdgpu_crtc(crtc);
++	int i;
++
++	/* userspace palettes are always correct as is */
++	for (i = 0; i < size; i++) {
++		amdgpu_crtc->lut_r[i] = red[i] >> 6;
++		amdgpu_crtc->lut_g[i] = green[i] >> 6;
++		amdgpu_crtc->lut_b[i] = blue[i] >> 6;
++	}
+ 	dce_v6_0_crtc_load_lut(crtc);
+ 
+ 	return 0;
+@@ -2598,12 +2604,14 @@ static const struct drm_crtc_helper_funcs dce_v6_0_crtc_helper_funcs = {
+ 	.mode_set_base_atomic = dce_v6_0_crtc_set_base_atomic,
+ 	.prepare = dce_v6_0_crtc_prepare,
+ 	.commit = dce_v6_0_crtc_commit,
++	.load_lut = dce_v6_0_crtc_load_lut,
+ 	.disable = dce_v6_0_crtc_disable,
+ };
+ 
+ static int dce_v6_0_crtc_init(struct amdgpu_device *adev, int index)
+ {
+ 	struct amdgpu_crtc *amdgpu_crtc;
++	int i;
+ 
+ 	amdgpu_crtc = kzalloc(sizeof(struct amdgpu_crtc) +
+ 			      (AMDGPUFB_CONN_LIMIT * sizeof(struct drm_connector *)), GFP_KERNEL);
+@@ -2620,6 +2628,12 @@ static int dce_v6_0_crtc_init(struct amdgpu_device *adev, int index)
+ 	amdgpu_crtc->max_cursor_height = CURSOR_HEIGHT;
+ 	adev->ddev->mode_config.cursor_width = amdgpu_crtc->max_cursor_width;
+ 	adev->ddev->mode_config.cursor_height = amdgpu_crtc->max_cursor_height;
++	
++	for (i = 0; i < 256; i++) {
++		amdgpu_crtc->lut_r[i] = i << 2;
++		amdgpu_crtc->lut_g[i] = i << 2;
++		amdgpu_crtc->lut_b[i] = i << 2;
++	}
+ 
+ 	amdgpu_crtc->crtc_offset = crtc_offsets[amdgpu_crtc->crtc_id];
+ 
+diff --git a/drivers/gpu/drm/amd/amdgpu/dce_v8_0.c b/drivers/gpu/drm/amd/amdgpu/dce_v8_0.c
+index 823a8c3..5c5cf4b 100644
+--- a/drivers/gpu/drm/amd/amdgpu/dce_v8_0.c
++++ b/drivers/gpu/drm/amd/amdgpu/dce_v8_0.c
+@@ -2049,7 +2049,6 @@ static void dce_v8_0_crtc_load_lut(struct drm_crtc *crtc)
+ 	struct amdgpu_crtc *amdgpu_crtc = to_amdgpu_crtc(crtc);
+ 	struct drm_device *dev = crtc->dev;
+ 	struct amdgpu_device *adev = dev->dev_private;
+-	u16 *r, *g, *b;
+ 	int i;
+ 
+ 	DRM_DEBUG_KMS("%d\n", amdgpu_crtc->crtc_id);
+@@ -2079,14 +2078,11 @@ static void dce_v8_0_crtc_load_lut(struct drm_crtc *crtc)
+ 	WREG32(mmDC_LUT_WRITE_EN_MASK + amdgpu_crtc->crtc_offset, 0x00000007);
+ 
+ 	WREG32(mmDC_LUT_RW_INDEX + amdgpu_crtc->crtc_offset, 0);
+-	r = crtc->gamma_store;
+-	g = r + crtc->gamma_size;
+-	b = g + crtc->gamma_size;
+ 	for (i = 0; i < 256; i++) {
+ 		WREG32(mmDC_LUT_30_COLOR + amdgpu_crtc->crtc_offset,
+-		       ((*r++ & 0xffc0) << 14) |
+-		       ((*g++ & 0xffc0) << 4) |
+-		       (*b++ >> 6));
++		       (amdgpu_crtc->lut_r[i] << 20) |
++		       (amdgpu_crtc->lut_g[i] << 10) |
++		       (amdgpu_crtc->lut_b[i] << 0));
+ 	}
+ 
+ 	WREG32(mmDEGAMMA_CONTROL + amdgpu_crtc->crtc_offset,
+@@ -2404,6 +2400,15 @@ static int dce_v8_0_crtc_gamma_set(struct drm_crtc *crtc, u16 *red, u16 *green,
+ 				   u16 *blue, uint32_t size,
+ 				   struct drm_modeset_acquire_ctx *ctx)
+ {
++	struct amdgpu_crtc *amdgpu_crtc = to_amdgpu_crtc(crtc);
++	int i;
++
++	/* userspace palettes are always correct as is */
++	for (i = 0; i < size; i++) {
++		amdgpu_crtc->lut_r[i] = red[i] >> 6;
++		amdgpu_crtc->lut_g[i] = green[i] >> 6;
++		amdgpu_crtc->lut_b[i] = blue[i] >> 6;
++	}
+ 	dce_v8_0_crtc_load_lut(crtc);
+ 
+ 	return 0;
+@@ -2623,12 +2628,14 @@ static const struct drm_crtc_helper_funcs dce_v8_0_crtc_helper_funcs = {
+ 	.mode_set_base_atomic = dce_v8_0_crtc_set_base_atomic,
+ 	.prepare = dce_v8_0_crtc_prepare,
+ 	.commit = dce_v8_0_crtc_commit,
++	.load_lut = dce_v8_0_crtc_load_lut,
+ 	.disable = dce_v8_0_crtc_disable,
+ };
+ 
+ static int dce_v8_0_crtc_init(struct amdgpu_device *adev, int index)
+ {
+ 	struct amdgpu_crtc *amdgpu_crtc;
++	int i;
+ 
+ 	amdgpu_crtc = kzalloc(sizeof(struct amdgpu_crtc) +
+ 			      (AMDGPUFB_CONN_LIMIT * sizeof(struct drm_connector *)), GFP_KERNEL);
+@@ -2645,7 +2652,13 @@ static int dce_v8_0_crtc_init(struct amdgpu_device *adev, int index)
+ 	amdgpu_crtc->max_cursor_height = CIK_CURSOR_HEIGHT;
+ 	adev->ddev->mode_config.cursor_width = amdgpu_crtc->max_cursor_width;
+ 	adev->ddev->mode_config.cursor_height = amdgpu_crtc->max_cursor_height;
+-
++	
++	for (i = 0; i < 256; i++) {
++		amdgpu_crtc->lut_r[i] = i << 2;
++		amdgpu_crtc->lut_g[i] = i << 2;
++		amdgpu_crtc->lut_b[i] = i << 2;
++	}
++	
+ 	amdgpu_crtc->crtc_offset = crtc_offsets[amdgpu_crtc->crtc_id];
+ 
+ 	amdgpu_crtc->pll_id = ATOM_PPLL_INVALID;
+diff --git a/drivers/gpu/drm/amd/amdgpu/dce_virtual.c b/drivers/gpu/drm/amd/amdgpu/dce_virtual.c
+index da19393..90a4d24 100644
+--- a/drivers/gpu/drm/amd/amdgpu/dce_virtual.c
++++ b/drivers/gpu/drm/amd/amdgpu/dce_virtual.c
+@@ -115,6 +115,16 @@ static int dce_virtual_crtc_gamma_set(struct drm_crtc *crtc, u16 *red,
+ 				      u16 *green, u16 *blue, uint32_t size,
+ 				      struct drm_modeset_acquire_ctx *ctx)
+ {
++	struct amdgpu_crtc *amdgpu_crtc = to_amdgpu_crtc(crtc);
++	int i;
++
++	/* userspace palettes are always correct as is */
++	for (i = 0; i < size; i++) {
++		amdgpu_crtc->lut_r[i] = red[i] >> 6;
++		amdgpu_crtc->lut_g[i] = green[i] >> 6;
++		amdgpu_crtc->lut_b[i] = blue[i] >> 6;
++	}
++
+ 	return 0;
+ }
+ 
+@@ -227,6 +237,11 @@ static int dce_virtual_crtc_set_base(struct drm_crtc *crtc, int x, int y,
+ 	return 0;
+ }
+ 
++static void dce_virtual_crtc_load_lut(struct drm_crtc *crtc)
++{
++	return;
++}
++
+ static int dce_virtual_crtc_set_base_atomic(struct drm_crtc *crtc,
+ 					 struct drm_framebuffer *fb,
+ 					 int x, int y, enum mode_set_atomic state)
+@@ -242,12 +257,14 @@ static const struct drm_crtc_helper_funcs dce_virtual_crtc_helper_funcs = {
+ 	.mode_set_base_atomic = dce_virtual_crtc_set_base_atomic,
+ 	.prepare = dce_virtual_crtc_prepare,
+ 	.commit = dce_virtual_crtc_commit,
++	.load_lut = dce_virtual_crtc_load_lut,
+ 	.disable = dce_virtual_crtc_disable,
+ };
+ 
+ static int dce_virtual_crtc_init(struct amdgpu_device *adev, int index)
+ {
+ 	struct amdgpu_crtc *amdgpu_crtc;
++	int i;
+ 
+ 	amdgpu_crtc = kzalloc(sizeof(struct amdgpu_crtc) +
+ 			      (AMDGPUFB_CONN_LIMIT * sizeof(struct drm_connector *)), GFP_KERNEL);
+@@ -260,6 +277,12 @@ static int dce_virtual_crtc_init(struct amdgpu_device *adev, int index)
+ 	amdgpu_crtc->crtc_id = index;
+ 	adev->mode_info.crtcs[index] = amdgpu_crtc;
+ 
++	for (i = 0; i < 256; i++) {
++		amdgpu_crtc->lut_r[i] = i << 2;
++		amdgpu_crtc->lut_g[i] = i << 2;
++		amdgpu_crtc->lut_b[i] = i << 2;
++	}
++	
+ 	amdgpu_crtc->pll_id = ATOM_PPLL_INVALID;
+ 	amdgpu_crtc->encoder = NULL;
+ 	amdgpu_crtc->connector = NULL;
+diff --git a/drivers/gpu/drm/amd/amdgpu/gmc_v6_0.c b/drivers/gpu/drm/amd/amdgpu/gmc_v6_0.c
+index ef6323d..5eacc08 100644
+--- a/drivers/gpu/drm/amd/amdgpu/gmc_v6_0.c
++++ b/drivers/gpu/drm/amd/amdgpu/gmc_v6_0.c
+@@ -324,13 +324,11 @@ static int gmc_v6_0_mc_init(struct amdgpu_device *adev)
+ 	adev->gmc.mc_vram_size = RREG32(mmCONFIG_MEMSIZE) * 1024ULL * 1024ULL;
+ 	adev->gmc.real_vram_size = RREG32(mmCONFIG_MEMSIZE) * 1024ULL * 1024ULL;
+ 
+-#if !defined(BUILD_AS_DKMS) || LINUX_VERSION_CODE >= KERNEL_VERSION(4, 15, 0)
+ 	if (!(adev->flags & AMD_IS_APU)) {
+ 		r = amdgpu_device_resize_fb_bar(adev);
+ 		if (r)
+ 			return r;
+ 	}
+-#endif
+ 	adev->gmc.aper_base = pci_resource_start(adev->pdev, 0);
+ 	adev->gmc.aper_size = pci_resource_len(adev->pdev, 0);
+ 	adev->gmc.visible_vram_size = adev->gmc.aper_size;
+diff --git a/drivers/gpu/drm/amd/amdgpu/gmc_v7_0.c b/drivers/gpu/drm/amd/amdgpu/gmc_v7_0.c
+index b62bda0..4d2624f 100644
+--- a/drivers/gpu/drm/amd/amdgpu/gmc_v7_0.c
++++ b/drivers/gpu/drm/amd/amdgpu/gmc_v7_0.c
+@@ -368,13 +368,11 @@ static int gmc_v7_0_mc_init(struct amdgpu_device *adev)
+ 	adev->gmc.mc_vram_size = RREG32(mmCONFIG_MEMSIZE) * 1024ULL * 1024ULL;
+ 	adev->gmc.real_vram_size = RREG32(mmCONFIG_MEMSIZE) * 1024ULL * 1024ULL;
+ 
+-#if !defined(BUILD_AS_DKMS) || LINUX_VERSION_CODE >= KERNEL_VERSION(4, 15, 0)
+ 	if (!(adev->flags & AMD_IS_APU)) {
+ 		r = amdgpu_device_resize_fb_bar(adev);
+ 		if (r)
+ 			return r;
+ 	}
+-#endif
+ 	adev->gmc.aper_base = pci_resource_start(adev->pdev, 0);
+ 	adev->gmc.aper_size = pci_resource_len(adev->pdev, 0);
+ 
+diff --git a/drivers/gpu/drm/amd/amdgpu/gmc_v8_0.c b/drivers/gpu/drm/amd/amdgpu/gmc_v8_0.c
+index aaf021c..6f9375b 100644
+--- a/drivers/gpu/drm/amd/amdgpu/gmc_v8_0.c
++++ b/drivers/gpu/drm/amd/amdgpu/gmc_v8_0.c
+@@ -548,13 +548,11 @@ static int gmc_v8_0_mc_init(struct amdgpu_device *adev)
+ 	adev->gmc.mc_vram_size = RREG32(mmCONFIG_MEMSIZE) * 1024ULL * 1024ULL;
+ 	adev->gmc.real_vram_size = RREG32(mmCONFIG_MEMSIZE) * 1024ULL * 1024ULL;
+ 
+-#if !defined(BUILD_AS_DKMS) || LINUX_VERSION_CODE >= KERNEL_VERSION(4, 15, 0)
+ 	if (!(adev->flags & AMD_IS_APU)) {
+ 		r = amdgpu_device_resize_fb_bar(adev);
+ 		if (r)
+ 			return r;
+ 	}
+-#endif
+ 	adev->gmc.aper_base = pci_resource_start(adev->pdev, 0);
+ 	adev->gmc.aper_size = pci_resource_len(adev->pdev, 0);
+ 
+diff --git a/drivers/gpu/drm/amd/amdgpu/gmc_v9_0.c b/drivers/gpu/drm/amd/amdgpu/gmc_v9_0.c
+index 87e3883..75adf9b 100644
+--- a/drivers/gpu/drm/amd/amdgpu/gmc_v9_0.c
++++ b/drivers/gpu/drm/amd/amdgpu/gmc_v9_0.c
+@@ -760,13 +760,11 @@ static int gmc_v9_0_mc_init(struct amdgpu_device *adev)
+ 		adev->nbio_funcs->get_memsize(adev) * 1024ULL * 1024ULL;
+ 	adev->gmc.real_vram_size = adev->gmc.mc_vram_size;
+ 
+-#if !defined(BUILD_AS_DKMS) || LINUX_VERSION_CODE >= KERNEL_VERSION(4, 15, 0)
+ 	if (!(adev->flags & AMD_IS_APU)) {
+ 		r = amdgpu_device_resize_fb_bar(adev);
+ 		if (r)
+ 			return r;
+ 	}
+-#endif
+ 	adev->gmc.aper_base = pci_resource_start(adev->pdev, 0);
+ 	adev->gmc.aper_size = pci_resource_len(adev->pdev, 0);
+ 
+diff --git a/drivers/gpu/drm/amd/amdkfd/kfd_chardev.c b/drivers/gpu/drm/amd/amdkfd/kfd_chardev.c
+index 59ab2e4..933af56 100644
+--- a/drivers/gpu/drm/amd/amdkfd/kfd_chardev.c
++++ b/drivers/gpu/drm/amd/amdkfd/kfd_chardev.c
+@@ -25,9 +25,7 @@
+ #include <linux/err.h>
+ #include <linux/fs.h>
+ #include <linux/sched.h>
+-#if LINUX_VERSION_CODE >= KERNEL_VERSION(4, 11, 0)
+ #include <linux/sched/mm.h>
+-#endif
+ #include <linux/slab.h>
+ #include <linux/uaccess.h>
+ #include <linux/compat.h>
+@@ -1670,68 +1668,6 @@ static int kfd_ioctl_get_tile_config(struct file *filep,
+ #define PTRACE_MODE_ATTACH_REALCREDS  PTRACE_MODE_ATTACH
+ #endif
+ 
+-#if defined(BUILD_AS_DKMS)
+-#if LINUX_VERSION_CODE >= KERNEL_VERSION(3, 10, 0)
+-static bool kfd_may_access(struct task_struct *task, unsigned int mode)
+-{
+-	bool access = false;
+-	const struct cred *cred = current_cred(), *tcred;
+-	kuid_t caller_uid = cred->fsuid;
+-	kgid_t caller_gid = cred->fsgid;
+-
+-	task_lock(task);
+-
+-	if (same_thread_group(task, current)) {
+-		access = true;
+-		goto ok;
+-	}
+-
+-	tcred = __task_cred(task);
+-	if (uid_eq(caller_uid, tcred->euid) &&
+-	    uid_eq(caller_uid, tcred->suid) &&
+-	    uid_eq(caller_uid, tcred->uid)  &&
+-	    gid_eq(caller_gid, tcred->egid) &&
+-	    gid_eq(caller_gid, tcred->sgid) &&
+-	    gid_eq(caller_gid, tcred->gid))
+-		access = true;
+-
+-ok:
+-	task_unlock(task);
+-	return access;
+-}
+-/* mm_access() is currently not exported. This is a relaxed implementation
+- * that allows access as long as both process belong to same uid
+- */
+-static struct mm_struct *kfd_relaxed_mm_access(struct task_struct *task,
+-					       unsigned int mode)
+-{
+-	struct mm_struct *mm;
+-	int err;
+-
+-	if (!cma_enable)
+-		return ERR_PTR(-EACCES);
+-
+-	err =  mutex_lock_killable(&task->signal->cred_guard_mutex);
+-	if (err)
+-		return ERR_PTR(err);
+-
+-	mm = get_task_mm(task);
+-	if (mm && mm != current->mm &&
+-			!kfd_may_access(task, mode)) {
+-		mmput(mm);
+-		mm = ERR_PTR(-EACCES);
+-	}
+-	mutex_unlock(&task->signal->cred_guard_mutex);
+-
+-	return mm;
+-}
+-
+-#define mm_access(task, mode) kfd_relaxed_mm_access(task, mode)
+-#else /* LINUX_VERSION_CODE >= KERNEL_VERSION(3, 10, 0) */
+-#define mm_access(task, mode) ERR_PTR(-EACCES)
+-#endif
+-#endif /* defined(BUILD_AS_DKMS) */
+-
+ static int kfd_ioctl_cross_memory_copy(struct file *filep,
+ 				       struct kfd_process *local_p, void *data)
+ {
+diff --git a/drivers/gpu/drm/amd/amdkfd/kfd_crat.c b/drivers/gpu/drm/amd/amdkfd/kfd_crat.c
+index 8c254328..71525cf 100644
+--- a/drivers/gpu/drm/amd/amdkfd/kfd_crat.c
++++ b/drivers/gpu/drm/amd/amdkfd/kfd_crat.c
+@@ -846,11 +846,7 @@ static int kfd_fill_mem_info_for_cpu(int numa_node_id, int *avail_size,
+ 	 */
+ 	pgdat = NODE_DATA(numa_node_id);
+ 	for (zone_type = 0; zone_type < MAX_NR_ZONES; zone_type++)
+-#if LINUX_VERSION_CODE < KERNEL_VERSION(3, 0, 0)
+-		mem_in_bytes += pgdat->node_zones[zone_type].present_pages;
+-#else
+ 		mem_in_bytes += pgdat->node_zones[zone_type].managed_pages;
+-#endif
+ 	mem_in_bytes <<= PAGE_SHIFT;
+ 
+ 	sub_type_hdr->length_low = lower_32_bits(mem_in_bytes);
+diff --git a/drivers/gpu/drm/amd/amdkfd/kfd_device.c b/drivers/gpu/drm/amd/amdkfd/kfd_device.c
+index d3cfd67..f701b4e 100644
+--- a/drivers/gpu/drm/amd/amdkfd/kfd_device.c
++++ b/drivers/gpu/drm/amd/amdkfd/kfd_device.c
+@@ -322,11 +322,6 @@ static void kfd_gtt_sa_fini(struct kfd_dev *kfd);
+ 
+ static int kfd_resume(struct kfd_dev *kfd);
+ 
+-#if LINUX_VERSION_CODE < KERNEL_VERSION(3, 0, 0)
+-void kfd_init_processes_srcu(void);
+-void kfd_cleanup_processes_srcu(void);
+-#endif
+-
+ static const struct kfd_device_info *lookup_device_info(unsigned short did)
+ {
+ 	size_t i;
+@@ -590,10 +585,6 @@ bool kgd2kfd_device_init(struct kfd_dev *kfd,
+ 
+ 	kfd_ib_mem_init(kfd);
+ 
+-#if LINUX_VERSION_CODE < KERNEL_VERSION(3, 0, 0)
+-	kfd_init_processes_srcu();
+-#endif
+-
+ 	if (kfd_resume(kfd))
+ 		goto kfd_resume_error;
+ 
+@@ -632,9 +623,6 @@ void kgd2kfd_device_exit(struct kfd_dev *kfd)
+ {
+ 	if (kfd->init_complete) {
+ 		kgd2kfd_suspend(kfd);
+-#if LINUX_VERSION_CODE < KERNEL_VERSION(3, 0, 0)
+-		kfd_cleanup_processes_srcu();
+-#endif
+ 		device_queue_manager_uninit(kfd->dqm);
+ 		kfd_interrupt_exit(kfd);
+ 		kfd_topology_remove_device(kfd);
+diff --git a/drivers/gpu/drm/amd/amdkfd/kfd_events.c b/drivers/gpu/drm/amd/amdkfd/kfd_events.c
+index 86afd01..ee3c288 100644
+--- a/drivers/gpu/drm/amd/amdkfd/kfd_events.c
++++ b/drivers/gpu/drm/amd/amdkfd/kfd_events.c
+@@ -21,13 +21,10 @@
+  */
+ 
+ #include <linux/mm_types.h>
+-#include <linux/version.h>
+ #include <linux/slab.h>
+ #include <linux/types.h>
+-#if LINUX_VERSION_CODE >= KERNEL_VERSION(4, 11, 0)
+ #include <linux/sched/mm.h>
+ #include <linux/sched/signal.h>
+-#endif
+ #include <linux/uaccess.h>
+ #include <linux/mman.h>
+ #include <linux/memory.h>
+@@ -966,9 +963,6 @@ void kfd_signal_vm_fault_event(struct kfd_dev *dev, unsigned int pasid,
+ 	uint32_t id;
+ 	struct kfd_process *p = kfd_lookup_process_by_pasid(pasid);
+ 	struct kfd_hsa_memory_exception_data memory_exception_data;
+-#if LINUX_VERSION_CODE < KERNEL_VERSION(3, 9, 0)
+-	struct hlist_node *node;
+-#endif
+ 
+ 	if (!p)
+ 		return; /* Presumably process exited. */
+diff --git a/drivers/gpu/drm/amd/amdkfd/kfd_interrupt.c b/drivers/gpu/drm/amd/amdkfd/kfd_interrupt.c
+index be18f08..92a277f 100644
+--- a/drivers/gpu/drm/amd/amdkfd/kfd_interrupt.c
++++ b/drivers/gpu/drm/amd/amdkfd/kfd_interrupt.c
+@@ -41,7 +41,6 @@
+  */
+ 
+ #include <linux/slab.h>
+-#include <linux/version.h>
+ #include <linux/device.h>
+ #include "kfd_priv.h"
+ 
+@@ -61,11 +60,7 @@ int kfd_interrupt_init(struct kfd_dev *kfd)
+ 		return r;
+ 	}
+ 
+-#if LINUX_VERSION_CODE < KERNEL_VERSION(3, 0, 0)
+-	kfd->ih_wq = create_rt_workqueue("KFD IH");
+-#else
+ 	kfd->ih_wq = alloc_workqueue("KFD IH", WQ_HIGHPRI, 1);
+-#endif
+ 	spin_lock_init(&kfd->interrupt_lock);
+ 
+ 	INIT_WORK(&kfd->interrupt_work, interrupt_wq);
+@@ -115,15 +110,9 @@ bool enqueue_ih_ring_entry(struct kfd_dev *kfd,	const void *ih_ring_entry)
+ 	count = kfifo_in(&kfd->ih_fifo, ih_ring_entry,
+ 				kfd->device_info->ih_ring_entry_size);
+ 	if (count != kfd->device_info->ih_ring_entry_size) {
+-#if LINUX_VERSION_CODE < KERNEL_VERSION(3, 0, 0)
+-		dev_err(kfd_chardev(),
+-			"Interrupt ring overflow, dropping interrupt %d\n",
+-			count);
+-#else
+ 		dev_err_ratelimited(kfd_chardev(),
+ 			"Interrupt ring overflow, dropping interrupt %d\n",
+ 			count);
+-#endif
+ 		return false;
+ 	}
+ 
+diff --git a/drivers/gpu/drm/amd/amdkfd/kfd_ipc.c b/drivers/gpu/drm/amd/amdkfd/kfd_ipc.c
+index 269cd2a..0feb366 100644
+--- a/drivers/gpu/drm/amd/amdkfd/kfd_ipc.c
++++ b/drivers/gpu/drm/amd/amdkfd/kfd_ipc.c
+@@ -21,7 +21,6 @@
+  */
+ 
+ #include <linux/dma-buf.h>
+-#include <linux/version.h>
+ #include <linux/slab.h>
+ #include <linux/random.h>
+ 
+@@ -189,21 +188,13 @@ int kfd_ipc_import_handle(struct kfd_dev *dev, struct kfd_process *p,
+ {
+ 	int r;
+ 	struct kfd_ipc_obj *entry, *found = NULL;
+-#if LINUX_VERSION_CODE < KERNEL_VERSION(3, 9, 0)
+-	struct hlist_node *tmp_node;
+-#endif
+ 
+ 	mutex_lock(&kfd_ipc_handles.lock);
+ 	/* Convert the user provided handle to hash key and search only in that
+ 	 * bucket
+ 	 */
+-#if LINUX_VERSION_CODE < KERNEL_VERSION(3, 9, 0)
+-	hlist_for_each_entry(entry, tmp_node,
+-		&kfd_ipc_handles.handles[HANDLE_TO_KEY(share_handle)], node) {
+-#else
+ 	hlist_for_each_entry(entry,
+ 		&kfd_ipc_handles.handles[HANDLE_TO_KEY(share_handle)], node) {
+-#endif
+ 		if (!memcmp(entry->share_handle, share_handle,
+ 			    sizeof(entry->share_handle))) {
+ 			found = entry;
+diff --git a/drivers/gpu/drm/amd/amdkfd/kfd_mqd_manager_cik.c b/drivers/gpu/drm/amd/amdkfd/kfd_mqd_manager_cik.c
+index bac692d..602da80 100644
+--- a/drivers/gpu/drm/amd/amdkfd/kfd_mqd_manager_cik.c
++++ b/drivers/gpu/drm/amd/amdkfd/kfd_mqd_manager_cik.c
+@@ -22,7 +22,6 @@
+  */
+ 
+ #include <linux/printk.h>
+-#include <linux/version.h>
+ #include <linux/slab.h>
+ #include <linux/mm_types.h>
+ 
+@@ -455,19 +454,15 @@ static int update_mqd_hiq(struct mqd_manager *mm, void *mqd,
+ 
+ static int debugfs_show_mqd(struct seq_file *m, void *data)
+ {
+-#if LINUX_VERSION_CODE > KERNEL_VERSION(3, 0, 0) && !defined(OS_NAME_RHEL_7_2)
+ 	seq_hex_dump(m, "    ", DUMP_PREFIX_OFFSET, 32, 4,
+ 		     data, sizeof(struct cik_mqd), false);
+-#endif
+ 	return 0;
+ }
+ 
+ static int debugfs_show_mqd_sdma(struct seq_file *m, void *data)
+ {
+-#if LINUX_VERSION_CODE > KERNEL_VERSION(3, 0, 0) && !defined(OS_NAME_RHEL_7_2)
+ 	seq_hex_dump(m, "    ", DUMP_PREFIX_OFFSET, 32, 4,
+ 		     data, sizeof(struct cik_sdma_rlc_registers), false);
+-#endif
+ 	return 0;
+ }
+ 
+diff --git a/drivers/gpu/drm/amd/amdkfd/kfd_mqd_manager_v9.c b/drivers/gpu/drm/amd/amdkfd/kfd_mqd_manager_v9.c
+index ed2b9d3..25a20e1 100644
+--- a/drivers/gpu/drm/amd/amdkfd/kfd_mqd_manager_v9.c
++++ b/drivers/gpu/drm/amd/amdkfd/kfd_mqd_manager_v9.c
+@@ -22,7 +22,6 @@
+  */
+ 
+ #include <linux/printk.h>
+-#include <linux/version.h>
+ #include <linux/slab.h>
+ #include <linux/uaccess.h>
+ #include "kfd_priv.h"
+@@ -452,19 +451,15 @@ static bool is_occupied_sdma(struct mqd_manager *mm, void *mqd,
+ 
+ static int debugfs_show_mqd(struct seq_file *m, void *data)
+ {
+-#if LINUX_VERSION_CODE > KERNEL_VERSION(3, 0, 0) && !defined(OS_NAME_RHEL_7_2)
+ 	seq_hex_dump(m, "    ", DUMP_PREFIX_OFFSET, 32, 4,
+ 		     data, sizeof(struct v9_mqd), false);
+-#endif
+ 	return 0;
+ }
+ 
+ static int debugfs_show_mqd_sdma(struct seq_file *m, void *data)
+ {
+-#if LINUX_VERSION_CODE > KERNEL_VERSION(3, 0, 0) && !defined(OS_NAME_RHEL_7_2)
+ 	seq_hex_dump(m, "    ", DUMP_PREFIX_OFFSET, 32, 4,
+ 		     data, sizeof(struct v9_sdma_mqd), false);
+-#endif
+ 	return 0;
+ }
+ 
+diff --git a/drivers/gpu/drm/amd/amdkfd/kfd_mqd_manager_vi.c b/drivers/gpu/drm/amd/amdkfd/kfd_mqd_manager_vi.c
+index f4b08ee..9bf1212 100644
+--- a/drivers/gpu/drm/amd/amdkfd/kfd_mqd_manager_vi.c
++++ b/drivers/gpu/drm/amd/amdkfd/kfd_mqd_manager_vi.c
+@@ -22,7 +22,6 @@
+  */
+ 
+ #include <linux/printk.h>
+-#include <linux/version.h>
+ #include <linux/slab.h>
+ #include <linux/mm_types.h>
+ 
+@@ -462,19 +461,15 @@ static bool is_occupied_sdma(struct mqd_manager *mm, void *mqd,
+ 
+ static int debugfs_show_mqd(struct seq_file *m, void *data)
+ {
+-#if LINUX_VERSION_CODE > KERNEL_VERSION(3, 0, 0) && !defined(OS_NAME_RHEL_7_2)
+ 	seq_hex_dump(m, "    ", DUMP_PREFIX_OFFSET, 32, 4,
+ 		     data, sizeof(struct vi_mqd), false);
+-#endif
+ 	return 0;
+ }
+ 
+ static int debugfs_show_mqd_sdma(struct seq_file *m, void *data)
+ {
+-#if LINUX_VERSION_CODE > KERNEL_VERSION(3, 0, 0) && !defined(OS_NAME_RHEL_7_2)
+ 	seq_hex_dump(m, "    ", DUMP_PREFIX_OFFSET, 32, 4,
+ 		     data, sizeof(struct vi_sdma_mqd), false);
+-#endif
+ 	return 0;
+ }
+ 
+diff --git a/drivers/gpu/drm/amd/amdkfd/kfd_packet_manager.c b/drivers/gpu/drm/amd/amdkfd/kfd_packet_manager.c
+index 91c5380..98c89d2 100644
+--- a/drivers/gpu/drm/amd/amdkfd/kfd_packet_manager.c
++++ b/drivers/gpu/drm/amd/amdkfd/kfd_packet_manager.c
+@@ -22,7 +22,6 @@
+  */
+ 
+ #include <linux/slab.h>
+-#include <linux/version.h>
+ #include <linux/mutex.h>
+ #include "kfd_device_queue_manager.h"
+ #include "kfd_kernel_queue.h"
+@@ -410,10 +409,8 @@ int pm_debugfs_runlist(struct seq_file *m, void *data)
+ 		return 0;
+ 	}
+ 
+-#if LINUX_VERSION_CODE > KERNEL_VERSION(3, 0, 0) && !defined(OS_NAME_RHEL_7_2)
+ 	seq_hex_dump(m, "  ", DUMP_PREFIX_OFFSET, 32, 4,
+ 		     pm->ib_buffer_obj->cpu_ptr, pm->ib_size_bytes, false);
+-#endif
+ 
+ 	return 0;
+ }
+diff --git a/drivers/gpu/drm/amd/amdkfd/kfd_process.c b/drivers/gpu/drm/amd/amdkfd/kfd_process.c
+index 6e3043c..71438ac 100644
+--- a/drivers/gpu/drm/amd/amdkfd/kfd_process.c
++++ b/drivers/gpu/drm/amd/amdkfd/kfd_process.c
+@@ -23,10 +23,8 @@
+ #include <linux/mutex.h>
+ #include <linux/log2.h>
+ #include <linux/sched.h>
+-#if LINUX_VERSION_CODE >= KERNEL_VERSION(4, 11, 0)
+ #include <linux/sched/mm.h>
+ #include <linux/sched/task.h>
+-#endif
+ #include <linux/slab.h>
+ #if defined(CONFIG_AMD_IOMMU_V2_MODULE) || defined(CONFIG_AMD_IOMMU_V2)
+ #include <linux/amd-iommu.h>
+@@ -51,20 +49,7 @@ struct mm_struct;
+ static DEFINE_HASHTABLE(kfd_processes_table, KFD_PROCESS_TABLE_SIZE);
+ static DEFINE_MUTEX(kfd_processes_mutex);
+ 
+-#if LINUX_VERSION_CODE < KERNEL_VERSION(3, 0, 0)
+-static struct srcu_struct kfd_processes_srcu;
+-void kfd_init_processes_srcu(void)
+-{
+-	init_srcu_struct(&kfd_processes_srcu);
+-}
+-
+-void kfd_cleanup_processes_srcu(void)
+-{
+-	cleanup_srcu_struct(&kfd_processes_srcu);
+-}
+-#else
+ DEFINE_STATIC_SRCU(kfd_processes_srcu);
+-#endif
+ 
+ static struct workqueue_struct *kfd_process_wq;
+ 
+@@ -82,11 +67,7 @@ static int kfd_process_init_cwsr(struct kfd_process *p, struct file *filep);
+ void kfd_process_create_wq(void)
+ {
+ 	if (!kfd_process_wq)
+-#if LINUX_VERSION_CODE < KERNEL_VERSION(3, 0, 0)
+-		kfd_process_wq = create_workqueue("kfd_process_wq");
+-#else
+ 		kfd_process_wq = alloc_workqueue("kfd_process_wq", 0, 0);
+-#endif
+ }
+ 
+ void kfd_process_destroy_wq(void)
+@@ -272,15 +253,8 @@ static struct kfd_process *find_process_by_mm(const struct mm_struct *mm)
+ {
+ 	struct kfd_process *process;
+ 
+-#if LINUX_VERSION_CODE < KERNEL_VERSION(3, 9, 0)
+-	struct hlist_node *node;
+-
+-	hash_for_each_possible_rcu(kfd_processes_table, process, node,
+-					kfd_processes, (uintptr_t)mm)
+-#else
+ 	hash_for_each_possible_rcu(kfd_processes_table, process,
+ 					kfd_processes, (uintptr_t)mm)
+-#endif
+ 		if (process->mm == mm)
+ 			return process;
+ 
+@@ -1019,13 +993,7 @@ struct kfd_process *kfd_lookup_process_by_pasid(unsigned int pasid)
+ 
+ 	int idx = srcu_read_lock(&kfd_processes_srcu);
+ 
+-#if LINUX_VERSION_CODE < KERNEL_VERSION(3, 9, 0)
+-	struct hlist_node *node;
+-
+-	hash_for_each_rcu(kfd_processes_table, temp, node, p, kfd_processes) {
+-#else
+ 	hash_for_each_rcu(kfd_processes_table, temp, p, kfd_processes) {
+-#endif
+ 		if (p->pasid == pasid) {
+ 			kref_get(&p->ref);
+ 			ret_p = p;
+@@ -1044,13 +1012,7 @@ void kfd_suspend_all_processes(void)
+ 	unsigned int temp;
+ 	int idx = srcu_read_lock(&kfd_processes_srcu);
+ 
+-#if LINUX_VERSION_CODE < KERNEL_VERSION(3, 9, 0)
+-	struct hlist_node *node;
+-
+-	hash_for_each_rcu(kfd_processes_table, temp, node, p, kfd_processes) {
+-#else
+ 	hash_for_each_rcu(kfd_processes_table, temp, p, kfd_processes) {
+-#endif
+ 		cancel_delayed_work_sync(&p->eviction_work);
+ 		cancel_delayed_work_sync(&p->restore_work);
+ 
+@@ -1069,13 +1031,7 @@ int kfd_resume_all_processes(void)
+ 	unsigned int temp;
+ 	int ret = 0, idx = srcu_read_lock(&kfd_processes_srcu);
+ 
+-#if LINUX_VERSION_CODE < KERNEL_VERSION(3, 9, 0)
+-	struct hlist_node *node;
+-
+-	hash_for_each_rcu(kfd_processes_table, temp, node, p, kfd_processes) {
+-#else
+ 	hash_for_each_rcu(kfd_processes_table, temp, p, kfd_processes) {
+-#endif
+ 		if (!schedule_delayed_work(&p->restore_work, 0)) {
+ 			pr_err("Restore process %d failed during resume\n",
+ 			       p->pasid);
+@@ -1146,13 +1102,7 @@ int kfd_debugfs_mqds_by_process(struct seq_file *m, void *data)
+ 
+ 	int idx = srcu_read_lock(&kfd_processes_srcu);
+ 
+-#if LINUX_VERSION_CODE < KERNEL_VERSION(3, 9, 0)
+-	struct hlist_node *node;
+-
+-	hash_for_each_rcu(kfd_processes_table, temp, node, p, kfd_processes) {
+-#else
+ 	hash_for_each_rcu(kfd_processes_table, temp, p, kfd_processes) {
+-#endif
+ 		seq_printf(m, "Process %d PASID %d:\n",
+ 			   p->lead_thread->tgid, p->pasid);
+ 
+diff --git a/drivers/gpu/drm/amd/amdkfd/kfd_topology.c b/drivers/gpu/drm/amd/amdkfd/kfd_topology.c
+index 38e3700..58a5bef 100644
+--- a/drivers/gpu/drm/amd/amdkfd/kfd_topology.c
++++ b/drivers/gpu/drm/amd/amdkfd/kfd_topology.c
+@@ -21,7 +21,6 @@
+  */
+ 
+ #include <linux/types.h>
+-#include <linux/version.h>
+ #include <linux/kernel.h>
+ #include <linux/pci.h>
+ #include <linux/errno.h>
+@@ -123,9 +122,7 @@ static void kfd_release_topology_device(struct kfd_topology_device *dev)
+ 	struct kfd_mem_properties *mem;
+ 	struct kfd_cache_properties *cache;
+ 	struct kfd_iolink_properties *iolink;
+-#if LINUX_VERSION_CODE > KERNEL_VERSION(3, 10, 0)
+ 	struct kfd_perf_properties *perf;
+-#endif
+ 
+ 	list_del(&dev->list);
+ 
+@@ -150,14 +147,12 @@ static void kfd_release_topology_device(struct kfd_topology_device *dev)
+ 		kfree(iolink);
+ 	}
+ 
+-#if LINUX_VERSION_CODE > KERNEL_VERSION(3, 10, 0)
+ 	while (dev->perf_props.next != &dev->perf_props) {
+ 		perf = container_of(dev->perf_props.next,
+ 				struct kfd_perf_properties, list);
+ 		list_del(&perf->list);
+ 		kfree(perf);
+ 	}
+-#endif
+ 
+ 	kfree(dev);
+ }
+@@ -193,9 +188,7 @@ struct kfd_topology_device *kfd_create_topology_device(
+ 	INIT_LIST_HEAD(&dev->mem_props);
+ 	INIT_LIST_HEAD(&dev->cache_props);
+ 	INIT_LIST_HEAD(&dev->io_link_props);
+-#if LINUX_VERSION_CODE > KERNEL_VERSION(3, 10, 0)
+ 	INIT_LIST_HEAD(&dev->perf_props);
+-#endif
+ 
+ 	list_add_tail(&dev->list, device_list);
+ 
+@@ -375,7 +368,6 @@ static struct kobj_type cache_type = {
+ 	.sysfs_ops = &cache_ops,
+ };
+ 
+-#if LINUX_VERSION_CODE > KERNEL_VERSION(3, 10, 0)
+ /****** Sysfs of Performance Counters ******/
+ 
+ struct kfd_perf_attr {
+@@ -408,7 +400,6 @@ static struct kfd_perf_attr perf_attr_iommu[] = {
+ 	KFD_PERF_DESC(counter_ids, 0),
+ };
+ /****************************************/
+-#endif
+ 
+ static ssize_t node_show(struct kobject *kobj, struct attribute *attr,
+ 		char *buffer)
+@@ -550,9 +541,7 @@ static void kfd_remove_sysfs_node_entry(struct kfd_topology_device *dev)
+ 	struct kfd_iolink_properties *iolink;
+ 	struct kfd_cache_properties *cache;
+ 	struct kfd_mem_properties *mem;
+-#if LINUX_VERSION_CODE > KERNEL_VERSION(3, 10, 0)
+ 	struct kfd_perf_properties *perf;
+-#endif
+ 
+ 	if (dev->kobj_iolink) {
+ 		list_for_each_entry(iolink, &dev->io_link_props, list)
+@@ -594,7 +583,6 @@ static void kfd_remove_sysfs_node_entry(struct kfd_topology_device *dev)
+ 		dev->kobj_mem = NULL;
+ 	}
+ 
+-#if LINUX_VERSION_CODE > KERNEL_VERSION(3, 10, 0)
+ 	if (dev->kobj_perf) {
+ 		list_for_each_entry(perf, &dev->perf_props, list) {
+ 			kfree(perf->attr_group);
+@@ -604,7 +592,6 @@ static void kfd_remove_sysfs_node_entry(struct kfd_topology_device *dev)
+ 		kobject_put(dev->kobj_perf);
+ 		dev->kobj_perf = NULL;
+ 	}
+-#endif
+ 
+ 	if (dev->kobj_node) {
+ 		sysfs_remove_file(dev->kobj_node, &dev->attr_gpuid);
+@@ -622,11 +609,9 @@ static int kfd_build_sysfs_node_entry(struct kfd_topology_device *dev,
+ 	struct kfd_iolink_properties *iolink;
+ 	struct kfd_cache_properties *cache;
+ 	struct kfd_mem_properties *mem;
+-#if LINUX_VERSION_CODE > KERNEL_VERSION(3, 10, 0)
+ 	struct kfd_perf_properties *perf;
+ 	uint32_t num_attrs;
+ 	struct attribute **attrs;
+-#endif
+ 	int ret;
+ 	uint32_t i;
+ 
+@@ -657,11 +642,9 @@ static int kfd_build_sysfs_node_entry(struct kfd_topology_device *dev,
+ 	if (!dev->kobj_iolink)
+ 		return -ENOMEM;
+ 
+-#if LINUX_VERSION_CODE > KERNEL_VERSION(3, 10, 0)
+ 	dev->kobj_perf = kobject_create_and_add("perf", dev->kobj_node);
+ 	if (!dev->kobj_perf)
+ 		return -ENOMEM;
+-#endif
+ 
+ 	/*
+ 	 * Creating sysfs files for node properties
+@@ -753,7 +736,6 @@ static int kfd_build_sysfs_node_entry(struct kfd_topology_device *dev,
+ 		i++;
+ 	}
+ 
+-#if LINUX_VERSION_CODE > KERNEL_VERSION(3, 10, 0)
+ 	/* All hardware blocks have the same number of attributes. */
+ 	num_attrs = sizeof(perf_attr_iommu)/sizeof(struct kfd_perf_attr);
+ 	list_for_each_entry(perf, &dev->perf_props, list) {
+@@ -779,7 +761,6 @@ static int kfd_build_sysfs_node_entry(struct kfd_topology_device *dev,
+ 		if (ret < 0)
+ 			return ret;
+ 	}
+-#endif
+ 
+ 	return 0;
+ }
+@@ -946,7 +927,6 @@ static void find_system_memory(const struct dmi_header *dm,
+ 	}
+ }
+ 
+-#if LINUX_VERSION_CODE > KERNEL_VERSION(3, 10, 0)
+ /*
+  * Performance counters information is not part of CRAT but we would like to
+  * put them in the sysfs under topology directory for Thunk to get the data.
+@@ -970,7 +950,6 @@ static int kfd_add_perf_to_topology(struct kfd_topology_device *kdev)
+ 
+ 	return 0;
+ }
+-#endif
+ 
+ /* kfd_add_non_crat_information - Add information that is not currently
+  *	defined in CRAT but is necessary for KFD topology
+@@ -1078,11 +1057,9 @@ int kfd_topology_init(void)
+ 		}
+ 	}
+ 
+-#if LINUX_VERSION_CODE > KERNEL_VERSION(3, 10, 0)
+ 	kdev = list_first_entry(&temp_topology_device_list,
+ 				struct kfd_topology_device, list);
+ 	kfd_add_perf_to_topology(kdev);
+-#endif
+ 
+ 	down_write(&topology_lock);
+ 	kfd_topology_update_device_list(&temp_topology_device_list,
+diff --git a/drivers/gpu/drm/amd/amdkfd/kfd_topology.h b/drivers/gpu/drm/amd/amdkfd/kfd_topology.h
+index 4a9f167..d1c9ba3 100644
+--- a/drivers/gpu/drm/amd/amdkfd/kfd_topology.h
++++ b/drivers/gpu/drm/amd/amdkfd/kfd_topology.h
+@@ -24,7 +24,6 @@
+ #define __KFD_TOPOLOGY_H__
+ 
+ #include <linux/types.h>
+-#include <linux/version.h>
+ #include <linux/list.h>
+ #include "kfd_priv.h"
+ 
+@@ -143,14 +142,12 @@ struct kfd_iolink_properties {
+ 	struct attribute	attr;
+ };
+ 
+-#if LINUX_VERSION_CODE > KERNEL_VERSION(3, 10, 0)
+ struct kfd_perf_properties {
+ 	struct list_head	list;
+ 	char			block_name[16];
+ 	uint32_t		max_concurrent;
+ 	struct attribute_group	*attr_group;
+ };
+-#endif
+ 
+ struct kfd_topology_device {
+ 	struct list_head		list;
+@@ -162,17 +159,13 @@ struct kfd_topology_device {
+ 	struct list_head		cache_props;
+ 	uint32_t			io_link_count;
+ 	struct list_head		io_link_props;
+-#if LINUX_VERSION_CODE > KERNEL_VERSION(3, 10, 0)
+ 	struct list_head		perf_props;
+-#endif
+ 	struct kfd_dev			*gpu;
+ 	struct kobject			*kobj_node;
+ 	struct kobject			*kobj_mem;
+ 	struct kobject			*kobj_cache;
+ 	struct kobject			*kobj_iolink;
+-#if LINUX_VERSION_CODE > KERNEL_VERSION(3, 10, 0)
+ 	struct kobject			*kobj_perf;
+-#endif
+ 	struct attribute		attr_gpuid;
+ 	struct attribute		attr_name;
+ 	struct attribute		attr_props;
+diff --git a/drivers/gpu/drm/amd/display/amdgpu_dm/amdgpu_dm.c b/drivers/gpu/drm/amd/display/amdgpu_dm/amdgpu_dm.c
+index f752ca9..d057342 100644
+--- a/drivers/gpu/drm/amd/display/amdgpu_dm/amdgpu_dm.c
++++ b/drivers/gpu/drm/amd/display/amdgpu_dm/amdgpu_dm.c
+@@ -274,9 +274,6 @@ static void dm_pflip_high_irq(void *interrupt_params)
+ 	}
+ 
+ 	spin_lock_irqsave(&adev->ddev->event_lock, flags);
+-#if LINUX_VERSION_CODE < KERNEL_VERSION(4, 8, 0) && !defined(OS_NAME_RHEL_7_4)
+-	struct amdgpu_flip_work *works = amdgpu_crtc->pflip_works;
+-#endif
+ 
+ 	if (amdgpu_crtc->pflip_status != AMDGPU_FLIP_SUBMITTED){
+ 		DRM_DEBUG_DRIVER("amdgpu_crtc->pflip_status = %d !=AMDGPU_FLIP_SUBMITTED(%d) on crtc:%d[%p] \n",
+@@ -290,10 +287,8 @@ static void dm_pflip_high_irq(void *interrupt_params)
+ 
+ 	/* wakeup usersapce */
+ 	if (amdgpu_crtc->event) {
+-#if LINUX_VERSION_CODE >= KERNEL_VERSION(4, 8, 0) || defined(OS_NAME_RHEL_7_4)
+ 		/* Update to correct count/ts if racing with vblank irq */
+ 		drm_accurate_vblank_count(&amdgpu_crtc->base);
+-#endif
+ 
+ 		drm_crtc_send_vblank_event(&amdgpu_crtc->base, amdgpu_crtc->event);
+ 
+@@ -304,9 +299,6 @@ static void dm_pflip_high_irq(void *interrupt_params)
+ 		WARN_ON(1);
+ 
+ 	amdgpu_crtc->pflip_status = AMDGPU_FLIP_NONE;
+-#if LINUX_VERSION_CODE < KERNEL_VERSION(4, 8, 0) && !defined(OS_NAME_RHEL_7_4)
+-	amdgpu_crtc->pflip_works = NULL;
+-#endif
+ 
+ 	spin_unlock_irqrestore(&adev->ddev->event_lock, flags);
+ 
+@@ -314,9 +306,6 @@ static void dm_pflip_high_irq(void *interrupt_params)
+ 					__func__, amdgpu_crtc->crtc_id, amdgpu_crtc);
+ 
+ 	drm_crtc_vblank_put(&amdgpu_crtc->base);
+-#if LINUX_VERSION_CODE < KERNEL_VERSION(4, 8, 0) && !defined(OS_NAME_RHEL_7_4)
+-	schedule_work(&works->unpin_work);
+-#endif
+ }
+ 
+ static void dm_crtc_high_irq(void *interrupt_params)
+@@ -650,26 +639,15 @@ static int dm_suspend(void *handle)
+ 
+ static struct amdgpu_dm_connector *
+ amdgpu_dm_find_first_crtc_matching_connector(struct drm_atomic_state *state,
+-#if LINUX_VERSION_CODE < KERNEL_VERSION(4, 12, 0)
+-					     struct drm_crtc *crtc,
+-					     bool from_state_var)
+-#else
+ 					     struct drm_crtc *crtc)
+-#endif
+ {
+ 	uint32_t i;
+ 	struct drm_connector_state *new_con_state;
+ 	struct drm_connector *connector;
+ 	struct drm_crtc *crtc_from_state;
+ 
+-#if LINUX_VERSION_CODE < KERNEL_VERSION(4, 12, 0)
+-	for_each_connector_in_state(state, connector, new_con_state, i) {
+-		crtc_from_state = from_state_var ? new_con_state->crtc :
+-						   connector->state->crtc;
+-#else
+ 	for_each_new_connector_in_state(state, connector, new_con_state, i) {
+ 		crtc_from_state = new_con_state->crtc;
+-#endif
+ 
+ 		if (crtc_from_state == crtc)
+ 			return to_amdgpu_dm_connector(connector);
+@@ -741,11 +719,7 @@ int amdgpu_dm_display_resume(struct amdgpu_device *adev)
+ 	}
+ 
+ 	/* Force mode set in atomic comit */
+-#if LINUX_VERSION_CODE < KERNEL_VERSION(4, 12, 0)
+-	for_each_crtc_in_state(adev->dm.cached_state, crtc, new_crtc_state, i)
+-#else
+ 	for_each_new_crtc_in_state(adev->dm.cached_state, crtc, new_crtc_state, i)
+-#endif
+ 		new_crtc_state->active_changed = true;
+ 
+ 	/*
+@@ -753,11 +727,7 @@ int amdgpu_dm_display_resume(struct amdgpu_device *adev)
+ 	 * them here, since they were duplicated as part of the suspend
+ 	 * procedure.
+ 	 */
+-#if LINUX_VERSION_CODE < KERNEL_VERSION(4, 12, 0)
+-	for_each_crtc_in_state(adev->dm.cached_state, crtc, new_crtc_state, i) {
+-#else
+ 	for_each_new_crtc_in_state(adev->dm.cached_state, crtc, new_crtc_state, i) {
+-#endif
+ 		dm_new_crtc_state = to_dm_crtc_state(new_crtc_state);
+ 		if (dm_new_crtc_state->stream) {
+ 			WARN_ON(kref_read(&dm_new_crtc_state->stream->refcount) > 1);
+@@ -766,11 +736,7 @@ int amdgpu_dm_display_resume(struct amdgpu_device *adev)
+ 		}
+ 	}
+ 
+-#if LINUX_VERSION_CODE < KERNEL_VERSION(4, 12, 0)
+-	for_each_plane_in_state(adev->dm.cached_state, plane, new_plane_state, i) {
+-#else
+ 	for_each_new_plane_in_state(adev->dm.cached_state, plane, new_plane_state, i) {
+-#endif
+ 		dm_new_plane_state = to_dm_plane_state(new_plane_state);
+ 		if (dm_new_plane_state->dc_state) {
+ 			WARN_ON(kref_read(&dm_new_plane_state->dc_state->refcount) > 1);
+@@ -781,9 +747,7 @@ int amdgpu_dm_display_resume(struct amdgpu_device *adev)
+ 
+ 	ret = drm_atomic_helper_resume(ddev, adev->dm.cached_state);
+ 
+-#if (LINUX_VERSION_CODE >= KERNEL_VERSION(4, 10, 0) && LINUX_VERSION_CODE < KERNEL_VERSION(4, 15, 0)) || defined(OS_NAME_RHEL_7_4)
+ 	drm_atomic_state_put(adev->dm.cached_state);
+-#endif
+ 	adev->dm.cached_state = NULL;
+ 
+ 	amdgpu_dm_irq_resume_late(adev);
+@@ -868,11 +832,9 @@ static const struct drm_mode_config_funcs amdgpu_dm_mode_funcs = {
+ 	.atomic_state_free = dm_atomic_state_alloc_free
+ };
+ 
+-#if LINUX_VERSION_CODE >= KERNEL_VERSION(4, 8, 0) || defined(OS_NAME_RHEL_7_4)
+ static struct drm_mode_config_helper_funcs amdgpu_dm_mode_config_helperfuncs = {
+ 	.atomic_commit_tail = amdgpu_dm_atomic_commit_tail
+ };
+-#endif
+ 
+ static void
+ amdgpu_dm_update_connector_after_detect(struct amdgpu_dm_connector *aconnector)
+@@ -1339,9 +1301,7 @@ static int amdgpu_dm_mode_config_init(struct amdgpu_device *adev)
+ 	adev->mode_info.mode_config_initialized = true;
+ 
+ 	adev->ddev->mode_config.funcs = (void *)&amdgpu_dm_mode_funcs;
+-#if LINUX_VERSION_CODE >= KERNEL_VERSION(4, 8, 0) || defined(OS_NAME_RHEL_7_4)
+ 	adev->ddev->mode_config.helper_private = &amdgpu_dm_mode_config_helperfuncs;
+-#endif
+ 
+ 	adev->ddev->mode_config.max_width = 16384;
+ 	adev->ddev->mode_config.max_height = 16384;
+@@ -1379,11 +1339,7 @@ static int amdgpu_dm_backlight_get_brightness(struct backlight_device *bd)
+ 	return bd->props.brightness;
+ }
+ 
+-#if LINUX_VERSION_CODE < KERNEL_VERSION(2, 6, 33)
+-static struct backlight_ops amdgpu_dm_backlight_ops = {
+-#else
+ static const struct backlight_ops amdgpu_dm_backlight_ops = {
+-#endif
+ 	.get_brightness = amdgpu_dm_backlight_get_brightness,
+ 	.update_status	= amdgpu_dm_backlight_update_status,
+ };
+@@ -1392,28 +1348,19 @@ static void
+ amdgpu_dm_register_backlight_device(struct amdgpu_display_manager *dm)
+ {
+ 	char bl_name[16];
+-#if LINUX_VERSION_CODE >= KERNEL_VERSION(2, 6, 34)
+ 	struct backlight_properties props = { 0 };
+ 
+ 	props.max_brightness = AMDGPU_MAX_BL_LEVEL;
+ 	props.type = BACKLIGHT_RAW;
+-#endif
+ 
+ 	snprintf(bl_name, sizeof(bl_name), "amdgpu_bl%d",
+ 			dm->adev->ddev->primary->index);
+ 
+-#if LINUX_VERSION_CODE >= KERNEL_VERSION(2, 6, 34)
+ 	dm->backlight_dev = backlight_device_register(bl_name,
+ 			dm->adev->ddev->dev,
+ 			dm,
+ 			&amdgpu_dm_backlight_ops,
+ 			&props);
+-#else
+-	dm->backlight_dev = backlight_device_register(bl_name,
+-			dm->adev->ddev->dev,
+-			dm,
+-			&amdgpu_dm_backlight_ops);
+-#endif
+ 
+ 	if (IS_ERR(dm->backlight_dev))
+ 		DRM_ERROR("DM: Backlight registration failed!\n");
+@@ -1595,53 +1542,6 @@ static u8 dm_get_backlight_level(struct amdgpu_encoder *amdgpu_encoder)
+ 	return 0;
+ }
+ 
+-#if LINUX_VERSION_CODE < KERNEL_VERSION(4, 8, 0) && !defined(OS_NAME_RHEL_7_4)
+-/**
+- * dm_page_flip - called by amdgpu_flip_work_func(), which is triggered
+- *                via DRM IOTCL, by user mode.
+- *
+- * @adev: amdgpu_device pointer
+- * @crtc_id: crtc to cleanup pageflip on
+- * @crtc_base: new address of the crtc (GPU MC address)
+- *
+- * Does the actual pageflip (surface address update).
+- */
+-static void dm_page_flip(struct amdgpu_device *adev,
+-			 int crtc_id, u64 crtc_base, bool async)
+-{
+-	struct amdgpu_crtc *acrtc = adev->mode_info.crtcs[crtc_id];
+-	struct dm_crtc_state *acrtc_state = to_dm_crtc_state(acrtc->base.state);
+-	struct dc_stream_state *stream = acrtc_state->stream;
+-	struct dc_flip_addrs addr = { {0} };
+-
+-	/*
+-	 * Received a page flip call after the display has been reset.
+-	 * Just return in this case. Everything should be clean-up on reset.
+-	 */
+-	if (!stream) {
+-		WARN_ON(1);
+-		return;
+-	}
+-
+-	addr.address.grph.addr.low_part = lower_32_bits(crtc_base);
+-	addr.address.grph.addr.high_part = upper_32_bits(crtc_base);
+-	addr.flip_immediate = async;
+-
+-	if (acrtc->base.state->event)
+-		prepare_flip_isr(acrtc);
+-
+-	dc_flip_plane_addrs(
+-			adev->dm.dc,
+-			dc_stream_get_status(stream)->plane_states,
+-			&addr, 1);
+-
+-	DRM_DEBUG_DRIVER("%s Flipping to hi: 0x%x, low: 0x%x \n",
+-			 __func__,
+-			 addr.address.grph.addr.high_part,
+-			 addr.address.grph.addr.low_part);
+-}
+-#endif
+-
+ static int amdgpu_notify_freesync(struct drm_device *dev, void *data,
+ 				struct drm_file *filp)
+ {
+@@ -1683,9 +1583,6 @@ static const struct amdgpu_display_funcs dm_display_funcs = {
+ 	.hpd_sense = NULL,/* called unconditionally */
+ 	.hpd_set_polarity = NULL, /* called unconditionally */
+ 	.hpd_get_gpio_reg = NULL, /* VBIOS parsing. DAL does it. */
+-#if LINUX_VERSION_CODE < KERNEL_VERSION(4, 8, 0) && !defined(OS_NAME_RHEL_7_4)
+-	.page_flip = dm_page_flip,
+-#endif
+ 	.page_flip_get_scanoutpos =
+ 		dm_crtc_get_scanoutpos,/* called unconditionally */
+ 	.add_encoder = NULL, /* VBIOS parsing. DAL does it. */
+@@ -1818,10 +1715,6 @@ static int dm_early_init(void *handle)
+ 	return 0;
+ }
+ 
+-#if LINUX_VERSION_CODE < KERNEL_VERSION(4, 6, 0) && !defined(OS_NAME_RHEL_7_3) && !defined(OS_NAME_RHEL_7_4)
+-#define AMDGPU_CRTC_MODE_PRIVATE_FLAGS_GAMMASET 1
+-#endif
+-
+ static bool modeset_required(struct drm_crtc_state *crtc_state,
+ 			     struct dc_stream_state *new_stream,
+ 			     struct dc_stream_state *old_stream)
+@@ -1941,11 +1834,7 @@ static int fill_plane_attributes_from_fb(struct amdgpu_device *adev,
+ 	if (ret)
+ 		return ret;
+ 
+-#if LINUX_VERSION_CODE < KERNEL_VERSION(4, 11, 0)
+-	switch (fb->pixel_format) {
+-#else
+ 	switch (fb->format->format) {
+-#endif
+ 	case DRM_FORMAT_C8:
+ 		plane_state->format = SURFACE_PIXEL_FORMAT_GRPH_PALETA_256_COLORS;
+ 		break;
+@@ -1972,11 +1861,7 @@ static int fill_plane_attributes_from_fb(struct amdgpu_device *adev,
+ 		break;
+ 	default:
+ 		DRM_ERROR("Unsupported screen format %s\n",
+-#if LINUX_VERSION_CODE < KERNEL_VERSION(4, 11, 0)
+-		          drm_get_format_name(fb->pixel_format, &format_name));
+-#else
+ 		          drm_get_format_name(fb->format->format, &format_name));
+-#endif
+ 		return -EINVAL;
+ 	}
+ 
+@@ -1987,11 +1872,7 @@ static int fill_plane_attributes_from_fb(struct amdgpu_device *adev,
+ 		plane_state->plane_size.grph.surface_size.width = fb->width;
+ 		plane_state->plane_size.grph.surface_size.height = fb->height;
+ 		plane_state->plane_size.grph.surface_pitch =
+-#if LINUX_VERSION_CODE < KERNEL_VERSION(4, 11, 0)
+-				fb->pitches[0] / (fb->bits_per_pixel / 8);
+-#else
+ 				fb->pitches[0] / fb->format->cpp[0];
+-#endif
+ 		/* TODO: unhardcode */
+ 		plane_state->color_space = COLOR_SPACE_SRGB;
+ 
+@@ -2078,7 +1959,6 @@ static int fill_plane_attributes_from_fb(struct amdgpu_device *adev,
+ 
+ }
+ 
+-#if LINUX_VERSION_CODE >= KERNEL_VERSION(4, 6, 0) || defined(OS_NAME_RHEL_7_3) || defined(OS_NAME_RHEL_7_4)
+ static void fill_gamma_from_crtc_state(const struct drm_crtc_state *crtc_state,
+ 				       struct dc_plane_state *plane_state)
+ {
+@@ -2104,37 +1984,6 @@ static void fill_gamma_from_crtc_state(const struct drm_crtc_state *crtc_state,
+ 
+ 	plane_state->gamma_correction = gamma;
+ }
+-#else
+-static void fill_gamma_from_crtc(
+-	const struct drm_crtc *crtc,
+-	struct dc_plane_state *plane_state)
+-{
+-	int i;
+-	struct dc_gamma *gamma;
+-	uint16_t *red, *green, *blue;
+-	int end = (crtc->gamma_size > GAMMA_RGB_256_ENTRIES) ?
+-			GAMMA_RGB_256_ENTRIES : crtc->gamma_size;
+-
+-	red = crtc->gamma_store;
+-	green = red + crtc->gamma_size;
+-	blue = green + crtc->gamma_size;
+-
+-	gamma = dc_create_gamma();
+-
+-	if (gamma == NULL)
+-		return;
+-
+-	gamma->type = GAMMA_RGB_256;
+-	gamma->num_entries = GAMMA_RGB_256_ENTRIES;
+-	for (i = 0; i < end; i++) {
+-		gamma->entries.red[i] = dal_fixed31_32_from_int((unsigned short)red[i]);
+-		gamma->entries.green[i] = dal_fixed31_32_from_int((unsigned short)green[i]);
+-		gamma->entries.blue[i] = dal_fixed31_32_from_int((unsigned short)blue[i]);
+-	}
+-
+-	plane_state->gamma_correction = gamma;
+-}
+-#endif
+ 
+ static int fill_plane_attributes(struct amdgpu_device *adev,
+ 				 struct dc_plane_state *dc_plane_state,
+@@ -2169,17 +2018,8 @@ static int fill_plane_attributes(struct amdgpu_device *adev,
+ 	dc_plane_state->in_transfer_func = input_tf;
+ 
+ 	/* In case of gamma set, update gamma value */
+-#if LINUX_VERSION_CODE >= KERNEL_VERSION(4, 6, 0) || defined(OS_NAME_RHEL_7_3) || defined(OS_NAME_RHEL_7_4)
+ 	if (crtc_state->gamma_lut)
+ 		fill_gamma_from_crtc_state(crtc_state, dc_plane_state);
+-#else
+-	if (crtc->mode.private_flags & AMDGPU_CRTC_MODE_PRIVATE_FLAGS_GAMMASET) {
+-		fill_gamma_from_crtc(crtc, dc_plane_state);
+-		/* reset trigger of gamma */
+-		crtc->mode.private_flags &=
+-			~AMDGPU_CRTC_MODE_PRIVATE_FLAGS_GAMMASET;
+-	}
+-#endif
+ 
+ 	return ret;
+ }
+@@ -2630,106 +2470,6 @@ static void amdgpu_dm_crtc_destroy(struct drm_crtc *crtc)
+ 	kfree(crtc);
+ }
+ 
+-#if LINUX_VERSION_CODE < KERNEL_VERSION(4, 6, 0) && !defined(OS_NAME_RHEL_7_3) && !defined(OS_NAME_RHEL_7_4)
+-static void amdgpu_dm_atomic_crtc_gamma_set(
+-		struct drm_crtc *crtc,
+-		u16 *red,
+-		u16 *green,
+-		u16 *blue,
+-		uint32_t start,
+-		uint32_t size)
+-{
+-	struct drm_device *dev = crtc->dev;
+-	struct drm_property *prop = dev->mode_config.prop_crtc_id;
+-
+-	crtc->state->mode.private_flags |= AMDGPU_CRTC_MODE_PRIVATE_FLAGS_GAMMASET;
+-
+-	drm_atomic_helper_crtc_set_property(crtc, prop, 0);
+-}
+-#endif
+-
+-#if LINUX_VERSION_CODE < KERNEL_VERSION(4, 11, 0)
+-static int amdgpu_atomic_helper_page_flip(struct drm_crtc *crtc,
+-				struct drm_framebuffer *fb,
+-				struct drm_pending_vblank_event *event,
+-				uint32_t flags)
+-{
+-	struct drm_plane *plane = crtc->primary;
+-	struct amdgpu_crtc *acrtc = to_amdgpu_crtc(crtc);
+-	struct drm_atomic_state *state;
+-	struct drm_plane_state *plane_state;
+-	struct drm_crtc_state *crtc_state;
+-	int ret = 0;
+-
+-	state = drm_atomic_state_alloc(plane->dev);
+-	if (!state)
+-		return -ENOMEM;
+-
+-	state->acquire_ctx = drm_modeset_legacy_acquire_ctx(crtc);
+-retry:
+-	crtc_state = drm_atomic_get_crtc_state(state, crtc);
+-	if (IS_ERR(crtc_state)) {
+-		ret = PTR_ERR(crtc_state);
+-		goto fail;
+-	}
+-	crtc_state->event = event;
+-
+-	plane_state = drm_atomic_get_plane_state(state, plane);
+-	if (IS_ERR(plane_state)) {
+-		ret = PTR_ERR(plane_state);
+-		goto fail;
+-	}
+-
+-	ret = drm_atomic_set_crtc_for_plane(plane_state, crtc);
+-	if (ret != 0)
+-		goto fail;
+-	drm_atomic_set_fb_for_plane(plane_state, fb);
+-
+-	/* Make sure we don't accidentally do a full modeset. */
+-	state->allow_modeset = false;
+-	if (!crtc_state->active) {
+-		DRM_DEBUG_ATOMIC("[CRTC:%d] disabled, rejecting legacy flip\n",
+-				 crtc->base.id);
+-		ret = -EINVAL;
+-		goto fail;
+-	}
+-	acrtc->flip_flags = flags;
+-#if LINUX_VERSION_CODE < KERNEL_VERSION(4, 7, 0) && !defined(OS_NAME_RHEL_7_4)
+-	ret = drm_atomic_async_commit(state);
+-#else
+-	ret = drm_atomic_nonblocking_commit(state);
+-#endif
+-	if (ret != 0)
+-		goto fail;
+-
+-	/* Driver takes ownership of state on successful async commit. */
+-	return 0;
+-fail:
+-	if (ret == -EDEADLK)
+-		goto backoff;
+-
+-#if LINUX_VERSION_CODE < KERNEL_VERSION(4, 10, 0) && !defined(OS_NAME_RHEL_7_4)
+-	drm_atomic_state_free(state);
+-#else
+-	drm_atomic_state_put(state);
+-#endif
+-
+-	return ret;
+-backoff:
+-	drm_atomic_state_clear(state);
+-	drm_atomic_legacy_backoff(state);
+-
+-	/*
+-	 * Someone might have exchanged the framebuffer while we dropped locks
+-	 * in the backoff code. We need to fix up the fb refcount tracking the
+-	 * core does for us.
+-	 */
+-	plane->old_fb = plane->fb;
+-
+-	goto retry;
+-}
+-#endif
+-
+ static void dm_crtc_destroy_state(struct drm_crtc *crtc,
+ 				  struct drm_crtc_state *state)
+ {
+@@ -2739,11 +2479,7 @@ static void dm_crtc_destroy_state(struct drm_crtc *crtc,
+ 	if (cur->stream)
+ 		dc_stream_release(cur->stream);
+ 
+-#if LINUX_VERSION_CODE > KERNEL_VERSION(4, 7, 0) || defined(OS_NAME_RHEL_7_4)
+ 	__drm_atomic_helper_crtc_destroy_state(state);
+-#else
+-	__drm_atomic_helper_crtc_destroy_state(crtc, state);
+-#endif
+ 
+ 	kfree(state);
+ }
+@@ -2794,23 +2530,13 @@ dm_crtc_duplicate_state(struct drm_crtc *crtc)
+ static const struct drm_crtc_funcs amdgpu_dm_crtc_funcs = {
+ 	.reset = dm_crtc_reset_state,
+ 	.destroy = amdgpu_dm_crtc_destroy,
+-#if LINUX_VERSION_CODE >= KERNEL_VERSION(4, 6, 0) || defined(OS_NAME_RHEL_7_3) || defined(OS_NAME_RHEL_7_4)
+ 	.gamma_set = drm_atomic_helper_legacy_gamma_set,
+-#else
+-	.gamma_set = amdgpu_dm_atomic_crtc_gamma_set,
+-#endif
+ 	.set_config = drm_atomic_helper_set_config,
+ 	.set_property = drm_atomic_helper_crtc_set_property,
+-#if LINUX_VERSION_CODE < KERNEL_VERSION(4, 11, 0)
+-	.page_flip = amdgpu_atomic_helper_page_flip,
+-#else
+ 	.page_flip = drm_atomic_helper_page_flip,
+-#endif
+ 	.atomic_duplicate_state = dm_crtc_duplicate_state,
+ 	.atomic_destroy_state = dm_crtc_destroy_state,
+-#if LINUX_VERSION_CODE >= KERNEL_VERSION(4, 10, 0) || defined(OS_NAME_RHEL_7_4)
+ 	.set_crc_source = amdgpu_dm_crtc_set_crc_source,
+-#endif
+ };
+ 
+ static enum drm_connector_status
+@@ -3287,20 +3013,8 @@ static const struct drm_plane_funcs dm_plane_funcs = {
+ 	.atomic_destroy_state = dm_drm_plane_destroy_state,
+ };
+ 
+-#if LINUX_VERSION_CODE >= KERNEL_VERSION(4, 9, 0)
+ static int dm_plane_helper_prepare_fb(struct drm_plane *plane,
+ 				      struct drm_plane_state *new_state)
+-#elif LINUX_VERSION_CODE >= KERNEL_VERSION(4, 4, 0) || \
+-	defined(OS_NAME_RHEL_6) || \
+-	defined(OS_NAME_RHEL_7_3) || \
+-	defined(OS_NAME_RHEL_7_4)
+-static int dm_plane_helper_prepare_fb(struct drm_plane *plane,
+-				      const struct drm_plane_state *new_state)
+-#else
+-static int dm_plane_helper_prepare_fb(struct drm_plane *plane,
+-				      struct drm_framebuffer *fb,
+-				      const struct drm_plane_state *new_state)
+-#endif /* LINUX_VERSION_CODE < KERNEL_VERSION(4, 9, 0) */
+ {
+ 	struct amdgpu_framebuffer *afb;
+ 	struct drm_gem_object *obj;
+@@ -3382,20 +3096,8 @@ static int dm_plane_helper_prepare_fb(struct drm_plane *plane,
+ 	return 0;
+ }
+ 
+-#if LINUX_VERSION_CODE >= KERNEL_VERSION(4, 9, 0)
+ static void dm_plane_helper_cleanup_fb(struct drm_plane *plane,
+ 				       struct drm_plane_state *old_state)
+-#elif LINUX_VERSION_CODE >= KERNEL_VERSION(4, 4, 0) || \
+-	defined(OS_NAME_RHEL_6) || \
+-	defined(OS_NAME_RHEL_7_3) || \
+-	defined(OS_NAME_RHEL_7_4)
+-static void dm_plane_helper_cleanup_fb(struct drm_plane *plane,
+-				       const struct drm_plane_state *old_state)
+-#else
+-static void dm_plane_helper_cleanup_fb(struct drm_plane *plane,
+-				       struct drm_framebuffer *fb,
+-				       const struct drm_plane_state *old_state)
+-#endif /* LINUX_VERSION_CODE < KERNEL_VERSION(4, 9, 0) */
+ {
+ 	struct amdgpu_bo *rbo;
+ 	struct amdgpu_framebuffer *afb;
+@@ -4174,9 +3876,7 @@ static void handle_cursor_update(struct drm_plane *plane,
+ 
+ static void prepare_flip_isr(struct amdgpu_crtc *acrtc)
+ {
+-#if LINUX_VERSION_CODE >= KERNEL_VERSION(4, 8, 0) || defined(OS_NAME_RHEL_7_4)
+ 	assert_spin_locked(&acrtc->base.dev->event_lock);
+-#endif
+ 	WARN_ON(acrtc->event);
+ 
+ 	acrtc->event = acrtc->base.state->event;
+@@ -4208,11 +3908,7 @@ static void amdgpu_dm_do_flip(struct drm_crtc *crtc,
+ 	struct amdgpu_framebuffer *afb = to_amdgpu_framebuffer(fb);
+ 	struct amdgpu_bo *abo = gem_to_amdgpu_bo(afb->obj);
+ 	struct amdgpu_device *adev = crtc->dev->dev_private;
+-#if LINUX_VERSION_CODE < KERNEL_VERSION(4, 12, 0)
+-	bool async_flip = (acrtc->flip_flags & DRM_MODE_PAGE_FLIP_ASYNC) != 0;
+-#else
+ 	bool async_flip = (crtc->state->pageflip_flags & DRM_MODE_PAGE_FLIP_ASYNC) != 0;
+-#endif
+ 	struct dc_flip_addrs addr = { {0} };
+ 	/* TODO eliminate or rename surface_update */
+ 	struct dc_surface_update surface_updates[1] = { {0} };
+@@ -4304,23 +4000,14 @@ static void amdgpu_dm_commit_planes(struct drm_atomic_state *state,
+ 	struct dc_plane_state *plane_states_constructed[MAX_SURFACES];
+ 	struct amdgpu_crtc *acrtc_attach = to_amdgpu_crtc(pcrtc);
+ 	struct drm_crtc_state *new_pcrtc_state =
+-#if LINUX_VERSION_CODE < KERNEL_VERSION(4, 12, 0)
+-			kcl_drm_atomic_get_new_crtc_state_after_commit(state, pcrtc);
+-#else
+ 			drm_atomic_get_new_crtc_state(state, pcrtc);
+-#endif
+ 	struct dm_crtc_state *acrtc_state = to_dm_crtc_state(new_pcrtc_state);
+ 	struct dm_atomic_state *dm_state = to_dm_atomic_state(state);
+ 	int planes_count = 0;
+ 	unsigned long flags;
+ 
+ 	/* update planes when needed */
+-#if LINUX_VERSION_CODE < KERNEL_VERSION(4, 12, 0)
+-	for_each_plane_in_state(state, plane, old_plane_state, i) {
+-		new_plane_state = plane->state;
+-#else
+ 	for_each_oldnew_plane_in_state(state, plane, old_plane_state, new_plane_state, i) {
+-#endif
+ 		struct drm_crtc *crtc = new_plane_state->crtc;
+ 		struct drm_crtc_state *new_crtc_state;
+ 		struct drm_framebuffer *fb = new_plane_state->fb;
+@@ -4335,13 +4022,7 @@ static void amdgpu_dm_commit_planes(struct drm_atomic_state *state,
+ 		if (!fb || !crtc || pcrtc != crtc)
+ 			continue;
+ 
+-#if LINUX_VERSION_CODE < KERNEL_VERSION(4, 12, 0)
+-		new_crtc_state =
+-			kcl_drm_atomic_get_new_crtc_state_after_commit(
+-			state, crtc);
+-#else
+ 		new_crtc_state = drm_atomic_get_new_crtc_state(state, crtc);
+-#endif
+ 		if (!new_crtc_state->active)
+ 			continue;
+ 
+@@ -4371,36 +4052,18 @@ static void amdgpu_dm_commit_planes(struct drm_atomic_state *state,
+ 			 * TODO Check if it's correct
+ 			 */
+ 			*wait_for_vblank =
+-#if LINUX_VERSION_CODE < KERNEL_VERSION(4, 12, 0)
+-					acrtc_attach->flip_flags & DRM_MODE_PAGE_FLIP_ASYNC ?
+-#else
+ 					new_pcrtc_state->pageflip_flags & DRM_MODE_PAGE_FLIP_ASYNC ?
+-#endif
+ 				false : true;
+ 
+ 			/* TODO: Needs rework for multiplane flip */
+ 			if (plane->type == DRM_PLANE_TYPE_PRIMARY)
+ 				drm_crtc_vblank_get(crtc);
+ 
+-#if LINUX_VERSION_CODE >= KERNEL_VERSION(4, 8, 0) || defined(OS_NAME_RHEL_7_4)
+ 			amdgpu_dm_do_flip(
+ 				crtc,
+ 				fb,
+ 				drm_crtc_vblank_count(crtc) + *wait_for_vblank,
+ 				dm_state->context);
+-#else
+-			amdgpu_crtc_page_flip(
+-				crtc,
+-				fb,
+-				crtc->state->event,
+-				acrtc_attach->flip_flags);
+-#endif
+-#if LINUX_VERSION_CODE < KERNEL_VERSION(4, 12, 0)
+-			/*TODO BUG remove ASAP in 4.12 to avoid race between worker and flip IOCTL */
+-
+-			/*clean up the flags for next usage*/
+-			acrtc_attach->flip_flags = 0;
+-#endif
+ 		}
+ 
+ 	}
+@@ -4458,12 +4121,7 @@ static int amdgpu_dm_atomic_commit(struct drm_device *dev,
+ 	 * it will update crtc->dm_crtc_state->stream pointer which is used in
+ 	 * the ISRs.
+ 	 */
+-#if LINUX_VERSION_CODE < KERNEL_VERSION(4, 12, 0)
+-	for_each_crtc_in_state(state, crtc, new_crtc_state, i) {
+-		old_crtc_state = crtc->state;
+-#else
+ 	for_each_oldnew_crtc_in_state(state, crtc, old_crtc_state, new_crtc_state, i) {
+-#endif
+ 		struct dm_crtc_state *dm_old_crtc_state = to_dm_crtc_state(old_crtc_state);
+ 		struct amdgpu_crtc *acrtc = to_amdgpu_crtc(crtc);
+ 
+@@ -4473,45 +4131,9 @@ static int amdgpu_dm_atomic_commit(struct drm_device *dev,
+ 	/* Add check here for SoC's that support hardware cursor plane, to
+ 	 * unset legacy_cursor_update */
+ 
+-#if LINUX_VERSION_CODE >= KERNEL_VERSION(4, 8, 0) || defined(OS_NAME_RHEL_7_4)
+ 	return drm_atomic_helper_commit(dev, state, nonblock);
+ 
+ 	/*TODO Handle EINTR, reenable IRQ*/
+-#else
+-	int ret = 0;
+-
+-	/*
+-	 * Right now we receive async commit only from pageflip, in which case
+-	 * we should not pin/unpin the fb here, it should be done in
+-	 * amdgpu_crtc_flip and from the vblank irq handler.
+-	 */
+-	if (!nonblock) {
+-		ret = drm_atomic_helper_prepare_planes(dev, state);
+-		if (ret)
+-			return ret;
+-	}
+-#if defined(OS_NAME_RHEL_6)
+-	else	// Temporary fix for pflip conflict between block and nonblock call
+-		return -EBUSY;
+-#endif
+-
+-	drm_atomic_helper_swap_state(dev, state);
+-
+-	/*
+-	 * there is no fences usage yet in plane state.
+-	 * wait_for_fences(dev, state);
+-	 */
+-
+-	amdgpu_dm_atomic_commit_tail(state);
+-
+-	if (!nonblock) {
+-		drm_atomic_helper_cleanup_planes(dev, state);
+-	}
+-
+-	drm_atomic_state_free(state);
+-
+-	return ret;
+-#endif
+ }
+ 
+ static void amdgpu_dm_atomic_commit_tail(struct drm_atomic_state *state)
+@@ -4534,12 +4156,7 @@ static void amdgpu_dm_atomic_commit_tail(struct drm_atomic_state *state)
+ 	dm_state = to_dm_atomic_state(state);
+ 
+ 	/* update changed items */
+-#if LINUX_VERSION_CODE < KERNEL_VERSION(4, 12, 0)
+-	for_each_crtc_in_state(state, crtc, old_crtc_state, i) {
+-		new_crtc_state = crtc->state;
+-#else
+ 	for_each_oldnew_crtc_in_state(state, crtc, old_crtc_state, new_crtc_state, i) {
+-#endif
+ 		struct amdgpu_crtc *acrtc = to_amdgpu_crtc(crtc);
+ 
+ 		dm_new_crtc_state = to_dm_crtc_state(new_crtc_state);
+@@ -4614,13 +4231,8 @@ static void amdgpu_dm_atomic_commit_tail(struct drm_atomic_state *state)
+ 	 * are removed from freesync module
+ 	 */
+ 	if (adev->dm.freesync_module) {
+-#if LINUX_VERSION_CODE < KERNEL_VERSION(4, 12, 0)
+-		for_each_crtc_in_state(state, crtc, old_crtc_state, i) {
+-			new_crtc_state = crtc->state;
+-#else
+ 		for_each_oldnew_crtc_in_state(state, crtc, old_crtc_state,
+ 					      new_crtc_state, i) {
+-#endif
+ 			struct amdgpu_dm_connector *aconnector = NULL;
+ 			struct dm_connector_state *dm_new_con_state = NULL;
+ 			struct amdgpu_crtc *acrtc = NULL;
+@@ -4646,11 +4258,7 @@ static void amdgpu_dm_atomic_commit_tail(struct drm_atomic_state *state)
+ 
+ 			aconnector =
+ 				amdgpu_dm_find_first_crtc_matching_connector(
+-#if LINUX_VERSION_CODE < KERNEL_VERSION(4, 12, 0)
+-					state, crtc, false);
+-#else
+ 					state, crtc);
+-#endif
+ 			if (!aconnector) {
+ 				DRM_DEBUG_DRIVER("Atomic commit: Failed to "
+ 						 "find connector for acrtc "
+@@ -4663,12 +4271,8 @@ static void amdgpu_dm_atomic_commit_tail(struct drm_atomic_state *state)
+ 			mod_freesync_add_stream(adev->dm.freesync_module,
+ 						dm_new_crtc_state->stream,
+ 						&aconnector->caps);
+-#if LINUX_VERSION_CODE < KERNEL_VERSION(4, 12, 0)
+-			new_con_state = aconnector->base.state;
+-#else
+ 			new_con_state = drm_atomic_get_new_connector_state(
+ 					state, &aconnector->base);
+-#endif
+ 			dm_new_con_state = to_dm_connector_state(new_con_state);
+ 
+ 			mod_freesync_set_user_enable(adev->dm.freesync_module,
+@@ -4683,12 +4287,7 @@ static void amdgpu_dm_atomic_commit_tail(struct drm_atomic_state *state)
+ 		WARN_ON(!dc_commit_state(dm->dc, dm_state->context));
+ 	}
+ 
+-#if LINUX_VERSION_CODE < KERNEL_VERSION(4, 12, 0)
+-	list_for_each_entry(crtc, &dev->mode_config.crtc_list, head) {
+-		new_crtc_state = crtc->state;
+-#else
+ 	for_each_new_crtc_in_state(state, crtc, new_crtc_state, i) {
+-#endif
+ 		struct amdgpu_crtc *acrtc = to_amdgpu_crtc(crtc);
+ 
+ 		dm_new_crtc_state = to_dm_crtc_state(new_crtc_state);
+@@ -4705,23 +4304,14 @@ static void amdgpu_dm_atomic_commit_tail(struct drm_atomic_state *state)
+ 	}
+ 
+ 	/* Handle scaling and underscan changes*/
+-#if LINUX_VERSION_CODE < KERNEL_VERSION(4, 12, 0)
+-	for_each_connector_in_state(state, connector, old_con_state, i) {
+-		new_con_state = connector->state;
+-#else
+ 	for_each_oldnew_connector_in_state(state, connector, old_con_state, new_con_state, i) {
+-#endif
+ 		struct dm_connector_state *dm_new_con_state = to_dm_connector_state(new_con_state);
+ 		struct dm_connector_state *dm_old_con_state = to_dm_connector_state(old_con_state);
+ 		struct amdgpu_crtc *acrtc = to_amdgpu_crtc(dm_new_con_state->base.crtc);
+ 		struct dc_stream_status *status = NULL;
+ 
+ 		if (acrtc)
+-#if LINUX_VERSION_CODE < KERNEL_VERSION(4, 12, 0)
+-			new_crtc_state = acrtc->base.state;
+-#else
+ 			new_crtc_state = drm_atomic_get_new_crtc_state(state, &acrtc->base);
+-#endif
+ 
+ 		/* Skip any modesets/resets */
+ 		if (!acrtc || drm_atomic_crtc_needs_modeset(new_crtc_state))
+@@ -4753,13 +4343,8 @@ static void amdgpu_dm_atomic_commit_tail(struct drm_atomic_state *state)
+ 			dm_error("%s: Failed to update stream scaling!\n", __func__);
+ 	}
+ 
+-#if LINUX_VERSION_CODE < KERNEL_VERSION(4, 12, 0)
+-	for_each_crtc_in_state(state, crtc, old_crtc_state, i) {
+-		new_crtc_state = crtc->state;
+-#else
+ 	for_each_oldnew_crtc_in_state(state, crtc, old_crtc_state,
+ 			new_crtc_state, i) {
+-#endif
+ 		/*
+ 		 * loop to enable interrupts on newly arrived crtc
+ 		 */
+@@ -4785,30 +4370,19 @@ static void amdgpu_dm_atomic_commit_tail(struct drm_atomic_state *state)
+ 	}
+ 
+ 	/* update planes when needed per crtc*/
+-#if LINUX_VERSION_CODE < KERNEL_VERSION(4, 12, 0)
+-	for_each_crtc_in_state(state, crtc, old_crtc_state, i) {
+-		new_crtc_state = crtc->state;
+-#else
+ 	for_each_new_crtc_in_state(state, crtc, new_crtc_state, j) {
+-#endif
+ 		dm_new_crtc_state = to_dm_crtc_state(new_crtc_state);
+ 
+ 		if (dm_new_crtc_state->stream)
+ 			amdgpu_dm_commit_planes(state, dev, dm, crtc, &wait_for_vblank);
+ 	}
+ 
+-#if LINUX_VERSION_CODE >= KERNEL_VERSION(4, 8, 0) || defined(OS_NAME_RHEL_7_4)
+ 	/*
+ 	 * send vblank event on all events not handled in flip and
+ 	 * mark consumed event for drm_atomic_helper_commit_hw_done
+ 	 */
+ 	spin_lock_irqsave(&adev->ddev->event_lock, flags);
+-#if LINUX_VERSION_CODE < KERNEL_VERSION(4, 12, 0)
+-	for_each_crtc_in_state(state, crtc, old_crtc_state, i) {
+-		new_crtc_state = crtc->state;
+-#else
+ 	for_each_new_crtc_in_state(state, crtc, new_crtc_state, i) {
+-#endif
+ 
+ 		if (new_crtc_state->event)
+ 			drm_send_event_locked(dev, &new_crtc_state->event->base);
+@@ -4816,23 +4390,14 @@ static void amdgpu_dm_atomic_commit_tail(struct drm_atomic_state *state)
+ 		new_crtc_state->event = NULL;
+ 	}
+ 	spin_unlock_irqrestore(&adev->ddev->event_lock, flags);
+-#endif
+ 
+-#if LINUX_VERSION_CODE >= KERNEL_VERSION(4, 8, 0) || defined(OS_NAME_RHEL_7_4)
+ 	/* Signal HW programming completion */
+ 	drm_atomic_helper_commit_hw_done(state);
+-#endif
+ 
+ 	if (wait_for_vblank)
+-#if LINUX_VERSION_CODE < KERNEL_VERSION(4, 14, 0)
+-		drm_atomic_helper_wait_for_vblanks(dev, state);
+-#else
+ 		drm_atomic_helper_wait_for_flip_done(dev, state);
+-#endif
+ 
+-#if LINUX_VERSION_CODE >= KERNEL_VERSION(4, 8, 0) || defined(OS_NAME_RHEL_7_4)
+ 	drm_atomic_helper_cleanup_planes(dev, state);
+-#endif
+ }
+ 
+ 
+@@ -4888,11 +4453,7 @@ static int dm_force_atomic_commit(struct drm_connector *connector)
+ 
+ err:
+ 	DRM_ERROR("Restoring old state failed with %i\n", ret);
+-#if LINUX_VERSION_CODE < KERNEL_VERSION(4, 10, 0) && !defined(OS_NAME_RHEL_7_4)
+-	drm_atomic_state_free(state);
+-#else
+ 	drm_atomic_state_put(state);
+-#endif
+ 
+ 	return ret;
+ }
+@@ -4937,9 +4498,7 @@ static int do_aquire_global_lock(struct drm_device *dev,
+ 				 struct drm_atomic_state *state)
+ {
+ 	struct drm_crtc *crtc;
+-#if LINUX_VERSION_CODE >= KERNEL_VERSION(4, 8, 0) || defined(OS_NAME_RHEL_7_4)
+ 	struct drm_crtc_commit *commit;
+-#endif
+ 	long ret;
+ 
+ 	/* Adding all modeset locks to aquire_ctx will
+@@ -4950,7 +4509,6 @@ static int do_aquire_global_lock(struct drm_device *dev,
+ 	if (ret)
+ 		return ret;
+ 
+-#if LINUX_VERSION_CODE >= KERNEL_VERSION(4, 8, 0) || defined(OS_NAME_RHEL_7_4)
+ 	list_for_each_entry(crtc, &dev->mode_config.crtc_list, head) {
+ 		spin_lock(&crtc->commit_lock);
+ 		commit = list_first_entry_or_null(&crtc->commit_list,
+@@ -4979,9 +4537,6 @@ static int do_aquire_global_lock(struct drm_device *dev,
+ 	}
+ 
+ 	return ret < 0 ? ret : 0;
+-#else
+-	return 0;
+-#endif
+ }
+ 
+ static int dm_update_crtcs_state(struct dc *dc,
+@@ -4999,12 +4554,7 @@ static int dm_update_crtcs_state(struct dc *dc,
+ 
+ 	/*TODO Move this code into dm_crtc_atomic_check once we get rid of dc_validation_set */
+ 	/* update changed items */
+-#if LINUX_VERSION_CODE < KERNEL_VERSION(4, 12, 0)
+-	for_each_crtc_in_state(state, crtc, new_crtc_state, i) {
+-		old_crtc_state = crtc->state;
+-#else
+ 	for_each_oldnew_crtc_in_state(state, crtc, old_crtc_state, new_crtc_state, i) {
+-#endif
+ 		struct amdgpu_crtc *acrtc = NULL;
+ 		struct amdgpu_dm_connector *aconnector = NULL;
+ 		struct drm_connector_state *new_con_state = NULL;
+@@ -5017,11 +4567,7 @@ static int dm_update_crtcs_state(struct dc *dc,
+ 		acrtc = to_amdgpu_crtc(crtc);
+ 
+ 		aconnector = amdgpu_dm_find_first_crtc_matching_connector(
+-#if LINUX_VERSION_CODE < KERNEL_VERSION(4, 12, 0)
+-			     state, crtc, true);
+-#else
+ 			     state, crtc);
+-#endif
+ 
+ 		/* TODO This hack should go away */
+ 		if (aconnector && enable) {
+@@ -5174,12 +4720,7 @@ static int dm_update_planes_state(struct dc *dc,
+ 		return ret;
+ 
+ 	/* Add new planes */
+-#if LINUX_VERSION_CODE < KERNEL_VERSION(4, 12, 0)
+-	for_each_plane_in_state(state, plane, new_plane_state, i) {
+-		old_plane_state = plane->state;
+-#else
+ 	for_each_oldnew_plane_in_state(state, plane, old_plane_state, new_plane_state, i) {
+-#endif
+ 		new_plane_crtc = new_plane_state->crtc;
+ 		old_plane_crtc = old_plane_state->crtc;
+ 		dm_new_plane_state = to_dm_plane_state(new_plane_state);
+@@ -5195,11 +4736,7 @@ static int dm_update_planes_state(struct dc *dc,
+ 			if (!old_plane_crtc)
+ 				continue;
+ 
+-#if LINUX_VERSION_CODE < KERNEL_VERSION(4, 12, 0)
+-			old_crtc_state = kcl_drm_atomic_get_old_crtc_state_before_commit(
+-#else
+ 			old_crtc_state = drm_atomic_get_old_crtc_state(
+-#endif
+ 					state, old_plane_crtc);
+ 			dm_old_crtc_state = to_dm_crtc_state(old_crtc_state);
+ 
+@@ -5227,23 +4764,13 @@ static int dm_update_planes_state(struct dc *dc,
+ 
+ 		} else { /* Add new planes */
+ 
+-#if LINUX_VERSION_CODE < KERNEL_VERSION(4, 12, 0)
+-			if (drm_atomic_plane_disabling(plane, old_plane_state))
+-#else
+ 			if (drm_atomic_plane_disabling(plane->state, new_plane_state))
+-#endif
+ 				continue;
+ 
+ 			if (!new_plane_crtc)
+ 				continue;
+ 
+-#if LINUX_VERSION_CODE < KERNEL_VERSION(4, 12, 0)
+-			new_crtc_state =
+-				kcl_drm_atomic_get_new_crtc_state_before_commit(
+-				state, new_plane_crtc);
+-#else
+ 			new_crtc_state = drm_atomic_get_new_crtc_state(state, new_plane_crtc);
+-#endif
+ 			dm_new_crtc_state = to_dm_crtc_state(new_crtc_state);
+ 
+ 			if (!dm_new_crtc_state->stream)
+@@ -5318,18 +4845,9 @@ static int amdgpu_dm_atomic_check(struct drm_device *dev,
+ 		return ret;
+ 	}
+ 
+-#if LINUX_VERSION_CODE < KERNEL_VERSION(4, 12, 0)
+-	for_each_crtc_in_state(state, crtc, new_crtc_state, i) {
+-		old_crtc_state = crtc->state;
+-#else
+ 	for_each_oldnew_crtc_in_state(state, crtc, old_crtc_state, new_crtc_state, i) {
+-#endif
+-#if LINUX_VERSION_CODE >= KERNEL_VERSION(4, 6, 0) || defined(OS_NAME_RHEL_7_3) || defined(OS_NAME_RHEL_7_4)
+ 		if (!drm_atomic_crtc_needs_modeset(new_crtc_state) &&
+ 		    !new_crtc_state->color_mgmt_changed)
+-#else
+-			if (!drm_atomic_crtc_needs_modeset(new_crtc_state))
+-#endif
+ 			continue;
+ 
+ 		if (!new_crtc_state->enable)
+@@ -5382,23 +4900,14 @@ static int amdgpu_dm_atomic_check(struct drm_device *dev,
+ 	 * new stream into context w\o causing full reset. Need to
+ 	 * decide how to handle.
+ 	 */
+-#if LINUX_VERSION_CODE < KERNEL_VERSION(4, 12, 0)
+-	for_each_connector_in_state(state, connector, new_con_state, i) {
+-		old_con_state = connector->state;
+-#else
+ 	for_each_oldnew_connector_in_state(state, connector, old_con_state, new_con_state, i) {
+-#endif
+ 		struct dm_connector_state *dm_old_con_state = to_dm_connector_state(old_con_state);
+ 		struct dm_connector_state *dm_new_con_state = to_dm_connector_state(new_con_state);
+ 		struct amdgpu_crtc *acrtc = to_amdgpu_crtc(dm_new_con_state->base.crtc);
+ 
+ 		/* Skip any modesets/resets */
+ 		if (!acrtc || drm_atomic_crtc_needs_modeset(
+-#if LINUX_VERSION_CODE < KERNEL_VERSION(4, 12, 0)
+-				acrtc->base.state))
+-#else
+ 				drm_atomic_get_new_crtc_state(state, &acrtc->base)))
+-#endif
+ 			continue;
+ 
+ 		/* Skip any thing not scale or underscan changes */
+diff --git a/drivers/gpu/drm/amd/display/amdgpu_dm/amdgpu_dm.h b/drivers/gpu/drm/amd/display/amdgpu_dm/amdgpu_dm.h
+index c5c7019..a832fc3 100644
+--- a/drivers/gpu/drm/amd/display/amdgpu_dm/amdgpu_dm.h
++++ b/drivers/gpu/drm/amd/display/amdgpu_dm/amdgpu_dm.h
+@@ -266,7 +266,7 @@ int amdgpu_dm_crtc_set_crc_source(struct drm_crtc *crtc, const char *src_name,
+ void amdgpu_dm_crtc_handle_crc_irq(struct drm_crtc *crtc);
+ #else
+ #define amdgpu_dm_crtc_set_crc_source NULL
+-void amdgpu_dm_crtc_handle_crc_irq(struct drm_crtc *crtc) {}
++static inline amdgpu_dm_crtc_handle_crc_irq(struct drm_crtc *crtc) {}
+ #endif
+ 
+ extern const struct drm_encoder_helper_funcs amdgpu_dm_encoder_helper_funcs;
+diff --git a/drivers/gpu/drm/amd/display/amdgpu_dm/amdgpu_dm_crc.c b/drivers/gpu/drm/amd/display/amdgpu_dm/amdgpu_dm_crc.c
+index 2fcf84b..dd4e015 100644
+--- a/drivers/gpu/drm/amd/display/amdgpu_dm/amdgpu_dm_crc.c
++++ b/drivers/gpu/drm/amd/display/amdgpu_dm/amdgpu_dm_crc.c
+@@ -46,7 +46,6 @@ static enum amdgpu_dm_pipe_crc_source dm_parse_crc_source(const char *source)
+ 	return AMDGPU_DM_PIPE_CRC_SOURCE_INVALID;
+ }
+ 
+-#if LINUX_VERSION_CODE >= KERNEL_VERSION(4, 10, 0) || defined(OS_NAME_RHEL_7_4)
+ int amdgpu_dm_crtc_set_crc_source(struct drm_crtc *crtc, const char *src_name,
+ 			   size_t *values_cnt)
+ {
+@@ -114,12 +113,6 @@ void amdgpu_dm_crtc_handle_crc_irq(struct drm_crtc *crtc)
+ 	if (!dc_stream_get_crc(stream_state->ctx->dc, stream_state,
+ 			       &crcs[0], &crcs[1], &crcs[2]))
+ 		return;
+-#if LINUX_VERSION_CODE >= KERNEL_VERSION(4,14,0)
+ 	drm_crtc_add_crc_entry(crtc, true,
+ 			       drm_crtc_accurate_vblank_count(crtc), crcs);
+-#else
+-	drm_crtc_add_crc_entry(crtc, true,
+-			       drm_accurate_vblank_count(crtc), crcs);
+-#endif
+ }
+-#endif
+diff --git a/drivers/gpu/drm/amd/display/amdgpu_dm/amdgpu_dm_helpers.c b/drivers/gpu/drm/amd/display/amdgpu_dm/amdgpu_dm_helpers.c
+index 1f9fbf4..9bd142f 100644
+--- a/drivers/gpu/drm/amd/display/amdgpu_dm/amdgpu_dm_helpers.c
++++ b/drivers/gpu/drm/amd/display/amdgpu_dm/amdgpu_dm_helpers.c
+@@ -233,12 +233,8 @@ bool dm_helpers_dp_mst_write_payload_allocation_table(
+ 
+ 		pbn = drm_dp_calc_pbn_mode(clock, bpp);
+ 
+-#if LINUX_VERSION_CODE >= KERNEL_VERSION(4, 12, 0)
+ 		slots = drm_dp_find_vcpi_slots(mst_mgr, pbn);
+ 		ret = drm_dp_mst_allocate_vcpi(mst_mgr, mst_port, pbn, slots);
+-#else
+-		ret = drm_dp_mst_allocate_vcpi(mst_mgr, mst_port, pbn, &slots);
+-#endif
+ 
+ 		if (!ret)
+ 			return false;
+@@ -345,9 +341,6 @@ bool dm_helpers_dp_mst_start_top_mgr(
+ 		const struct dc_link *link,
+ 		bool boot)
+ {
+-#if LINUX_VERSION_CODE >= KERNEL_VERSION(4, 6, 0) || \
+-		defined(OS_NAME_RHEL_7_3) || \
+-		defined(OS_NAME_RHEL_7_4)
+ 	struct amdgpu_dm_connector *aconnector = link->priv;
+ 
+ 	if (!aconnector) {
+@@ -365,18 +358,12 @@ bool dm_helpers_dp_mst_start_top_mgr(
+ 			aconnector, aconnector->base.base.id);
+ 
+ 	return (drm_dp_mst_topology_mgr_set_mst(&aconnector->mst_mgr, true) == 0);
+-#else
+-	return false;
+-#endif
+ }
+ 
+ void dm_helpers_dp_mst_stop_top_mgr(
+ 		struct dc_context *ctx,
+ 		const struct dc_link *link)
+ {
+-#if LINUX_VERSION_CODE >= KERNEL_VERSION(4, 6, 0) || \
+-		defined(OS_NAME_RHEL_7_3) || \
+-		defined(OS_NAME_RHEL_7_4)
+ 	struct amdgpu_dm_connector *aconnector = link->priv;
+ 
+ 	if (!aconnector) {
+@@ -389,7 +376,6 @@ void dm_helpers_dp_mst_stop_top_mgr(
+ 
+ 	if (aconnector->mst_mgr.mst_state == true)
+ 		drm_dp_mst_topology_mgr_set_mst(&aconnector->mst_mgr, false);
+-#endif
+ }
+ 
+ bool dm_helpers_dp_read_dpcd(
+diff --git a/drivers/gpu/drm/amd/display/amdgpu_dm/amdgpu_dm_mst_types.c b/drivers/gpu/drm/amd/display/amdgpu_dm/amdgpu_dm_mst_types.c
+index f6bc17a..5fbe539 100644
+--- a/drivers/gpu/drm/amd/display/amdgpu_dm/amdgpu_dm_mst_types.c
++++ b/drivers/gpu/drm/amd/display/amdgpu_dm/amdgpu_dm_mst_types.c
+@@ -23,7 +23,6 @@
+  *
+  */
+ 
+-#include <linux/version.h>
+ #include <drm/drm_atomic_helper.h>
+ #include "dm_services.h"
+ #include "amdgpu.h"
+@@ -485,11 +484,7 @@ void amdgpu_dm_initialize_dp_connector(struct amdgpu_display_manager *dm,
+ 	aconnector->mst_mgr.cbs = &dm_mst_cbs;
+ 	drm_dp_mst_topology_mgr_init(
+ 		&aconnector->mst_mgr,
+-#if LINUX_VERSION_CODE < KERNEL_VERSION(4, 11, 0)
+-		dm->adev->dev,
+-#else
+ 		dm->adev->ddev,
+-#endif
+ 		&aconnector->dm_dp_aux.aux,
+ 		16,
+ 		4,
+diff --git a/drivers/gpu/drm/amd/display/dc/inc/bw_fixed.h b/drivers/gpu/drm/amd/display/dc/inc/bw_fixed.h
+index da7876c..39ee8eba3 100644
+--- a/drivers/gpu/drm/amd/display/dc/inc/bw_fixed.h
++++ b/drivers/gpu/drm/amd/display/dc/inc/bw_fixed.h
+@@ -70,11 +70,7 @@ static inline struct bw_fixed bw_int_to_fixed(int64_t value)
+ {
+ 	if (__builtin_constant_p(value)) {
+ 		struct bw_fixed res;
+-#if LINUX_VERSION_CODE >= KERNEL_VERSION(2, 6, 38)
+ 		BUILD_BUG_ON(value > BW_FIXED_MAX_I32 || value < BW_FIXED_MIN_I32);
+-#else
+-		MAYBE_BUILD_BUG_ON(value > BW_FIXED_MAX_I32 || value < BW_FIXED_MIN_I32);
+-#endif
+ 		res.value = value << BW_FIXED_BITS_PER_FRACTIONAL_PART;
+ 		return res;
+ 	} else
+diff --git a/drivers/gpu/drm/amd/display/dc/os_types.h b/drivers/gpu/drm/amd/display/dc/os_types.h
+index 00ff3ab..04e7a99 100644
+--- a/drivers/gpu/drm/amd/display/dc/os_types.h
++++ b/drivers/gpu/drm/amd/display/dc/os_types.h
+@@ -89,8 +89,4 @@
+ 	BREAK_TO_DEBUGGER(); \
+ } while (0)
+ 
+-#if defined(CONFIG_DRM_AMD_DC_DCN1_0)
+-#include <asm/fpu/api.h>
+-#endif
+-
+ #endif /* _OS_TYPES_H_ */
+-- 
+2.7.4
+

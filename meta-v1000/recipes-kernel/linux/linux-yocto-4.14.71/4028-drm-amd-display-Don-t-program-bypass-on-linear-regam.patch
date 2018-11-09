@@ -1,0 +1,41 @@
+From 3da77c0045e332d9917a3f6a4072b0b60341cb2b Mon Sep 17 00:00:00 2001
+From: Harry Wentland <harry.wentland@amd.com>
+Date: Thu, 12 Apr 2018 16:37:09 -0400
+Subject: [PATCH 4028/4131] drm/amd/display: Don't program bypass on linear
+ regamma LUT
+
+Even though this is required for degamma since DCE HW only supports a
+couple predefined LUTs we can just program the LUT directly for regamma.
+
+This fixes dark screens which occurs when we program regamma to bypass
+while degamma is using srgb LUT.
+
+Signed-off-by: Harry Wentland <harry.wentland@amd.com>
+Reviewed-by: Leo Li <sunpeng.li@amd.com>
+Cc: stable@vger.kernel.org
+Acked-by: Alex Deucher <alexander.deucher@amd.com>
+---
+ drivers/gpu/drm/amd/display/amdgpu_dm/amdgpu_dm_color.c | 7 -------
+ 1 file changed, 7 deletions(-)
+
+diff --git a/drivers/gpu/drm/amd/display/amdgpu_dm/amdgpu_dm_color.c b/drivers/gpu/drm/amd/display/amdgpu_dm/amdgpu_dm_color.c
+index ef5fad8..e3d90e9 100644
+--- a/drivers/gpu/drm/amd/display/amdgpu_dm/amdgpu_dm_color.c
++++ b/drivers/gpu/drm/amd/display/amdgpu_dm/amdgpu_dm_color.c
+@@ -139,13 +139,6 @@ int amdgpu_dm_set_regamma_lut(struct dm_crtc_state *crtc)
+ 	lut = (struct drm_color_lut *)blob->data;
+ 	lut_size = blob->length / sizeof(struct drm_color_lut);
+ 
+-	if (__is_lut_linear(lut, lut_size)) {
+-		/* Set to bypass if lut is set to linear */
+-		stream->out_transfer_func->type = TF_TYPE_BYPASS;
+-		stream->out_transfer_func->tf = TRANSFER_FUNCTION_LINEAR;
+-		return 0;
+-	}
+-
+ 	gamma = dc_create_gamma();
+ 	if (!gamma)
+ 		return -ENOMEM;
+-- 
+2.7.4
+

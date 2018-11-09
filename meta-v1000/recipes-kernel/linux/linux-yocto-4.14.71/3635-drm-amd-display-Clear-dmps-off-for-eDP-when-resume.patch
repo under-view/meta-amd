@@ -1,0 +1,64 @@
+From 2a4ac8778c202f5868465bacfb16642710024150 Mon Sep 17 00:00:00 2001
+From: Yongqiang Sun <yongqiang.sun@amd.com>
+Date: Wed, 14 Feb 2018 17:12:39 -0500
+Subject: [PATCH 3635/4131] drm/amd/display: Clear dmps off for eDP when
+ resume.
+
+This patch fixed secondary screen only S4 resume, eDP is unintentionally
+light up due to incorrect dpms off flag.
+
+When entering S4, dpms off flags are set to true via
+set power state. During resume, eDP is light up by vbios, so the flags
+should be changed to false to match the real state.
+By change the flag properly, eDP is able to be turned off properly as per
+OS request.
+
+This change may affect S3/S4 Shut down resume IOIC, need to verify
+those cases.
+
+Signed-off-by: Yongqiang Sun <yongqiang.sun@amd.com>
+Reviewed-by: Tony Cheng <Tony.Cheng@amd.com>
+Acked-by: Harry Wentland <harry.wentland@amd.com>
+---
+ drivers/gpu/drm/amd/display/dc/core/dc_link.c               | 4 ++++
+ drivers/gpu/drm/amd/display/dc/dce110/dce110_hw_sequencer.c | 6 ++----
+ 2 files changed, 6 insertions(+), 4 deletions(-)
+
+diff --git a/drivers/gpu/drm/amd/display/dc/core/dc_link.c b/drivers/gpu/drm/amd/display/dc/core/dc_link.c
+index 556b155..b754015 100644
+--- a/drivers/gpu/drm/amd/display/dc/core/dc_link.c
++++ b/drivers/gpu/drm/amd/display/dc/core/dc_link.c
+@@ -2297,9 +2297,13 @@ void core_link_enable_stream(
+ 	if (pipe_ctx->stream->signal == SIGNAL_TYPE_EDP &&
+ 		core_dc->apply_edp_fast_boot_optimization) {
+ 		core_dc->apply_edp_fast_boot_optimization = false;
++		pipe_ctx->stream->dpms_off = false;
+ 		return;
+ 	}
+ 
++	if (pipe_ctx->stream->dpms_off)
++		return;
++
+ 	status = enable_link(state, pipe_ctx);
+ 
+ 	if (status != DC_OK) {
+diff --git a/drivers/gpu/drm/amd/display/dc/dce110/dce110_hw_sequencer.c b/drivers/gpu/drm/amd/display/dc/dce110/dce110_hw_sequencer.c
+index 0422c72..73e0bcd 100644
+--- a/drivers/gpu/drm/amd/display/dc/dce110/dce110_hw_sequencer.c
++++ b/drivers/gpu/drm/amd/display/dc/dce110/dce110_hw_sequencer.c
+@@ -1320,10 +1320,8 @@ static enum dc_status apply_single_controller_ctx_to_hw(
+ 
+ 	resource_build_info_frame(pipe_ctx);
+ 	dce110_update_info_frame(pipe_ctx);
+-	if (!pipe_ctx_old->stream) {
+-		if (!pipe_ctx->stream->dpms_off)
+-			core_link_enable_stream(context, pipe_ctx);
+-	}
++	if (!pipe_ctx_old->stream)
++		core_link_enable_stream(context, pipe_ctx);
+ 
+ 	pipe_ctx->plane_res.scl_data.lb_params.alpha_en = pipe_ctx->bottom_pipe != 0;
+ 
+-- 
+2.7.4
+

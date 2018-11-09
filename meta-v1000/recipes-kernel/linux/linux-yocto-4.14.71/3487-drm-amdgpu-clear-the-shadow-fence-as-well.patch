@@ -1,0 +1,36 @@
+From 4912f6a011a4429016f99b1fe3426fde453b1468 Mon Sep 17 00:00:00 2001
+From: =?UTF-8?q?Christian=20K=C3=B6nig?= <christian.koenig@amd.com>
+Date: Fri, 2 Feb 2018 21:05:40 +0100
+Subject: [PATCH 3487/4131] drm/amdgpu: clear the shadow fence as well
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+It also needs to be initialized.
+
+Signed-off-by: Christian König <christian.koenig@amd.com>
+Reviewed-by: Chunming Zhou <david1.zhou@amd.com>
+Signed-off-by: Alex Deucher <alexander.deucher@amd.com>
+---
+ drivers/gpu/drm/amd/amdgpu/amdgpu_vm.c | 5 +++++
+ 1 file changed, 5 insertions(+)
+
+diff --git a/drivers/gpu/drm/amd/amdgpu/amdgpu_vm.c b/drivers/gpu/drm/amd/amdgpu/amdgpu_vm.c
+index 5eb3181..eb5ccca 100644
+--- a/drivers/gpu/drm/amd/amdgpu/amdgpu_vm.c
++++ b/drivers/gpu/drm/amd/amdgpu/amdgpu_vm.c
+@@ -336,6 +336,11 @@ static int amdgpu_vm_clear_bo(struct amdgpu_device *adev,
+ 
+ 	amdgpu_bo_fence(bo, fence, true);
+ 	dma_fence_put(fence);
++
++	if (bo->shadow)
++		return amdgpu_vm_clear_bo(adev, vm, bo->shadow,
++					  level, pte_support_ats);
++
+ 	return 0;
+ 
+ error_free:
+-- 
+2.7.4
+

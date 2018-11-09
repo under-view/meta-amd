@@ -1,0 +1,28 @@
+From ad8d36988bf17a596136da24f8025f7addac1f02 Mon Sep 17 00:00:00 2001
+From: Felix Kuehling <Felix.Kuehling@amd.com>
+Date: Wed, 20 Sep 2017 11:38:19 -0400
+Subject: [PATCH 1899/4131] drm/amd: Fix typo
+
+Signed-off-by: Felix Kuehling <Felix.Kuehling@amd.com>
+---
+ drivers/gpu/drm/amd/lib/chash.c | 4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
+
+diff --git a/drivers/gpu/drm/amd/lib/chash.c b/drivers/gpu/drm/amd/lib/chash.c
+index 50dde25..96f10d5 100644
+--- a/drivers/gpu/drm/amd/lib/chash.c
++++ b/drivers/gpu/drm/amd/lib/chash.c
+@@ -224,8 +224,8 @@ static int chash_table_check(struct __chash_table *table)
+ static void chash_iter_relocate(struct chash_iter dst, struct chash_iter src)
+ {
+ 	BUG_ON(src.table == dst.table && src.slot == dst.slot);
+-	BUG_ON(src.table->key_size != src.table->key_size);
+-	BUG_ON(src.table->value_size != src.table->value_size);
++	BUG_ON(src.table->key_size != dst.table->key_size);
++	BUG_ON(src.table->value_size != dst.table->value_size);
+ 
+ 	if (dst.table->key_size == 4)
+ 		dst.table->keys32[dst.slot] = src.table->keys32[src.slot];
+-- 
+2.7.4
+

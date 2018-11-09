@@ -1,0 +1,35 @@
+From 3d38dacc8f55220a382e4bdacb6affff6067033d Mon Sep 17 00:00:00 2001
+From: Kalyan Alle <kalyan.alle@amd.com>
+Date: Wed, 25 Apr 2018 16:45:39 +0530
+Subject: [PATCH 2901/4131] Fixing the compilation issues v9
+
+This patch fixes the compilation issues prompted during
+porting from branch : amd-18.0 repo: brahma/ec/linux
+till commit : a7419387dd40b04654c5599c29c69bc4681ea5f2
+
+Signed-off-by: kalyan alle <kalyan.alle@amd.com>
+---
+ drivers/gpu/drm/amd/display/dc/os_types.h | 4 ----
+ 1 file changed, 4 deletions(-)
+
+diff --git a/drivers/gpu/drm/amd/display/dc/os_types.h b/drivers/gpu/drm/amd/display/dc/os_types.h
+index 0bdbab3..83427a8 100644
+--- a/drivers/gpu/drm/amd/display/dc/os_types.h
++++ b/drivers/gpu/drm/amd/display/dc/os_types.h
+@@ -52,13 +52,9 @@
+ 
+ #define dm_vlog(fmt, args) vprintk(fmt, args)
+ 
+-#if LINUX_VERSION_CODE >= KERNEL_VERSION(4, 2, 0)
+ #if defined(CONFIG_DRM_AMD_DC_DCN1_0)
+ #include <asm/fpu/api.h>
+ #endif
+-#else
+-#include <asm/i387.h>
+-#endif
+ 
+ /*
+  *
+-- 
+2.7.4
+

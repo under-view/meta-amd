@@ -1,0 +1,31 @@
+From 5f4116ebdbec9e5f0e3532287aea7066cdb68d57 Mon Sep 17 00:00:00 2001
+From: Roger He <Hongbo.He@amd.com>
+Date: Thu, 29 Mar 2018 15:00:29 +0800
+Subject: [PATCH 3911/4131] drm/amd/amdgpu: [DGMA] add missing code
+
+missed the code when cherry pick below patch from amd-staging-dkms-4.13
+
+drm/amd/amdgpu: [DGMA] remove get_node for DGMA import domain
+
+Signed-off-by: Roger He <Hongbo.He@amd.com>
+Reviewed-by: Flora Cui <Flora.Cui@amd.com>
+---
+ drivers/gpu/drm/amd/amdgpu/amdgpu_ttm.c | 2 ++
+ 1 file changed, 2 insertions(+)
+
+diff --git a/drivers/gpu/drm/amd/amdgpu/amdgpu_ttm.c b/drivers/gpu/drm/amd/amdgpu/amdgpu_ttm.c
+index 650659a..1c3ef32 100644
+--- a/drivers/gpu/drm/amd/amdgpu/amdgpu_ttm.c
++++ b/drivers/gpu/drm/amd/amdgpu/amdgpu_ttm.c
+@@ -1668,6 +1668,8 @@ int amdgpu_ttm_init(struct amdgpu_device *adev)
+ 	} else
+ 		gtt_size = (uint64_t)amdgpu_gtt_size << 20;
+ 
++	/* reserve for DGMA import domain */
++	gtt_size -= (uint64_t)amdgpu_direct_gma_size << 20;
+ 	r = ttm_bo_init_mm(&adev->mman.bdev, TTM_PL_TT, gtt_size >> PAGE_SHIFT);
+ 	if (r) {
+ 		DRM_ERROR("Failed initializing GTT heap.\n");
+-- 
+2.7.4
+

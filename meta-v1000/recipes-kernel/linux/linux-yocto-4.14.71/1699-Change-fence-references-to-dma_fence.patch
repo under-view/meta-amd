@@ -1,0 +1,507 @@
+From a9937dbdf6de238f4fb16ff5ce79b5afc2a86404 Mon Sep 17 00:00:00 2001
+From: Kent Russell <kent.russell@amd.com>
+Date: Tue, 25 Apr 2017 13:00:47 -0400
+Subject: [PATCH 1699/4131] Change fence references to dma_fence
+
+Required now that we're based on drm-next
+[4.11]
+
+Change-Id: I43d3ac96525d231fb2771c964969c787bc091449
+
+ Conflicts:
+	drivers/gpu/drm/amd/amdgpu/amdgpu_sync.c
+	drivers/gpu/drm/amd/include/kgd_kfd_interface.h
+---
+ drivers/gpu/drm/amd/amdgpu/amdgpu_amdkfd.c       |  6 ++--
+ drivers/gpu/drm/amd/amdgpu/amdgpu_amdkfd.h       |  8 +++---
+ drivers/gpu/drm/amd/amdgpu/amdgpu_amdkfd_fence.c | 36 ++++++++++++------------
+ drivers/gpu/drm/amd/amdgpu/amdgpu_amdkfd_gpuvm.c | 26 ++++++++---------
+ drivers/gpu/drm/amd/amdgpu/amdgpu_ttm.c          |  2 +-
+ drivers/gpu/drm/amd/amdkfd/kfd_chardev.c         | 12 ++++----
+ drivers/gpu/drm/amd/amdkfd/kfd_device.c          | 14 ++++-----
+ drivers/gpu/drm/amd/amdkfd/kfd_priv.h            |  4 +--
+ drivers/gpu/drm/amd/include/kgd_kfd_interface.h  |  8 +++---
+ 9 files changed, 58 insertions(+), 58 deletions(-)
+
+diff --git a/drivers/gpu/drm/amd/amdgpu/amdgpu_amdkfd.c b/drivers/gpu/drm/amd/amdgpu/amdgpu_amdkfd.c
+index dcd8296..46e1954 100755
+--- a/drivers/gpu/drm/amd/amdgpu/amdgpu_amdkfd.c
++++ b/drivers/gpu/drm/amd/amdgpu/amdgpu_amdkfd.c
+@@ -211,7 +211,7 @@ int amdgpu_amdkfd_submit_ib(struct kgd_dev *kgd, enum kgd_engine_type engine,
+ 	struct amdgpu_job *job;
+ 	struct amdgpu_ib *ib;
+ 	struct amdgpu_ring *ring;
+-	struct fence *f = NULL;
++	struct dma_fence *f = NULL;
+ 	int ret;
+ 
+ 	switch (engine) {
+@@ -249,10 +249,10 @@ int amdgpu_amdkfd_submit_ib(struct kgd_dev *kgd, enum kgd_engine_type engine,
+ 		goto err_ib_sched;
+ 	}
+ 
+-	ret = fence_wait(f, false);
++	ret = dma_fence_wait(f, false);
+ 
+ err_ib_sched:
+-	fence_put(f);
++	dma_fence_put(f);
+ 	amdgpu_job_free(job);
+ err:
+ 	return ret;
+diff --git a/drivers/gpu/drm/amd/amdgpu/amdgpu_amdkfd.h b/drivers/gpu/drm/amd/amdgpu/amdgpu_amdkfd.h
+index 81b8bc1..ba1e24c9 100644
+--- a/drivers/gpu/drm/amd/amdgpu/amdgpu_amdkfd.h
++++ b/drivers/gpu/drm/amd/amdgpu/amdgpu_amdkfd.h
+@@ -74,7 +74,7 @@ struct kgd_mem {
+ 
+ /* KFD Memory Eviction */
+ struct amdgpu_amdkfd_fence {
+-	struct fence base;
++	struct dma_fence base;
+ 	void *mm;
+ 	spinlock_t lock;
+ 	char timeline_name[TASK_COMM_LEN];
+@@ -82,8 +82,8 @@ struct amdgpu_amdkfd_fence {
+ 
+ struct amdgpu_amdkfd_fence *amdgpu_amdkfd_fence_create(u64 context,
+ 						       void *mm);
+-bool amd_kfd_fence_check_mm(struct fence *f, void *mm);
+-struct amdgpu_amdkfd_fence *to_amdgpu_amdkfd_fence(struct fence *f);
++bool amd_kfd_fence_check_mm(struct dma_fence *f, void *mm);
++struct amdgpu_amdkfd_fence *to_amdgpu_amdkfd_fence(struct dma_fence *f);
+ 
+ struct amdkfd_process_info {
+ 	/* List head of all VMs that belong to a KFD process */
+@@ -149,7 +149,7 @@ struct kfd2kgd_calls *amdgpu_amdkfd_gfx_8_0_get_functions(void);
+ struct kfd2kgd_calls *amdgpu_amdkfd_gfx_9_0_get_functions(void);
+ int amdgpu_amdkfd_copy_mem_to_mem(struct kgd_dev *kgd, struct kgd_mem *src_mem,
+ 		uint64_t src_offset, struct kgd_mem *dst_mem,
+-		uint64_t dest_offset, uint64_t size, struct fence **f,
++		uint64_t dest_offset, uint64_t size, struct dma_fence **f,
+ 		uint64_t *actual_size);
+ 
+ bool amdgpu_amdkfd_is_kfd_vmid(struct amdgpu_device *adev,
+diff --git a/drivers/gpu/drm/amd/amdgpu/amdgpu_amdkfd_fence.c b/drivers/gpu/drm/amd/amdgpu/amdgpu_amdkfd_fence.c
+index 811c315..d509748 100644
+--- a/drivers/gpu/drm/amd/amdgpu/amdgpu_amdkfd_fence.c
++++ b/drivers/gpu/drm/amd/amdgpu/amdgpu_amdkfd_fence.c
+@@ -20,7 +20,7 @@
+  * OTHER DEALINGS IN THE SOFTWARE.
+  */
+ 
+-#include <linux/fence.h>
++#include <linux/dma-fence.h>
+ #include <linux/spinlock.h>
+ #include <linux/atomic.h>
+ #include <linux/stacktrace.h>
+@@ -28,10 +28,10 @@
+ #include <linux/slab.h>
+ #include "amdgpu_amdkfd.h"
+ 
+-const struct fence_ops amd_kfd_fence_ops;
++const struct dma_fence_ops amd_kfd_fence_ops;
+ static atomic_t fence_seq = ATOMIC_INIT(0);
+ 
+-static int amd_kfd_fence_signal(struct fence *f);
++static int amd_kfd_fence_signal(struct dma_fence *f);
+ 
+ /* Eviction Fence
+  * Fence helper functions to deal with KFD memory eviction.
+@@ -77,13 +77,13 @@ struct amdgpu_amdkfd_fence *amdgpu_amdkfd_fence_create(u64 context,
+ 	get_task_comm(fence->timeline_name, current);
+ 	spin_lock_init(&fence->lock);
+ 
+-	fence_init(&fence->base, &amd_kfd_fence_ops, &fence->lock,
++	dma_fence_init(&fence->base, &amd_kfd_fence_ops, &fence->lock,
+ 		   context, atomic_inc_return(&fence_seq));
+ 
+ 	return fence;
+ }
+ 
+-struct amdgpu_amdkfd_fence *to_amdgpu_amdkfd_fence(struct fence *f)
++struct amdgpu_amdkfd_fence *to_amdgpu_amdkfd_fence(struct dma_fence *f)
+ {
+ 	struct amdgpu_amdkfd_fence *fence;
+ 
+@@ -97,12 +97,12 @@ struct amdgpu_amdkfd_fence *to_amdgpu_amdkfd_fence(struct fence *f)
+ 	return NULL;
+ }
+ 
+-static const char *amd_kfd_fence_get_driver_name(struct fence *f)
++static const char *amd_kfd_fence_get_driver_name(struct dma_fence *f)
+ {
+ 	return "amdgpu_amdkfd_fence";
+ }
+ 
+-static const char *amd_kfd_fence_get_timeline_name(struct fence *f)
++static const char *amd_kfd_fence_get_timeline_name(struct dma_fence *f)
+ {
+ 	struct amdgpu_amdkfd_fence *fence = to_amdgpu_amdkfd_fence(f);
+ 
+@@ -115,14 +115,14 @@ static const char *amd_kfd_fence_get_timeline_name(struct fence *f)
+  *  If fence is already signaled return true.
+  *  If fence is not signaled schedule a evict KFD process work item.
+  */
+-static bool amd_kfd_fence_enable_signaling(struct fence *f)
++static bool amd_kfd_fence_enable_signaling(struct dma_fence *f)
+ {
+ 	struct amdgpu_amdkfd_fence *fence = to_amdgpu_amdkfd_fence(f);
+ 
+ 	if (!fence)
+ 		return false;
+ 
+-	if (fence_is_signaled(f))
++	if (dma_fence_is_signaled(f))
+ 		return true;
+ 
+ 	if (!kgd2kfd->schedule_evict_and_restore_process(
+@@ -132,15 +132,15 @@ static bool amd_kfd_fence_enable_signaling(struct fence *f)
+ 	return false;
+ }
+ 
+-static int amd_kfd_fence_signal(struct fence *f)
++static int amd_kfd_fence_signal(struct dma_fence *f)
+ {
+ 	unsigned long flags;
+ 	int ret;
+ 
+ 	spin_lock_irqsave(f->lock, flags);
+ 	/* Set enabled bit so cb will called */
+-	set_bit(FENCE_FLAG_ENABLE_SIGNAL_BIT, &f->flags);
+-	ret = fence_signal_locked(f);
++	set_bit(DMA_FENCE_FLAG_ENABLE_SIGNAL_BIT, &f->flags);
++	ret = dma_fence_signal_locked(f);
+ 	spin_unlock_irqrestore(f->lock, flags);
+ 
+ 	return ret;
+@@ -153,8 +153,8 @@ static int amd_kfd_fence_signal(struct fence *f)
+  *
+  * This function is called when the reference count becomes zero.
+  * It just RCU schedules freeing up the fence.
+- */
+-static void amd_kfd_fence_release(struct fence *f)
++*/
++static void amd_kfd_fence_release(struct dma_fence *f)
+ {
+ 	struct amdgpu_amdkfd_fence *fence = to_amdgpu_amdkfd_fence(f);
+ 	/* Unconditionally signal the fence. The process is getting
+@@ -173,8 +173,8 @@ static void amd_kfd_fence_release(struct fence *f)
+  *
+  * @f: [IN] fence
+  * @mm: [IN] mm that needs to be verified
+- */
+-bool amd_kfd_fence_check_mm(struct fence *f, void *mm)
++*/
++bool amd_kfd_fence_check_mm(struct dma_fence *f, void *mm)
+ {
+ 	struct amdgpu_amdkfd_fence *fence = to_amdgpu_amdkfd_fence(f);
+ 
+@@ -186,12 +186,12 @@ bool amd_kfd_fence_check_mm(struct fence *f, void *mm)
+ 	return false;
+ }
+ 
+-const struct fence_ops amd_kfd_fence_ops = {
++const struct dma_fence_ops amd_kfd_fence_ops = {
+ 	.get_driver_name = amd_kfd_fence_get_driver_name,
+ 	.get_timeline_name = amd_kfd_fence_get_timeline_name,
+ 	.enable_signaling = amd_kfd_fence_enable_signaling,
+ 	.signaled = NULL,
+-	.wait = fence_default_wait,
++	.wait = dma_fence_default_wait,
+ 	.release = amd_kfd_fence_release,
+ };
+ 
+diff --git a/drivers/gpu/drm/amd/amdgpu/amdgpu_amdkfd_gpuvm.c b/drivers/gpu/drm/amd/amdgpu/amdgpu_amdkfd_gpuvm.c
+index f14deb6..2646597 100644
+--- a/drivers/gpu/drm/amd/amdgpu/amdgpu_amdkfd_gpuvm.c
++++ b/drivers/gpu/drm/amd/amdgpu/amdgpu_amdkfd_gpuvm.c
+@@ -245,14 +245,14 @@ static int amdgpu_amdkfd_remove_eviction_fence(struct amdgpu_bo *bo,
+ 	 */
+ 	shared_count = fobj->shared_count;
+ 	for (i = 0; i < shared_count; ++i) {
+-		struct fence *f;
++		struct dma_fence *f;
+ 
+ 		f = rcu_dereference_protected(fobj->shared[i],
+ 					      reservation_object_held(resv));
+ 
+ 		if (ef) {
+ 			if (f->context == ef->base.context) {
+-				fence_put(f);
++				dma_fence_put(f);
+ 				fobj->shared_count--;
+ 			} else
+ 				RCU_INIT_POINTER(fobj->shared[j++], f);
+@@ -280,7 +280,7 @@ static int amdgpu_amdkfd_remove_eviction_fence(struct amdgpu_bo *bo,
+ 
+ 	j = 0;
+ 	for (i = 0; i < shared_count; ++i) {
+-		struct fence *f;
++		struct dma_fence *f;
+ 		struct amdgpu_amdkfd_fence *efence;
+ 
+ 		f = rcu_dereference_protected(fobj->shared[i],
+@@ -327,7 +327,7 @@ static void amdgpu_amdkfd_add_eviction_fence(struct amdgpu_bo *bo,
+ 		/* Readding the fence takes an additional reference. Drop that
+ 		 * reference.
+ 		 */
+-		fence_put(&ef_list[i]->base);
++		dma_fence_put(&ef_list[i]->base);
+ 	}
+ 
+ 	kfree(ef_list);
+@@ -911,7 +911,7 @@ static int unmap_bo_from_gpuvm(struct amdgpu_device *adev,
+ 	 * KFD's purposes, so we can just drop that fence.
+ 	 */
+ 	if (sync->last_vm_update) {
+-		fence_put(sync->last_vm_update);
++		dma_fence_put(sync->last_vm_update);
+ 		sync->last_vm_update = NULL;
+ 	}
+ 
+@@ -957,7 +957,7 @@ static int update_gpuvm_pte(struct amdgpu_device *adev,
+ 	 * KFD's purposes, so we can just drop that fence.
+ 	 */
+ 	if (sync->last_vm_update) {
+-		fence_put(sync->last_vm_update);
++		dma_fence_put(sync->last_vm_update);
+ 		sync->last_vm_update = NULL;
+ 	}
+ 
+@@ -1403,7 +1403,7 @@ int amdgpu_amdkfd_gpuvm_create_process_vm(struct kgd_dev *kgd, void **vm,
+ 		INIT_LIST_HEAD(&info->userptr_inval_list);
+ 
+ 		info->eviction_fence =
+-			amdgpu_amdkfd_fence_create(fence_context_alloc(1),
++			amdgpu_amdkfd_fence_create(dma_fence_context_alloc(1),
+ 						   current->mm);
+ 		if (info->eviction_fence == NULL) {
+ 			pr_err("Failed to create eviction fence\n");
+@@ -1474,7 +1474,7 @@ void amdgpu_amdkfd_gpuvm_destroy_process_vm(struct kgd_dev *kgd, void *vm)
+ 		WARN_ON(!list_empty(&process_info->userptr_valid_list));
+ 		WARN_ON(!list_empty(&process_info->userptr_inval_list));
+ 
+-		fence_put(&process_info->eviction_fence->base);
++		dma_fence_put(&process_info->eviction_fence->base);
+ 		cancel_delayed_work_sync(&process_info->work);
+ 		put_pid(process_info->pid);
+ 		kfree(process_info);
+@@ -2246,7 +2246,7 @@ int amdgpu_amdkfd_gpuvm_restore_process_bos(void *info)
+ 	process_info->eviction_fence =
+ 		amdgpu_amdkfd_fence_create(old_fence->base.context,
+ 					   old_fence->mm);
+-	fence_put(&old_fence->base);
++	dma_fence_put(&old_fence->base);
+ 	if (!process_info->eviction_fence) {
+ 		pr_err("Failed to create eviction fence\n");
+ 		goto evict_fence_fail;
+@@ -2354,7 +2354,7 @@ int amdgpu_amdkfd_gpuvm_restore_process_bos(void *info)
+ int amdgpu_amdkfd_copy_mem_to_mem(struct kgd_dev *kgd, struct kgd_mem *src_mem,
+ 				  uint64_t src_offset, struct kgd_mem *dst_mem,
+ 				  uint64_t dst_offset, uint64_t size,
+-				  struct fence **f, uint64_t *actual_size)
++				  struct dma_fence **f, uint64_t *actual_size)
+ {
+ 	struct amdgpu_device *adev = NULL;
+ 	struct ttm_mem_reg *src = NULL, *dst = NULL;
+@@ -2366,7 +2366,7 @@ int amdgpu_amdkfd_copy_mem_to_mem(struct kgd_dev *kgd, struct kgd_mem *src_mem,
+ 	struct ttm_validate_buffer resv_list[2];
+ 	uint64_t src_start, dst_start;
+ 	uint64_t src_left, dst_left, cur_copy_size, total_copy_size = 0;
+-	struct fence *fence = NULL;
++	struct dma_fence *fence = NULL;
+ 	int r;
+ 
+ 	if (!kgd || !src_mem || !dst_mem)
+@@ -2458,7 +2458,7 @@ int amdgpu_amdkfd_copy_mem_to_mem(struct kgd_dev *kgd, struct kgd_mem *src_mem,
+ 	dst_left = (dst_mm->size << PAGE_SHIFT) - dst_offset;
+ 
+ 	do {
+-		struct fence *next;
++		struct dma_fence *next;
+ 
+ 		/* src_left/dst_left: amount of space left in the current node
+ 		 * Copy minimum of (src_left, dst_left, amount of bytes left to
+@@ -2473,7 +2473,7 @@ int amdgpu_amdkfd_copy_mem_to_mem(struct kgd_dev *kgd, struct kgd_mem *src_mem,
+ 			break;
+ 
+ 		/* Just keep the last fence */
+-		fence_put(fence);
++		dma_fence_put(fence);
+ 		fence = next;
+ 
+ 		total_copy_size += cur_copy_size;
+diff --git a/drivers/gpu/drm/amd/amdgpu/amdgpu_ttm.c b/drivers/gpu/drm/amd/amdgpu/amdgpu_ttm.c
+index af526a8..b16ad14 100644
+--- a/drivers/gpu/drm/amd/amdgpu/amdgpu_ttm.c
++++ b/drivers/gpu/drm/amd/amdgpu/amdgpu_ttm.c
+@@ -1192,7 +1192,7 @@ static bool amdgpu_ttm_bo_eviction_valuable(struct ttm_buffer_object *bo,
+ 					    const struct ttm_place *place)
+ {
+ 	struct reservation_object_list *flist;
+-	struct fence *f;
++	struct dma_fence *f;
+ 	int i;
+ 	unsigned long num_pages = bo->mem.num_pages;
+ 	struct drm_mm_node *node = bo->mem.mm_node;
+diff --git a/drivers/gpu/drm/amd/amdkfd/kfd_chardev.c b/drivers/gpu/drm/amd/amdkfd/kfd_chardev.c
+index 6a41746..97a8070 100644
+--- a/drivers/gpu/drm/amd/amdkfd/kfd_chardev.c
++++ b/drivers/gpu/drm/amd/amdkfd/kfd_chardev.c
+@@ -1765,7 +1765,7 @@ static int kfd_ioctl_cross_memory_copy(struct file *filep,
+ 	struct task_struct *remote_task;
+ 	struct mm_struct *remote_mm;
+ 	struct pid *remote_pid;
+-	struct fence *fence = NULL, *lfence = NULL;
++	struct dma_fence *fence = NULL, *lfence = NULL;
+ 	uint64_t dst_va_addr;
+ 	uint64_t copied, total_copied = 0;
+ 	uint64_t src_offset, dst_offset;
+@@ -1931,7 +1931,7 @@ static int kfd_ioctl_cross_memory_copy(struct file *filep,
+ 
+ 			/* Later fence available. Release old fence */
+ 			if (fence && lfence) {
+-				fence_put(lfence);
++				dma_fence_put(lfence);
+ 				lfence = NULL;
+ 			}
+ 
+@@ -1971,14 +1971,14 @@ static int kfd_ioctl_cross_memory_copy(struct file *filep,
+ 
+ 	/* Wait for the last fence irrespective of error condition */
+ 	if (fence) {
+-		if (fence_wait_timeout(fence, false, msecs_to_jiffies(1000))
++		if (dma_fence_wait_timeout(fence, false, msecs_to_jiffies(1000))
+ 			< 0)
+ 			pr_err("Cross mem copy failed. BO timed out\n");
+-		fence_put(fence);
++		dma_fence_put(fence);
+ 	} else if (lfence) {
+ 		pr_debug("GPU copy fail. But wait for prev DMA to finish\n");
+-		fence_wait_timeout(lfence, true, msecs_to_jiffies(1000));
+-		fence_put(lfence);
++		dma_fence_wait_timeout(lfence, true, msecs_to_jiffies(1000));
++		dma_fence_put(lfence);
+ 	}
+ 
+ kfd_process_fail:
+diff --git a/drivers/gpu/drm/amd/amdkfd/kfd_device.c b/drivers/gpu/drm/amd/amdkfd/kfd_device.c
+index 45a234d..43ccf18 100644
+--- a/drivers/gpu/drm/amd/amdkfd/kfd_device.c
++++ b/drivers/gpu/drm/amd/amdkfd/kfd_device.c
+@@ -26,7 +26,7 @@
+ #include <linux/pci.h>
+ #include <linux/slab.h>
+ #include <linux/highmem.h>
+-#include <linux/fence.h>
++#include <linux/dma-fence.h>
+ #include "kfd_priv.h"
+ #include "kfd_device_queue_manager.h"
+ #include "kfd_pm4_headers_vi.h"
+@@ -905,7 +905,7 @@ void kfd_restore_bo_worker(struct work_struct *work)
+  *
+  */
+ int kgd2kfd_schedule_evict_and_restore_process(struct mm_struct *mm,
+-					       struct fence *fence)
++					       struct dma_fence *fence)
+ {
+ 	struct kfd_process *p;
+ 	unsigned long active_time;
+@@ -914,7 +914,7 @@ int kgd2kfd_schedule_evict_and_restore_process(struct mm_struct *mm,
+ 	if (!fence)
+ 		return -EINVAL;
+ 
+-	if (fence_is_signaled(fence))
++	if (dma_fence_is_signaled(fence))
+ 		return 0;
+ 
+ 	p = kfd_lookup_process_by_mm(mm);
+@@ -931,11 +931,11 @@ int kgd2kfd_schedule_evict_and_restore_process(struct mm_struct *mm,
+ 		else {
+ 			WARN(1, "Starting new evict with previous evict is not completed\n");
+ 			if (cancel_delayed_work_sync(&p->eviction_work.dwork))
+-				fence_put(p->eviction_work.quiesce_fence);
++				dma_fence_put(p->eviction_work.quiesce_fence);
+ 		}
+ 	}
+ 
+-	p->eviction_work.quiesce_fence = fence_get(fence);
++	p->eviction_work.quiesce_fence = dma_fence_get(fence);
+ 
+ 	/* Avoid KFD process starvation. Wait for at least
+ 	 * PROCESS_ACTIVE_TIME_MS before evicting the process again
+@@ -982,13 +982,13 @@ void kfd_evict_bo_worker(struct work_struct *work)
+ 	pr_info("Started evicting process of pasid %d\n", p->pasid);
+ 	ret = quiesce_process_mm(p);
+ 	if (!ret) {
+-		fence_signal(eviction_work->quiesce_fence);
++		dma_fence_signal(eviction_work->quiesce_fence);
+ 		schedule_delayed_work(&p->restore_work,
+ 					PROCESS_RESTORE_TIME_MS);
+ 	} else
+ 		pr_err("Failed to quiesce user queues. Cannot evict BOs\n");
+ 
+-	fence_put(eviction_work->quiesce_fence);
++	dma_fence_put(eviction_work->quiesce_fence);
+ 
+ 	pr_info("Finished evicting process of pasid %d\n", p->pasid);
+ 
+diff --git a/drivers/gpu/drm/amd/amdkfd/kfd_priv.h b/drivers/gpu/drm/amd/amdkfd/kfd_priv.h
+index a774152..0ea3e2c 100644
+--- a/drivers/gpu/drm/amd/amdkfd/kfd_priv.h
++++ b/drivers/gpu/drm/amd/amdkfd/kfd_priv.h
+@@ -588,7 +588,7 @@ struct qcm_process_device {
+ /* KFD Memory Eviction */
+ struct kfd_eviction_work {
+ 	struct delayed_work dwork;
+-	struct fence *quiesce_fence;
++	struct dma_fence *quiesce_fence;
+ };
+ 
+ /* Approx. wait time before attempting to restore evicted BOs */
+@@ -601,7 +601,7 @@ struct kfd_eviction_work {
+ void kfd_evict_bo_worker(struct work_struct *work);
+ void kfd_restore_bo_worker(struct work_struct *work);
+ int kgd2kfd_schedule_evict_and_restore_process(struct mm_struct *mm,
+-					       struct fence *fence);
++					       struct dma_fence *fence);
+ 
+ 
+ /* 8 byte handle containing GPU ID in the most significant 4 bytes and
+diff --git a/drivers/gpu/drm/amd/include/kgd_kfd_interface.h b/drivers/gpu/drm/amd/include/kgd_kfd_interface.h
+index 132a801..7fff662 100644
+--- a/drivers/gpu/drm/amd/include/kgd_kfd_interface.h
++++ b/drivers/gpu/drm/amd/include/kgd_kfd_interface.h
+@@ -30,7 +30,7 @@
+ 
+ #include <linux/types.h>
+ #include <linux/bitmap.h>
+-#include <linux/fence.h>
++#include <linux/dma-fence.h>
+ #include <linux/dma-buf.h>
+ 
+ struct pci_dev;
+@@ -393,8 +393,8 @@ struct kfd2kgd_calls {
+ 	int (*restore_process_bos)(void *process_info);
+ 	int (*copy_mem_to_mem)(struct kgd_dev *kgd, struct kgd_mem *src_mem,
+ 			uint64_t src_offset, struct kgd_mem *dst_mem,
+-			uint64_t dest_offset, uint64_t size, struct fence **f,
+-			uint64_t *actual_size);
++			uint64_t dest_offset, uint64_t size,
++			struct dma_fence **f, uint64_t *actual_size);
+ };
+ 
+ /**
+@@ -437,7 +437,7 @@ struct kgd2kfd_calls {
+ 	int (*quiesce_mm)(struct kfd_dev *kfd, struct mm_struct *mm);
+ 	int (*resume_mm)(struct kfd_dev *kfd, struct mm_struct *mm);
+ 	int (*schedule_evict_and_restore_process)(struct mm_struct *mm,
+-			struct fence *fence);
++			struct dma_fence *fence);
+ };
+ 
+ int kgd2kfd_init(unsigned interface_version,
+-- 
+2.7.4
+

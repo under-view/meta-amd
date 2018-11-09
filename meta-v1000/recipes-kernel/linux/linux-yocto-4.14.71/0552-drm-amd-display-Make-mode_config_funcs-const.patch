@@ -1,0 +1,30 @@
+From 4022cb1eddbb222da2fe849eb1e2d263c7313e22 Mon Sep 17 00:00:00 2001
+From: Harry Wentland <harry.wentland@amd.com>
+Date: Tue, 27 Jun 2017 11:12:37 -0400
+Subject: [PATCH 0552/4131] drm/amd/display: Make mode_config_funcs const
+
+Signed-off-by: Harry Wentland <harry.wentland@amd.com>
+Reviewed-by: Andrey Grodzovsky <Andrey.Grodzovsky@amd.com>
+Acked-by: Harry Wentland <Harry.Wentland@amd.com>
+Signed-off-by: Alex Deucher <alexander.deucher@amd.com>
+---
+ drivers/gpu/drm/amd/display/amdgpu_dm/amdgpu_dm.c | 3 +--
+ 1 file changed, 1 insertion(+), 2 deletions(-)
+
+diff --git a/drivers/gpu/drm/amd/display/amdgpu_dm/amdgpu_dm.c b/drivers/gpu/drm/amd/display/amdgpu_dm/amdgpu_dm.c
+index bd01a45..e856f62 100644
+--- a/drivers/gpu/drm/amd/display/amdgpu_dm/amdgpu_dm.c
++++ b/drivers/gpu/drm/amd/display/amdgpu_dm/amdgpu_dm.c
+@@ -634,8 +634,7 @@ const struct amdgpu_ip_block_version dm_ip_block =
+ 	.funcs = &amdgpu_dm_funcs,
+ };
+ 
+-/* TODO: it is temporary non-const, should fixed later */
+-static struct drm_mode_config_funcs amdgpu_dm_mode_funcs = {
++static const struct drm_mode_config_funcs amdgpu_dm_mode_funcs = {
+ 	.fb_create = amdgpu_user_framebuffer_create,
+ 	.output_poll_changed = amdgpu_output_poll_changed,
+ 	.atomic_check = amdgpu_dm_atomic_check,
+-- 
+2.7.4
+

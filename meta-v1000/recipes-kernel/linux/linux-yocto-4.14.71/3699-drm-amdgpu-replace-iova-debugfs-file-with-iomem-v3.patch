@@ -1,0 +1,162 @@
+From c595765d6f855bb91bbbbe2c6d471d07d8d0373d Mon Sep 17 00:00:00 2001
+From: Tom St Denis <tom.stdenis@amd.com>
+Date: Fri, 23 Feb 2018 09:46:23 -0500
+Subject: [PATCH 3699/4131] drm/amdgpu: replace iova debugfs file with iomem
+ (v3)
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+This allows access to pages allocated through the driver with optional
+IOMMU mapping.
+
+v2: Fix number of bytes copied and add write method
+v3: drop check for kmap return
+
+Original-by: Christian König <christian.koenig@amd.com>
+Signed-off-by: Tom St Denis <tom.stdenis@amd.com>
+Reviewed-by: Alex Deucher <alexander.deucher@amd.com>
+
+Conflicts:
+      drivers/gpu/drm/amd/amdgpu/amdgpu_ttm.c
+
+Change-Id: I86d88c56f13a2d29e2a51116fd0ad4582d86c419
+---
+ drivers/gpu/drm/amd/amdgpu/amdgpu_ttm.c | 102 +++++++++++++++++++++++++-------
+ 1 file changed, 81 insertions(+), 21 deletions(-)
+
+diff --git a/drivers/gpu/drm/amd/amdgpu/amdgpu_ttm.c b/drivers/gpu/drm/amd/amdgpu/amdgpu_ttm.c
+index 15b7339..826f76d 100644
+--- a/drivers/gpu/drm/amd/amdgpu/amdgpu_ttm.c
++++ b/drivers/gpu/drm/amd/amdgpu/amdgpu_ttm.c
+@@ -2216,38 +2216,98 @@ static const struct file_operations amdgpu_ttm_gtt_fops = {
+ 
+ #if !defined(OS_NAME_RHEL_6)
+ 
+-static ssize_t amdgpu_iova_to_phys_read(struct file *f, char __user *buf,
+-				   size_t size, loff_t *pos)
++static ssize_t amdgpu_iomem_read(struct file *f, char __user *buf,
++				 size_t size, loff_t *pos)
+ {
+ 	struct amdgpu_device *adev = file_inode(f)->i_private;
+-	int r;
+-	uint64_t phys;
+ 	struct iommu_domain *dom;
++	ssize_t result = 0;
++	int r;
+ 
+-	// always return 8 bytes
+-	if (size != 8)
+-		return -EINVAL;
++	dom = iommu_get_domain_for_dev(adev->dev);
+ 
+-	// only accept page addresses
+-	if (*pos & 0xFFF)
+-		return -EINVAL;
++	while (size) {
++		phys_addr_t addr = *pos & PAGE_MASK;
++		loff_t off = *pos & ~PAGE_MASK;
++		size_t bytes = PAGE_SIZE - off;
++		unsigned long pfn;
++		struct page *p;
++		void *ptr;
++
++		bytes = bytes < size ? bytes : size;
++
++		addr = dom ? iommu_iova_to_phys(dom, addr) : addr;
++
++		pfn = addr >> PAGE_SHIFT;
++		if (!pfn_valid(pfn))
++			return -EPERM;
++
++		p = pfn_to_page(pfn);
++		if (p->mapping != adev->mman.bdev.dev_mapping)
++			return -EPERM;
++
++		ptr = kmap(p);
++		r = copy_to_user(buf, ptr, bytes);
++		kunmap(p);
++		if (r)
++			return -EFAULT;
++
++		size -= bytes;
++		*pos += bytes;
++		result += bytes;
++	}
++
++	return result;
++}
++
++static ssize_t amdgpu_iomem_write(struct file *f, const char __user *buf,
++				 size_t size, loff_t *pos)
++{
++	struct amdgpu_device *adev = file_inode(f)->i_private;
++	struct iommu_domain *dom;
++	ssize_t result = 0;
++	int r;
+ 
+ 	dom = iommu_get_domain_for_dev(adev->dev);
+-	if (dom)
+-		phys = iommu_iova_to_phys(dom, *pos);
+-	else
+-		phys = *pos;
+ 
+-	r = copy_to_user(buf, &phys, 8);
+-	if (r)
+-		return -EFAULT;
++	while (size) {
++		phys_addr_t addr = *pos & PAGE_MASK;
++		loff_t off = *pos & ~PAGE_MASK;
++		size_t bytes = PAGE_SIZE - off;
++		unsigned long pfn;
++		struct page *p;
++		void *ptr;
++
++		bytes = bytes < size ? bytes : size;
+ 
+-	return 8;
++		addr = dom ? iommu_iova_to_phys(dom, addr) : addr;
++
++		pfn = addr >> PAGE_SHIFT;
++		if (!pfn_valid(pfn))
++			return -EPERM;
++
++		p = pfn_to_page(pfn);
++		if (p->mapping != adev->mman.bdev.dev_mapping)
++			return -EPERM;
++
++		ptr = kmap(p);
++		r = copy_from_user(ptr, buf, bytes);
++		kunmap(p);
++		if (r)
++			return -EFAULT;
++
++		size -= bytes;
++		*pos += bytes;
++		result += bytes;
++	}
++
++	return result;
+ }
+ 
+-static const struct file_operations amdgpu_ttm_iova_fops = {
++static const struct file_operations amdgpu_ttm_iomem_fops = {
+ 	.owner = THIS_MODULE,
+-	.read = amdgpu_iova_to_phys_read,
++	.read = amdgpu_iomem_read,
++	.write = amdgpu_iomem_write,
+ 	.llseek = default_llseek
+ };
+ 
+@@ -2263,7 +2323,7 @@ static const struct {
+ 	{ "amdgpu_gtt", &amdgpu_ttm_gtt_fops, TTM_PL_TT },
+ #endif
+ #if !defined(OS_NAME_RHEL_6)
+-	{ "amdgpu_iova", &amdgpu_ttm_iova_fops, TTM_PL_SYSTEM },
++	{ "amdgpu_iomem", &amdgpu_ttm_iomem_fops, TTM_PL_SYSTEM },
+ #endif
+ };
+ 
+-- 
+2.7.4
+

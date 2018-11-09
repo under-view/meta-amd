@@ -1,0 +1,43 @@
+From d947ebb8d78b93c2337b7b291bdb930dd2af1330 Mon Sep 17 00:00:00 2001
+From: Alex Deucher <alexander.deucher@amd.com>
+Date: Thu, 29 Mar 2018 14:39:46 -0500
+Subject: [PATCH 3985/4131] drm/amdgpu/soc15: implement asic need_full_reset
+ callback
+
+Used to check on a per SoC basis whether the SoC needs
+a full reset of a per IP soft reset.
+
+Reviewed-by: Huang Rui <ray.huang@amd.com>
+Signed-off-by: Alex Deucher <alexander.deucher@amd.com>
+---
+ drivers/gpu/drm/amd/amdgpu/soc15.c | 7 +++++++
+ 1 file changed, 7 insertions(+)
+
+diff --git a/drivers/gpu/drm/amd/amdgpu/soc15.c b/drivers/gpu/drm/amd/amdgpu/soc15.c
+index 654b015..2e9ebe8 100644
+--- a/drivers/gpu/drm/amd/amdgpu/soc15.c
++++ b/drivers/gpu/drm/amd/amdgpu/soc15.c
+@@ -568,6 +568,12 @@ static void soc15_invalidate_hdp(struct amdgpu_device *adev,
+ 			HDP, 0, mmHDP_READ_CACHE_INVALIDATE), 1);
+ }
+ 
++static bool soc15_need_full_reset(struct amdgpu_device *adev)
++{
++	/* change this when we implement soft reset */
++	return true;
++}
++
+ static const struct amdgpu_asic_funcs soc15_asic_funcs =
+ {
+ 	.read_disabled_bios = &soc15_read_disabled_bios,
+@@ -581,6 +587,7 @@ static const struct amdgpu_asic_funcs soc15_asic_funcs =
+ 	.get_config_memsize = &soc15_get_config_memsize,
+ 	.flush_hdp = &soc15_flush_hdp,
+ 	.invalidate_hdp = &soc15_invalidate_hdp,
++	.need_full_reset = &soc15_need_full_reset,
+ };
+ 
+ static int soc15_common_early_init(void *handle)
+-- 
+2.7.4
+

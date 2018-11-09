@@ -1,0 +1,34 @@
+From 08763f05ce5716aed0ef0fac3b0715a173594f66 Mon Sep 17 00:00:00 2001
+From: Hersen Wu <hersenxs.wu@amd.com>
+Date: Tue, 30 Jan 2018 11:46:16 -0500
+Subject: [PATCH 3545/4131] drm/amd/display: VGA black screen from s3 when
+ attached to hook
+
+[Description] For MST, DC already notify MST sink for MST mode, DC stll
+check DP SINK DPCD register to see if MST enabled. DP RX firmware may
+not handle this properly.
+
+Signed-off-by: Hersen Wu <hersenxs.wu@amd.com>
+Reviewed-by: Tony Cheng <Tony.Cheng@amd.com>
+Acked-by: Harry Wentland <harry.wentland@amd.com>
+Signed-off-by: Alex Deucher <alexander.deucher@amd.com>
+---
+ drivers/gpu/drm/amd/display/dc/core/dc_link_dp.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/drivers/gpu/drm/amd/display/dc/core/dc_link_dp.c b/drivers/gpu/drm/amd/display/dc/core/dc_link_dp.c
+index 4ee4c03..604fb01 100644
+--- a/drivers/gpu/drm/amd/display/dc/core/dc_link_dp.c
++++ b/drivers/gpu/drm/amd/display/dc/core/dc_link_dp.c
+@@ -1465,7 +1465,7 @@ void decide_link_settings(struct dc_stream_state *stream,
+ 	/* MST doesn't perform link training for now
+ 	 * TODO: add MST specific link training routine
+ 	 */
+-	if (is_mst_supported(link)) {
++	if (stream->signal == SIGNAL_TYPE_DISPLAY_PORT_MST) {
+ 		*link_setting = link->verified_link_cap;
+ 		return;
+ 	}
+-- 
+2.7.4
+

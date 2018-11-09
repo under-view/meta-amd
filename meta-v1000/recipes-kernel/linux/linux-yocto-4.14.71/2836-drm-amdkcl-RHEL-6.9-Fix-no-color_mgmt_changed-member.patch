@@ -1,0 +1,35 @@
+From ed2ef32a4d15905e0db9d39833d4bf81d6e3167b Mon Sep 17 00:00:00 2001
+From: "Le.Ma" <Le.Ma@amd.com>
+Date: Fri, 8 Dec 2017 11:38:15 +0800
+Subject: [PATCH 2836/4131] drm/amdkcl: [RHEL 6.9] Fix no color_mgmt_changed
+ member in drm_crtc_state
+
+This fixes patch "drm/amd/display: fix gamma setting"
+
+Change-Id: Ia79a515c89347b9b6253672197415505720ef7be
+Signed-off-by: Le.Ma <Le.Ma@amd.com>
+Reviewed-by: Xiaojie Yuan <Xiaojie.Yuan@amd.com>
+---
+ drivers/gpu/drm/amd/display/amdgpu_dm/amdgpu_dm.c | 4 ++++
+ 1 file changed, 4 insertions(+)
+
+diff --git a/drivers/gpu/drm/amd/display/amdgpu_dm/amdgpu_dm.c b/drivers/gpu/drm/amd/display/amdgpu_dm/amdgpu_dm.c
+index e6bd81a..61a2067 100644
+--- a/drivers/gpu/drm/amd/display/amdgpu_dm/amdgpu_dm.c
++++ b/drivers/gpu/drm/amd/display/amdgpu_dm/amdgpu_dm.c
+@@ -5293,8 +5293,12 @@ static int amdgpu_dm_atomic_check(struct drm_device *dev,
+ #else
+ 		for_each_oldnew_crtc_in_state(state, crtc, old_crtc_state, new_crtc_state, i) {
+ #endif
++#if LINUX_VERSION_CODE >= KERNEL_VERSION(4, 6, 0) || defined(OS_NAME_RHEL_7_3) || defined(OS_NAME_RHEL_7_4)
+ 			if (!drm_atomic_crtc_needs_modeset(new_crtc_state) &&
+ 					!new_crtc_state->color_mgmt_changed)
++#else
++			if (!drm_atomic_crtc_needs_modeset(new_crtc_state))
++#endif
+ 				continue;
+ 
+ 			if (!new_crtc_state->enable)
+-- 
+2.7.4
+

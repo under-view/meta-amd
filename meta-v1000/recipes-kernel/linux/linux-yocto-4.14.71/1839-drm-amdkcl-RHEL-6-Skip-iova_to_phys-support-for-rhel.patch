@@ -1,0 +1,48 @@
+From 9c4806ee69a32a6072832a711a33e02d403e28e2 Mon Sep 17 00:00:00 2001
+From: "Le.Ma" <Le.Ma@amd.com>
+Date: Wed, 11 Oct 2017 16:00:21 +0800
+Subject: [PATCH 1839/4131] drm/amdkcl: [RHEL 6] Skip iova_to_phys support for
+ rhel6 due to no iommu API
+
+Change-Id: Ia31f2e1dc8c355ba26d131bacfe13753974081a1
+Signed-off-by: Le.Ma <Le.Ma@amd.com>
+Reviewed-by: Junwei Zhang <Jerry.Zhang@amd.com>
+---
+ drivers/gpu/drm/amd/amdgpu/amdgpu_ttm.c | 6 ++++++
+ 1 file changed, 6 insertions(+)
+
+diff --git a/drivers/gpu/drm/amd/amdgpu/amdgpu_ttm.c b/drivers/gpu/drm/amd/amdgpu/amdgpu_ttm.c
+index e6cae02..c1a4ff9 100644
+--- a/drivers/gpu/drm/amd/amdgpu/amdgpu_ttm.c
++++ b/drivers/gpu/drm/amd/amdgpu/amdgpu_ttm.c
+@@ -2073,6 +2073,8 @@ static const struct file_operations amdgpu_ttm_gtt_fops = {
+ 
+ #endif
+ 
++#if !defined(OS_NAME_RHEL_6)
++
+ static ssize_t amdgpu_iova_to_phys_read(struct file *f, char __user *buf,
+ 				   size_t size, loff_t *pos)
+ {
+@@ -2172,6 +2174,8 @@ static const struct file_operations amdgpu_ttm_iova_fops = {
+ 	.llseek = default_llseek
+ };
+ 
++#endif
++
+ static const struct {
+ 	char *name;
+ 	const struct file_operations *fops;
+@@ -2181,7 +2185,9 @@ static const struct {
+ #ifdef CONFIG_DRM_AMDGPU_GART_DEBUGFS
+ 	{ "amdgpu_gtt", &amdgpu_ttm_gtt_fops, TTM_PL_TT },
+ #endif
++#if !defined(OS_NAME_RHEL_6)
+ 	{ "amdgpu_iova", &amdgpu_ttm_iova_fops, TTM_PL_SYSTEM },
++#endif
+ };
+ 
+ #endif
+-- 
+2.7.4
+

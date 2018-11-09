@@ -1,0 +1,39 @@
+From 816a8a40100bacb515a9a31ef201dd294319cb62 Mon Sep 17 00:00:00 2001
+From: Monk Liu <Monk.Liu@amd.com>
+Date: Fri, 20 Oct 2017 14:41:38 +0800
+Subject: [PATCH 2056/4131] drm/amd/scheduler:fix duplicate operation in entity
+ fini
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+no need to manually cleanup job and fence after sched_fence_finish(),
+they are auto handled by the callback
+
+Change-Id: I9da26064c9e73c178949663bed1e490539e95e41
+Signed-off-by: Monk Liu <Monk.Liu@amd.com>
+Reviewed-by: Christian König <christian.koenig@amd.com>
+---
+ drivers/gpu/drm/amd/scheduler/gpu_scheduler.c | 3 +--
+ 1 file changed, 1 insertion(+), 2 deletions(-)
+
+diff --git a/drivers/gpu/drm/amd/scheduler/gpu_scheduler.c b/drivers/gpu/drm/amd/scheduler/gpu_scheduler.c
+index 2634846..fe4c4f66 100644
+--- a/drivers/gpu/drm/amd/scheduler/gpu_scheduler.c
++++ b/drivers/gpu/drm/amd/scheduler/gpu_scheduler.c
+@@ -230,11 +230,10 @@ void amd_sched_entity_fini(struct amd_gpu_scheduler *sched,
+ 		kthread_unpark(sched->thread);
+ 		while (kfifo_out(&entity->job_queue, &job, sizeof(job))) {
+ 			struct amd_sched_fence *s_fence = job->s_fence;
++
+ 			amd_sched_fence_scheduled(s_fence);
+ 			dma_fence_set_error(&s_fence->finished, -ESRCH);
+ 			amd_sched_fence_finished(s_fence);
+-			dma_fence_put(&s_fence->finished);
+-			sched->ops->free_job(job);
+ 		}
+ 	
+ 	}
+-- 
+2.7.4
+

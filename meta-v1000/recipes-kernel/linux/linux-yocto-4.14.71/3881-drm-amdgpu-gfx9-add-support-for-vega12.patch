@@ -1,0 +1,36 @@
+From d066d257e4322a358755792fff5d4944b0f434e9 Mon Sep 17 00:00:00 2001
+From: Alex Deucher <alexander.deucher@amd.com>
+Date: Sat, 2 Sep 2017 02:26:09 -0400
+Subject: [PATCH 3881/4131] drm/amdgpu/gfx9: add support for vega12
+
+Same as vega10 and raven.
+
+Signed-off-by: Alex Deucher <alexander.deucher@amd.com>
+Reviewed-by: Feifei Xu <Feifei.Xu@amd.com>
+---
+ drivers/gpu/drm/amd/amdgpu/gfx_v9_0.c | 2 ++
+ 1 file changed, 2 insertions(+)
+
+diff --git a/drivers/gpu/drm/amd/amdgpu/gfx_v9_0.c b/drivers/gpu/drm/amd/amdgpu/gfx_v9_0.c
+index dfd95b0..6ed534d 100644
+--- a/drivers/gpu/drm/amd/amdgpu/gfx_v9_0.c
++++ b/drivers/gpu/drm/amd/amdgpu/gfx_v9_0.c
+@@ -1271,6 +1271,7 @@ static int gfx_v9_0_sw_init(void *handle)
+ 
+ 	switch (adev->asic_type) {
+ 	case CHIP_VEGA10:
++	case CHIP_VEGA12:
+ 	case CHIP_RAVEN:
+ 		adev->gfx.mec.num_mec = 2;
+ 		break;
+@@ -4485,6 +4486,7 @@ static void gfx_v9_0_set_rlc_funcs(struct amdgpu_device *adev)
+ {
+ 	switch (adev->asic_type) {
+ 	case CHIP_VEGA10:
++	case CHIP_VEGA12:
+ 	case CHIP_RAVEN:
+ 		adev->gfx.rlc.funcs = &gfx_v9_0_rlc_funcs;
+ 		break;
+-- 
+2.7.4
+

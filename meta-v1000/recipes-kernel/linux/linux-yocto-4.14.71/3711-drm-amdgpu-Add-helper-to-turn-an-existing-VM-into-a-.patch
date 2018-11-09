@@ -1,0 +1,64 @@
+From 8831a91499df85dfbe4972848ffa58ea4e9f69db Mon Sep 17 00:00:00 2001
+From: Felix Kuehling <Felix.Kuehling@amd.com>
+Date: Sat, 24 Feb 2018 18:26:47 -0500
+Subject: [PATCH 3711/4131] drm/amdgpu: Add helper to turn an existing VM into
+ a compute VM
+
+Change-Id: Ie7d1fe63c2d612765a62e9c4d57e361f21cf0d10
+Signed-off-by: Felix Kuehling <Felix.Kuehling@amd.com>
+
+Conflicts:
+      drivers/gpu/drm/amd/amdgpu/amdgpu_vm.c
+---
+ drivers/gpu/drm/amd/amdgpu/amdgpu_vm.c | 21 ++++-----------------
+ 1 file changed, 4 insertions(+), 17 deletions(-)
+
+diff --git a/drivers/gpu/drm/amd/amdgpu/amdgpu_vm.c b/drivers/gpu/drm/amd/amdgpu/amdgpu_vm.c
+index f3b4241..5a78082 100644
+--- a/drivers/gpu/drm/amd/amdgpu/amdgpu_vm.c
++++ b/drivers/gpu/drm/amd/amdgpu/amdgpu_vm.c
+@@ -2385,7 +2385,7 @@ static void amdgpu_inc_compute_vms(struct amdgpu_device *adev)
+ 		/* First Compute VM: enable compute power profile */
+ 		if (adev->powerplay.pp_funcs->switch_power_profile)
+ 			amdgpu_dpm_switch_power_profile(adev,
+-							PP_SMC_POWER_PROFILE_COMPUTE, true);
++							PP_SMC_POWER_PROFILE_COMPUTE);
+ 	}
+ 	mutex_unlock(&id_mgr->lock);
+ }
+@@ -2411,10 +2411,6 @@ int amdgpu_vm_init(struct amdgpu_device *adev, struct amdgpu_vm *vm,
+ 	uint64_t flags;
+ 	int r, i;
+ 	
+-	/* Temporary use only the first VM manager */
+-	unsigned vmhub = 0; /*ring->funcs->vmhub;*/
+-	struct amdgpu_vmid_mgr *id_mgr = &adev->vm_manager.id_mgr[vmhub];
+-
+ 	vm->va = RB_ROOT_CACHED;
+ 	for (i = 0; i < AMDGPU_MAX_VMHUBS; i++)
+ 		vm->reserved_vmid[i] = NULL;
+@@ -2498,18 +2494,9 @@ int amdgpu_vm_init(struct amdgpu_device *adev, struct amdgpu_vm *vm,
+ 	vm->fault_credit = 16;
+ 	
+ 	vm->vm_context = vm_context;
+-	if (vm_context == AMDGPU_VM_CONTEXT_COMPUTE) {
+-		mutex_lock(&id_mgr->lock);
+-
+-		if ((adev->vm_manager.n_compute_vms++ == 0) &&
+-			(!amdgpu_sriov_vf(adev))) {
+-			/* First Compute VM: enable compute power profile */
+-			if (adev->powerplay.pp_funcs->switch_power_profile)
+-				amdgpu_dpm_switch_power_profile(adev,
+-						PP_SMC_POWER_PROFILE_COMPUTE, true);
+-		}
+-		mutex_unlock(&id_mgr->lock);
+-	}
++	
++	if (vm_context == AMDGPU_VM_CONTEXT_COMPUTE)
++		amdgpu_inc_compute_vms(adev);
+ 
+ 	return 0;
+ 
+-- 
+2.7.4
+

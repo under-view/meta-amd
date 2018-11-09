@@ -1,0 +1,487 @@
+From 969d812b8cce559311cd06c8a0ab68d49bba3773 Mon Sep 17 00:00:00 2001
+From: Chaudhary Amit Kumar <chaudharyamit.kumar@amd.com>
+Date: Mon, 22 Oct 2018 15:39:53 +0530
+Subject: [PATCH 4130/4131] RTQA3 compilation fix after back porting
+
+---
+ drivers/gpu/drm/amd/amdgpu/amdgpu_amdkfd.h         |  1 -
+ drivers/gpu/drm/amd/amdgpu/amdgpu_amdkfd_gfx_v7.c  |  4 +-
+ drivers/gpu/drm/amd/amdgpu/amdgpu_atpx_handler.c   | 50 +++++++++++++++++++++-
+ drivers/gpu/drm/amd/amdgpu/amdgpu_connectors.c     | 42 ++++++------------
+ drivers/gpu/drm/amd/amdgpu/amdgpu_object.c         | 14 +++---
+ drivers/gpu/drm/amd/amdgpu/amdgpu_ttm.h            |  1 -
+ drivers/gpu/drm/amd/amdgpu/amdgpu_vcn.c            |  1 -
+ drivers/gpu/drm/amd/amdgpu/amdgpu_vram_mgr.c       | 22 ++--------
+ drivers/gpu/drm/amd/amdgpu/gfx_v9_0.c              |  2 +-
+ drivers/gpu/drm/amd/amdgpu/vce_v3_0.c              |  4 +-
+ .../gpu/drm/amd/amdkfd/kfd_process_queue_manager.c |  3 +-
+ .../gpu/drm/amd/powerplay/hwmgr/smu7_powertune.c   | 43 -------------------
+ 12 files changed, 76 insertions(+), 111 deletions(-)
+
+diff --git a/drivers/gpu/drm/amd/amdgpu/amdgpu_amdkfd.h b/drivers/gpu/drm/amd/amdgpu/amdgpu_amdkfd.h
+index f79b419..63dbe3c 100644
+--- a/drivers/gpu/drm/amd/amdgpu/amdgpu_amdkfd.h
++++ b/drivers/gpu/drm/amd/amdgpu/amdgpu_amdkfd.h
+@@ -26,7 +26,6 @@
+ #define AMDGPU_AMDKFD_H_INCLUDED
+ 
+ #include <linux/types.h>
+-#include <linux/mm.h>
+ #include <linux/workqueue.h>
+ #include <linux/mmu_context.h>
+ #include <kgd_kfd_interface.h>
+diff --git a/drivers/gpu/drm/amd/amdgpu/amdgpu_amdkfd_gfx_v7.c b/drivers/gpu/drm/amd/amdgpu/amdgpu_amdkfd_gfx_v7.c
+index c541656..84f8f71 100644
+--- a/drivers/gpu/drm/amd/amdgpu/amdgpu_amdkfd_gfx_v7.c
++++ b/drivers/gpu/drm/amd/amdgpu/amdgpu_amdkfd_gfx_v7.c
+@@ -702,6 +702,8 @@ static int kgd_hqd_sdma_destroy(struct kgd_dev *kgd, void *mqd,
+         WREG32(sdma_base_addr + mmSDMA0_RLC0_RB_CNTL,
+                 RREG32(sdma_base_addr + mmSDMA0_RLC0_RB_CNTL) |
+                 SDMA0_RLC0_RB_CNTL__RB_ENABLE_MASK);
++
++	m->sdma_rlc_rb_rptr = RREG32(sdma_base_addr + mmSDMA0_RLC0_RB_RPTR);
+ 	return 0;
+ }
+ 
+@@ -872,8 +874,6 @@ static int alloc_memory_of_scratch(struct kgd_dev *kgd,
+ 	WREG32(mmSH_HIDDEN_PRIVATE_BASE_VMID, va);
+ 	unlock_srbm(kgd);
+ 
+-	m->sdma_rlc_rb_rptr = RREG32(sdma_base_addr + mmSDMA0_RLC0_RB_RPTR);
+-
+ 	return 0;
+ }
+ 
+diff --git a/drivers/gpu/drm/amd/amdgpu/amdgpu_atpx_handler.c b/drivers/gpu/drm/amd/amdgpu/amdgpu_atpx_handler.c
+index a3de103..6021dc4 100644
+--- a/drivers/gpu/drm/amd/amdgpu/amdgpu_atpx_handler.c
++++ b/drivers/gpu/drm/amd/amdgpu/amdgpu_atpx_handler.c
+@@ -14,6 +14,16 @@
+ 
+ #include "amd_acpi.h"
+ 
++#define AMDGPU_PX_QUIRK_FORCE_ATPX  (1 << 0)
++
++struct amdgpu_px_quirk {
++	u32 chip_vendor;
++	u32 chip_device;
++	u32 subsys_vendor;
++	u32 subsys_device;
++	u32 px_quirk_flags;
++};
++
+ struct amdgpu_atpx_functions {
+ 	bool px_params;
+ 	bool power_cntl;
+@@ -35,6 +45,7 @@ struct amdgpu_atpx {
+ static struct amdgpu_atpx_priv {
+ 	bool atpx_detected;
+ 	bool bridge_pm_usable;
++	unsigned int quirks;
+ 	/* handle for device - and atpx */
+ 	acpi_handle dhandle;
+ 	acpi_handle other_handle;
+@@ -205,13 +216,19 @@ static int amdgpu_atpx_validate(struct amdgpu_atpx *atpx)
+ 
+ 	atpx->is_hybrid = false;
+ 	if (valid_bits & ATPX_MS_HYBRID_GFX_SUPPORTED) {
+-                printk("ATPX Hybrid Graphics\n");
++		if (amdgpu_atpx_priv.quirks & AMDGPU_PX_QUIRK_FORCE_ATPX) {
++			printk("ATPX Hybrid Graphics, forcing to ATPX\n");
++			atpx->functions.power_cntl = true;
++			atpx->is_hybrid = false;
++		} else {
++	                printk("ATPX Hybrid Graphics\n");
+ 			/*
+ 			 * Disable legacy PM methods only when pcie port PM is usable,
+ 			 * otherwise the device might fail to power off or power on.
+ 			 */
+ 			atpx->functions.power_cntl = !amdgpu_atpx_priv.bridge_pm_usable;
+-		atpx->is_hybrid = true;
++			atpx->is_hybrid = true;
++		}
+ 	}
+ 
+ 	atpx->dgpu_req_power_for_displays = false;
+@@ -546,6 +563,33 @@ static const struct vga_switcheroo_handler amdgpu_atpx_handler = {
+ 	.get_client_id = amdgpu_atpx_get_client_id,
+ };
+ 
++static const struct amdgpu_px_quirk amdgpu_px_quirk_list[] = {
++	/* HG _PR3 doesn't seem to work on this A+A weston board */
++	{ 0x1002, 0x6900, 0x1002, 0x0124, AMDGPU_PX_QUIRK_FORCE_ATPX },
++	{ 0x1002, 0x6900, 0x1028, 0x0812, AMDGPU_PX_QUIRK_FORCE_ATPX },
++	{ 0x1002, 0x6900, 0x1028, 0x0813, AMDGPU_PX_QUIRK_FORCE_ATPX },
++	{ 0x1002, 0x67DF, 0x1028, 0x0774, AMDGPU_PX_QUIRK_FORCE_ATPX },
++	{ 0x1002, 0x699F, 0x1028, 0x0814, AMDGPU_PX_QUIRK_FORCE_ATPX },
++	{ 0, 0, 0, 0, 0 },
++};
++
++static void amdgpu_atpx_get_quirks(struct pci_dev *pdev)
++{
++	const struct amdgpu_px_quirk *p = amdgpu_px_quirk_list;
++
++	/* Apply PX quirks */
++	while (p && p->chip_device != 0) {
++		if (pdev->vendor == p->chip_vendor &&
++		    pdev->device == p->chip_device &&
++		    pdev->subsystem_vendor == p->subsys_vendor &&
++		    pdev->subsystem_device == p->subsys_device) {
++			amdgpu_atpx_priv.quirks |= p->px_quirk_flags;
++			break;
++		}
++		++p;
++	}
++}
++
+ /**
+  * amdgpu_atpx_detect - detect whether we have PX
+  *
+@@ -569,6 +613,7 @@ static bool amdgpu_atpx_detect(void)
+ 
+ 		parent_pdev = pci_upstream_bridge(pdev);
+ 		d3_supported |= parent_pdev && parent_pdev->bridge_d3;
++		amdgpu_atpx_get_quirks(pdev);
+ 	}
+ 
+ 	while ((pdev = pci_get_class(PCI_CLASS_DISPLAY_OTHER << 8, pdev)) != NULL) {
+@@ -578,6 +623,7 @@ static bool amdgpu_atpx_detect(void)
+ 
+ 		parent_pdev = pci_upstream_bridge(pdev);
+ 		d3_supported |= parent_pdev && parent_pdev->bridge_d3;
++		amdgpu_atpx_get_quirks(pdev);
+ 	}
+ 
+ 	if (has_atpx && vga_count == 2) {
+diff --git a/drivers/gpu/drm/amd/amdgpu/amdgpu_connectors.c b/drivers/gpu/drm/amd/amdgpu/amdgpu_connectors.c
+index cdf9b0c..820d66b 100644
+--- a/drivers/gpu/drm/amd/amdgpu/amdgpu_connectors.c
++++ b/drivers/gpu/drm/amd/amdgpu/amdgpu_connectors.c
+@@ -732,11 +732,9 @@ amdgpu_connector_lvds_detect(struct drm_connector *connector, bool force)
+ 	enum drm_connector_status ret = connector_status_disconnected;
+ 	int r;
+ 
+-	if (!drm_kms_helper_is_poll_worker()) {
+ 		r = pm_runtime_get_sync(connector->dev->dev);
+ 		if (r < 0)
+ 			return connector_status_disconnected;
+-	}
+ 
+ 	if (encoder) {
+ 		struct amdgpu_encoder *amdgpu_encoder = to_amdgpu_encoder(encoder);
+@@ -756,10 +754,8 @@ amdgpu_connector_lvds_detect(struct drm_connector *connector, bool force)
+ 
+ 	amdgpu_connector_update_scratch_regs(connector, ret);
+ 
+-	if (!drm_kms_helper_is_poll_worker()) {
+ 		pm_runtime_mark_last_busy(connector->dev->dev);
+ 		pm_runtime_put_autosuspend(connector->dev->dev);
+-	}
+ 
+ 	return ret;
+ }
+@@ -870,11 +866,9 @@ amdgpu_connector_vga_detect(struct drm_connector *connector, bool force)
+ 	enum drm_connector_status ret = connector_status_disconnected;
+ 	int r;
+ 
+-	if (!drm_kms_helper_is_poll_worker()) {
+-		r = pm_runtime_get_sync(connector->dev->dev);
+-		if (r < 0)
+-			return connector_status_disconnected;
+-	}
++	r = pm_runtime_get_sync(connector->dev->dev);
++	if (r < 0)
++		return connector_status_disconnected;
+ 
+ 	encoder = amdgpu_connector_best_single_encoder(connector);
+ 	if (!encoder)
+@@ -928,10 +922,8 @@ amdgpu_connector_vga_detect(struct drm_connector *connector, bool force)
+ 	amdgpu_connector_update_scratch_regs(connector, ret);
+ 
+ out:
+-	if (!drm_kms_helper_is_poll_worker()) {
+ 		pm_runtime_mark_last_busy(connector->dev->dev);
+ 		pm_runtime_put_autosuspend(connector->dev->dev);
+-	}
+ 
+ 	return ret;
+ }
+@@ -994,11 +986,9 @@ amdgpu_connector_dvi_detect(struct drm_connector *connector, bool force)
+ 	enum drm_connector_status ret = connector_status_disconnected;
+ 	bool dret = false, broken_edid = false;
+ 
+-	if (!drm_kms_helper_is_poll_worker()) {
+-		r = pm_runtime_get_sync(connector->dev->dev);
+-		if (r < 0)
+-			return connector_status_disconnected;
+-	}
++	r = pm_runtime_get_sync(connector->dev->dev);
++	if (r < 0)
++		return connector_status_disconnected;
+ 
+ 	if (!force && amdgpu_connector_check_hpd_status_unchanged(connector)) {
+ 		ret = connector->status;
+@@ -1123,10 +1113,8 @@ amdgpu_connector_dvi_detect(struct drm_connector *connector, bool force)
+ 	amdgpu_connector_update_scratch_regs(connector, ret);
+ 
+ exit:
+-	if (!drm_kms_helper_is_poll_worker()) {
+-		pm_runtime_mark_last_busy(connector->dev->dev);
+-		pm_runtime_put_autosuspend(connector->dev->dev);
+-	}
++	pm_runtime_mark_last_busy(connector->dev->dev);
++	pm_runtime_put_autosuspend(connector->dev->dev);
+ 
+ 	return ret;
+ }
+@@ -1369,11 +1357,9 @@ amdgpu_connector_dp_detect(struct drm_connector *connector, bool force)
+ 	struct drm_encoder *encoder = amdgpu_connector_best_single_encoder(connector);
+ 	int r;
+ 
+-	if (!drm_kms_helper_is_poll_worker()) {
+-		r = pm_runtime_get_sync(connector->dev->dev);
+-		if (r < 0)
+-			return connector_status_disconnected;
+-	}
++	r = pm_runtime_get_sync(connector->dev->dev);
++	if (r < 0)
++		return connector_status_disconnected;
+ 
+ 	if (!force && amdgpu_connector_check_hpd_status_unchanged(connector)) {
+ 		ret = connector->status;
+@@ -1443,10 +1429,8 @@ amdgpu_connector_dp_detect(struct drm_connector *connector, bool force)
+ 
+ 	amdgpu_connector_update_scratch_regs(connector, ret);
+ out:
+-	if (!drm_kms_helper_is_poll_worker()) {
+-		pm_runtime_mark_last_busy(connector->dev->dev);
+-		pm_runtime_put_autosuspend(connector->dev->dev);
+-	}
++	pm_runtime_mark_last_busy(connector->dev->dev);
++	pm_runtime_put_autosuspend(connector->dev->dev);
+ 
+ 	return ret;
+ }
+diff --git a/drivers/gpu/drm/amd/amdgpu/amdgpu_object.c b/drivers/gpu/drm/amd/amdgpu/amdgpu_object.c
+index d34ed61..74d05cc 100755
+--- a/drivers/gpu/drm/amd/amdgpu/amdgpu_object.c
++++ b/drivers/gpu/drm/amd/amdgpu/amdgpu_object.c
+@@ -745,12 +745,8 @@ int amdgpu_bo_pin_restricted(struct amdgpu_bo *bo, u32 domain,
+ 		return -EINVAL;
+ 
+ 	/* A shared bo cannot be migrated to VRAM */
+-	if (bo->prime_shared_count) {
+-		if (domain & AMDGPU_GEM_DOMAIN_GTT)
+-			domain = AMDGPU_GEM_DOMAIN_GTT;
+-		else
+-			return -EINVAL;
+-	}
++	if (bo->prime_shared_count && (domain == AMDGPU_GEM_DOMAIN_VRAM))
++		return -EINVAL;
+ 
+ 	if (bo->pin_count) {
+ 		uint32_t mem_type = bo->tbo.mem.mem_type;
+@@ -809,7 +805,8 @@ int amdgpu_bo_pin_restricted(struct amdgpu_bo *bo, u32 domain,
+ 	domain = amdgpu_mem_type_to_domain(bo->tbo.mem.mem_type);
+ 	if (domain == AMDGPU_GEM_DOMAIN_VRAM) {
+ 		adev->vram_pin_size += amdgpu_bo_size(bo);
+-		adev->invisible_pin_size += amdgpu_vram_mgr_bo_invisible_size(bo);
++		if (bo->flags & AMDGPU_GEM_CREATE_NO_CPU_ACCESS)
++			adev->invisible_pin_size += amdgpu_bo_size(bo);
+ 	} else if (domain == AMDGPU_GEM_DOMAIN_GTT) {
+ 		adev->gart_pin_size += amdgpu_bo_size(bo);
+ 	}
+@@ -848,7 +845,8 @@ int amdgpu_bo_unpin(struct amdgpu_bo *bo)
+ 
+ 	if (bo->tbo.mem.mem_type == TTM_PL_VRAM) {
+ 		adev->vram_pin_size -= amdgpu_bo_size(bo);
+-		adev->invisible_pin_size -= amdgpu_vram_mgr_bo_invisible_size(bo);
++		if (bo->flags & AMDGPU_GEM_CREATE_NO_CPU_ACCESS)
++			adev->invisible_pin_size -= amdgpu_bo_size(bo);
+ 	} else if (bo->tbo.mem.mem_type == TTM_PL_TT) {
+ 		adev->gart_pin_size -= amdgpu_bo_size(bo);
+ 	}
+diff --git a/drivers/gpu/drm/amd/amdgpu/amdgpu_ttm.h b/drivers/gpu/drm/amd/amdgpu/amdgpu_ttm.h
+index f98bd9c..9a364e7 100644
+--- a/drivers/gpu/drm/amd/amdgpu/amdgpu_ttm.h
++++ b/drivers/gpu/drm/amd/amdgpu/amdgpu_ttm.h
+@@ -77,7 +77,6 @@ bool amdgpu_gtt_mgr_has_gart_addr(struct ttm_mem_reg *mem);
+ uint64_t amdgpu_gtt_mgr_usage(struct ttm_mem_type_manager *man);
+ int amdgpu_gtt_mgr_recover(struct ttm_mem_type_manager *man);
+ 
+-u64 amdgpu_vram_mgr_bo_invisible_size(struct amdgpu_bo *bo);
+ uint64_t amdgpu_vram_mgr_usage(struct ttm_mem_type_manager *man);
+ uint64_t amdgpu_vram_mgr_vis_usage(struct ttm_mem_type_manager *man);
+ 
+diff --git a/drivers/gpu/drm/amd/amdgpu/amdgpu_vcn.c b/drivers/gpu/drm/amd/amdgpu/amdgpu_vcn.c
+index 8f32b8d..3ed7926 100644
+--- a/drivers/gpu/drm/amd/amdgpu/amdgpu_vcn.c
++++ b/drivers/gpu/drm/amd/amdgpu/amdgpu_vcn.c
+@@ -84,7 +84,6 @@ int amdgpu_vcn_sw_init(struct amdgpu_device *adev)
+ 	}
+ 
+ 	hdr = (const struct common_firmware_header *)adev->vcn.fw->data;
+-	adev->vcn.fw_version = le32_to_cpu(hdr->ucode_version);
+ 	family_id = le32_to_cpu(hdr->ucode_version) & 0xff;
+ 	version_major = (le32_to_cpu(hdr->ucode_version) >> 24) & 0xff;
+ 	version_minor = (le32_to_cpu(hdr->ucode_version) >> 8) & 0xff;
+diff --git a/drivers/gpu/drm/amd/amdgpu/amdgpu_vram_mgr.c b/drivers/gpu/drm/amd/amdgpu/amdgpu_vram_mgr.c
+index ae0049c..11dba00 100644
+--- a/drivers/gpu/drm/amd/amdgpu/amdgpu_vram_mgr.c
++++ b/drivers/gpu/drm/amd/amdgpu/amdgpu_vram_mgr.c
+@@ -96,21 +96,6 @@ static u64 amdgpu_vram_mgr_vis_size(struct amdgpu_device *adev,
+ 		adev->gmc.visible_vram_size : end) - start;
+ }
+ 
+-/**
+- * amdgpu_vram_mgr_bo_invisible_size - CPU invisible BO size
+- *
+- * @bo: &amdgpu_bo buffer object (must be in VRAM)
+- *
+- * Returns:
+- * How much of the given &amdgpu_bo buffer object lies in CPU invisible VRAM.
+- */
+-u64 amdgpu_vram_mgr_bo_invisible_size(struct amdgpu_bo *bo)
+-{
+-	if (bo->flags & AMDGPU_GEM_CREATE_NO_CPU_ACCESS)
+-		return amdgpu_bo_size(bo);
+-
+-	return 0;
+-}
+ 
+ /**
+  * amdgpu_vram_mgr_new - allocate new ranges
+@@ -151,8 +136,7 @@ static int amdgpu_vram_mgr_new(struct ttm_mem_type_manager *man,
+ 		num_nodes = DIV_ROUND_UP(mem->num_pages, pages_per_node);
+ 	}
+ 
+-	nodes = kvmalloc_array(num_nodes, sizeof(*nodes),
+-			       GFP_KERNEL | __GFP_ZERO);
++	nodes = kcalloc(num_nodes, sizeof(*nodes), GFP_KERNEL);	
+ 	if (!nodes)
+ 		return -ENOMEM;
+ 
+@@ -207,7 +191,7 @@ static int amdgpu_vram_mgr_new(struct ttm_mem_type_manager *man,
+ 		drm_mm_remove_node(&nodes[i]);
+ 	spin_unlock(&mgr->lock);
+ 
+-	kvfree(nodes);
++	kfree(nodes);
+ 	return r == -ENOSPC ? 0 : r;
+ }
+ 
+@@ -246,7 +230,7 @@ static void amdgpu_vram_mgr_del(struct ttm_mem_type_manager *man,
+ 	atomic64_sub(usage, &mgr->usage);
+ 	atomic64_sub(vis_usage, &mgr->vis_usage);
+ 
+-	kvfree(mem->mm_node);
++	kfree(mem->mm_node);
+ 	mem->mm_node = NULL;
+ }
+ 
+diff --git a/drivers/gpu/drm/amd/amdgpu/gfx_v9_0.c b/drivers/gpu/drm/amd/amdgpu/gfx_v9_0.c
+index fc1804d..f808372 100644
+--- a/drivers/gpu/drm/amd/amdgpu/gfx_v9_0.c
++++ b/drivers/gpu/drm/amd/amdgpu/gfx_v9_0.c
+@@ -3379,7 +3379,7 @@ static void gfx_v9_0_enter_rlc_safe_mode(struct amdgpu_device *adev)
+ 
+ 		/* wait for RLC_SAFE_MODE */
+ 		for (i = 0; i < adev->usec_timeout; i++) {
+-			if (!REG_GET_FIELD(RREG32_SOC15(GC, 0, mmRLC_SAFE_MODE), RLC_SAFE_MODE, CMD))
++			if (!REG_GET_FIELD(SOC15_REG_OFFSET(GC, 0, mmRLC_SAFE_MODE), RLC_SAFE_MODE, CMD))
+ 				break;
+ 			udelay(1);
+ 		}
+diff --git a/drivers/gpu/drm/amd/amdgpu/vce_v3_0.c b/drivers/gpu/drm/amd/amdgpu/vce_v3_0.c
+index 085f0ba..67294c6 100644
+--- a/drivers/gpu/drm/amd/amdgpu/vce_v3_0.c
++++ b/drivers/gpu/drm/amd/amdgpu/vce_v3_0.c
+@@ -899,7 +899,7 @@ static const struct amdgpu_ring_funcs vce_v3_0_ring_phys_funcs = {
+ 	.emit_frame_size =
+ 		4 + /* vce_v3_0_emit_pipeline_sync */
+ 		6, /* amdgpu_vce_ring_emit_fence x1 no user fence */
+-	.emit_ib_size = 4, /* amdgpu_vce_ring_emit_ib */
++	.emit_ib_size = 5, /* amdgpu_vce_ring_emit_ib */
+ 	.emit_ib = amdgpu_vce_ring_emit_ib,
+ 	.emit_fence = amdgpu_vce_ring_emit_fence,
+ 	.test_ring = amdgpu_vce_ring_test_ring,
+@@ -923,7 +923,7 @@ static const struct amdgpu_ring_funcs vce_v3_0_ring_vm_funcs = {
+ 		6 + /* vce_v3_0_emit_vm_flush */
+ 		4 + /* vce_v3_0_emit_pipeline_sync */
+ 		6 + 6, /* amdgpu_vce_ring_emit_fence x2 vm fence */
+-	.emit_ib_size = 5, /* vce_v3_0_ring_emit_ib */
++	.emit_ib_size = 4, /* vce_v3_0_ring_emit_ib */
+ 	.emit_ib = vce_v3_0_ring_emit_ib,
+ 	.emit_vm_flush = vce_v3_0_emit_vm_flush,
+ 	.emit_pipeline_sync = vce_v3_0_emit_pipeline_sync,
+diff --git a/drivers/gpu/drm/amd/amdkfd/kfd_process_queue_manager.c b/drivers/gpu/drm/amd/amdkfd/kfd_process_queue_manager.c
+index 0617eee..f259fd3 100644
+--- a/drivers/gpu/drm/amd/amdkfd/kfd_process_queue_manager.c
++++ b/drivers/gpu/drm/amd/amdkfd/kfd_process_queue_manager.c
+@@ -219,8 +219,7 @@ int pqm_create_queue(struct process_queue_manager *pqm,
+ 			goto err_create_queue;
+ 		pqn->q = q;
+ 		pqn->kq = NULL;
+-                retval = dev->dqm->ops.create_queue(dev->dqm, q, &pdd->qpd,
+-                                                &q->properties.vmid);
++		retval = dev->dqm->ops.create_queue(dev->dqm, q, &pdd->qpd);
+ 		pr_debug("DQM returned %d for create_queue\n", retval);
+ 		print_queue(q);
+ 		break;
+diff --git a/drivers/gpu/drm/amd/powerplay/hwmgr/smu7_powertune.c b/drivers/gpu/drm/amd/powerplay/hwmgr/smu7_powertune.c
+index 3cca733..4a9c481 100644
+--- a/drivers/gpu/drm/amd/powerplay/hwmgr/smu7_powertune.c
++++ b/drivers/gpu/drm/amd/powerplay/hwmgr/smu7_powertune.c
+@@ -403,49 +403,6 @@ static const struct gpu_pt_config_reg DIDTConfig_Polaris12[] = {
+ 	{   ixDIDT_SQ_CTRL1,                   DIDT_SQ_CTRL1__MAX_POWER_MASK,                      DIDT_SQ_CTRL1__MAX_POWER__SHIFT,                    0xffff,     GPU_CONFIGREG_DIDT_IND },
+ 
+ 	{   ixDIDT_SQ_CTRL_OCP,                DIDT_SQ_CTRL_OCP__UNUSED_0_MASK,                    DIDT_SQ_CTRL_OCP__UNUSED_0__SHIFT,                  0x0000,     GPU_CONFIGREG_DIDT_IND },
+-	{   ixDIDT_SQ_CTRL_OCP,                DIDT_SQ_CTRL_OCP__OCP_MAX_POWER_MASK,               DIDT_SQ_CTRL_OCP__OCP_MAX_POWER__SHIFT,             0xffff,     GPU_CONFIGREG_DIDT_IND },
+-
+-	{   ixDIDT_SQ_CTRL2,                   DIDT_SQ_CTRL2__MAX_POWER_DELTA_MASK,                DIDT_SQ_CTRL2__MAX_POWER_DELTA__SHIFT,              0x3853,     GPU_CONFIGREG_DIDT_IND },
+-	{   ixDIDT_SQ_CTRL2,                   DIDT_SQ_CTRL2__UNUSED_0_MASK,                       DIDT_SQ_CTRL2__UNUSED_0__SHIFT,                     0x0000,     GPU_CONFIGREG_DIDT_IND },
+-	{   ixDIDT_SQ_CTRL2,                   DIDT_SQ_CTRL2__SHORT_TERM_INTERVAL_SIZE_MASK,       DIDT_SQ_CTRL2__SHORT_TERM_INTERVAL_SIZE__SHIFT,     0x005a,     GPU_CONFIGREG_DIDT_IND },
+-	{   ixDIDT_SQ_CTRL2,                   DIDT_SQ_CTRL2__UNUSED_1_MASK,                       DIDT_SQ_CTRL2__UNUSED_1__SHIFT,                     0x0000,     GPU_CONFIGREG_DIDT_IND },
+-	{   ixDIDT_SQ_CTRL2,                   DIDT_SQ_CTRL2__LONG_TERM_INTERVAL_RATIO_MASK,       DIDT_SQ_CTRL2__LONG_TERM_INTERVAL_RATIO__SHIFT,     0x0000,     GPU_CONFIGREG_DIDT_IND },
+-	{   ixDIDT_SQ_CTRL2,                   DIDT_SQ_CTRL2__UNUSED_2_MASK,                       DIDT_SQ_CTRL2__UNUSED_2__SHIFT,                     0x0000,     GPU_CONFIGREG_DIDT_IND },
+-
+-	{   ixDIDT_SQ_STALL_CTRL,              DIDT_SQ_STALL_CTRL__DIDT_STALL_CTRL_ENABLE_MASK,    DIDT_SQ_STALL_CTRL__DIDT_STALL_CTRL_ENABLE__SHIFT,  0x0001,     GPU_CONFIGREG_DIDT_IND },
+-	{   ixDIDT_SQ_STALL_CTRL,              DIDT_SQ_STALL_CTRL__DIDT_STALL_DELAY_HI_MASK,       DIDT_SQ_STALL_CTRL__DIDT_STALL_DELAY_HI__SHIFT,     0x0001,     GPU_CONFIGREG_DIDT_IND },
+-	{   ixDIDT_SQ_STALL_CTRL,              DIDT_SQ_STALL_CTRL__DIDT_STALL_DELAY_LO_MASK,       DIDT_SQ_STALL_CTRL__DIDT_STALL_DELAY_LO__SHIFT,     0x0001,     GPU_CONFIGREG_DIDT_IND },
+-	{   ixDIDT_SQ_STALL_CTRL,              DIDT_SQ_STALL_CTRL__DIDT_HI_POWER_THRESHOLD_MASK,   DIDT_SQ_STALL_CTRL__DIDT_HI_POWER_THRESHOLD__SHIFT, 0x0ebb,     GPU_CONFIGREG_DIDT_IND },
+-	{   ixDIDT_SQ_STALL_CTRL,              DIDT_SQ_STALL_CTRL__UNUSED_0_MASK,                  DIDT_SQ_STALL_CTRL__UNUSED_0__SHIFT,                0x0000,     GPU_CONFIGREG_DIDT_IND },
+-
+-	{   ixDIDT_SQ_TUNING_CTRL,             DIDT_SQ_TUNING_CTRL__DIDT_TUNING_ENABLE_MASK,       DIDT_SQ_TUNING_CTRL__DIDT_TUNING_ENABLE__SHIFT,     0x0001,     GPU_CONFIGREG_DIDT_IND },
+-	{   ixDIDT_SQ_TUNING_CTRL,             DIDT_SQ_TUNING_CTRL__MAX_POWER_DELTA_HI_MASK,       DIDT_SQ_TUNING_CTRL__MAX_POWER_DELTA_HI__SHIFT,     0x3853,     GPU_CONFIGREG_DIDT_IND },
+-	{   ixDIDT_SQ_TUNING_CTRL,             DIDT_SQ_TUNING_CTRL__MAX_POWER_DELTA_LO_MASK,       DIDT_SQ_TUNING_CTRL__MAX_POWER_DELTA_LO__SHIFT,     0x3153,     GPU_CONFIGREG_DIDT_IND },
+-	{   ixDIDT_SQ_TUNING_CTRL,             DIDT_SQ_TUNING_CTRL__UNUSED_0_MASK,                 DIDT_SQ_TUNING_CTRL__UNUSED_0__SHIFT,               0x0000,     GPU_CONFIGREG_DIDT_IND },
+-
+-	{   ixDIDT_SQ_CTRL0,                   DIDT_SQ_CTRL0__DIDT_CTRL_EN_MASK,                   DIDT_SQ_CTRL0__DIDT_CTRL_EN__SHIFT,                 0x0001,     GPU_CONFIGREG_DIDT_IND },
+-	{   ixDIDT_SQ_CTRL0,                   DIDT_SQ_CTRL0__USE_REF_CLOCK_MASK,                  DIDT_SQ_CTRL0__USE_REF_CLOCK__SHIFT,                0x0000,     GPU_CONFIGREG_DIDT_IND },
+-	{   ixDIDT_SQ_CTRL0,                   DIDT_SQ_CTRL0__PHASE_OFFSET_MASK,                   DIDT_SQ_CTRL0__PHASE_OFFSET__SHIFT,                 0x0000,     GPU_CONFIGREG_DIDT_IND },
+-	{   ixDIDT_SQ_CTRL0,                   DIDT_SQ_CTRL0__DIDT_CTRL_RST_MASK,                  DIDT_SQ_CTRL0__DIDT_CTRL_RST__SHIFT,                0x0000,     GPU_CONFIGREG_DIDT_IND },
+-	{   ixDIDT_SQ_CTRL0,                   DIDT_SQ_CTRL0__DIDT_CLK_EN_OVERRIDE_MASK,           DIDT_SQ_CTRL0__DIDT_CLK_EN_OVERRIDE__SHIFT,         0x0000,     GPU_CONFIGREG_DIDT_IND },
+-	{   ixDIDT_SQ_CTRL0,                   DIDT_SQ_CTRL0__DIDT_MAX_STALLS_ALLOWED_HI_MASK,     DIDT_SQ_CTRL0__DIDT_MAX_STALLS_ALLOWED_HI__SHIFT,   0x0010,     GPU_CONFIGREG_DIDT_IND },
+-	{   ixDIDT_SQ_CTRL0,                   DIDT_SQ_CTRL0__DIDT_MAX_STALLS_ALLOWED_LO_MASK,     DIDT_SQ_CTRL0__DIDT_MAX_STALLS_ALLOWED_LO__SHIFT,   0x0010,     GPU_CONFIGREG_DIDT_IND },
+-	{   ixDIDT_SQ_CTRL0,                   DIDT_SQ_CTRL0__UNUSED_0_MASK,                       DIDT_SQ_CTRL0__UNUSED_0__SHIFT,                     0x0000,     GPU_CONFIGREG_DIDT_IND },
+-
+-	{   ixDIDT_TD_WEIGHT0_3,               DIDT_TD_WEIGHT0_3__WEIGHT0_MASK,                    DIDT_TD_WEIGHT0_3__WEIGHT0__SHIFT,                  0x000a,     GPU_CONFIGREG_DIDT_IND },
+-	{   ixDIDT_TD_WEIGHT0_3,               DIDT_TD_WEIGHT0_3__WEIGHT1_MASK,                    DIDT_TD_WEIGHT0_3__WEIGHT1__SHIFT,                  0x0010,     GPU_CONFIGREG_DIDT_IND },
+-	{   ixDIDT_TD_WEIGHT0_3,               DIDT_TD_WEIGHT0_3__WEIGHT2_MASK,                    DIDT_TD_WEIGHT0_3__WEIGHT2__SHIFT,                  0x0017,     GPU_CONFIGREG_DIDT_IND },
+-	{   ixDIDT_TD_WEIGHT0_3,               DIDT_TD_WEIGHT0_3__WEIGHT3_MASK,                    DIDT_TD_WEIGHT0_3__WEIGHT3__SHIFT,                  0x002f,     GPU_CONFIGREG_DIDT_IND },
+-
+-	{   ixDIDT_TD_WEIGHT4_7,               DIDT_TD_WEIGHT4_7__WEIGHT4_MASK,                    DIDT_TD_WEIGHT4_7__WEIGHT4__SHIFT,                  0x0046,     GPU_CONFIGREG_DIDT_IND },
+-	{   ixDIDT_TD_WEIGHT4_7,               DIDT_TD_WEIGHT4_7__WEIGHT5_MASK,                    DIDT_TD_WEIGHT4_7__WEIGHT5__SHIFT,                  0x005d,     GPU_CONFIGREG_DIDT_IND },
+-	{   ixDIDT_TD_WEIGHT4_7,               DIDT_TD_WEIGHT4_7__WEIGHT6_MASK,                    DIDT_TD_WEIGHT4_7__WEIGHT6__SHIFT,                  0x0000,     GPU_CONFIGREG_DIDT_IND },
+-	{   ixDIDT_TD_WEIGHT4_7,               DIDT_TD_WEIGHT4_7__WEIGHT7_MASK,                    DIDT_TD_WEIGHT4_7__WEIGHT7__SHIFT,                  0x0000,     GPU_CONFIGREG_DIDT_IND },
+-
+-	{   ixDIDT_TD_CTRL1,                   DIDT_TD_CTRL1__MIN_POWER_MASK,                      DIDT_TD_CTRL1__MIN_POWER__SHIFT,                    0x0000,     GPU_CONFIGREG_DIDT_IND },
+-	{   ixDIDT_TD_CTRL1,                   DIDT_TD_CTRL1__MAX_POWER_MASK,                      DIDT_TD_CTRL1__MAX_POWER__SHIFT,                    0xffff,     GPU_CONFIGREG_DIDT_IND },
+-
+-	{   ixDIDT_TD_CTRL_OCP,                DIDT_TD_CTRL_OCP__UNUSED_0_MASK,                    DIDT_TD_CTRL_OCP__UNUSED_0__SHIFT,                  0x0000,     GPU_CONFIGREG_DIDT_IND },
+ 	{   ixDIDT_TD_CTRL_OCP,                DIDT_TD_CTRL_OCP__OCP_MAX_POWER_MASK,               DIDT_TD_CTRL_OCP__OCP_MAX_POWER__SHIFT,             0x00ff,     GPU_CONFIGREG_DIDT_IND },
+ 
+ 	{   ixDIDT_TD_CTRL2,                   DIDT_TD_CTRL2__MAX_POWER_DELTA_MASK,                DIDT_TD_CTRL2__MAX_POWER_DELTA__SHIFT,              0x3fff,     GPU_CONFIGREG_DIDT_IND },
+-- 
+2.7.4
+

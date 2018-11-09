@@ -1,0 +1,54 @@
+From 6ba918d6e5525bb157addf49f533a3366495d345 Mon Sep 17 00:00:00 2001
+From: =?UTF-8?q?Christian=20K=C3=B6nig?= <christian.koenig@amd.com>
+Date: Thu, 1 Mar 2018 10:41:46 +0100
+Subject: [PATCH 3660/4131] drm/amdgpu: move some functions into amdgpu_ttm.h
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+Those belong to the TTM handling.
+
+Signed-off-by: Christian König <christian.koenig@amd.com>
+Reviewed-by: Chunming Zhou <david1.zhou@amd.com>
+
+Conflicts:
+      drivers/gpu/drm/amd/amdgpu/amdgpu.h
+
+Change-Id: I9f20bea7b711755f45c834b7422e9d2813453e53
+---
+ drivers/gpu/drm/amd/amdgpu/amdgpu.h     | 3 ---
+ drivers/gpu/drm/amd/amdgpu/amdgpu_ttm.h | 4 ++++
+ 2 files changed, 4 insertions(+), 3 deletions(-)
+
+diff --git a/drivers/gpu/drm/amd/amdgpu/amdgpu.h b/drivers/gpu/drm/amd/amdgpu/amdgpu.h
+index d784389..c367a07 100644
+--- a/drivers/gpu/drm/amd/amdgpu/amdgpu.h
++++ b/drivers/gpu/drm/amd/amdgpu/amdgpu.h
+@@ -1893,9 +1893,6 @@ void amdgpu_device_vram_location(struct amdgpu_device *adev,
+ void amdgpu_device_gart_location(struct amdgpu_device *adev,
+ 				 struct amdgpu_gmc *mc);
+ int amdgpu_device_resize_fb_bar(struct amdgpu_device *adev);
+-void amdgpu_ttm_set_active_vram_size(struct amdgpu_device *adev, u64 size);
+-int amdgpu_ttm_init(struct amdgpu_device *adev);
+-void amdgpu_ttm_fini(struct amdgpu_device *adev);
+ void amdgpu_device_program_register_sequence(struct amdgpu_device *adev,
+ 					     const u32 *registers,
+ 					     const u32 array_size);
+diff --git a/drivers/gpu/drm/amd/amdgpu/amdgpu_ttm.h b/drivers/gpu/drm/amd/amdgpu/amdgpu_ttm.h
+index eaf0aa8..e3c8dc6 100644
+--- a/drivers/gpu/drm/amd/amdgpu/amdgpu_ttm.h
++++ b/drivers/gpu/drm/amd/amdgpu/amdgpu_ttm.h
+@@ -80,6 +80,10 @@ u64 amdgpu_vram_mgr_bo_invisible_size(struct amdgpu_bo *bo);
+ uint64_t amdgpu_vram_mgr_usage(struct ttm_mem_type_manager *man);
+ uint64_t amdgpu_vram_mgr_vis_usage(struct ttm_mem_type_manager *man);
+ 
++int amdgpu_ttm_init(struct amdgpu_device *adev);
++void amdgpu_ttm_fini(struct amdgpu_device *adev);
++void amdgpu_ttm_set_active_vram_size(struct amdgpu_device *adev, u64 size);
++
+ int amdgpu_copy_buffer(struct amdgpu_ring *ring, uint64_t src_offset,
+ 		       uint64_t dst_offset, uint32_t byte_count,
+ 		       struct reservation_object *resv,
+-- 
+2.7.4
+

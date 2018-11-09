@@ -1,0 +1,32 @@
+From 36992cef74309766ec84bf51ec12f0f8ef4f76f0 Mon Sep 17 00:00:00 2001
+From: "Le.Ma" <Le.Ma@amd.com>
+Date: Mon, 11 Dec 2017 17:05:14 +0800
+Subject: [PATCH 2839/4131] drm/amdkcl: [RHEL 6.9] Fix kfifo header file
+ difference
+
+Change-Id: I5c711c3566f3355f61b8689de8ba8b0b50b9eafe
+Signed-off-by: Le.Ma <Le.Ma@amd.com>
+Reviewed-by: Qiang Yu <Qiang.Yu@amd.com>
+---
+ drivers/gpu/drm/amd/amdgpu/amdgpu_vm.h | 4 ++++
+ 1 file changed, 4 insertions(+)
+
+diff --git a/drivers/gpu/drm/amd/amdgpu/amdgpu_vm.h b/drivers/gpu/drm/amd/amdgpu/amdgpu_vm.h
+index 870341d..b25b95c 100644
+--- a/drivers/gpu/drm/amd/amdgpu/amdgpu_vm.h
++++ b/drivers/gpu/drm/amd/amdgpu/amdgpu_vm.h
+@@ -25,7 +25,11 @@
+ #define __AMDGPU_VM_H__
+ 
+ #include <linux/idr.h>
++#if defined(OS_NAME_RHEL_6)
++#include <linux/kfifo-new.h>
++#else
+ #include <linux/kfifo.h>
++#endif
+ #include <linux/rbtree.h>
+ #include <drm/gpu_scheduler.h>
+ 
+-- 
+2.7.4
+

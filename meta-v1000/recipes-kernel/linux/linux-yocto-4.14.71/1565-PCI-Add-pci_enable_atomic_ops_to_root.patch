@@ -1,0 +1,58 @@
+From 01f4e8010eea74b529b993d697a42be55d956811 Mon Sep 17 00:00:00 2001
+From: Jay Cornwall <Jay.Cornwall@amd.com>
+Date: Thu, 1 Dec 2016 19:22:31 -0600
+Subject: [PATCH 1565/4131] PCI: Add pci_enable_atomic_ops_to_root
+
+The PCIe 3.0 AtomicOp (6.15) feature allows atomic transctions to be
+requested by, routed through and completed by PCIe components. Routing and
+completion do not require software support. Component support for each is
+detectable via the DEVCAP2 register.
+
+AtomicOp requests are permitted only if a component's
+DEVCTL2.ATOMICOP_REQUESTER_ENABLE field is set. This capability cannot be
+detected but is a no-op if set on a component with no support. These
+requests can only be serviced if the upstream components support AtomicOp
+completion and/or routing to a component which does.
+
+A concrete example is the AMD Fiji-class GPU, which is specified to
+support AtomicOp requests, routed through a PLX 8747 switch (advertising
+AtomicOp routing) to a Haswell host bridge (advertising AtomicOp
+completion support). When AtomicOp requests are disabled the GPU logs
+attempts to initiate requests to an MMIO register for debugging.
+
+Add pci_enable_atomic_ops_to_root for per-device control over AtomicOp
+requests. Upstream bridges are checked for AtomicOp routing capability and
+the call fails if any lack this capability. The root port is checked for
+AtomicOp completion capabilities and the call fails if it does not support
+any. Routes to other PCIe components are not checked for AtomicOp routing
+and completion capabilities.
+
+v2: Check for AtomicOp route to root port with AtomicOp completion
+v3: Style fixes
+v4: Endpoint to root port only, check upstream egress blocking
+
+Change-Id: I75151a65f9d0b4564332237663d250e69cc5be02
+Signed-off-by: Jay Cornwall <Jay.Cornwall@amd.com>
+
+ Conflicts:
+	include/uapi/linux/pci_regs.h
+---
+ drivers/gpu/drm/amd/amdgpu/gmc_v8_0.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/drivers/gpu/drm/amd/amdgpu/gmc_v8_0.c b/drivers/gpu/drm/amd/amdgpu/gmc_v8_0.c
+index d956df4..b0d094a 100644
+--- a/drivers/gpu/drm/amd/amdgpu/gmc_v8_0.c
++++ b/drivers/gpu/drm/amd/amdgpu/gmc_v8_0.c
+@@ -1162,7 +1162,7 @@ static int gmc_v8_0_sw_init(void *handle)
+ 
+ 	/* Allow BIF to recode atomics to PCIe 3.0 AtomicOps.
+ 	 */
+-	pci_enable_atomic_request(adev->pdev);
++	pci_enable_atomic_ops_to_root(adev->pdev);
+ 
+ 	return 0;
+ }
+-- 
+2.7.4
+

@@ -1,0 +1,29 @@
+From 83d062a13d902d4b03feb85e9202e0f1238e3d9c Mon Sep 17 00:00:00 2001
+From: Feifei Xu <Feifei.Xu@amd.com>
+Date: Fri, 20 Oct 2017 10:25:55 +0800
+Subject: [PATCH 3863/4131] drm/amdgpu: add vega12 ucode loading method
+
+Same as vega10.
+
+Signed-off-by: Alex Deucher <alexander.deucher@amd.com>
+Reviewed-by: Feifei Xu <Feifei.Xu@amd.com>
+Signed-off-by: Hawking Zhang <Hawking.Zhang@amd.com>
+---
+ drivers/gpu/drm/amd/amdgpu/amdgpu_ucode.c | 1 +
+ 1 file changed, 1 insertion(+)
+
+diff --git a/drivers/gpu/drm/amd/amdgpu/amdgpu_ucode.c b/drivers/gpu/drm/amd/amdgpu/amdgpu_ucode.c
+index 474f88f..dd6f989 100644
+--- a/drivers/gpu/drm/amd/amdgpu/amdgpu_ucode.c
++++ b/drivers/gpu/drm/amd/amdgpu/amdgpu_ucode.c
+@@ -271,6 +271,7 @@ amdgpu_ucode_get_load_type(struct amdgpu_device *adev, int load_type)
+ 			return AMDGPU_FW_LOAD_SMU;
+ 	case CHIP_VEGA10:
+ 	case CHIP_RAVEN:
++	case CHIP_VEGA12:
+ 		if (!load_type)
+ 			return AMDGPU_FW_LOAD_DIRECT;
+ 		else
+-- 
+2.7.4
+

@@ -1,0 +1,33 @@
+From 95591f3c9feb204a9c8b741e53510c4de38955ed Mon Sep 17 00:00:00 2001
+From: Alex Deucher <alexander.deucher@amd.com>
+Date: Tue, 13 Feb 2018 14:26:54 -0500
+Subject: [PATCH 3584/4131] drm/amd/powerplay/smu7: allow mclk switching with
+ no displays
+
+If there are no displays attached, there is no reason to disable
+mclk switching.
+
+Fixes mclks getting set to high when there are no displays attached.
+
+Reviewed-by: Eric Huang <JinhuiEric.Huang@amd.com>
+Signed-off-by: Alex Deucher <alexander.deucher@amd.com>
+Cc: stable@vger.kernel.org
+---
+ drivers/gpu/drm/amd/powerplay/hwmgr/smu7_hwmgr.c | 1 -
+ 1 file changed, 1 deletion(-)
+
+diff --git a/drivers/gpu/drm/amd/powerplay/hwmgr/smu7_hwmgr.c b/drivers/gpu/drm/amd/powerplay/hwmgr/smu7_hwmgr.c
+index e2bb09c..17bf60e 100644
+--- a/drivers/gpu/drm/amd/powerplay/hwmgr/smu7_hwmgr.c
++++ b/drivers/gpu/drm/amd/powerplay/hwmgr/smu7_hwmgr.c
+@@ -2903,7 +2903,6 @@ static int smu7_apply_state_adjust_rules(struct pp_hwmgr *hwmgr,
+ 				    hwmgr->platform_descriptor.platformCaps,
+ 				    PHM_PlatformCaps_DisableMclkSwitchingForFrameLock);
+ 
+-
+ 	if (info.display_count == 0)
+ 		disable_mclk_switching = false;
+ 	else
+-- 
+2.7.4
+

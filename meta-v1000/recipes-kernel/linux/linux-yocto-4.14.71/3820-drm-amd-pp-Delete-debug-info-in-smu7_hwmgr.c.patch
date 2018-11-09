@@ -1,0 +1,31 @@
+From 4d3c4fd9e9426aacdeb3a97a37302e9706b37adc Mon Sep 17 00:00:00 2001
+From: Rex Zhu <Rex.Zhu@amd.com>
+Date: Mon, 19 Mar 2018 17:25:04 +0800
+Subject: [PATCH 3820/4131] drm/amd/pp: Delete debug info in smu7_hwmgr.c
+
+Accidentally introduced by
+commit 03c2b3536082 ("drm/amd/pp: Delete get_xclk function in powerplay")
+
+Change-Id: I441275ea438a548f238427abfaa06c8ea8fffb64
+Reviewed-by: Evan Quan <evan.quan@amd.com>
+Signed-off-by: Rex Zhu <Rex.Zhu@amd.com>
+---
+ drivers/gpu/drm/amd/powerplay/hwmgr/smu7_hwmgr.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/drivers/gpu/drm/amd/powerplay/hwmgr/smu7_hwmgr.c b/drivers/gpu/drm/amd/powerplay/hwmgr/smu7_hwmgr.c
+index b0ff526..892bbee 100644
+--- a/drivers/gpu/drm/amd/powerplay/hwmgr/smu7_hwmgr.c
++++ b/drivers/gpu/drm/amd/powerplay/hwmgr/smu7_hwmgr.c
+@@ -3944,7 +3944,7 @@ static int smu7_program_display_gap(struct pp_hwmgr *hwmgr)
+ 	cgs_write_ind_register(hwmgr->device, CGS_IND_REG__SMC, ixCG_DISPLAY_GAP_CNTL, display_gap);
+ 
+ 	ref_clock =  amdgpu_asic_get_xclk((struct amdgpu_device *)hwmgr->adev);
+-	pr_info("ref_clock is %d \n", ref_clock);
++
+ 	refresh_rate = mode_info.refresh_rate;
+ 
+ 	if (0 == refresh_rate)
+-- 
+2.7.4
+

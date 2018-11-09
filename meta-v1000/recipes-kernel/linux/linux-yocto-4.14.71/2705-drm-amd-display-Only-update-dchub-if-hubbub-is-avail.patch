@@ -1,0 +1,31 @@
+From 45de5b2a73599bd5464b9ffcde6e5ffee11c809a Mon Sep 17 00:00:00 2001
+From: Yue Hin Lau <Yuehin.Lau@amd.com>
+Date: Thu, 26 Oct 2017 16:30:44 -0400
+Subject: [PATCH 2705/4131] drm/amd/display: Only update dchub if hubbub is
+ available
+
+Signed-off-by: Yue Hin Lau <Yuehin.Lau@amd.com>
+Reviewed-by: Tony Cheng <Tony.Cheng@amd.com>
+Acked-by: Harry Wentland <harry.wentland@amd.com>
+Signed-off-by: Alex Deucher <alexander.deucher@amd.com>
+---
+ drivers/gpu/drm/amd/display/dc/dcn10/dcn10_hw_sequencer.c | 3 ++-
+ 1 file changed, 2 insertions(+), 1 deletion(-)
+
+diff --git a/drivers/gpu/drm/amd/display/dc/dcn10/dcn10_hw_sequencer.c b/drivers/gpu/drm/amd/display/dc/dcn10/dcn10_hw_sequencer.c
+index f79871d..ebb39b8 100644
+--- a/drivers/gpu/drm/amd/display/dc/dcn10/dcn10_hw_sequencer.c
++++ b/drivers/gpu/drm/amd/display/dc/dcn10/dcn10_hw_sequencer.c
+@@ -2509,7 +2509,8 @@ void dcn10_update_pending_status(struct pipe_ctx *pipe_ctx)
+ 
+ void dcn10_update_dchub(struct dce_hwseq *hws, struct dchub_init_data *dh_data)
+ {
+-	hubbub1_update_dchub(hws->ctx->dc->res_pool->hubbub, dh_data);
++	if (hws->ctx->dc->res_pool->hubbub != NULL)
++		hubbub1_update_dchub(hws->ctx->dc->res_pool->hubbub, dh_data);
+ }
+ 
+ static const struct hw_sequencer_funcs dcn10_funcs = {
+-- 
+2.7.4
+

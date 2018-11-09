@@ -1,0 +1,44 @@
+From c72dc36dbb7c88ba7ab80daaaeb5241ac475490d Mon Sep 17 00:00:00 2001
+From: Mikita Lipski <mikita.lipski@amd.com>
+Date: Wed, 11 Apr 2018 16:25:26 -0400
+Subject: [PATCH 4060/4131] drm/amd/pp: Adding a function to store cc6 data in
+ SMU10
+
+Filling the smu10_store_cc6_data based on the implementation
+of Windows Powerplay.
+
+There is an uncertainty with one of the parameters passed to the function
+pstate_switch_disable - is not a part of smu10 private data structure.
+So in the function its just ignored.
+
+Signed-off-by: Mikita Lipski <mikita.lipski@amd.com>
+Reviewed-by: Rex Zhu <Rex.Zhu@amd.com>
+Acked-by: Alex Deucher <alexander.deucher@amd.com>
+---
+ drivers/gpu/drm/amd/powerplay/hwmgr/smu10_hwmgr.c | 10 ++++++++++
+ 1 file changed, 10 insertions(+)
+
+diff --git a/drivers/gpu/drm/amd/powerplay/hwmgr/smu10_hwmgr.c b/drivers/gpu/drm/amd/powerplay/hwmgr/smu10_hwmgr.c
+index f8b6c94..7147712 100644
+--- a/drivers/gpu/drm/amd/powerplay/hwmgr/smu10_hwmgr.c
++++ b/drivers/gpu/drm/amd/powerplay/hwmgr/smu10_hwmgr.c
+@@ -745,6 +745,16 @@ static int smu10_set_cpu_power_state(struct pp_hwmgr *hwmgr)
+ static int smu10_store_cc6_data(struct pp_hwmgr *hwmgr, uint32_t separation_time,
+ 			bool cc6_disable, bool pstate_disable, bool pstate_switch_disable)
+ {
++	struct smu10_hwmgr *data = (struct smu10_hwmgr *)(hwmgr->backend);
++
++	if (separation_time != data->separation_time ||
++			cc6_disable != data->cc6_disable ||
++			pstate_disable != data->pstate_disable) {
++		data->separation_time = separation_time;
++		data->cc6_disable = cc6_disable;
++		data->pstate_disable = pstate_disable;
++		data->cc6_setting_changed = true;
++	}
+ 	return 0;
+ }
+ 
+-- 
+2.7.4
+

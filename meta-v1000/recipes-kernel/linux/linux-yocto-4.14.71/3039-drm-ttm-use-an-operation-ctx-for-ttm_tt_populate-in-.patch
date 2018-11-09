@@ -1,0 +1,52 @@
+From 297875a6af92474a15002d796a8c5742a041342f Mon Sep 17 00:00:00 2001
+From: Roger He <Hongbo.He@amd.com>
+Date: Thu, 21 Dec 2017 17:42:50 +0800
+Subject: [PATCH 3039/4131] drm/ttm: use an operation ctx for ttm_tt_populate
+ in ttm_bo_driver
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+forward the operation context to ttm_tt_populate as well,
+and the ultimate goal is swapout enablement for reserved BOs.
+
+Reviewed-by: Christian König <christian.koenig@amd.com>
+Signed-off-by: Roger He <Hongbo.He@amd.com>
+
+Conflicts:
+      drivers/gpu/drm/amd/amdgpu/amdgpu_ttm.c
+      drivers/gpu/drm/nouveau/nouveau_bo.c
+      drivers/gpu/drm/ttm/ttm_page_alloc.c
+      include/drm/ttm/ttm_page_alloc.h
+
+Change-Id: Id996c248992260810ee5b4c9603ea6ef5dd75a7c
+---
+ drivers/gpu/drm/amd/amdgpu/amdgpu_ttm.c | 5 +++--
+ 1 file changed, 3 insertions(+), 2 deletions(-)
+
+diff --git a/drivers/gpu/drm/amd/amdgpu/amdgpu_ttm.c b/drivers/gpu/drm/amd/amdgpu/amdgpu_ttm.c
+index 97823a3..e5a6623 100644
+--- a/drivers/gpu/drm/amd/amdgpu/amdgpu_ttm.c
++++ b/drivers/gpu/drm/amd/amdgpu/amdgpu_ttm.c
+@@ -1064,7 +1064,8 @@ static struct ttm_tt *amdgpu_ttm_tt_create(struct ttm_bo_device *bdev,
+ 	return &gtt->ttm.ttm;
+ }
+ 
+-static int amdgpu_ttm_tt_populate(struct ttm_tt *ttm)
++static int amdgpu_ttm_tt_populate(struct ttm_tt *ttm,
++			struct ttm_operation_ctx *ctx)
+ {
+ 	struct amdgpu_device *adev = amdgpu_ttm_adev(ttm->bdev);
+ 	struct amdgpu_ttm_tt *gtt = (void *)ttm;
+@@ -1090,7 +1091,7 @@ static int amdgpu_ttm_tt_populate(struct ttm_tt *ttm)
+ 		return 0;
+ 	}
+ 
+-	return ttm_populate_and_map_pages(adev->dev, &gtt->ttm);
++	return ttm_populate_and_map_pages(adev->dev, &gtt->ttm, ctx);
+ }
+ 
+ static void amdgpu_ttm_tt_unpopulate(struct ttm_tt *ttm)
+-- 
+2.7.4
+

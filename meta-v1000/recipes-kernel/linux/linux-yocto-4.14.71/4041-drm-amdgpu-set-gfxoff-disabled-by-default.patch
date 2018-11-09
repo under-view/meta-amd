@@ -1,0 +1,32 @@
+From a53ef27d72d0cc10aa4ba2e80e8d3b6d0fde78e8 Mon Sep 17 00:00:00 2001
+From: Huang Rui <ray.huang@amd.com>
+Date: Fri, 2 Mar 2018 14:40:53 +0800
+Subject: [PATCH 4041/4131] drm/amdgpu: set gfxoff disabled by default
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+Signed-off-by: Huang Rui <ray.huang@amd.com>
+Reviewed-by: Hawking Zhang <Hawking.Zhang@amd.com>
+Reviewed-by: Alex Deucher <alexander.deucher@amd.com>
+Acked-by: Christian König <christian.koenig@amd.com>
+---
+ drivers/gpu/drm/amd/amdgpu/amdgpu_drv.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/drivers/gpu/drm/amd/amdgpu/amdgpu_drv.c b/drivers/gpu/drm/amd/amdgpu/amdgpu_drv.c
+index a8b473d..8dbf579 100644
+--- a/drivers/gpu/drm/amd/amdgpu/amdgpu_drv.c
++++ b/drivers/gpu/drm/amd/amdgpu/amdgpu_drv.c
+@@ -124,7 +124,7 @@ uint amdgpu_pg_mask = 0xffffffff;
+ uint amdgpu_sdma_phase_quantum = 32;
+ char *amdgpu_disable_cu = NULL;
+ char *amdgpu_virtual_display = NULL;
+-uint amdgpu_pp_feature_mask = 0xffffbfff;
++uint amdgpu_pp_feature_mask = 0xffff3fff; /* gfxoff (bit 15) disabled by default */
+ int amdgpu_ngg = 0;
+ int amdgpu_prim_buf_per_se = 0;
+ int amdgpu_pos_buf_per_se = 0;
+-- 
+2.7.4
+

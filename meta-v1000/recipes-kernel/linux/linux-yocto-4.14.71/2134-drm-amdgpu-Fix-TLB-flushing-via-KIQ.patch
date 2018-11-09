@@ -1,0 +1,90 @@
+From 225741b22890d58f9d00a2e98fd0faa958a981fd Mon Sep 17 00:00:00 2001
+From: Felix Kuehling <Felix.Kuehling@amd.com>
+Date: Wed, 25 Oct 2017 18:29:50 -0400
+Subject: [PATCH 2134/4131] drm/amdgpu: Fix TLB flushing via KIQ
+
+Use amdgpu_fence_emit_polling to avoid sleeping while holding a
+spin-lock.
+
+Change-Id: Ia17987637979008971bd67b57a2e9b44e24db020
+Signed-off-by: Felix Kuehling <Felix.Kuehling@amd.com>
+---
+ drivers/gpu/drm/amd/amdgpu/amdgpu_amdkfd_gfx_v8.c | 13 +++++++------
+ drivers/gpu/drm/amd/amdgpu/amdgpu_amdkfd_gfx_v9.c | 13 +++++++------
+ 2 files changed, 14 insertions(+), 12 deletions(-)
+
+diff --git a/drivers/gpu/drm/amd/amdgpu/amdgpu_amdkfd_gfx_v8.c b/drivers/gpu/drm/amd/amdgpu/amdgpu_amdkfd_gfx_v8.c
+index 3cf283f..59a1036 100644
+--- a/drivers/gpu/drm/amd/amdgpu/amdgpu_amdkfd_gfx_v8.c
++++ b/drivers/gpu/drm/amd/amdgpu/amdgpu_amdkfd_gfx_v8.c
+@@ -795,7 +795,7 @@ static void write_vmid_invalidate_request(struct kgd_dev *kgd, uint8_t vmid)
+ static int invalidate_tlbs_with_kiq(struct amdgpu_device *adev, uint16_t pasid)
+ {
+ 	signed long r;
+-	struct dma_fence *f;
++	uint32_t seq;
+ 	struct amdgpu_ring *ring = &adev->gfx.kiq.ring;
+ 
+ 	spin_lock(&adev->gfx.kiq.ring_lock);
+@@ -804,16 +804,17 @@ static int invalidate_tlbs_with_kiq(struct amdgpu_device *adev, uint16_t pasid)
+ 	amdgpu_ring_write(ring,
+ 			PACKET3_INVALIDATE_TLBS_DST_SEL(1) |
+ 			PACKET3_INVALIDATE_TLBS_PASID(pasid));
+-	amdgpu_fence_emit(ring, &f);
++	amdgpu_fence_emit_polling(ring, &seq);
+ 	amdgpu_ring_commit(ring);
+ 	spin_unlock(&adev->gfx.kiq.ring_lock);
+ 
+-	r = dma_fence_wait(f, false);
+-	if (r)
++	r = amdgpu_fence_wait_polling(ring, seq, adev->usec_timeout);
++	if (r < 1) {
+ 		DRM_ERROR("wait for kiq fence error: %ld.\n", r);
+-	dma_fence_put(f);
++		return -ETIME;
++	}
+ 
+-	return r;
++	return 0;
+ }
+ #endif
+ static int invalidate_tlbs(struct kgd_dev *kgd, uint16_t pasid)
+diff --git a/drivers/gpu/drm/amd/amdgpu/amdgpu_amdkfd_gfx_v9.c b/drivers/gpu/drm/amd/amdgpu/amdgpu_amdkfd_gfx_v9.c
+index 667360e..c649376 100644
+--- a/drivers/gpu/drm/amd/amdgpu/amdgpu_amdkfd_gfx_v9.c
++++ b/drivers/gpu/drm/amd/amdgpu/amdgpu_amdkfd_gfx_v9.c
+@@ -971,7 +971,7 @@ static void write_vmid_invalidate_request(struct kgd_dev *kgd, uint8_t vmid)
+ static int invalidate_tlbs_with_kiq(struct amdgpu_device *adev, uint16_t pasid)
+ {
+ 	signed long r;
+-	struct dma_fence *f;
++	uint32_t seq;
+ 	struct amdgpu_ring *ring = &adev->gfx.kiq.ring;
+ 
+ 	spin_lock(&adev->gfx.kiq.ring_lock);
+@@ -982,16 +982,17 @@ static int invalidate_tlbs_with_kiq(struct amdgpu_device *adev, uint16_t pasid)
+ 			PACKET3_INVALIDATE_TLBS_ALL_HUB(1) |
+ 			PACKET3_INVALIDATE_TLBS_PASID(pasid) |
+ 			PACKET3_INVALIDATE_TLBS_FLUSH_TYPE(2));
+-	amdgpu_fence_emit(ring, &f);
++	amdgpu_fence_emit_polling(ring, &seq);
+ 	amdgpu_ring_commit(ring);
+ 	spin_unlock(&adev->gfx.kiq.ring_lock);
+ 
+-	r = dma_fence_wait(f, false);
+-	if (r)
++	r = amdgpu_fence_wait_polling(ring, seq, adev->usec_timeout);
++	if (r < 1) {
+ 		DRM_ERROR("wait for kiq fence error: %ld.\n", r);
+-	dma_fence_put(f);
++		return -ETIME;
++	}
+ 
+-	return r;
++	return 0;
+ }
+ 
+ static int invalidate_tlbs(struct kgd_dev *kgd, uint16_t pasid)
+-- 
+2.7.4
+

@@ -1,0 +1,55 @@
+From b4f5dd13518a939bddf71de20cfffe804086c0ae Mon Sep 17 00:00:00 2001
+From: Rex Zhu <Rex.Zhu@amd.com>
+Date: Fri, 23 Feb 2018 13:13:13 +0800
+Subject: [PATCH 3601/4131] drm/amd/pp: Cleaning up vega10_enable_dpm_tasks
+ function
+
+1. move display num initialize out of dpm enable tasks.
+2. do not set/restore smc telemetry if dpm is runing.
+
+Reviewed-by: Alex Deucher <alexander.deucher@amd.com>
+Signed-off-by: Rex Zhu <Rex.Zhu@amd.com>
+Signed-off-by: Alex Deucher <alexander.deucher@amd.com>
+---
+ drivers/gpu/drm/amd/powerplay/hwmgr/vega10_hwmgr.c | 11 +++++------
+ 1 file changed, 5 insertions(+), 6 deletions(-)
+
+diff --git a/drivers/gpu/drm/amd/powerplay/hwmgr/vega10_hwmgr.c b/drivers/gpu/drm/amd/powerplay/hwmgr/vega10_hwmgr.c
+index dfb8e87..d601237 100644
+--- a/drivers/gpu/drm/amd/powerplay/hwmgr/vega10_hwmgr.c
++++ b/drivers/gpu/drm/amd/powerplay/hwmgr/vega10_hwmgr.c
+@@ -928,6 +928,8 @@ static int vega10_setup_asic_task(struct pp_hwmgr *hwmgr)
+ 			"Failed to set up led dpm config!",
+ 			return -EINVAL);
+ 
++	smum_send_msg_to_smc_with_parameter(hwmgr, PPSMC_MSG_NumOfDisplays, 0);
++
+ 	return 0;
+ }
+ 
+@@ -2857,12 +2859,6 @@ static int vega10_enable_dpm_tasks(struct pp_hwmgr *hwmgr)
+ 			(struct vega10_hwmgr *)(hwmgr->backend);
+ 	int tmp_result, result = 0;
+ 
+-	smum_send_msg_to_smc_with_parameter(hwmgr,
+-		PPSMC_MSG_ConfigureTelemetry, data->config_telemetry);
+-
+-	smum_send_msg_to_smc_with_parameter(hwmgr,
+-			PPSMC_MSG_NumOfDisplays, 0);
+-
+ 	tmp_result = (!smum_is_dpm_running(hwmgr)) ? 0 : -1;
+ 	PP_ASSERT_WITH_CODE(!tmp_result,
+ 			"DPM is already running right , skipping re-enablement!",
+@@ -2873,6 +2869,9 @@ static int vega10_enable_dpm_tasks(struct pp_hwmgr *hwmgr)
+ 		smum_send_msg_to_smc_with_parameter(hwmgr,
+ 				PPSMC_MSG_UpdatePkgPwrPidAlpha, 1);
+ 
++	smum_send_msg_to_smc_with_parameter(hwmgr,
++		PPSMC_MSG_ConfigureTelemetry, data->config_telemetry);
++
+ 	tmp_result = vega10_construct_voltage_tables(hwmgr);
+ 	PP_ASSERT_WITH_CODE(!tmp_result,
+ 			"Failed to contruct voltage tables!",
+-- 
+2.7.4
+

@@ -1,0 +1,34 @@
+From 3a1ed7a2dcd9fd2eba899caa72b7ab6398f5094c Mon Sep 17 00:00:00 2001
+From: "Leo (Sunpeng) Li" <sunpeng.li@amd.com>
+Date: Fri, 9 Feb 2018 12:51:01 -0500
+Subject: [PATCH 3577/4131] drm/amd/display: Fix increment when sampling OTF in
+ DCE
+
+Previously, the number of software segmets per region was reduced to 16.
+This needs to be reflected in the sampling distance (increment) used when
+translating to the hardware format.
+
+Signed-off-by: Leo (Sunpeng) Li <sunpeng.li@amd.com>
+Reviewed-by: Krunoslav Kovac <Krunoslav.Kovac@amd.com>
+Acked-by: Harry Wentland <harry.wentland@amd.com>
+Signed-off-by: Alex Deucher <alexander.deucher@amd.com>
+---
+ drivers/gpu/drm/amd/display/dc/dce110/dce110_hw_sequencer.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/drivers/gpu/drm/amd/display/dc/dce110/dce110_hw_sequencer.c b/drivers/gpu/drm/amd/display/dc/dce110/dce110_hw_sequencer.c
+index bc69864..0422c72 100644
+--- a/drivers/gpu/drm/amd/display/dc/dce110/dce110_hw_sequencer.c
++++ b/drivers/gpu/drm/amd/display/dc/dce110/dce110_hw_sequencer.c
+@@ -481,7 +481,7 @@ dce110_translate_regamma_to_hw_format(const struct dc_transfer_func *output_tf,
+ 
+ 	j = 0;
+ 	for (k = 0; k < (region_end - region_start); k++) {
+-		increment = 32 / (1 << seg_distr[k]);
++		increment = NUMBER_SW_SEGMENTS / (1 << seg_distr[k]);
+ 		start_index = (region_start + k + MAX_LOW_POINT) *
+ 				NUMBER_SW_SEGMENTS;
+ 		for (i = start_index; i < start_index + NUMBER_SW_SEGMENTS;
+-- 
+2.7.4
+

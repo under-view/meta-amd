@@ -1,0 +1,100 @@
+From c05ec5039589b7213121300815f93dd8117c52cf Mon Sep 17 00:00:00 2001
+From: Harish Kasiviswanathan <Harish.Kasiviswanathan@amd.com>
+Date: Thu, 17 Nov 2016 12:40:59 -0500
+Subject: [PATCH 1556/4131] drm/amdgpu: Update KFD mem usage in BO destroy
+
+BOs can be shared. So update KFD memory usage only when the BO is
+destroyed and not when it is freed by one process.
+
+Change-Id: I5d376105d52b481a96ee2298495e6a1bf52e06c8
+Signed-off-by: Harish Kasiviswanathan <Harish.Kasiviswanathan@amd.com>
+
+ Conflicts:
+	drivers/gpu/drm/amd/amdgpu/amdgpu_object.c
+---
+ drivers/gpu/drm/amd/amdgpu/amdgpu_amdkfd.h       | 2 +-
+ drivers/gpu/drm/amd/amdgpu/amdgpu_amdkfd_gpuvm.c | 8 +++-----
+ drivers/gpu/drm/amd/amdgpu/amdgpu_object.c       | 3 +++
+ 3 files changed, 7 insertions(+), 6 deletions(-)
+
+diff --git a/drivers/gpu/drm/amd/amdgpu/amdgpu_amdkfd.h b/drivers/gpu/drm/amd/amdgpu/amdgpu_amdkfd.h
+index 62ef856..9c8c941 100644
+--- a/drivers/gpu/drm/amd/amdgpu/amdgpu_amdkfd.h
++++ b/drivers/gpu/drm/amd/amdgpu/amdgpu_amdkfd.h
+@@ -199,6 +199,6 @@ int amdgpu_amdkfd_gpuvm_evict_mem(struct kgd_mem *mem, struct mm_struct *mm);
+ int amdgpu_amdkfd_gpuvm_restore_mem(struct kgd_mem *mem, struct mm_struct *mm);
+ 
+ void amdgpu_amdkfd_gpuvm_init_mem_limits(void);
+-
++void amdgpu_amdkfd_unreserve_system_memory_limit(struct amdgpu_bo *bo);
+ #endif /* AMDGPU_AMDKFD_H_INCLUDED */
+ 
+diff --git a/drivers/gpu/drm/amd/amdgpu/amdgpu_amdkfd_gpuvm.c b/drivers/gpu/drm/amd/amdgpu/amdgpu_amdkfd_gpuvm.c
+index 606996e..45749a5 100644
+--- a/drivers/gpu/drm/amd/amdgpu/amdgpu_amdkfd_gpuvm.c
++++ b/drivers/gpu/drm/amd/amdgpu/amdgpu_amdkfd_gpuvm.c
+@@ -99,7 +99,7 @@ void amdgpu_amdkfd_gpuvm_init_mem_limits(void)
+ 		(kfd_mem_limit.max_userptr_mem_limit >> 20));
+ }
+ 
+-static int check_and_reserve_system_mem_limit(struct amdgpu_device *adev,
++static int amdgpu_amdkfd_reserve_system_mem_limit(struct amdgpu_device *adev,
+ 					      uint64_t size, u32 domain)
+ {
+ 	size_t acc_size;
+@@ -128,13 +128,12 @@ static int check_and_reserve_system_mem_limit(struct amdgpu_device *adev,
+ 		kfd_mem_limit.system_mem_used += acc_size;
+ 		kfd_mem_limit.userptr_mem_used += size;
+ 	}
+-
+ err_no_mem:
+ 	spin_unlock(&kfd_mem_limit.mem_limit_lock);
+ 	return ret;
+ }
+ 
+-static void unreserve_system_memory_limit(struct amdgpu_bo *bo)
++void amdgpu_amdkfd_unreserve_system_memory_limit(struct amdgpu_bo *bo)
+ {
+ 	spin_lock(&kfd_mem_limit.mem_limit_lock);
+ 
+@@ -430,7 +429,7 @@ static int __alloc_memory_of_gpu(struct kgd_dev *kgd, uint64_t va,
+ 	pr_debug("amdkfd: allocating BO on domain %d with size %llu\n",
+ 				alloc_domain, size);
+ 
+-	ret = check_and_reserve_system_mem_limit(adev, size, alloc_domain);
++	ret = amdgpu_amdkfd_reserve_system_mem_limit(adev, size, alloc_domain);
+ 	if (ret) {
+ 		pr_err("amdkfd: Insufficient system memory\n");
+ 		goto err_bo_create;
+@@ -1050,7 +1049,6 @@ int amdgpu_amdkfd_gpuvm_free_memory_of_gpu(
+ 	}
+ 
+ 	/* Free the BO*/
+-	unreserve_system_memory_limit(mem->bo);
+ 	bo_list_entry = &mem->bo_list_entry;
+ 	mutex_lock(&master_vm->lock);
+ 	list_del(&bo_list_entry->tv.head);
+diff --git a/drivers/gpu/drm/amd/amdgpu/amdgpu_object.c b/drivers/gpu/drm/amd/amdgpu/amdgpu_object.c
+index 18750dd..cde1dad 100755
+--- a/drivers/gpu/drm/amd/amdgpu/amdgpu_object.c
++++ b/drivers/gpu/drm/amd/amdgpu/amdgpu_object.c
+@@ -36,6 +36,7 @@
+ #include <drm/drm_cache.h>
+ #include "amdgpu.h"
+ #include "amdgpu_trace.h"
++#include "amdgpu_amdkfd.h"
+ 
+ static void amdgpu_ttm_bo_destroy(struct ttm_buffer_object *tbo)
+ {
+@@ -46,6 +47,8 @@ static void amdgpu_ttm_bo_destroy(struct ttm_buffer_object *tbo)
+ 
+ 	if (bo->tbo.mem.mem_type == AMDGPU_PL_DGMA_IMPORT)
+ 		kfree(tbo->mem.bus.addr);
++	if (bo->kfd_bo)
++		amdgpu_amdkfd_unreserve_system_memory_limit(bo);
+ 	amdgpu_bo_kunmap(bo);
+ 
+ 	if (bo->gem_base.import_attach)
+-- 
+2.7.4
+

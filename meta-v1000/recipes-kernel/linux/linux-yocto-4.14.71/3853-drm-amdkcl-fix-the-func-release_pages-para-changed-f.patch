@@ -1,0 +1,47 @@
+From 1d44e176e876929632cefb4fee822492e5a7fa51 Mon Sep 17 00:00:00 2001
+From: Kevin Wang <Kevin1.Wang@amd.com>
+Date: Tue, 20 Mar 2018 10:50:08 +0800
+Subject: [PATCH 3853/4131] drm/amdkcl: fix the func release_pages para changed
+ for compile error
+
+Change-Id: I64dabe908ee04a33a61d550e0c05f724e7a29d26
+Signed-off-by: Kevin Wang <Kevin1.Wang@amd.com>
+Reviewed-by: Junwei Zhang <Jerry.Zhang@amd.com>
+---
+ drivers/gpu/drm/amd/amdgpu/amdgpu_amdkfd_gpuvm.c | 6 +++---
+ 1 file changed, 3 insertions(+), 3 deletions(-)
+
+diff --git a/drivers/gpu/drm/amd/amdgpu/amdgpu_amdkfd_gpuvm.c b/drivers/gpu/drm/amd/amdgpu/amdgpu_amdkfd_gpuvm.c
+index 79be309..769fdcf 100644
+--- a/drivers/gpu/drm/amd/amdgpu/amdgpu_amdkfd_gpuvm.c
++++ b/drivers/gpu/drm/amd/amdgpu/amdgpu_amdkfd_gpuvm.c
+@@ -638,7 +638,7 @@ static int init_user_pages(struct kgd_mem *mem, struct mm_struct *mm,
+ 
+ release_out:
+ 	if (ret)
+-		release_pages(mem->user_pages, bo->tbo.ttm->num_pages, 0);
++		release_pages(mem->user_pages, bo->tbo.ttm->num_pages, false);
+ free_out:
+ 	kvfree(mem->user_pages);
+ 	mem->user_pages = NULL;
+@@ -1365,7 +1365,7 @@ int amdgpu_amdkfd_gpuvm_free_memory_of_gpu(
+ 		pr_debug("%s: Freeing user_pages array\n", __func__);
+ 		if (mem->user_pages[0])
+ 			release_pages(mem->user_pages,
+-					mem->bo->tbo.ttm->num_pages, 0);
++					mem->bo->tbo.ttm->num_pages, false);
+ 		kvfree(mem->user_pages);
+ 	}
+ 
+@@ -2007,7 +2007,7 @@ static int update_invalid_user_pages(struct amdkfd_process_info *process_info,
+ 				return -ENOMEM;
+ 			}
+ 		} else if (mem->user_pages[0]) {
+-			release_pages(mem->user_pages, bo->tbo.ttm->num_pages, 0);
++			release_pages(mem->user_pages, bo->tbo.ttm->num_pages, false);
+ 		}
+ 
+ 		/* Get updated user pages */
+-- 
+2.7.4
+

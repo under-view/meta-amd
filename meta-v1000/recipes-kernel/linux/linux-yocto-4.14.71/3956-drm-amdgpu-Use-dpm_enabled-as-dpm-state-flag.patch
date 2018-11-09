@@ -1,0 +1,134 @@
+From f9f50344e223c6f45624c82883252132a5d8e1d7 Mon Sep 17 00:00:00 2001
+From: Rex Zhu <Rex.Zhu@amd.com>
+Date: Mon, 26 Mar 2018 16:18:34 +0800
+Subject: [PATCH 3956/4131] drm/amdgpu: Use dpm_enabled as dpm state flag
+
+driver will set dpm_enabled to true only when
+module parameter amdgpu_dpm not equal to 0 and
+smu hw initialize successfully.
+
+Change-Id: I88fe2c63f11aab90a396b632ca21531f652ba711
+Reviewed-by: Evan Quan <evan.quan@amd.com>
+Reviewed-by: Huang Rui <ray.huang@amd.com>
+Signed-off-by: Rex Zhu <Rex.Zhu@amd.com>
+---
+ drivers/gpu/drm/amd/amdgpu/amdgpu_debugfs.c | 2 +-
+ drivers/gpu/drm/amd/amdgpu/amdgpu_kms.c     | 2 +-
+ drivers/gpu/drm/amd/amdgpu/ci_dpm.c         | 2 +-
+ drivers/gpu/drm/amd/amdgpu/kv_dpm.c         | 2 +-
+ drivers/gpu/drm/amd/amdgpu/si_dpm.c         | 2 +-
+ drivers/gpu/drm/amd/amdgpu/uvd_v4_2.c       | 4 ++--
+ drivers/gpu/drm/amd/powerplay/hwmgr/hwmgr.c | 3 ++-
+ 7 files changed, 9 insertions(+), 8 deletions(-)
+
+diff --git a/drivers/gpu/drm/amd/amdgpu/amdgpu_debugfs.c b/drivers/gpu/drm/amd/amdgpu/amdgpu_debugfs.c
+index d1aa125..3722d7d 100644
+--- a/drivers/gpu/drm/amd/amdgpu/amdgpu_debugfs.c
++++ b/drivers/gpu/drm/amd/amdgpu/amdgpu_debugfs.c
+@@ -465,7 +465,7 @@ static ssize_t amdgpu_debugfs_sensor_read(struct file *f, char __user *buf,
+ 	if (size & 3 || *pos & 0x3)
+ 		return -EINVAL;
+ 
+-	if (amdgpu_dpm == 0)
++	if (!adev->pm.dpm_enabled)
+ 		return -EINVAL;
+ 
+ 	/* convert offset to sensor number */
+diff --git a/drivers/gpu/drm/amd/amdgpu/amdgpu_kms.c b/drivers/gpu/drm/amd/amdgpu/amdgpu_kms.c
+index 178f179..d94b9fa 100644
+--- a/drivers/gpu/drm/amd/amdgpu/amdgpu_kms.c
++++ b/drivers/gpu/drm/amd/amdgpu/amdgpu_kms.c
+@@ -733,7 +733,7 @@ static int amdgpu_info_ioctl(struct drm_device *dev, void *data, struct drm_file
+ 		struct pp_gpu_power query = {0};
+ 		int query_size = sizeof(query);
+ 
+-		if (amdgpu_dpm == 0)
++		if (!adev->pm.dpm_enabled)
+ 			return -ENOENT;
+ 
+ 		switch (info->sensor_info.type) {
+diff --git a/drivers/gpu/drm/amd/amdgpu/ci_dpm.c b/drivers/gpu/drm/amd/amdgpu/ci_dpm.c
+index 47ef3e6..be6b199 100644
+--- a/drivers/gpu/drm/amd/amdgpu/ci_dpm.c
++++ b/drivers/gpu/drm/amd/amdgpu/ci_dpm.c
+@@ -6255,7 +6255,7 @@ static int ci_dpm_late_init(void *handle)
+ 	int ret;
+ 	struct amdgpu_device *adev = (struct amdgpu_device *)handle;
+ 
+-	if (!amdgpu_dpm)
++	if (!adev->pm.dpm_enabled)
+ 		return 0;
+ 
+ 	/* init the sysfs and debugfs files late */
+diff --git a/drivers/gpu/drm/amd/amdgpu/kv_dpm.c b/drivers/gpu/drm/amd/amdgpu/kv_dpm.c
+index 26ba984..bc1720e 100644
+--- a/drivers/gpu/drm/amd/amdgpu/kv_dpm.c
++++ b/drivers/gpu/drm/amd/amdgpu/kv_dpm.c
+@@ -2974,7 +2974,7 @@ static int kv_dpm_late_init(void *handle)
+ 	/* powerdown unused blocks for now */
+ 	struct amdgpu_device *adev = (struct amdgpu_device *)handle;
+ 
+-	if (!amdgpu_dpm)
++	if (!adev->pm.dpm_enabled)
+ 		return 0;
+ 
+ 	kv_dpm_powergate_acp(adev, true);
+diff --git a/drivers/gpu/drm/amd/amdgpu/si_dpm.c b/drivers/gpu/drm/amd/amdgpu/si_dpm.c
+index 797d505..b12d7c9 100644
+--- a/drivers/gpu/drm/amd/amdgpu/si_dpm.c
++++ b/drivers/gpu/drm/amd/amdgpu/si_dpm.c
+@@ -7580,7 +7580,7 @@ static int si_dpm_late_init(void *handle)
+ 	int ret;
+ 	struct amdgpu_device *adev = (struct amdgpu_device *)handle;
+ 
+-	if (!amdgpu_dpm)
++	if (!adev->pm.dpm_enabled)
+ 		return 0;
+ 
+ 	ret = si_set_temperature_range(adev);
+diff --git a/drivers/gpu/drm/amd/amdgpu/uvd_v4_2.c b/drivers/gpu/drm/amd/amdgpu/uvd_v4_2.c
+index 8ab10c2..64a633d 100644
+--- a/drivers/gpu/drm/amd/amdgpu/uvd_v4_2.c
++++ b/drivers/gpu/drm/amd/amdgpu/uvd_v4_2.c
+@@ -714,7 +714,7 @@ static int uvd_v4_2_set_powergating_state(void *handle,
+ 
+ 	if (state == AMD_PG_STATE_GATE) {
+ 		uvd_v4_2_stop(adev);
+-		if (adev->pg_flags & AMD_PG_SUPPORT_UVD && amdgpu_dpm == 0) {
++		if (adev->pg_flags & AMD_PG_SUPPORT_UVD && !adev->pm.dpm_enabled) {
+ 			if (!(RREG32_SMC(ixCURRENT_PG_STATUS) &
+ 				CURRENT_PG_STATUS__UVD_PG_STATUS_MASK)) {
+ 				WREG32(mmUVD_PGFSM_CONFIG, (UVD_PGFSM_CONFIG__UVD_PGFSM_FSM_ADDR_MASK   |
+@@ -725,7 +725,7 @@ static int uvd_v4_2_set_powergating_state(void *handle,
+ 		}
+ 		return 0;
+ 	} else {
+-		if (adev->pg_flags & AMD_PG_SUPPORT_UVD && amdgpu_dpm == 0) {
++		if (adev->pg_flags & AMD_PG_SUPPORT_UVD && !adev->pm.dpm_enabled) {
+ 			if (RREG32_SMC(ixCURRENT_PG_STATUS) &
+ 				CURRENT_PG_STATUS__UVD_PG_STATUS_MASK) {
+ 				WREG32(mmUVD_PGFSM_CONFIG, (UVD_PGFSM_CONFIG__UVD_PGFSM_FSM_ADDR_MASK   |
+diff --git a/drivers/gpu/drm/amd/powerplay/hwmgr/hwmgr.c b/drivers/gpu/drm/amd/powerplay/hwmgr/hwmgr.c
+index 30ff8a9..bca67df 100644
+--- a/drivers/gpu/drm/amd/powerplay/hwmgr/hwmgr.c
++++ b/drivers/gpu/drm/amd/powerplay/hwmgr/hwmgr.c
+@@ -211,7 +211,6 @@ int hwmgr_hw_init(struct pp_hwmgr *hwmgr)
+ 	    !hwmgr->pptable_func->pptable_init ||
+ 	    !hwmgr->hwmgr_func->backend_init) {
+ 		hwmgr->pm_en = false;
+-		((struct amdgpu_device *)hwmgr->adev)->pm.dpm_enabled = false;
+ 		pr_info("dpm not supported \n");
+ 		return 0;
+ 	}
+@@ -240,6 +239,8 @@ int hwmgr_hw_init(struct pp_hwmgr *hwmgr)
+ 	if (ret)
+ 		goto err2;
+ 
++	((struct amdgpu_device *)hwmgr->adev)->pm.dpm_enabled = true;
++
+ 	return 0;
+ err2:
+ 	if (hwmgr->hwmgr_func->backend_fini)
+-- 
+2.7.4
+

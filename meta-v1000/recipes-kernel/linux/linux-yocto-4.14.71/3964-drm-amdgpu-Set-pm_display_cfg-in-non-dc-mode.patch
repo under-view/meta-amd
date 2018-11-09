@@ -1,0 +1,116 @@
+From 7c57fb0cc58965f81150437a4206ccc3666a43d7 Mon Sep 17 00:00:00 2001
+From: Rex Zhu <Rex.Zhu@amd.com>
+Date: Mon, 26 Mar 2018 22:08:29 +0800
+Subject: [PATCH 3964/4131] drm/amdgpu: Set pm_display_cfg in non-dc mode
+
+those display informations are needed by powerplay.
+
+Change-Id: If4e5dd9b2e52fe0974faeec3ecd156631dbc8f33
+Reviewed-by: Huang Rui <ray.huang@amd.com>
+Acked-by: Alex Deucher <alexander.deucher@amd.com>
+Signed-off-by: Rex Zhu <Rex.Zhu@amd.com>
+---
+ drivers/gpu/drm/amd/amdgpu/amdgpu_dpm.c | 20 ++++++++++++++++++++
+ drivers/gpu/drm/amd/amdgpu/amdgpu_dpm.h |  1 +
+ drivers/gpu/drm/amd/amdgpu/amdgpu_pm.c  | 31 ++++++++++++++++---------------
+ 3 files changed, 37 insertions(+), 15 deletions(-)
+
+diff --git a/drivers/gpu/drm/amd/amdgpu/amdgpu_dpm.c b/drivers/gpu/drm/amd/amdgpu/amdgpu_dpm.c
+index e997ebbe43..def1010 100644
+--- a/drivers/gpu/drm/amd/amdgpu/amdgpu_dpm.c
++++ b/drivers/gpu/drm/amd/amdgpu/amdgpu_dpm.c
+@@ -115,6 +115,26 @@ void amdgpu_dpm_print_ps_status(struct amdgpu_device *adev,
+ 	pr_cont("\n");
+ }
+ 
++void amdgpu_dpm_get_active_displays(struct amdgpu_device *adev)
++{
++	struct drm_device *ddev = adev->ddev;
++	struct drm_crtc *crtc;
++	struct amdgpu_crtc *amdgpu_crtc;
++
++	adev->pm.dpm.new_active_crtcs = 0;
++	adev->pm.dpm.new_active_crtc_count = 0;
++	if (adev->mode_info.num_crtc && adev->mode_info.mode_config_initialized) {
++		list_for_each_entry(crtc,
++				    &ddev->mode_config.crtc_list, head) {
++			amdgpu_crtc = to_amdgpu_crtc(crtc);
++			if (amdgpu_crtc->enabled) {
++				adev->pm.dpm.new_active_crtcs |= (1 << amdgpu_crtc->crtc_id);
++				adev->pm.dpm.new_active_crtc_count++;
++			}
++		}
++	}
++}
++
+ 
+ u32 amdgpu_dpm_get_vblank_time(struct amdgpu_device *adev)
+ {
+diff --git a/drivers/gpu/drm/amd/amdgpu/amdgpu_dpm.h b/drivers/gpu/drm/amd/amdgpu/amdgpu_dpm.h
+index 643d008..b8c5177 100644
+--- a/drivers/gpu/drm/amd/amdgpu/amdgpu_dpm.h
++++ b/drivers/gpu/drm/amd/amdgpu/amdgpu_dpm.h
+@@ -482,6 +482,7 @@ void amdgpu_dpm_print_ps_status(struct amdgpu_device *adev,
+ 				struct amdgpu_ps *rps);
+ u32 amdgpu_dpm_get_vblank_time(struct amdgpu_device *adev);
+ u32 amdgpu_dpm_get_vrefresh(struct amdgpu_device *adev);
++void amdgpu_dpm_get_active_displays(struct amdgpu_device *adev);
+ bool amdgpu_is_uvd_state(u32 class, u32 class2);
+ void amdgpu_calculate_u_and_p(u32 i, u32 r_c, u32 p_b,
+ 			      u32 *p, u32 *u);
+diff --git a/drivers/gpu/drm/amd/amdgpu/amdgpu_pm.c b/drivers/gpu/drm/amd/amdgpu/amdgpu_pm.c
+index 2e40a5f..ab86dcb 100644
+--- a/drivers/gpu/drm/amd/amdgpu/amdgpu_pm.c
++++ b/drivers/gpu/drm/amd/amdgpu/amdgpu_pm.c
+@@ -1657,9 +1657,6 @@ void amdgpu_pm_sysfs_fini(struct amdgpu_device *adev)
+ 
+ void amdgpu_pm_compute_clocks(struct amdgpu_device *adev)
+ {
+-	struct drm_device *ddev = adev->ddev;
+-	struct drm_crtc *crtc;
+-	struct amdgpu_crtc *amdgpu_crtc;
+ 	int i = 0;
+ 
+ 	if (!adev->pm.dpm_enabled)
+@@ -1674,22 +1671,26 @@ void amdgpu_pm_compute_clocks(struct amdgpu_device *adev)
+ 			amdgpu_fence_wait_empty(ring);
+ 	}
+ 
++	if (!amdgpu_device_has_dc_support(adev)) {
++		mutex_lock(&adev->pm.mutex);
++		amdgpu_dpm_get_active_displays(adev);
++		adev->pm.pm_display_cfg.num_display = adev->pm.dpm.new_active_crtcs;
++		adev->pm.pm_display_cfg.vrefresh = amdgpu_dpm_get_vrefresh(adev);
++		adev->pm.pm_display_cfg.min_vblank_time = amdgpu_dpm_get_vblank_time(adev);
++		/* we have issues with mclk switching with refresh rates over 120 hz on the non-DC code. */
++		if (adev->pm.pm_display_cfg.vrefresh > 120)
++			adev->pm.pm_display_cfg.min_vblank_time = 0;
++		if (adev->powerplay.pp_funcs->display_configuration_change)
++			adev->powerplay.pp_funcs->display_configuration_change(
++							adev->powerplay.pp_handle,
++							&adev->pm.pm_display_cfg);
++		mutex_unlock(&adev->pm.mutex);
++	}
++
+ 	if (adev->powerplay.pp_funcs->dispatch_tasks) {
+ 		amdgpu_dpm_dispatch_task(adev, AMD_PP_TASK_DISPLAY_CONFIG_CHANGE, NULL);
+ 	} else {
+ 		mutex_lock(&adev->pm.mutex);
+-		adev->pm.dpm.new_active_crtcs = 0;
+-		adev->pm.dpm.new_active_crtc_count = 0;
+-		if (adev->mode_info.num_crtc && adev->mode_info.mode_config_initialized) {
+-			list_for_each_entry(crtc,
+-					    &ddev->mode_config.crtc_list, head) {
+-				amdgpu_crtc = to_amdgpu_crtc(crtc);
+-				if (amdgpu_crtc->enabled) {
+-					adev->pm.dpm.new_active_crtcs |= (1 << amdgpu_crtc->crtc_id);
+-					adev->pm.dpm.new_active_crtc_count++;
+-				}
+-			}
+-		}
+ 		/* update battery/ac status */
+ 		if (power_supply_is_system_supplied() > 0)
+ 			adev->pm.dpm.ac_power = true;
+-- 
+2.7.4
+

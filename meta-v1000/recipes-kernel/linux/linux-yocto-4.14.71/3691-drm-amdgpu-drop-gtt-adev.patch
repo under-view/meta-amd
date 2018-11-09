@@ -1,0 +1,60 @@
+From 3dfb9b5a65c73f8bb6c8b0d563c3e5d2dee6b280 Mon Sep 17 00:00:00 2001
+From: =?UTF-8?q?Christian=20K=C3=B6nig?= <christian.koenig@amd.com>
+Date: Wed, 28 Feb 2018 09:35:39 +0100
+Subject: [PATCH 3691/4131] drm/amdgpu: drop gtt->adev
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+We can use ttm->bdev instead.
+
+Signed-off-by: Christian König <christian.koenig@amd.com>
+Reviewed-by: Alex Deucher <alexdeucher@amd.com>
+---
+ drivers/gpu/drm/amd/amdgpu/amdgpu_ttm.c | 8 +++++---
+ 1 file changed, 5 insertions(+), 3 deletions(-)
+
+diff --git a/drivers/gpu/drm/amd/amdgpu/amdgpu_ttm.c b/drivers/gpu/drm/amd/amdgpu/amdgpu_ttm.c
+index af1272a..5208b25 100644
+--- a/drivers/gpu/drm/amd/amdgpu/amdgpu_ttm.c
++++ b/drivers/gpu/drm/amd/amdgpu/amdgpu_ttm.c
+@@ -911,6 +911,7 @@ static void amdgpu_ttm_tt_unpin_userptr(struct ttm_tt *ttm)
+ static int amdgpu_ttm_backend_bind(struct ttm_tt *ttm,
+ 				   struct ttm_mem_reg *bo_mem)
+ {
++	struct amdgpu_device *adev = amdgpu_ttm_adev(ttm->bdev);
+ 	struct amdgpu_ttm_tt *gtt = (void*)ttm;
+ 	uint64_t flags;
+ 	int r = 0;
+@@ -937,9 +938,9 @@ static int amdgpu_ttm_backend_bind(struct ttm_tt *ttm,
+ 		return 0;
+ 	}
+ 
+-	flags = amdgpu_ttm_tt_pte_flags(gtt->adev, ttm, bo_mem);
++	flags = amdgpu_ttm_tt_pte_flags(adev, ttm, bo_mem);
+ 	gtt->offset = (u64)bo_mem->start << PAGE_SHIFT;
+-	r = amdgpu_gart_bind(gtt->adev, gtt->offset, ttm->num_pages,
++	r = amdgpu_gart_bind(adev, gtt->offset, ttm->num_pages,
+ 		ttm->pages, gtt->ttm.dma_address, flags);
+ 
+ 	if (r)
+@@ -1016,6 +1017,7 @@ int amdgpu_ttm_recover_gart(struct ttm_buffer_object *tbo)
+ 
+ static int amdgpu_ttm_backend_unbind(struct ttm_tt *ttm)
+ {
++	struct amdgpu_device *adev = amdgpu_ttm_adev(ttm->bdev);
+ 	struct amdgpu_ttm_tt *gtt = (void *)ttm;
+ 	int r;
+ 
+@@ -1026,7 +1028,7 @@ static int amdgpu_ttm_backend_unbind(struct ttm_tt *ttm)
+ 		return 0;
+ 
+ 	/* unbind shouldn't be done for GDS/GWS/OA in ttm_bo_clean_mm */
+-	r = amdgpu_gart_unbind(gtt->adev, gtt->offset, ttm->num_pages);
++	r = amdgpu_gart_unbind(adev, gtt->offset, ttm->num_pages);
+ 	if (r)
+ 		DRM_ERROR("failed to unbind %lu pages at 0x%08llX\n",
+ 			  gtt->ttm.ttm.num_pages, gtt->offset);
+-- 
+2.7.4
+

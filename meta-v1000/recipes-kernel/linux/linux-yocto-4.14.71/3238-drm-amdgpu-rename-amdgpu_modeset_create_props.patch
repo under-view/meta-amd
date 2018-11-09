@@ -1,0 +1,136 @@
+From 3f8f5eb01b3a0814668c5a8b90c0e686b660c361 Mon Sep 17 00:00:00 2001
+From: Samuel Li <Samuel.Li@amd.com>
+Date: Fri, 19 Jan 2018 12:47:40 -0500
+Subject: [PATCH 3238/4131] drm/amdgpu: rename amdgpu_modeset_create_props
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+Add display to the name for consistency.
+
+Signed-off-by: Samuel Li <Samuel.Li@amd.com>
+Acked-by: Christian König <christian.koenig@amd.com>
+Reviewed-by: Alex Deucher <alexander.deucher@amd.com>
+
+Conflicts:
+      drivers/gpu/drm/amd/amdgpu/amdgpu_mode.h
+
+Change-Id: I2d0a5193188fcdbe4bc2651a2e64b32c46af6e98
+---
+ drivers/gpu/drm/amd/amdgpu/amdgpu_display.c       | 2 +-
+ drivers/gpu/drm/amd/amdgpu/amdgpu_mode.h          | 2 +-
+ drivers/gpu/drm/amd/amdgpu/dce_v10_0.c            | 2 +-
+ drivers/gpu/drm/amd/amdgpu/dce_v11_0.c            | 2 +-
+ drivers/gpu/drm/amd/amdgpu/dce_v6_0.c             | 2 +-
+ drivers/gpu/drm/amd/amdgpu/dce_v8_0.c             | 2 +-
+ drivers/gpu/drm/amd/amdgpu/dce_virtual.c          | 2 +-
+ drivers/gpu/drm/amd/display/amdgpu_dm/amdgpu_dm.c | 2 +-
+ 8 files changed, 8 insertions(+), 8 deletions(-)
+
+diff --git a/drivers/gpu/drm/amd/amdgpu/amdgpu_display.c b/drivers/gpu/drm/amd/amdgpu/amdgpu_display.c
+index fe96e76..fade77f 100644
+--- a/drivers/gpu/drm/amd/amdgpu/amdgpu_display.c
++++ b/drivers/gpu/drm/amd/amdgpu/amdgpu_display.c
+@@ -610,7 +610,7 @@ static const struct drm_prop_enum_list amdgpu_dither_enum_list[] =
+ 	{ AMDGPU_FMT_DITHER_ENABLE, "on" },
+ };
+ 
+-int amdgpu_modeset_create_props(struct amdgpu_device *adev)
++int amdgpu_display_modeset_create_props(struct amdgpu_device *adev)
+ {
+ 	int sz;
+ 
+diff --git a/drivers/gpu/drm/amd/amdgpu/amdgpu_mode.h b/drivers/gpu/drm/amd/amdgpu/amdgpu_mode.h
+index 046967d..4a8b5dc 100644
+--- a/drivers/gpu/drm/amd/amdgpu/amdgpu_mode.h
++++ b/drivers/gpu/drm/amd/amdgpu/amdgpu_mode.h
+@@ -684,7 +684,7 @@ int amdgpu_align_pitch(struct amdgpu_device *adev, int width, int bpp, bool tile
+ 
+ /* amdgpu_display.c */
+ void amdgpu_display_print_display_setup(struct drm_device *dev);
+-int amdgpu_modeset_create_props(struct amdgpu_device *adev);
++int amdgpu_display_modeset_create_props(struct amdgpu_device *adev);
+ #if LINUX_VERSION_CODE >= KERNEL_VERSION(4, 12, 0)
+ int amdgpu_display_crtc_set_config(struct drm_mode_set *set,
+ 			   struct drm_modeset_acquire_ctx *ctx);
+diff --git a/drivers/gpu/drm/amd/amdgpu/dce_v10_0.c b/drivers/gpu/drm/amd/amdgpu/dce_v10_0.c
+index fa8bf00..256e528 100644
+--- a/drivers/gpu/drm/amd/amdgpu/dce_v10_0.c
++++ b/drivers/gpu/drm/amd/amdgpu/dce_v10_0.c
+@@ -2826,7 +2826,7 @@ static int dce_v10_0_sw_init(void *handle)
+ 
+ 	adev->ddev->mode_config.fb_base = adev->gmc.aper_base;
+ 
+-	r = amdgpu_modeset_create_props(adev);
++	r = amdgpu_display_modeset_create_props(adev);
+ 	if (r)
+ 		return r;
+ 
+diff --git a/drivers/gpu/drm/amd/amdgpu/dce_v11_0.c b/drivers/gpu/drm/amd/amdgpu/dce_v11_0.c
+index b8baa73..1ae6765 100644
+--- a/drivers/gpu/drm/amd/amdgpu/dce_v11_0.c
++++ b/drivers/gpu/drm/amd/amdgpu/dce_v11_0.c
+@@ -2941,7 +2941,7 @@ static int dce_v11_0_sw_init(void *handle)
+ 
+ 	adev->ddev->mode_config.fb_base = adev->gmc.aper_base;
+ 
+-	r = amdgpu_modeset_create_props(adev);
++	r = amdgpu_display_modeset_create_props(adev);
+ 	if (r)
+ 		return r;
+ 
+diff --git a/drivers/gpu/drm/amd/amdgpu/dce_v6_0.c b/drivers/gpu/drm/amd/amdgpu/dce_v6_0.c
+index 91b91a6..af82e39 100644
+--- a/drivers/gpu/drm/amd/amdgpu/dce_v6_0.c
++++ b/drivers/gpu/drm/amd/amdgpu/dce_v6_0.c
+@@ -2695,7 +2695,7 @@ static int dce_v6_0_sw_init(void *handle)
+ 	adev->ddev->mode_config.prefer_shadow = 1;
+ 	adev->ddev->mode_config.fb_base = adev->gmc.aper_base;
+ 
+-	r = amdgpu_modeset_create_props(adev);
++	r = amdgpu_display_modeset_create_props(adev);
+ 	if (r)
+ 		return r;
+ 
+diff --git a/drivers/gpu/drm/amd/amdgpu/dce_v8_0.c b/drivers/gpu/drm/amd/amdgpu/dce_v8_0.c
+index 1386424..af0c237 100644
+--- a/drivers/gpu/drm/amd/amdgpu/dce_v8_0.c
++++ b/drivers/gpu/drm/amd/amdgpu/dce_v8_0.c
+@@ -2726,7 +2726,7 @@ static int dce_v8_0_sw_init(void *handle)
+ 
+ 	adev->ddev->mode_config.fb_base = adev->gmc.aper_base;
+ 
+-	r = amdgpu_modeset_create_props(adev);
++	r = amdgpu_display_modeset_create_props(adev);
+ 	if (r)
+ 		return r;
+ 
+diff --git a/drivers/gpu/drm/amd/amdgpu/dce_virtual.c b/drivers/gpu/drm/amd/amdgpu/dce_virtual.c
+index 40f1e54..540eaf7 100644
+--- a/drivers/gpu/drm/amd/amdgpu/dce_virtual.c
++++ b/drivers/gpu/drm/amd/amdgpu/dce_virtual.c
+@@ -408,7 +408,7 @@ static int dce_virtual_sw_init(void *handle)
+ 
+ 	adev->ddev->mode_config.fb_base = adev->gmc.aper_base;
+ 
+-	r = amdgpu_modeset_create_props(adev);
++	r = amdgpu_display_modeset_create_props(adev);
+ 	if (r)
+ 		return r;
+ 
+diff --git a/drivers/gpu/drm/amd/display/amdgpu_dm/amdgpu_dm.c b/drivers/gpu/drm/amd/display/amdgpu_dm/amdgpu_dm.c
+index 8998953..8a1cd64 100644
+--- a/drivers/gpu/drm/amd/display/amdgpu_dm/amdgpu_dm.c
++++ b/drivers/gpu/drm/amd/display/amdgpu_dm/amdgpu_dm.c
+@@ -1359,7 +1359,7 @@ static int amdgpu_dm_mode_config_init(struct amdgpu_device *adev)
+ 
+ 	adev->ddev->mode_config.fb_base = adev->gmc.aper_base;
+ 
+-	r = amdgpu_modeset_create_props(adev);
++	r = amdgpu_display_modeset_create_props(adev);
+ 	if (r)
+ 		return r;
+ 
+-- 
+2.7.4
+

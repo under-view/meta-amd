@@ -1,0 +1,32 @@
+From 18b376d15eeb4cc657a3fd998b4aa53b5b05fd4f Mon Sep 17 00:00:00 2001
+From: Roman Li <Roman.Li@amd.com>
+Date: Tue, 5 Sep 2017 18:23:46 -0400
+Subject: [PATCH 2378/4131] drm/amd/display: Disable FBC for linear tiling
+
+- Fixing text console on FBC-enabled builds
+
+Signed-off-by: Roman Li <Roman.Li@amd.com>
+Reviewed-by: Harry Wentland <Harry.Wentland@amd.com>
+Signed-off-by: Alex Deucher <alexander.deucher@amd.com>
+---
+ drivers/gpu/drm/amd/display/dc/dce110/dce110_hw_sequencer.c | 4 ++++
+ 1 file changed, 4 insertions(+)
+
+diff --git a/drivers/gpu/drm/amd/display/dc/dce110/dce110_hw_sequencer.c b/drivers/gpu/drm/amd/display/dc/dce110/dce110_hw_sequencer.c
+index 838d680..f7b7d6b 100644
+--- a/drivers/gpu/drm/amd/display/dc/dce110/dce110_hw_sequencer.c
++++ b/drivers/gpu/drm/amd/display/dc/dce110/dce110_hw_sequencer.c
+@@ -1547,6 +1547,10 @@ static enum dc_status validate_fbc(struct dc *dc,
+ 	if (pipe_ctx->stream->sink->link->psr_enabled)
+ 		return DC_ERROR_UNEXPECTED;
+ 
++	/* Only for non-linear tiling */
++	if (pipe_ctx->plane_state->tiling_info.gfx8.array_mode == DC_ARRAY_LINEAR_GENERAL)
++		return DC_ERROR_UNEXPECTED;
++
+ 	return DC_OK;
+ }
+ 
+-- 
+2.7.4
+

@@ -1,0 +1,29 @@
+From 4db2249e7a8e49e0e03f130746da667f5f65a6cc Mon Sep 17 00:00:00 2001
+From: Shaoyun Liu <Shaoyun.Liu@amd.com>
+Date: Fri, 7 Jul 2017 11:52:05 -0400
+Subject: [PATCH 0843/4131] drm/amdgpu: Add invalidate tlb for all hub bit
+ field define
+
+Change-Id: I56475b72ac9f9a8e2701c58c5b10e1f2930af7cd
+Signed-off-by: Shaoyun Liu <Shaoyun.Liu@amd.com>
+Acked-by: Alex Deucher <alexander.deucher@amd.com>
+Reviewed-by: Felix Kuehling <Felix.Kuehling@amd.com>
+---
+ drivers/gpu/drm/amd/amdgpu/soc15d.h | 1 +
+ 1 file changed, 1 insertion(+)
+
+diff --git a/drivers/gpu/drm/amd/amdgpu/soc15d.h b/drivers/gpu/drm/amd/amdgpu/soc15d.h
+index 9f353b2..9f34fab 100644
+--- a/drivers/gpu/drm/amd/amdgpu/soc15d.h
++++ b/drivers/gpu/drm/amd/amdgpu/soc15d.h
+@@ -270,6 +270,7 @@
+ 
+ #define	PACKET3_INVALIDATE_TLBS				0x98
+ #              define PACKET3_INVALIDATE_TLBS_DST_SEL(x)     ((x) << 0)
++#              define PACKET3_INVALIDATE_TLBS_ALL_HUB(x)     ((x) << 4)
+ #              define PACKET3_INVALIDATE_TLBS_PASID(x)       ((x) << 5)
+ #define PACKET3_SET_RESOURCES				0xA0
+ /* 1. header
+-- 
+2.7.4
+

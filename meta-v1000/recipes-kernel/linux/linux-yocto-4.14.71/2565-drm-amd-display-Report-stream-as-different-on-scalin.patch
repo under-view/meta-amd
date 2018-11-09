@@ -1,0 +1,93 @@
+From 6ab1eca943833d4ec206847f52f039db6ea95264 Mon Sep 17 00:00:00 2001
+From: "Leo (Sunpeng) Li" <sunpeng.li@amd.com>
+Date: Fri, 6 Oct 2017 11:57:40 -0400
+Subject: [PATCH 2565/4131] drm/amd/display: Report stream as different on
+ scaling change
+
+When scaling is enabled, our preference is to scale up to the prefered
+(native) mode. This means that hardware timings will be the same across
+a modeset.
+
+Therefore, also report mode as changed if source or destination
+rectangle is different.
+
+Signed-off-by: Leo (Sunpeng) Li <sunpeng.li@amd.com>
+Reviewed-by: Harry Wentland <Harry.Wentland@amd.com>
+---
+ drivers/gpu/drm/amd/display/amdgpu_dm/amdgpu_dm.c | 10 +++++-----
+ drivers/gpu/drm/amd/display/dc/core/dc_resource.c | 22 ++++++++++++++++++++++
+ drivers/gpu/drm/amd/display/dc/dc.h               |  2 ++
+ 3 files changed, 29 insertions(+), 5 deletions(-)
+
+diff --git a/drivers/gpu/drm/amd/display/amdgpu_dm/amdgpu_dm.c b/drivers/gpu/drm/amd/display/amdgpu_dm/amdgpu_dm.c
+index 1f205cc..534f6a7 100644
+--- a/drivers/gpu/drm/amd/display/amdgpu_dm/amdgpu_dm.c
++++ b/drivers/gpu/drm/amd/display/amdgpu_dm/amdgpu_dm.c
+@@ -4653,13 +4653,13 @@ static int dm_update_crtcs_state(struct dc *dc,
+ 			}
+ 		}
+ 
+-		if (dc_is_stream_unchanged(new_stream,
+-				old_acrtc_state->stream)) {
++		if (dc_is_stream_unchanged(new_stream, old_acrtc_state->stream) &&
++				dc_is_stream_scaling_unchanged(new_stream, old_acrtc_state->stream)) {
+ 
+-				crtc_state->mode_changed = false;
++			crtc_state->mode_changed = false;
+ 
+-				DRM_DEBUG_DRIVER("Mode change not required, setting mode_changed to %d",
+-					      crtc_state->mode_changed);
++			DRM_DEBUG_DRIVER("Mode change not required, setting mode_changed to %d",
++				         crtc_state->mode_changed);
+ 		}
+ 
+ 
+diff --git a/drivers/gpu/drm/amd/display/dc/core/dc_resource.c b/drivers/gpu/drm/amd/display/dc/core/dc_resource.c
+index 454a521..2a5c917 100644
+--- a/drivers/gpu/drm/amd/display/dc/core/dc_resource.c
++++ b/drivers/gpu/drm/amd/display/dc/core/dc_resource.c
+@@ -1335,6 +1335,28 @@ bool dc_is_stream_unchanged(
+ 	return true;
+ }
+ 
++bool dc_is_stream_scaling_unchanged(
++	struct dc_stream_state *old_stream, struct dc_stream_state *stream)
++{
++	if (old_stream == stream)
++		return true;
++
++	if (old_stream == NULL || stream == NULL)
++		return false;
++
++	if (memcmp(&old_stream->src,
++			&stream->src,
++			sizeof(struct rect)) != 0)
++		return false;
++
++	if (memcmp(&old_stream->dst,
++			&stream->dst,
++			sizeof(struct rect)) != 0)
++		return false;
++
++	return true;
++}
++
+ /* Maximum TMDS single link pixel clock 165MHz */
+ #define TMDS_MAX_PIXEL_CLOCK_IN_KHZ 165000
+ 
+diff --git a/drivers/gpu/drm/amd/display/dc/dc.h b/drivers/gpu/drm/amd/display/dc/dc.h
+index a8f7400..7e65f1e 100644
+--- a/drivers/gpu/drm/amd/display/dc/dc.h
++++ b/drivers/gpu/drm/amd/display/dc/dc.h
+@@ -639,6 +639,8 @@ struct dc_stream_update {
+ 
+ bool dc_is_stream_unchanged(
+ 	struct dc_stream_state *old_stream, struct dc_stream_state *stream);
++bool dc_is_stream_scaling_unchanged(
++	struct dc_stream_state *old_stream, struct dc_stream_state *stream);
+ 
+ /*
+  * Set up surface attributes and associate to a stream
+-- 
+2.7.4
+

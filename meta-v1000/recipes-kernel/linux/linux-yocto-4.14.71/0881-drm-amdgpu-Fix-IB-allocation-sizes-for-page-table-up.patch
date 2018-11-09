@@ -1,0 +1,39 @@
+From 57f704adcf088fa824406cf40d830ece9bf0820d Mon Sep 17 00:00:00 2001
+From: Felix Kuehling <Felix.Kuehling@amd.com>
+Date: Wed, 30 Aug 2017 14:33:54 -0400
+Subject: [PATCH 0881/4131] drm/amdgpu: Fix IB allocation sizes for page table
+ updates
+
+set_pte_pde commands need 10 dwords.
+
+Signed-off-by: Felix Kuehling <Felix.Kuehling@amd.com>
+Reviewed-by: Alex Deucher <alexander.deucher@amd.com>
+---
+ drivers/gpu/drm/amd/amdgpu/amdgpu_vm.c | 4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
+
+diff --git a/drivers/gpu/drm/amd/amdgpu/amdgpu_vm.c b/drivers/gpu/drm/amd/amdgpu/amdgpu_vm.c
+index 0c1cbb9..4ef0c82 100644
+--- a/drivers/gpu/drm/amd/amdgpu/amdgpu_vm.c
++++ b/drivers/gpu/drm/amd/amdgpu/amdgpu_vm.c
+@@ -1042,7 +1042,7 @@ static int amdgpu_vm_update_level(struct amdgpu_device *adev,
+ 		ndw = 64;
+ 
+ 		/* assume the worst case */
+-		ndw += parent->last_entry_used * 6;
++		ndw += parent->last_entry_used * 10;
+ 
+ 		pd_addr = amdgpu_bo_gpu_offset(parent->base.bo);
+ 
+@@ -1545,7 +1545,7 @@ static int amdgpu_vm_bo_update_mapping(struct amdgpu_device *adev,
+ 	ndw = 64;
+ 
+ 	/* one PDE write for each huge page */
+-	ndw += ((nptes >> adev->vm_manager.block_size) + 1) * 6;
++	ndw += ((nptes >> adev->vm_manager.block_size) + 1) * 10;
+ 
+ 	if (pages_addr) {
+ 		/* copy commands needed */
+-- 
+2.7.4
+

@@ -1,0 +1,45 @@
+From f81ed622436aac4ec72d4e53aa1402ba44151fba Mon Sep 17 00:00:00 2001
+From: Qiang Yu <Qiang.Yu@amd.com>
+Date: Wed, 22 Feb 2017 17:09:04 +0800
+Subject: [PATCH 0786/4131] drm/amd/amdkcl: fix arch spec code when compile on
+ ARM64
+
+<asm/pgtable_types.h> is x86 spec headers
+
+Change-Id: Ife242e982346b7b6db1895a6efb8d7d4028adad5
+Signed-off-by: Qiang Yu <Qiang.Yu@amd.com>
+Reviewed-by: Hawking Zhang <Hawking.Zhang@amd.com>
+---
+ drivers/gpu/drm/amd/amdgpu/amdgpu_sem.c | 6 ++----
+ 1 file changed, 2 insertions(+), 4 deletions(-)
+
+diff --git a/drivers/gpu/drm/amd/amdgpu/amdgpu_sem.c b/drivers/gpu/drm/amd/amdgpu/amdgpu_sem.c
+index 74d64e8..2bf6c4d 100644
+--- a/drivers/gpu/drm/amd/amdgpu/amdgpu_sem.c
++++ b/drivers/gpu/drm/amd/amdgpu/amdgpu_sem.c
+@@ -45,9 +45,6 @@ static void amdgpu_sem_core_free(struct kref *kref)
+ 	struct amdgpu_sem_core *core = container_of(
+ 		kref, struct amdgpu_sem_core, kref);
+ 
+-	if (core->file)
+-		fput(core->file);
+-
+ 	dma_fence_put(core->fence);
+ 	mutex_destroy(&core->lock);
+ 	kfree(core);
+@@ -278,10 +275,11 @@ static int amdgpu_sem_export(struct amdgpu_fpriv *fpriv,
+ 			ret = -ENOMEM;
+ 			goto err_put_sem;
+ 		}
++	} else {
++		get_file(core->file);
+ 	}
+ 	mutex_unlock(&core->lock);
+ 
+-	get_file(core->file);
+ 	kref_get(&core->kref);
+ 
+ 	ret = get_unused_fd_flags(O_CLOEXEC);
+-- 
+2.7.4
+

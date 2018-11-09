@@ -1,0 +1,36 @@
+From 707365a9068a7101c9266539d00e7f826ef54b9e Mon Sep 17 00:00:00 2001
+From: Rex Zhu <Rex.Zhu@amd.com>
+Date: Wed, 4 Apr 2018 14:11:45 +0800
+Subject: [PATCH 4072/4131] Revert "drm/amd/powerply: fix power reading on
+ Fiji"
+
+we don't have limit of [50ms, 4sec] sampling period.
+smu calculate average gpu power in real time.
+we can read average gpu power through smu message or
+read special register.
+
+This reverts commit 462d8dcc9fec0d89f1ff6a1f93f1d4f670878c71.
+
+Acked-by: Alex Deucher <alexander.deucher@amd.com>
+Signed-off-by: Rex Zhu <Rex.Zhu@amd.com>
+---
+ drivers/gpu/drm/amd/powerplay/hwmgr/smu7_hwmgr.c | 3 +--
+ 1 file changed, 1 insertion(+), 2 deletions(-)
+
+diff --git a/drivers/gpu/drm/amd/powerplay/hwmgr/smu7_hwmgr.c b/drivers/gpu/drm/amd/powerplay/hwmgr/smu7_hwmgr.c
+index 09c5ed1..eb2af2f 100644
+--- a/drivers/gpu/drm/amd/powerplay/hwmgr/smu7_hwmgr.c
++++ b/drivers/gpu/drm/amd/powerplay/hwmgr/smu7_hwmgr.c
+@@ -3337,8 +3337,7 @@ static int smu7_get_gpu_power(struct pp_hwmgr *hwmgr,
+ 			"Failed to start pm status log!",
+ 			return -1);
+ 
+-	/* Sampling period from 50ms to 4sec */
+-	msleep_interruptible(200);
++	msleep_interruptible(20);
+ 
+ 	PP_ASSERT_WITH_CODE(!smum_send_msg_to_smc(hwmgr,
+ 			PPSMC_MSG_PmStatusLogSample),
+-- 
+2.7.4
+

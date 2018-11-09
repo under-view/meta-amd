@@ -1,0 +1,57 @@
+From 20a6419b14a7f8746d7e572222b032ce77827163 Mon Sep 17 00:00:00 2001
+From: Evan Quan <evan.quan@amd.com>
+Date: Tue, 10 Apr 2018 12:30:59 +0800
+Subject: [PATCH 4052/4131] drm/amdgpu: add MP1 and THM hw ip base reg offset
+
+Change-Id: Ie6a0f6c61defac6ed5f3728103313b2f5e774c5b
+Signed-off-by: Evan Quan <evan.quan@amd.com>
+Reviewed-by: Rex Zhu <Rex.Zhu@amd.com>
+---
+ drivers/gpu/drm/amd/amdgpu/amdgpu.h          | 2 ++
+ drivers/gpu/drm/amd/amdgpu/vega10_reg_init.c | 3 ++-
+ 2 files changed, 4 insertions(+), 1 deletion(-)
+
+diff --git a/drivers/gpu/drm/amd/amdgpu/amdgpu.h b/drivers/gpu/drm/amd/amdgpu/amdgpu.h
+index 45d72b3..8d06f98 100644
+--- a/drivers/gpu/drm/amd/amdgpu/amdgpu.h
++++ b/drivers/gpu/drm/amd/amdgpu/amdgpu.h
+@@ -1465,6 +1465,7 @@ enum amd_hw_ip_block_type {
+ 	ATHUB_HWIP,
+ 	NBIO_HWIP,
+ 	MP0_HWIP,
++	MP1_HWIP,
+ 	UVD_HWIP,
+ 	VCN_HWIP = UVD_HWIP,
+ 	VCE_HWIP,
+@@ -1474,6 +1475,7 @@ enum amd_hw_ip_block_type {
+ 	SMUIO_HWIP,
+ 	PWR_HWIP,
+ 	NBIF_HWIP,
++	THM_HWIP,
+ 	MAX_HWIP
+ };
+ 
+diff --git a/drivers/gpu/drm/amd/amdgpu/vega10_reg_init.c b/drivers/gpu/drm/amd/amdgpu/vega10_reg_init.c
+index 4c45db7..45aafca 100644
+--- a/drivers/gpu/drm/amd/amdgpu/vega10_reg_init.c
++++ b/drivers/gpu/drm/amd/amdgpu/vega10_reg_init.c
+@@ -38,6 +38,7 @@ int vega10_reg_base_init(struct amdgpu_device *adev)
+ 		adev->reg_offset[ATHUB_HWIP][i] = (uint32_t *)(&(ATHUB_BASE.instance[i]));
+ 		adev->reg_offset[NBIO_HWIP][i] = (uint32_t *)(&(NBIO_BASE.instance[i]));
+ 		adev->reg_offset[MP0_HWIP][i] = (uint32_t *)(&(MP0_BASE.instance[i]));
++		adev->reg_offset[MP1_HWIP][i] = (uint32_t *)(&(MP1_BASE.instance[i]));
+ 		adev->reg_offset[UVD_HWIP][i] = (uint32_t *)(&(UVD_BASE.instance[i]));
+ 		adev->reg_offset[VCE_HWIP][i] = (uint32_t *)(&(VCE_BASE.instance[i]));
+ 		adev->reg_offset[VCN_HWIP][i] = (uint32_t *)(&(VCN_BASE.instance[i]));
+@@ -49,7 +50,7 @@ int vega10_reg_base_init(struct amdgpu_device *adev)
+ 		adev->reg_offset[SMUIO_HWIP][i] = (uint32_t *)(&(SMUIO_BASE.instance[i]));
+ 		adev->reg_offset[PWR_HWIP][i] = (uint32_t *)(&(PWR_BASE.instance[i]));
+ 		adev->reg_offset[NBIF_HWIP][i] = (uint32_t *)(&(NBIF_BASE.instance[i]));
+-
++		adev->reg_offset[THM_HWIP][i] = (uint32_t *)(&(THM_BASE.instance[i]));
+ 	}
+ 	return 0;
+ }
+-- 
+2.7.4
+

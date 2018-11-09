@@ -1,0 +1,32 @@
+From 9721ff9f3c7ce7d987d006670f35f4a75c09d91d Mon Sep 17 00:00:00 2001
+From: Yong Zhao <Yong.Zhao@amd.com>
+Date: Wed, 6 Sep 2017 14:38:06 -0400
+Subject: [PATCH 1796/4131] drm/amdkfd: Temporarily disable KFD support on
+ Raven
+
+To successfully initialize kfd module at startup, the "iommu=pt" is
+needed at the grub linux command line. Before a formal fix is
+available, disable KFD support temporarily at Hybrid drivers team's
+request.
+
+Change-Id: If73fc99cc8475cba633ee0f4b8ea041551dad2c4
+Signed-off-by: Yong Zhao <Yong.Zhao@amd.com>
+---
+ drivers/gpu/drm/amd/amdgpu/amdgpu_amdkfd.c | 1 -
+ 1 file changed, 1 deletion(-)
+
+diff --git a/drivers/gpu/drm/amd/amdgpu/amdgpu_amdkfd.c b/drivers/gpu/drm/amd/amdgpu/amdgpu_amdkfd.c
+index 8a35200..f45ab47 100755
+--- a/drivers/gpu/drm/amd/amdgpu/amdgpu_amdkfd.c
++++ b/drivers/gpu/drm/amd/amdgpu/amdgpu_amdkfd.c
+@@ -97,7 +97,6 @@ void amdgpu_amdkfd_device_probe(struct amdgpu_device *adev)
+ 		kfd2kgd = amdgpu_amdkfd_gfx_8_0_get_functions();
+ 		break;
+ 	case CHIP_VEGA10:
+-	case CHIP_RAVEN:
+ 		kfd2kgd = amdgpu_amdkfd_gfx_9_0_get_functions();
+ 		break;
+ 	default:
+-- 
+2.7.4
+

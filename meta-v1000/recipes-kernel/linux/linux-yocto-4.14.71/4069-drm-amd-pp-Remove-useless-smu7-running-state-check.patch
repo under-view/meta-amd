@@ -1,0 +1,42 @@
+From 01dc9061f57f73b4ae450c0e7dc9e8be37756110 Mon Sep 17 00:00:00 2001
+From: Rex Zhu <Rex.Zhu@amd.com>
+Date: Wed, 4 Apr 2018 18:41:08 +0800
+Subject: [PATCH 4069/4131] drm/amd/pp: Remove useless smu7 running state check
+
+Only check smc running state before start smu.
+
+Reviewed-by: Alex Deucher <alexander.deucher@amd.com>
+Signed-off-by: Rex Zhu <Rex.Zhu@amd.com>
+---
+ drivers/gpu/drm/amd/powerplay/smumgr/smu7_smumgr.c | 8 --------
+ 1 file changed, 8 deletions(-)
+
+diff --git a/drivers/gpu/drm/amd/powerplay/smumgr/smu7_smumgr.c b/drivers/gpu/drm/amd/powerplay/smumgr/smu7_smumgr.c
+index 8b9518a..fb32a3f 100644
+--- a/drivers/gpu/drm/amd/powerplay/smumgr/smu7_smumgr.c
++++ b/drivers/gpu/drm/amd/powerplay/smumgr/smu7_smumgr.c
+@@ -167,10 +167,6 @@ int smu7_send_msg_to_smc(struct pp_hwmgr *hwmgr, uint16_t msg)
+ {
+ 	int ret;
+ 
+-	if (!smu7_is_smc_ram_running(hwmgr))
+-		return -EINVAL;
+-
+-
+ 	PHM_WAIT_FIELD_UNEQUAL(hwmgr, SMC_RESP_0, SMC_RESP, 0);
+ 
+ 	ret = PHM_READ_FIELD(hwmgr->device, SMC_RESP_0, SMC_RESP);
+@@ -199,10 +195,6 @@ int smu7_send_msg_to_smc_without_waiting(struct pp_hwmgr *hwmgr, uint16_t msg)
+ 
+ int smu7_send_msg_to_smc_with_parameter(struct pp_hwmgr *hwmgr, uint16_t msg, uint32_t parameter)
+ {
+-	if (!smu7_is_smc_ram_running(hwmgr)) {
+-		return -EINVAL;
+-	}
+-
+ 	PHM_WAIT_FIELD_UNEQUAL(hwmgr, SMC_RESP_0, SMC_RESP, 0);
+ 
+ 	cgs_write_register(hwmgr->device, mmSMC_MSG_ARG_0, parameter);
+-- 
+2.7.4
+

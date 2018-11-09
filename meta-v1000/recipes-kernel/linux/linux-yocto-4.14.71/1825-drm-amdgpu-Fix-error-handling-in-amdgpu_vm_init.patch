@@ -1,0 +1,31 @@
+From 58c4c4d88a55ca9a7674eae7431608afc8c0fb72 Mon Sep 17 00:00:00 2001
+From: Felix Kuehling <Felix.Kuehling@amd.com>
+Date: Fri, 25 Aug 2017 20:15:04 -0400
+Subject: [PATCH 1825/4131] drm/amdgpu: Fix error handling in amdgpu_vm_init
+
+Make sure vm->root.bo is not left reserved if amdgpu_bo_kmap fails.
+
+Signed-off-by: Felix Kuehling <Felix.Kuehling@amd.com>
+Reviewed-by: Alex Deucher <alexander.deucher@amd.com>
+---
+ drivers/gpu/drm/amd/amdgpu/amdgpu_vm.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/drivers/gpu/drm/amd/amdgpu/amdgpu_vm.c b/drivers/gpu/drm/amd/amdgpu/amdgpu_vm.c
+index ebc0cdf..65ab94d 100644
+--- a/drivers/gpu/drm/amd/amdgpu/amdgpu_vm.c
++++ b/drivers/gpu/drm/amd/amdgpu/amdgpu_vm.c
+@@ -2632,9 +2632,9 @@ int amdgpu_vm_init(struct amdgpu_device *adev, struct amdgpu_vm *vm,
+ 			goto error_free_root;
+ 
+ 		r = amdgpu_bo_kmap(vm->root.base.bo, NULL);
++		amdgpu_bo_unreserve(vm->root.base.bo);
+ 		if (r)
+ 			goto error_free_root;
+-		amdgpu_bo_unreserve(vm->root.base.bo);
+ 	}
+ 
+ 	vm->vm_context = vm_context;
+-- 
+2.7.4
+

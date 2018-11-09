@@ -1,0 +1,54 @@
+From 9ed176bcc3dbd8042ce198f2a167d8ed318585f2 Mon Sep 17 00:00:00 2001
+From: Rex Zhu <Rex.Zhu@amd.com>
+Date: Mon, 12 Mar 2018 19:50:38 +0800
+Subject: [PATCH 3799/4131] drm/amdgpu: Plus NULL function pointer check
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+Change-Id: I17df856d137b24e24575722b06650e4136fdb1e0
+Reviewed-by: Alex Deucher <alexander.deucher@amd.com>
+Reviewed-by: Christian König <christian.koenig@amd.com>
+Reviewed-by: Evan Quan <evan.quan@amd.com>
+Signed-off-by: Rex Zhu <Rex.Zhu@amd.com>
+---
+ drivers/gpu/drm/amd/amdgpu/amdgpu_device.c | 9 ++++++---
+ 1 file changed, 6 insertions(+), 3 deletions(-)
+
+diff --git a/drivers/gpu/drm/amd/amdgpu/amdgpu_device.c b/drivers/gpu/drm/amd/amdgpu/amdgpu_device.c
+index 44ea5c9..92e6795 100644
+--- a/drivers/gpu/drm/amd/amdgpu/amdgpu_device.c
++++ b/drivers/gpu/drm/amd/amdgpu/amdgpu_device.c
+@@ -1461,7 +1461,8 @@ static int amdgpu_device_ip_late_set_cg_state(struct amdgpu_device *adev)
+ 			continue;
+ 		/* skip CG for VCE/UVD, it's handled specially */
+ 		if (adev->ip_blocks[i].version->type != AMD_IP_BLOCK_TYPE_UVD &&
+-		    adev->ip_blocks[i].version->type != AMD_IP_BLOCK_TYPE_VCE) {
++		    adev->ip_blocks[i].version->type != AMD_IP_BLOCK_TYPE_VCE &&
++		    adev->ip_blocks[i].version->funcs->set_clockgating_state) {
+ 			/* enable clockgating to save power */
+ 			r = adev->ip_blocks[i].version->funcs->set_clockgating_state((void *)adev,
+ 										     AMD_CG_STATE_GATE);
+@@ -1510,7 +1511,8 @@ static int amdgpu_device_ip_fini(struct amdgpu_device *adev)
+ 	for (i = 0; i < adev->num_ip_blocks; i++) {
+ 		if (!adev->ip_blocks[i].status.hw)
+ 			continue;
+-		if (adev->ip_blocks[i].version->type == AMD_IP_BLOCK_TYPE_SMC) {
++		if (adev->ip_blocks[i].version->type == AMD_IP_BLOCK_TYPE_SMC &&
++			adev->ip_blocks[i].version->funcs->set_clockgating_state) {
+ 			/* ungate blocks before hw fini so that we can shutdown the blocks safely */
+ 			r = adev->ip_blocks[i].version->funcs->set_clockgating_state((void *)adev,
+ 										     AMD_CG_STATE_UNGATE);
+@@ -1625,7 +1627,8 @@ int amdgpu_device_ip_suspend(struct amdgpu_device *adev)
+ 		if (!adev->ip_blocks[i].status.valid)
+ 			continue;
+ 		/* ungate blocks so that suspend can properly shut them down */
+-		if (i != AMD_IP_BLOCK_TYPE_SMC) {
++		if (i != AMD_IP_BLOCK_TYPE_SMC &&
++			adev->ip_blocks[i].version->funcs->set_clockgating_state) {
+ 			r = adev->ip_blocks[i].version->funcs->set_clockgating_state((void *)adev,
+ 										     AMD_CG_STATE_UNGATE);
+ 			if (r) {
+-- 
+2.7.4
+

@@ -1,0 +1,36 @@
+From ba330363e7a3362121fed44376d39ab48c7d4546 Mon Sep 17 00:00:00 2001
+From: "Leo (Sunpeng) Li" <sunpeng.li@amd.com>
+Date: Thu, 16 Nov 2017 15:17:27 -0500
+Subject: [PATCH 2829/4131] drm/amd/display: Do not put drm_atomic_state on
+ resume
+
+drm_atomic_helper_resume now puts it for us. See relevant patch here:
+https://lists.freedesktop.org/archives/dri-devel/2017-October/154268.html
+
+Change-Id: I9ea106f69a535b55ab16b78067dd94639f22336e
+Signed-off-by: Leo (Sunpeng) Li <sunpeng.li@amd.com>
+Reviewed-by: Harry Wentland <Harry.Wentland@amd.com>
+Signed-off-by: Alex Deucher <alexander.deucher@amd.com>
+---
+ drivers/gpu/drm/amd/display/amdgpu_dm/amdgpu_dm.c | 5 -----
+ 1 file changed, 5 deletions(-)
+
+diff --git a/drivers/gpu/drm/amd/display/amdgpu_dm/amdgpu_dm.c b/drivers/gpu/drm/amd/display/amdgpu_dm/amdgpu_dm.c
+index 0b41e73..975a2e1 100644
+--- a/drivers/gpu/drm/amd/display/amdgpu_dm/amdgpu_dm.c
++++ b/drivers/gpu/drm/amd/display/amdgpu_dm/amdgpu_dm.c
+@@ -743,11 +743,6 @@ int amdgpu_dm_display_resume(struct amdgpu_device *adev)
+ 
+ 	ret = drm_atomic_helper_resume(ddev, adev->dm.cached_state);
+ 
+-#if LINUX_VERSION_CODE < KERNEL_VERSION(4, 10, 0) && !defined(OS_NAME_RHEL_7_4)
+-	drm_atomic_state_free(adev->dm.cached_state);
+-#else
+-	drm_atomic_state_put(adev->dm.cached_state);
+-#endif
+ 	adev->dm.cached_state = NULL;
+ 
+ 	amdgpu_dm_irq_resume_late(adev);
+-- 
+2.7.4
+

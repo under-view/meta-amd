@@ -1,0 +1,28 @@
+From ee8413f9c6ac09fa0eeca6cbe89341ee95d258b1 Mon Sep 17 00:00:00 2001
+From: "Le.Ma" <Le.Ma@amd.com>
+Date: Tue, 10 Oct 2017 16:18:25 +0800
+Subject: [PATCH 1838/4131] drm/amd/lib: Support chash module under amd/lib for
+ dkms
+
+Change-Id: Iee07b538253a710f4488419eb89c1622784f4586
+Signed-off-by: Le.Ma <Le.Ma@amd.com>
+Reviewed-by: Junwei Zhang <Jerry.Zhang@amd.com>
+---
+ drivers/gpu/drm/amd/lib/chash.c | 1 +
+ 1 file changed, 1 insertion(+)
+
+diff --git a/drivers/gpu/drm/amd/lib/chash.c b/drivers/gpu/drm/amd/lib/chash.c
+index 1bc4287..dfa0f18 100644
+--- a/drivers/gpu/drm/amd/lib/chash.c
++++ b/drivers/gpu/drm/amd/lib/chash.c
+@@ -21,6 +21,7 @@
+  *
+  */
+ 
++#include <linux/version.h>
+ #include <linux/types.h>
+ #include <linux/hash.h>
+ #include <linux/bug.h>
+-- 
+2.7.4
+

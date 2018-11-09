@@ -1,0 +1,31 @@
+From 7e2d22d39a81d4c652424c4d20a8f726a4f773f2 Mon Sep 17 00:00:00 2001
+From: Alex Deucher <alexander.deucher@amd.com>
+Date: Sat, 2 Sep 2017 02:22:49 -0400
+Subject: [PATCH 3879/4131] drm/amdgpu/gfx9: Add placeholder for vega12 golden
+ settings
+
+Fill these in when we get them.
+
+Signed-off-by: Alex Deucher <alexander.deucher@amd.com>
+Reviewed-by: Feifei Xu <Feifei.Xu@amd.com>
+---
+ drivers/gpu/drm/amd/amdgpu/gfx_v9_0.c | 3 +++
+ 1 file changed, 3 insertions(+)
+
+diff --git a/drivers/gpu/drm/amd/amdgpu/gfx_v9_0.c b/drivers/gpu/drm/amd/amdgpu/gfx_v9_0.c
+index 96a67c2..88177a6 100644
+--- a/drivers/gpu/drm/amd/amdgpu/gfx_v9_0.c
++++ b/drivers/gpu/drm/amd/amdgpu/gfx_v9_0.c
+@@ -175,6 +175,9 @@ static void gfx_v9_0_init_golden_registers(struct amdgpu_device *adev)
+ 						 golden_settings_gc_9_0_vg10,
+ 						 ARRAY_SIZE(golden_settings_gc_9_0_vg10));
+ 		break;
++	case CHIP_VEGA12:
++		DRM_ERROR("missing golden settings for gfx9 on vega12!\n");
++		break;
+ 	case CHIP_RAVEN:
+ 		soc15_program_register_sequence(adev,
+ 						 golden_settings_gc_9_1,
+-- 
+2.7.4
+

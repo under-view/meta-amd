@@ -1,0 +1,41 @@
+From fdbc145e3b65430326ee044b16f44757c47bb9fe Mon Sep 17 00:00:00 2001
+From: Emily Deng <Emily.Deng@amd.com>
+Date: Thu, 8 Mar 2018 09:35:19 +0800
+Subject: [PATCH 3700/4131] drm/amdgpu: Correct the place of
+ amdgpu_pm_sysfs_fini
+
+The amdgpu_pm_sysfs_fini should call before amdgpu_device_ip_fini,
+or the adev->pm.dpm_enabled would be set to 0, then the device files
+related to pp won't be removed by amdgpu_pm_sysfs_fini when unload
+driver.
+
+Signed-off-by: Emily Deng <Emily.Deng@amd.com>
+Reviewed-by: Alex Deucher <alexander.deucher@amd.com>
+Signed-off-by: Kalyan Alle <kalyan.alle@amd.com>
+---
+ drivers/gpu/drm/amd/amdgpu/amdgpu_device.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/drivers/gpu/drm/amd/amdgpu/amdgpu_device.c b/drivers/gpu/drm/amd/amdgpu/amdgpu_device.c
+index 84adc73..1c83ee2 100644
+--- a/drivers/gpu/drm/amd/amdgpu/amdgpu_device.c
++++ b/drivers/gpu/drm/amd/amdgpu/amdgpu_device.c
+@@ -2116,6 +2116,7 @@ void amdgpu_device_fini(struct amdgpu_device *adev)
+ 
+ 	amdgpu_ib_pool_fini(adev);
+ 	amdgpu_fence_driver_fini(adev);
++	amdgpu_pm_sysfs_fini(adev);
+ 	amdgpu_fbdev_fini(adev);
+ 	r = amdgpu_device_ip_fini(adev);
+ 	if (adev->firmware.gpu_info_fw) {
+@@ -2145,7 +2146,6 @@ void amdgpu_device_fini(struct amdgpu_device *adev)
+ 	adev->rmmio = NULL;
+ 
+ 	amdgpu_device_doorbell_fini(adev);
+-	amdgpu_pm_sysfs_fini(adev);
+ 	amdgpu_debugfs_regs_cleanup(adev);
+ }
+ 
+-- 
+2.7.4
+

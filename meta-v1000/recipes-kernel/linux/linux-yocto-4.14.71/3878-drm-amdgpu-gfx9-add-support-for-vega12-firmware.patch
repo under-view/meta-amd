@@ -1,0 +1,44 @@
+From 65a0a48d742be2b2216decbdb6d8b256a0c0b53d Mon Sep 17 00:00:00 2001
+From: Alex Deucher <alexander.deucher@amd.com>
+Date: Sat, 2 Sep 2017 02:10:18 -0400
+Subject: [PATCH 3878/4131] drm/amdgpu/gfx9: add support for vega12 firmware
+
+Declare and fetch the appriopriate files.
+
+Signed-off-by: Alex Deucher <alexander.deucher@amd.com>
+Reviewed-by: Feifei Xu <Feifei.Xu@amd.com>
+---
+ drivers/gpu/drm/amd/amdgpu/gfx_v9_0.c | 10 ++++++++++
+ 1 file changed, 10 insertions(+)
+
+diff --git a/drivers/gpu/drm/amd/amdgpu/gfx_v9_0.c b/drivers/gpu/drm/amd/amdgpu/gfx_v9_0.c
+index df33d26..96a67c2 100644
+--- a/drivers/gpu/drm/amd/amdgpu/gfx_v9_0.c
++++ b/drivers/gpu/drm/amd/amdgpu/gfx_v9_0.c
+@@ -57,6 +57,13 @@ MODULE_FIRMWARE("amdgpu/vega10_mec.bin");
+ MODULE_FIRMWARE("amdgpu/vega10_mec2.bin");
+ MODULE_FIRMWARE("amdgpu/vega10_rlc.bin");
+ 
++MODULE_FIRMWARE("amdgpu/vega12_ce.bin");
++MODULE_FIRMWARE("amdgpu/vega12_pfp.bin");
++MODULE_FIRMWARE("amdgpu/vega12_me.bin");
++MODULE_FIRMWARE("amdgpu/vega12_mec.bin");
++MODULE_FIRMWARE("amdgpu/vega12_mec2.bin");
++MODULE_FIRMWARE("amdgpu/vega12_rlc.bin");
++
+ MODULE_FIRMWARE("amdgpu/raven_ce.bin");
+ MODULE_FIRMWARE("amdgpu/raven_pfp.bin");
+ MODULE_FIRMWARE("amdgpu/raven_me.bin");
+@@ -369,6 +376,9 @@ static int gfx_v9_0_init_microcode(struct amdgpu_device *adev)
+ 	case CHIP_VEGA10:
+ 		chip_name = "vega10";
+ 		break;
++	case CHIP_VEGA12:
++		chip_name = "vega12";
++		break;
+ 	case CHIP_RAVEN:
+ 		chip_name = "raven";
+ 		break;
+-- 
+2.7.4
+

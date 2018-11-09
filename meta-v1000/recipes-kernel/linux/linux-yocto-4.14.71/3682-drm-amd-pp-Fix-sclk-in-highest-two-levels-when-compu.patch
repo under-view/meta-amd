@@ -1,0 +1,64 @@
+From 07e4ae274a132db678abea6bd2d71308c8e790db Mon Sep 17 00:00:00 2001
+From: Rex Zhu <Rex.Zhu@amd.com>
+Date: Fri, 23 Feb 2018 17:41:07 +0800
+Subject: [PATCH 3682/4131] drm/amd/pp: Fix sclk in highest two levels when
+ compute on smu7
+
+Compute workload tends to be "bursty", Only tune the behavior of
+nature dpm don't work well for most of such workloads. From test
+results, Fix sclk in highest two levels can get better performance.
+so add min sclk setting into the default cumpute workload policy on
+smu7.
+
+user still can change sclk range through sysfs pp_dpm_sclk
+for better perf/watt.
+
+Change-Id: I7faf48feb5206c5388f635a50c66031e0eb19814
+Reviewed-by: Evan Quan <evan.quan@amd.com>
+Signed-off-by: Rex Zhu <Rex.Zhu@amd.com>
+---
+ drivers/gpu/drm/amd/powerplay/hwmgr/smu7_hwmgr.c | 21 +++++++++++++++++++++
+ 1 file changed, 21 insertions(+)
+
+diff --git a/drivers/gpu/drm/amd/powerplay/hwmgr/smu7_hwmgr.c b/drivers/gpu/drm/amd/powerplay/hwmgr/smu7_hwmgr.c
+index 5feb445..631793f 100644
+--- a/drivers/gpu/drm/amd/powerplay/hwmgr/smu7_hwmgr.c
++++ b/drivers/gpu/drm/amd/powerplay/hwmgr/smu7_hwmgr.c
+@@ -4976,6 +4976,26 @@ static int smu7_get_power_profile_mode(struct pp_hwmgr *hwmgr, char *buf)
+ 	return size;
+ }
+ 
++static void smu7_patch_compute_profile_mode(struct pp_hwmgr *hwmgr,
++					enum PP_SMC_POWER_PROFILE requst)
++{
++	struct smu7_hwmgr *data = (struct smu7_hwmgr *)(hwmgr->backend);
++	uint32_t tmp, level;
++
++	if (requst == PP_SMC_POWER_PROFILE_COMPUTE) {
++		if (data->dpm_level_enable_mask.sclk_dpm_enable_mask) {
++			level = 0;
++			tmp = data->dpm_level_enable_mask.sclk_dpm_enable_mask;
++			while (tmp >>= 1)
++				level++;
++			if (level > 0)
++				smu7_force_clock_level(hwmgr, PP_SCLK, 3 << (level-1));
++		}
++	} else if (hwmgr->power_profile_mode == PP_SMC_POWER_PROFILE_COMPUTE) {
++		smu7_force_clock_level(hwmgr, PP_SCLK, data->dpm_level_enable_mask.sclk_dpm_enable_mask);
++	}
++}
++
+ static int smu7_set_power_profile_mode(struct pp_hwmgr *hwmgr, long *input, uint32_t size)
+ {
+ 	struct smu7_hwmgr *data = (struct smu7_hwmgr *)(hwmgr->backend);
+@@ -5026,6 +5046,7 @@ static int smu7_set_power_profile_mode(struct pp_hwmgr *hwmgr, long *input, uint
+ 				data->current_profile_setting.mclk_down_hyst = tmp.mclk_down_hyst;
+ 				data->current_profile_setting.mclk_activity = tmp.mclk_activity;
+ 			}
++			smu7_patch_compute_profile_mode(hwmgr, mode);
+ 			hwmgr->power_profile_mode = mode;
+ 		}
+ 		break;
+-- 
+2.7.4
+

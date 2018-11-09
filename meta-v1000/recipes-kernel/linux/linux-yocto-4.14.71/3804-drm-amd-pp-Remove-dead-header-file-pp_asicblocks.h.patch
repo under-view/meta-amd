@@ -1,0 +1,83 @@
+From 4f94fe12b3fd09a2bbbf02c50b88a363f9162045 Mon Sep 17 00:00:00 2001
+From: Rex Zhu <Rex.Zhu@amd.com>
+Date: Tue, 13 Mar 2018 15:35:17 +0800
+Subject: [PATCH 3804/4131] drm/amd/pp: Remove dead header file pp_asicblocks.h
+
+Change-Id: I6a5f0a5366349b3a99434bd14ffb8125d7e20f8b
+Reviewed-by: Alex Deucher <alexander.deucher@amd.com>
+Reviewed-by: Evan Quan <evan.quan@amd.com>
+Signed-off-by: Rex Zhu <Rex.Zhu@amd.com>
+---
+ .../amd/powerplay/hwmgr/smu7_clockpowergating.h    |  1 -
+ drivers/gpu/drm/amd/powerplay/inc/pp_asicblocks.h  | 47 ----------------------
+ 2 files changed, 48 deletions(-)
+ delete mode 100644 drivers/gpu/drm/amd/powerplay/inc/pp_asicblocks.h
+
+diff --git a/drivers/gpu/drm/amd/powerplay/hwmgr/smu7_clockpowergating.h b/drivers/gpu/drm/amd/powerplay/hwmgr/smu7_clockpowergating.h
+index 7b54d48..1ddce02 100644
+--- a/drivers/gpu/drm/amd/powerplay/hwmgr/smu7_clockpowergating.h
++++ b/drivers/gpu/drm/amd/powerplay/hwmgr/smu7_clockpowergating.h
+@@ -25,7 +25,6 @@
+ #define _SMU7_CLOCK_POWER_GATING_H_
+ 
+ #include "smu7_hwmgr.h"
+-#include "pp_asicblocks.h"
+ 
+ void smu7_powergate_vce(struct pp_hwmgr *hwmgr, bool bgate);
+ void smu7_powergate_uvd(struct pp_hwmgr *hwmgr, bool bgate);
+diff --git a/drivers/gpu/drm/amd/powerplay/inc/pp_asicblocks.h b/drivers/gpu/drm/amd/powerplay/inc/pp_asicblocks.h
+deleted file mode 100644
+index 0c1593e..0000000
+--- a/drivers/gpu/drm/amd/powerplay/inc/pp_asicblocks.h
++++ /dev/null
+@@ -1,47 +0,0 @@
+-/*
+- * Copyright 2015 Advanced Micro Devices, Inc.
+- *
+- * Permission is hereby granted, free of charge, to any person obtaining a
+- * copy of this software and associated documentation files (the "Software"),
+- * to deal in the Software without restriction, including without limitation
+- * the rights to use, copy, modify, merge, publish, distribute, sublicense,
+- * and/or sell copies of the Software, and to permit persons to whom the
+- * Software is furnished to do so, subject to the following conditions:
+- *
+- * The above copyright notice and this permission notice shall be included in
+- * all copies or substantial portions of the Software.
+- *
+- * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+- * IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+- * FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.  IN NO EVENT SHALL
+- * THE COPYRIGHT HOLDER(S) OR AUTHOR(S) BE LIABLE FOR ANY CLAIM, DAMAGES OR
+- * OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE,
+- * ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR
+- * OTHER DEALINGS IN THE SOFTWARE.
+- *
+- */
+-#ifndef PP_ASICBLOCKS_H
+-#define PP_ASICBLOCKS_H
+-
+-
+-enum PHM_AsicBlock {
+-	PHM_AsicBlock_GFX,
+-	PHM_AsicBlock_UVD_MVC,
+-	PHM_AsicBlock_UVD,
+-	PHM_AsicBlock_UVD_HD,
+-	PHM_AsicBlock_UVD_SD,
+-	PHM_AsicBlock_Count
+-};
+-
+-enum PHM_ClockGateSetting {
+-	PHM_ClockGateSetting_StaticOn,
+-	PHM_ClockGateSetting_StaticOff,
+-	PHM_ClockGateSetting_Dynamic
+-};
+-
+-struct phm_asic_blocks {
+-	bool gfx : 1;
+-	bool uvd : 1;
+-};
+-
+-#endif
+-- 
+2.7.4
+

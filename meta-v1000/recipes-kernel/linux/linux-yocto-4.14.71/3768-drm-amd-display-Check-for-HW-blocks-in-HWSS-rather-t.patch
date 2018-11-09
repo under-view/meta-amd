@@ -1,0 +1,57 @@
+From a3cd48bdbda2a82f4e36c3b0964193278ab32aca Mon Sep 17 00:00:00 2001
+From: Harry Wentland <harry.wentland@amd.com>
+Date: Fri, 2 Mar 2018 17:19:27 -0500
+Subject: [PATCH 3768/4131] drm/amd/display: Check for HW blocks in HWSS,
+ rather than DC core for cursor
+
+Signed-off-by: Harry Wentland <harry.wentland@amd.com>
+Reviewed-by: Tony Cheng <Tony.Cheng@amd.com>
+Acked-by: Harry Wentland <harry.wentland@amd.com>
+---
+ drivers/gpu/drm/amd/display/dc/core/dc_stream.c             | 3 +--
+ drivers/gpu/drm/amd/display/dc/dce110/dce110_hw_sequencer.c | 9 ++++++---
+ 2 files changed, 7 insertions(+), 5 deletions(-)
+
+diff --git a/drivers/gpu/drm/amd/display/dc/core/dc_stream.c b/drivers/gpu/drm/amd/display/dc/core/dc_stream.c
+index cd58197..ce0747e 100644
+--- a/drivers/gpu/drm/amd/display/dc/core/dc_stream.c
++++ b/drivers/gpu/drm/amd/display/dc/core/dc_stream.c
+@@ -198,8 +198,7 @@ bool dc_stream_set_cursor_attributes(
+ 	for (i = 0; i < MAX_PIPES; i++) {
+ 		struct pipe_ctx *pipe_ctx = &res_ctx->pipe_ctx[i];
+ 
+-		if (pipe_ctx->stream != stream || (!pipe_ctx->plane_res.xfm &&
+-		    !pipe_ctx->plane_res.dpp) || !pipe_ctx->plane_res.ipp)
++		if (pipe_ctx->stream != stream)
+ 			continue;
+ 		if (pipe_ctx->top_pipe && pipe_ctx->plane_state != pipe_ctx->top_pipe->plane_state)
+ 			continue;
+diff --git a/drivers/gpu/drm/amd/display/dc/dce110/dce110_hw_sequencer.c b/drivers/gpu/drm/amd/display/dc/dce110/dce110_hw_sequencer.c
+index 9de3d79..206569e 100644
+--- a/drivers/gpu/drm/amd/display/dc/dce110/dce110_hw_sequencer.c
++++ b/drivers/gpu/drm/amd/display/dc/dce110/dce110_hw_sequencer.c
+@@ -2937,15 +2937,18 @@ void dce110_set_cursor_attribute(struct pipe_ctx *pipe_ctx)
+ {
+ 	struct dc_cursor_attributes *attributes = &pipe_ctx->stream->cursor_attributes;
+ 
+-	if (pipe_ctx->plane_res.ipp->funcs->ipp_cursor_set_attributes)
++	if (pipe_ctx->plane_res.ipp &&
++	    pipe_ctx->plane_res.ipp->funcs->ipp_cursor_set_attributes)
+ 		pipe_ctx->plane_res.ipp->funcs->ipp_cursor_set_attributes(
+ 				pipe_ctx->plane_res.ipp, attributes);
+ 
+-	if (pipe_ctx->plane_res.mi->funcs->set_cursor_attributes)
++	if (pipe_ctx->plane_res.mi &&
++	    pipe_ctx->plane_res.mi->funcs->set_cursor_attributes)
+ 		pipe_ctx->plane_res.mi->funcs->set_cursor_attributes(
+ 				pipe_ctx->plane_res.mi, attributes);
+ 
+-	if (pipe_ctx->plane_res.xfm->funcs->set_cursor_attributes)
++	if (pipe_ctx->plane_res.xfm &&
++	    pipe_ctx->plane_res.xfm->funcs->set_cursor_attributes)
+ 		pipe_ctx->plane_res.xfm->funcs->set_cursor_attributes(
+ 				pipe_ctx->plane_res.xfm, attributes);
+ }
+-- 
+2.7.4
+

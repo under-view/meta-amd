@@ -1,0 +1,33 @@
+From 694b0293bb5189b05fb67a4dd2001f0ed4c1eb25 Mon Sep 17 00:00:00 2001
+From: Shirish S <shirish.s@amd.com>
+Date: Tue, 20 Feb 2018 14:34:16 +0530
+Subject: [PATCH 3639/4131] drm/amd/display: allocate fbc buffer in
+ AMDGPU_GEM_DOMAIN_GTT
+
+Currently the FBC buffer is allocated in VRAM, since VRAM usage is
+dedicatedly for scanouts, by allocating FBC back buffer in GTT
+shall help in conserving VRAM for other purposes.
+
+Signed-off-by: Shirish S <shirish.s@amd.com>
+Reviewed-by: Charlene Liu <Charlene.Liu@amd.com>
+Acked-by: Harry Wentland <harry.wentland@amd.com>
+---
+ drivers/gpu/drm/amd/display/amdgpu_dm/amdgpu_dm.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/drivers/gpu/drm/amd/display/amdgpu_dm/amdgpu_dm.c b/drivers/gpu/drm/amd/display/amdgpu_dm/amdgpu_dm.c
+index 1f87241..795232c 100644
+--- a/drivers/gpu/drm/amd/display/amdgpu_dm/amdgpu_dm.c
++++ b/drivers/gpu/drm/amd/display/amdgpu_dm/amdgpu_dm.c
+@@ -375,7 +375,7 @@ static void amdgpu_dm_fbc_init(struct drm_connector *connector)
+ 
+ 	if (max_size) {
+ 		int r = amdgpu_bo_create_kernel(adev, max_size * 4, PAGE_SIZE,
+-			    AMDGPU_GEM_DOMAIN_VRAM, &compressor->bo_ptr,
++			    AMDGPU_GEM_DOMAIN_GTT, &compressor->bo_ptr,
+ 			    &compressor->gpu_addr, &compressor->cpu_addr);
+ 
+ 		if (r)
+-- 
+2.7.4
+

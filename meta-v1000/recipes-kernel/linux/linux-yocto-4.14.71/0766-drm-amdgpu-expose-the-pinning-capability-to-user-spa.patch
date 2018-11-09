@@ -1,0 +1,42 @@
+From e6854ce0eb190516e7fde660dab8e9a3b47ac937 Mon Sep 17 00:00:00 2001
+From: Jammy Zhou <Jammy.Zhou@amd.com>
+Date: Mon, 9 Nov 2015 13:39:37 +0800
+Subject: [PATCH 0766/4131] drm/amdgpu: expose the pinning capability to user
+ space
+
+The module option amdgpu.no_evict is added, and it is disabled
+by default now.
+
+Change-Id: Ifc320cdccb84e715c6cf4e064ca359f7c02437ee
+Signed-off-by: Jammy Zhou <Jammy.Zhou@amd.com>
+Reviewed-by: Chunming Zhou <david1.zhou@amd.com>
+Signed-off-by: Junwei Zhang <Jerry.Zhang@amd.com>
+
+ Conflicts:
+	drivers/gpu/drm/amd/amdgpu/amdgpu_object.c
+---
+ drivers/gpu/drm/amd/amdgpu/amdgpu_object.c | 8 ++++++++
+ 1 file changed, 8 insertions(+)
+
+diff --git a/drivers/gpu/drm/amd/amdgpu/amdgpu_object.c b/drivers/gpu/drm/amd/amdgpu/amdgpu_object.c
+index f08624f..4a9e85d 100644
+--- a/drivers/gpu/drm/amd/amdgpu/amdgpu_object.c
++++ b/drivers/gpu/drm/amd/amdgpu/amdgpu_object.c
+@@ -431,6 +431,14 @@ int amdgpu_bo_create_restricted(struct amdgpu_device *adev,
+ 	if (type == ttm_bo_type_device)
+ 		bo->flags &= ~AMDGPU_GEM_CREATE_CPU_ACCESS_REQUIRED;
+ 
++	if ((flags & AMDGPU_GEM_CREATE_NO_EVICT) && amdgpu_no_evict) {
++		r = amdgpu_bo_reserve(bo, false);
++		if (unlikely(r != 0))
++			return r;
++		r = amdgpu_bo_pin(bo, domain, NULL);
++		amdgpu_bo_unreserve(bo);
++	}
++
+ 	return 0;
+ 
+ fail_unreserve:
+-- 
+2.7.4
+

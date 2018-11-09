@@ -1,0 +1,68 @@
+From bd731244a4d0e974469730fab544aaead1d08020 Mon Sep 17 00:00:00 2001
+From: Monk Liu <Monk.Liu@amd.com>
+Date: Tue, 19 Sep 2017 15:40:56 +0800
+Subject: [PATCH 2089/4131] drm/amdgpu/sriov:fix memory leak in psp_load_fw
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+for SR-IOV when doing gpu reset this routine shouldn't do
+resource allocating otherwise memory leak
+
+Change-Id: I25da3a5b475196c75c7e639adc40751754625968
+Signed-off-by: Monk Liu <Monk.Liu@amd.com>
+Acked-by: Christian König <christian.koenig@amd.com>
+---
+ drivers/gpu/drm/amd/amdgpu/amdgpu_psp.c | 20 ++++++++++++--------
+ 1 file changed, 12 insertions(+), 8 deletions(-)
+
+diff --git a/drivers/gpu/drm/amd/amdgpu/amdgpu_psp.c b/drivers/gpu/drm/amd/amdgpu/amdgpu_psp.c
+index c367f8d..80deddc 100644
+--- a/drivers/gpu/drm/amd/amdgpu/amdgpu_psp.c
++++ b/drivers/gpu/drm/amd/amdgpu/amdgpu_psp.c
+@@ -339,23 +339,26 @@ static int psp_load_fw(struct amdgpu_device *adev)
+ 	int ret;
+ 	struct psp_context *psp = &adev->psp;
+ 
++	if (amdgpu_sriov_vf(adev) && adev->in_gpu_reset != 0)
++		goto skip_memalloc;
++
+ 	psp->cmd = kzalloc(sizeof(struct psp_gfx_cmd_resp), GFP_KERNEL);
+ 	if (!psp->cmd)
+ 		return -ENOMEM;
+ 
+ 	ret = amdgpu_bo_create_kernel(adev, PSP_1_MEG, PSP_1_MEG,
+-				      AMDGPU_GEM_DOMAIN_GTT,
+-				      &psp->fw_pri_bo,
+-				      &psp->fw_pri_mc_addr,
+-				      &psp->fw_pri_buf);
++					AMDGPU_GEM_DOMAIN_GTT,
++					&psp->fw_pri_bo,
++					&psp->fw_pri_mc_addr,
++					&psp->fw_pri_buf);
+ 	if (ret)
+ 		goto failed;
+ 
+ 	ret = amdgpu_bo_create_kernel(adev, PSP_FENCE_BUFFER_SIZE, PAGE_SIZE,
+-				      AMDGPU_GEM_DOMAIN_VRAM,
+-				      &psp->fence_buf_bo,
+-				      &psp->fence_buf_mc_addr,
+-				      &psp->fence_buf);
++					AMDGPU_GEM_DOMAIN_VRAM,
++					&psp->fence_buf_bo,
++					&psp->fence_buf_mc_addr,
++					&psp->fence_buf);
+ 	if (ret)
+ 		goto failed_mem2;
+ 
+@@ -380,6 +383,7 @@ static int psp_load_fw(struct amdgpu_device *adev)
+ 	if (ret)
+ 		goto failed_mem;
+ 
++skip_memalloc:
+ 	ret = psp_hw_start(psp);
+ 	if (ret)
+ 		goto failed_mem;
+-- 
+2.7.4
+

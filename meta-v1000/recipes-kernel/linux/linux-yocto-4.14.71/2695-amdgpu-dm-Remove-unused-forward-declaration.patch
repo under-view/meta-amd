@@ -1,0 +1,31 @@
+From 9d2dc2896781995548d6e6cb8118aeb3dac6bde0 Mon Sep 17 00:00:00 2001
+From: Harry Wentland <harry.wentland@amd.com>
+Date: Tue, 7 Nov 2017 19:29:40 -0500
+Subject: [PATCH 2695/4131] amdgpu/dm: Remove unused forward declaration
+
+dc_stream has long been renamed to dc_stream_state, so this
+forward declaration hasn't been used at all.
+
+Signed-off-by: Harry Wentland <harry.wentland@amd.com>
+Reviewed-by: Andrey Grodzovsky <andrey.grodzovsky@amd.com>
+Signed-off-by: Alex Deucher <alexander.deucher@amd.com>
+---
+ drivers/gpu/drm/amd/display/amdgpu_dm/amdgpu_dm.h | 2 --
+ 1 file changed, 2 deletions(-)
+
+diff --git a/drivers/gpu/drm/amd/display/amdgpu_dm/amdgpu_dm.h b/drivers/gpu/drm/amd/display/amdgpu_dm/amdgpu_dm.h
+index 82a7457..6b81e12 100644
+--- a/drivers/gpu/drm/amd/display/amdgpu_dm/amdgpu_dm.h
++++ b/drivers/gpu/drm/amd/display/amdgpu_dm/amdgpu_dm.h
+@@ -199,8 +199,6 @@ struct amdgpu_framebuffer;
+ struct amdgpu_display_manager;
+ struct dc_validation_set;
+ struct dc_plane_state;
+-/* TODO rename to dc_stream_state */
+-struct  dc_stream;
+ 
+ struct dm_plane_state {
+ 	struct drm_plane_state base;
+-- 
+2.7.4
+
