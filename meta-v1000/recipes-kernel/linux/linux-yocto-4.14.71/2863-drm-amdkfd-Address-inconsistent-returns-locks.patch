@@ -1,0 +1,87 @@
+From bf84c7908bd86f26a03d565f3d2e4f77e85a67ad Mon Sep 17 00:00:00 2001
+From: Kent Russell <kent.russell@amd.com>
+Date: Tue, 21 Nov 2017 08:44:08 -0500
+Subject: [PATCH 2863/4131] drm/amdkfd: Address inconsistent returns/locks
+
+This can hopefully resolve potential deadlocks in
+unlikely situations
+
+Change-Id: Ic971f5b5dd86c55d98c16635cf15d65b2df44e26
+Signed-off-by: Kent Russell <kent.russell@amd.com>
+---
+ drivers/gpu/drm/amd/amdgpu/amdgpu_amdkfd_gpuvm.c | 12 ++++++------
+ drivers/gpu/drm/amd/amdkfd/kfd_events.c          |  7 +++++--
+ 2 files changed, 11 insertions(+), 8 deletions(-)
+
+diff --git a/drivers/gpu/drm/amd/amdgpu/amdgpu_amdkfd_gpuvm.c b/drivers/gpu/drm/amd/amdgpu/amdgpu_amdkfd_gpuvm.c
+index ab5c7ea..1bff21b 100644
+--- a/drivers/gpu/drm/amd/amdgpu/amdgpu_amdkfd_gpuvm.c
++++ b/drivers/gpu/drm/amd/amdgpu/amdgpu_amdkfd_gpuvm.c
+@@ -1252,7 +1252,8 @@ int amdgpu_amdkfd_gpuvm_map_memory_to_gpu(
+ 
+ 	if (!bo) {
+ 		pr_err("Invalid BO when mapping memory to GPU\n");
+-		return -EINVAL;
++		ret = -EINVAL;
++		goto out;
+ 	}
+ 
+ 	domain = mem->domain;
+@@ -1265,7 +1266,7 @@ int amdgpu_amdkfd_gpuvm_map_memory_to_gpu(
+ 
+ 	ret = reserve_bo_and_vm(mem, vm, &ctx);
+ 	if (unlikely(ret != 0))
+-		goto bo_reserve_failed;
++		goto out;
+ 
+ 	/* Userptr can be marked as "not invalid", but not actually be
+ 	 * validated yet (still in the system domain). In that case
+@@ -1332,9 +1333,7 @@ int amdgpu_amdkfd_gpuvm_map_memory_to_gpu(
+ 				true);
+ 	ret = unreserve_bo_and_vms(&ctx, false, false);
+ 
+-	mutex_unlock(&mem->process_info->lock);
+-	mutex_unlock(&mem->lock);
+-	return ret;
++	goto out;
+ 
+ map_bo_to_gpuvm_failed:
+ 	if (bo_va_entry_aql)
+@@ -1344,7 +1343,8 @@ int amdgpu_amdkfd_gpuvm_map_memory_to_gpu(
+ 		remove_bo_from_vm(adev, bo_va_entry, bo_size);
+ add_bo_to_vm_failed:
+ 	unreserve_bo_and_vms(&ctx, false, false);
+-bo_reserve_failed:
++
++out:
+ 	mutex_unlock(&mem->process_info->lock);
+ 	mutex_unlock(&mem->lock);
+ 	return ret;
+diff --git a/drivers/gpu/drm/amd/amdkfd/kfd_events.c b/drivers/gpu/drm/amd/amdkfd/kfd_events.c
+index 1c53601..86afd01 100644
+--- a/drivers/gpu/drm/amd/amdkfd/kfd_events.c
++++ b/drivers/gpu/drm/amd/amdkfd/kfd_events.c
+@@ -333,8 +333,10 @@ int kfd_event_create(struct file *devkfd, struct kfd_process *p,
+ 	if (kern_addr && !p->signal_page) {
+ 		p->signal_page = allocate_signal_page_dgpu(p, kern_addr,
+ 							   *event_page_offset);
+-		if (!p->signal_page)
+-			return -ENOMEM;
++		if (!p->signal_page) {
++			ret = -ENOMEM;
++			goto out;
++		}
+ 	}
+ 
+ 	*event_page_offset = 0;
+@@ -361,6 +363,7 @@ int kfd_event_create(struct file *devkfd, struct kfd_process *p,
+ 		kfree(ev);
+ 	}
+ 
++out:
+ 	mutex_unlock(&p->event_mutex);
+ 
+ 	return ret;
+-- 
+2.7.4
+

@@ -1,0 +1,51 @@
+From 69d22d2fc781dd522ee1898f1af6479c6e7ccecf Mon Sep 17 00:00:00 2001
+From: Jordan Lazare <Jordan.Lazare@amd.com>
+Date: Tue, 11 Apr 2017 11:40:18 -0400
+Subject: [PATCH 0343/4131] drm/amd/display: Fix missing irq refactor causing
+ potential i2c race
+
+Signed-off-by: Jordan Lazare <Jordan.Lazare@amd.com>
+Reviewed-by: Harry Wentland <Harry.Wentland@amd.com>
+Signed-off-by: Alex Deucher <alexander.deucher@amd.com>
+Signed-off-by: Kalyan Alle <kalyan.alle@amd.com>
+---
+ drivers/gpu/drm/amd/display/amdgpu_dm/amdgpu_dm_types.c | 14 +++++++++-----
+ 1 file changed, 9 insertions(+), 5 deletions(-)
+
+diff --git a/drivers/gpu/drm/amd/display/amdgpu_dm/amdgpu_dm_types.c b/drivers/gpu/drm/amd/display/amdgpu_dm/amdgpu_dm_types.c
+index 4e528aa..14800ba 100644
+--- a/drivers/gpu/drm/amd/display/amdgpu_dm/amdgpu_dm_types.c
++++ b/drivers/gpu/drm/amd/display/amdgpu_dm/amdgpu_dm_types.c
+@@ -34,6 +34,7 @@
+ 
+ #include "amdgpu.h"
+ #include "amdgpu_pm.h"
++#include "dm_helpers.h"
+ #include "dm_services_types.h"
+ 
+ // We need to #undef FRAME_SIZE and DEPRECATED because they conflict
+@@ -3257,13 +3258,16 @@ static bool is_dp_capable_without_timing_msa(
+ {
+ 	uint8_t dpcd_data;
+ 	bool capable = false;
++
+ 	if (amdgpu_connector->dc_link &&
+-		dc_read_aux_dpcd(
+-			dc,
+-			amdgpu_connector->dc_link->link_index,
+-			DP_DOWN_STREAM_PORT_COUNT,
+-			&dpcd_data, sizeof(dpcd_data)))
++		dm_helpers_dp_read_dpcd(
++				NULL,
++				amdgpu_connector->dc_link,
++				DP_DOWN_STREAM_PORT_COUNT,
++				&dpcd_data,
++				sizeof(dpcd_data))) {
+ 		capable = (dpcd_data & DP_MSA_TIMING_PAR_IGNORED) ? true:false;
++	}
+ 
+ 	return capable;
+ }
+-- 
+2.7.4
+

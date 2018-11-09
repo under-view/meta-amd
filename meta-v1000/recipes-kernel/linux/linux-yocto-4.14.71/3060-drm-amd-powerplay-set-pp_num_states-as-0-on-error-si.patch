@@ -1,0 +1,29 @@
+From c2a8397b66b63fc778e3fdeb5d44046850260993 Mon Sep 17 00:00:00 2001
+From: Evan Quan <evan.quan@amd.com>
+Date: Thu, 28 Dec 2017 14:37:58 +0800
+Subject: [PATCH 3060/4131] drm/amd/powerplay: set pp_num_states as 0 on error
+ situation
+
+Change-Id: Ia27af812631666d2c9d54da156fd3451bd738d4b
+Signed-off-by: Evan Quan <evan.quan@amd.com>
+Acked-by: Alex Deucher <alexander.deucher@amd.com>
+---
+ drivers/gpu/drm/amd/powerplay/amd_powerplay.c | 2 ++
+ 1 file changed, 2 insertions(+)
+
+diff --git a/drivers/gpu/drm/amd/powerplay/amd_powerplay.c b/drivers/gpu/drm/amd/powerplay/amd_powerplay.c
+index 9f555d0..eb5de2ef 100644
+--- a/drivers/gpu/drm/amd/powerplay/amd_powerplay.c
++++ b/drivers/gpu/drm/amd/powerplay/amd_powerplay.c
+@@ -718,6 +718,8 @@ static int pp_dpm_get_pp_num_states(void *handle,
+ 	struct pp_instance *pp_handle = (struct pp_instance *)handle;
+ 	int ret = 0;
+ 
++	memset(data, 0, sizeof(*data));
++
+ 	ret = pp_check(pp_handle);
+ 
+ 	if (ret)
+-- 
+2.7.4
+

@@ -1,0 +1,24 @@
+From 8a126d73ff004442ef9b3e91bd4d509bb7c307b4 Mon Sep 17 00:00:00 2001
+From: Junshan Fang <Junshan.Fang@amd.com>
+Date: Wed, 6 Dec 2017 10:22:42 +0800
+Subject: [PATCH 2694/4131] Hybrid Version: 18.10.2.13
+
+Change-Id: Ib068dc6bf018582ca3a04d0b0b9b3ae14d18d5d0
+Signed-off-by: Junshan Fang <Junshan.Fang@amd.com>
+---
+ drivers/gpu/drm/amd/amdgpu/amdgpu_drv.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/drivers/gpu/drm/amd/amdgpu/amdgpu_drv.c b/drivers/gpu/drm/amd/amdgpu/amdgpu_drv.c
+index dd1827f..291d523 100644
+--- a/drivers/gpu/drm/amd/amdgpu/amdgpu_drv.c
++++ b/drivers/gpu/drm/amd/amdgpu/amdgpu_drv.c
+@@ -942,4 +942,4 @@ module_exit(amdgpu_exit);
+ MODULE_AUTHOR(DRIVER_AUTHOR);
+ MODULE_DESCRIPTION(DRIVER_DESC);
+ MODULE_LICENSE("GPL and additional rights");
+-MODULE_VERSION("18.10.1.13");
++MODULE_VERSION("18.10.2.13");
+-- 
+2.7.4
+

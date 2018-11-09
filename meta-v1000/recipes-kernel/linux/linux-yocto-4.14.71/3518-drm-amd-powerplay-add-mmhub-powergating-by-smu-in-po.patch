@@ -1,0 +1,70 @@
+From b5a4a8cdc49ef51930dc8c704a9341b66d0f3f6e Mon Sep 17 00:00:00 2001
+From: Eric Huang <JinHuiEric.Huang@amd.com>
+Date: Tue, 6 Feb 2018 14:38:38 -0500
+Subject: [PATCH 3518/4131] drm/amd/powerplay: add mmhub powergating by smu in
+ powerplay
+
+new generic interface is added in powerplay.
+
+Signed-off-by: Eric Huang <JinHuiEric.Huang@amd.com>
+Reviewed-by: Alex Deucher <alexander.deucher@amd.com>
+Signed-off-by: Alex Deucher <alexander.deucher@amd.com>
+---
+ drivers/gpu/drm/amd/powerplay/amd_powerplay.c | 22 ++++++++++++++++++++++
+ drivers/gpu/drm/amd/powerplay/inc/hwmgr.h     |  1 +
+ 2 files changed, 23 insertions(+)
+
+diff --git a/drivers/gpu/drm/amd/powerplay/amd_powerplay.c b/drivers/gpu/drm/amd/powerplay/amd_powerplay.c
+index 78ac209..59464a9 100644
+--- a/drivers/gpu/drm/amd/powerplay/amd_powerplay.c
++++ b/drivers/gpu/drm/amd/powerplay/amd_powerplay.c
+@@ -1476,6 +1476,27 @@ static int pp_get_display_mode_validation_clocks(void *handle,
+ 	return ret;
+ }
+ 
++static int pp_set_mmhub_powergating_by_smu(void *handle)
++{
++	struct pp_hwmgr *hwmgr;
++	struct pp_instance *pp_handle = (struct pp_instance *)handle;
++	int ret = 0;
++
++	ret = pp_check(pp_handle);
++
++	if (ret)
++		return ret;
++
++	hwmgr = pp_handle->hwmgr;
++
++	if (hwmgr->hwmgr_func->set_mmhub_powergating_by_smu == NULL) {
++		pr_info("%s was not implemented.\n", __func__);
++		return 0;
++	}
++
++	return hwmgr->hwmgr_func->set_mmhub_powergating_by_smu(hwmgr);
++}
++
+ const struct amd_pm_funcs pp_dpm_funcs = {
+ 	.load_firmware = pp_dpm_load_fw,
+ 	.wait_for_fw_loading_complete = pp_dpm_fw_loading_complete,
+@@ -1522,5 +1543,6 @@ const struct amd_pm_funcs pp_dpm_funcs = {
+ 	.set_watermarks_for_clocks_ranges = pp_set_watermarks_for_clocks_ranges,
+ 	.display_clock_voltage_request = pp_display_clock_voltage_request,
+ 	.get_display_mode_validation_clocks = pp_get_display_mode_validation_clocks,
++	.set_mmhub_powergating_by_smu = pp_set_mmhub_powergating_by_smu,
+ };
+ 
+diff --git a/drivers/gpu/drm/amd/powerplay/inc/hwmgr.h b/drivers/gpu/drm/amd/powerplay/inc/hwmgr.h
+index cea4ce7..4d96439 100644
+--- a/drivers/gpu/drm/amd/powerplay/inc/hwmgr.h
++++ b/drivers/gpu/drm/amd/powerplay/inc/hwmgr.h
+@@ -347,6 +347,7 @@ struct pp_hwmgr_func {
+ 	int (*odn_edit_dpm_table)(struct pp_hwmgr *hwmgr,
+ 					enum PP_OD_DPM_TABLE_COMMAND type,
+ 					long *input, uint32_t size);
++	int (*set_mmhub_powergating_by_smu)(struct pp_hwmgr *hwmgr);
+ };
+ 
+ struct pp_table_func {
+-- 
+2.7.4
+

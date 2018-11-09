@@ -1,0 +1,36 @@
+From 979d58402326760e43a7f1d848d44bac50246844 Mon Sep 17 00:00:00 2001
+From: "Le.Ma" <Le.Ma@amd.com>
+Date: Mon, 23 Oct 2017 16:02:30 +0800
+Subject: [PATCH 4115/4131] Revert "Revert "drm/amd/display: Release cached
+ atomic state in S3.""
+
+Signed-off-by: Kalyan Alle <kalyan.alleamd.com>
+---
+ drivers/gpu/drm/amd/display/amdgpu_dm/amdgpu_dm.c | 4 ----
+ 1 file changed, 4 deletions(-)
+
+diff --git a/drivers/gpu/drm/amd/display/amdgpu_dm/amdgpu_dm.c b/drivers/gpu/drm/amd/display/amdgpu_dm/amdgpu_dm.c
+index f52e584..a2f8857 100644
+--- a/drivers/gpu/drm/amd/display/amdgpu_dm/amdgpu_dm.c
++++ b/drivers/gpu/drm/amd/display/amdgpu_dm/amdgpu_dm.c
+@@ -613,7 +613,6 @@ static int dm_suspend(void *handle)
+ 
+ 	amdgpu_dm_irq_suspend(adev);
+ 
+-	WARN_ON(adev->dm.cached_state);
+ 	adev->dm.cached_state = drm_atomic_helper_suspend(adev->ddev);
+ 
+ 	dc_set_power_state(dm->dc, DC_ACPI_CM_POWER_STATE_D3);
+@@ -733,9 +732,6 @@ int amdgpu_dm_display_resume(struct amdgpu_device *adev)
+ 
+ 	ret = drm_atomic_helper_resume(ddev, adev->dm.cached_state);
+ 
+-	drm_atomic_state_put(adev->dm.cached_state);
+-	adev->dm.cached_state = NULL;
+-
+ 	amdgpu_dm_irq_resume_late(adev);
+ 
+ 	return ret;
+-- 
+2.7.4
+

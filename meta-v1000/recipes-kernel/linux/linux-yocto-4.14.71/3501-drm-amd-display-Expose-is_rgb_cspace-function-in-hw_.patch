@@ -1,0 +1,55 @@
+From e2325fabb92e14ed57a8d1779b7593f5f3beca0e Mon Sep 17 00:00:00 2001
+From: Eric Bernstein <eric.bernstein@amd.com>
+Date: Mon, 15 Jan 2018 16:23:59 -0500
+Subject: [PATCH 3501/4131] drm/amd/display: Expose is_rgb_cspace function in
+ hw_sequencer
+
+Signed-off-by: Eric Bernstein <eric.bernstein@amd.com>
+Reviewed-by: Tony Cheng <Tony.Cheng@amd.com>
+Acked-by: Harry Wentland <harry.wentland@amd.com>
+Signed-off-by: Alex Deucher <alexander.deucher@amd.com>
+---
+ drivers/gpu/drm/amd/display/dc/dcn10/dcn10_hw_sequencer.c | 2 +-
+ drivers/gpu/drm/amd/display/dc/dcn10/dcn10_hw_sequencer.h | 1 +
+ drivers/gpu/drm/amd/display/dc/inc/hw_sequencer.h         | 1 -
+ 3 files changed, 2 insertions(+), 2 deletions(-)
+
+diff --git a/drivers/gpu/drm/amd/display/dc/dcn10/dcn10_hw_sequencer.c b/drivers/gpu/drm/amd/display/dc/dcn10/dcn10_hw_sequencer.c
+index a17b0b7..5d3dedf 100644
+--- a/drivers/gpu/drm/amd/display/dc/dcn10/dcn10_hw_sequencer.c
++++ b/drivers/gpu/drm/amd/display/dc/dcn10/dcn10_hw_sequencer.c
+@@ -1430,7 +1430,7 @@ static bool is_pipe_tree_visible(struct pipe_ctx *pipe_ctx)
+ 	return false;
+ }
+ 
+-static bool is_rgb_cspace(enum dc_color_space output_color_space)
++bool is_rgb_cspace(enum dc_color_space output_color_space)
+ {
+ 	switch (output_color_space) {
+ 	case COLOR_SPACE_SRGB:
+diff --git a/drivers/gpu/drm/amd/display/dc/dcn10/dcn10_hw_sequencer.h b/drivers/gpu/drm/amd/display/dc/dcn10/dcn10_hw_sequencer.h
+index b9d3260..6c526b5 100644
+--- a/drivers/gpu/drm/amd/display/dc/dcn10/dcn10_hw_sequencer.h
++++ b/drivers/gpu/drm/amd/display/dc/dcn10/dcn10_hw_sequencer.h
+@@ -35,5 +35,6 @@ extern void fill_display_configs(
+ 	const struct dc_state *context,
+ 	struct dm_pp_display_configuration *pp_display_cfg);
+ 
++bool is_rgb_cspace(enum dc_color_space output_color_space);
+ 
+ #endif /* __DC_HWSS_DCN10_H__ */
+diff --git a/drivers/gpu/drm/amd/display/dc/inc/hw_sequencer.h b/drivers/gpu/drm/amd/display/dc/inc/hw_sequencer.h
+index ad956ae..e764cba 100644
+--- a/drivers/gpu/drm/amd/display/dc/inc/hw_sequencer.h
++++ b/drivers/gpu/drm/amd/display/dc/inc/hw_sequencer.h
+@@ -201,7 +201,6 @@ struct hw_sequencer_funcs {
+ 
+ 	void (*set_cursor_position)(struct pipe_ctx *pipe);
+ 	void (*set_cursor_attribute)(struct pipe_ctx *pipe);
+-
+ };
+ 
+ void color_space_to_black_color(
+-- 
+2.7.4
+

@@ -1,0 +1,41 @@
+From 70636519822bf4df73e2f530939f6a915dbda74e Mon Sep 17 00:00:00 2001
+From: Alex Deucher <alexander.deucher@amd.com>
+Date: Wed, 23 Aug 2017 09:42:22 -0400
+Subject: [PATCH 0763/4131] drm/amdgpu: disable DC on KB/ML for now
+
+Until I've had time to test it better.
+
+bug: https://bugs.freedesktop.org/show_bug.cgi?id=102372
+
+Reviewed-by: Harry Wentland <harry.wentland@amd.com>
+Signed-off-by: Alex Deucher <alexander.deucher@amd.com>
+---
+ drivers/gpu/drm/amd/amdgpu/amdgpu_device.c | 5 +++--
+ 1 file changed, 3 insertions(+), 2 deletions(-)
+
+diff --git a/drivers/gpu/drm/amd/amdgpu/amdgpu_device.c b/drivers/gpu/drm/amd/amdgpu/amdgpu_device.c
+index d388ca8..3d0d1f7 100644
+--- a/drivers/gpu/drm/amd/amdgpu/amdgpu_device.c
++++ b/drivers/gpu/drm/amd/amdgpu/amdgpu_device.c
+@@ -1974,8 +1974,6 @@ bool amdgpu_device_asic_has_dc_support(enum amd_asic_type asic_type)
+ 	case CHIP_BONAIRE:
+ 	case CHIP_HAWAII:
+ 	case CHIP_KAVERI:
+-	case CHIP_KABINI:
+-	case CHIP_MULLINS:
+ 	case CHIP_CARRIZO:
+ 	case CHIP_STONEY:
+ 	case CHIP_POLARIS11:
+@@ -1985,6 +1983,9 @@ bool amdgpu_device_asic_has_dc_support(enum amd_asic_type asic_type)
+ 	case CHIP_FIJI:
+ 	case CHIP_VEGA10:
+ 		return amdgpu_dc != 0;
++	case CHIP_KABINI:
++	case CHIP_MULLINS:
++		return amdgpu_dc > 0;
+ #endif
+ #if defined(CONFIG_DRM_AMD_DC) && defined(CONFIG_DRM_AMD_DC_DCN1_0)
+ 	case CHIP_RAVEN:
+-- 
+2.7.4
+

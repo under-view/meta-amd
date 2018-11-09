@@ -1,0 +1,27 @@
+From f2564542b6f348c85d4f2c95765d6e39aabf3be4 Mon Sep 17 00:00:00 2001
+From: Rex Zhu <Rex.Zhu@amd.com>
+Date: Sat, 24 Feb 2018 14:29:12 +0800
+Subject: [PATCH 3615/4131] drm/amd/pp: Print more smu failed info on Vega10
+
+Reviewed-by: Alex Deucher <alexander.deucher@amd.com>
+Signed-off-by: Rex Zhu <Rex.Zhu@amd.com>
+---
+ drivers/gpu/drm/amd/powerplay/smumgr/vega10_smumgr.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/drivers/gpu/drm/amd/powerplay/smumgr/vega10_smumgr.c b/drivers/gpu/drm/amd/powerplay/smumgr/vega10_smumgr.c
+index 70dd5f8..99ad0a2 100644
+--- a/drivers/gpu/drm/amd/powerplay/smumgr/vega10_smumgr.c
++++ b/drivers/gpu/drm/amd/powerplay/smumgr/vega10_smumgr.c
+@@ -168,7 +168,7 @@ int vega10_send_msg_to_smc_with_parameter(struct pp_hwmgr *hwmgr,
+ 
+ 	ret = vega10_wait_for_response(hwmgr);
+ 	if (ret != 1)
+-		pr_err("Failed to send message: 0x%x, ret value: 0x%x\n", msg, ret);
++		pr_err("Failed message: 0x%x, input parameter: 0x%x, error code: 0x%x\n", msg, parameter, ret);
+ 
+ 	return 0;
+ }
+-- 
+2.7.4
+

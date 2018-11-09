@@ -1,0 +1,64 @@
+From b677251cfba0a671c071a6319eea7c98727b400c Mon Sep 17 00:00:00 2001
+From: Yogesh Mohan Marimuthu <yogesh.mohanmarimuthu@amd.com>
+Date: Mon, 17 Sep 2018 16:11:16 +0530
+Subject: [PATCH 4129/4131] drm/amd/display: fix multisync for any
+ connection/enabling order of displays
+
+[Why]
+When 2 displays(supporting multi sync) each for 2 given resolution(say 1080p
+and 720p) is attached and if least refresh rate(720p) display is the last
+monitor attached/enabled then the last monitor is not in sync. This is
+happening since in program_timing_sync() function, 2 groups are created, one
+group with 2 1080p monitors and another group with 2 720p monitors. In 2nd
+group one of the 720p monitor becomes the master, but for the 4 multi sync
+supported monitors attached, the highest refresh rate(1080p) display will
+be the master, Since 720p is the master in program_timing_sync(), the last
+720p monitor goes out of sync.
+
+[how]
+Fixed it by not allowing to create groups for multi sync supported monitors
+which doesn't have the resolution/timing of the multi sync master.
+
+Signed-off-by: Yogesh Mohan Marimuthu <yogesh.mohanmarimuthu@amd.com>
+---
+ drivers/gpu/drm/amd/display/dc/core/dc.c | 17 +++++++++++++++++
+ 1 file changed, 17 insertions(+)
+
+diff --git a/drivers/gpu/drm/amd/display/dc/core/dc.c b/drivers/gpu/drm/amd/display/dc/core/dc.c
+index e97d700..898c801 100644
+--- a/drivers/gpu/drm/amd/display/dc/core/dc.c
++++ b/drivers/gpu/drm/amd/display/dc/core/dc.c
+@@ -665,6 +665,19 @@ static void enable_timing_multisync(
+ 	}
+ }
+ 
++static int is_multisync_master_timing(
++		   struct pipe_ctx *pipe)
++{
++	if (pipe->stream->triggered_crtc_reset.enabled &&
++	    pipe->stream->triggered_crtc_reset.event_source) {
++		if (resource_are_streams_timing_synchronizable(
++			    pipe->stream,
++			    pipe->stream->triggered_crtc_reset.event_source))
++			return true;
++	}
++	return false;
++}
++
+ static void program_timing_sync(
+ 		struct dc *dc,
+ 		struct dc_state *ctx)
+@@ -688,6 +701,10 @@ static void program_timing_sync(
+ 		if (!unsynced_pipes[i])
+ 			continue;
+ 
++		if (unsynced_pipes[i]->stream->triggered_crtc_reset.enabled &&
++		    !is_multisync_master_timing(unsynced_pipes[i]))
++			continue;
++
+ 		pipe_set[0] = unsynced_pipes[i];
+ 		unsynced_pipes[i] = NULL;
+ 
+-- 
+2.7.4
+

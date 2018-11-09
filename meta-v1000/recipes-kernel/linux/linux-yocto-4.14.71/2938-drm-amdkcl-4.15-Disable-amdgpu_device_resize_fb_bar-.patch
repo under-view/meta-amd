@@ -1,0 +1,130 @@
+From 459fd5a0fd2439469d1e9ab92b9973a4a887c141 Mon Sep 17 00:00:00 2001
+From: "Le.Ma" <Le.Ma@amd.com>
+Date: Thu, 14 Dec 2017 13:44:14 +0800
+Subject: [PATCH 2938/4131] drm/amdkcl: [4.15] Disable
+ amdgpu_device_resize_fb_bar() for older kernels
+
+The pci function is not independent enough to implement its kcl. So disable the resize BAR function directly.
+
+Change-Id: I0f4eb6d510262d5f39709cfc1178518ec69901ea
+Signed-off-by: Le.Ma <Le.Ma@amd.com>
+Reviewed-by: Xiaojie Yuan <Xiaojie.Yuan@amd.com>
+---
+ drivers/gpu/drm/amd/amdgpu/amdgpu.h        | 2 ++
+ drivers/gpu/drm/amd/amdgpu/amdgpu_device.c | 3 +++
+ drivers/gpu/drm/amd/amdgpu/gmc_v6_0.c      | 2 ++
+ drivers/gpu/drm/amd/amdgpu/gmc_v7_0.c      | 2 ++
+ drivers/gpu/drm/amd/amdgpu/gmc_v8_0.c      | 2 ++
+ drivers/gpu/drm/amd/amdgpu/gmc_v9_0.c      | 2 ++
+ 6 files changed, 13 insertions(+)
+
+diff --git a/drivers/gpu/drm/amd/amdgpu/amdgpu.h b/drivers/gpu/drm/amd/amdgpu/amdgpu.h
+index 6bb2277..ad3aba3 100755
+--- a/drivers/gpu/drm/amd/amdgpu/amdgpu.h
++++ b/drivers/gpu/drm/amd/amdgpu/amdgpu.h
+@@ -1963,7 +1963,9 @@ void amdgpu_ttm_placement_from_domain(struct amdgpu_bo *abo, u32 domain);
+ bool amdgpu_ttm_bo_is_amdgpu_bo(struct ttm_buffer_object *bo);
+ void amdgpu_vram_location(struct amdgpu_device *adev, struct amdgpu_mc *mc, u64 base);
+ void amdgpu_gart_location(struct amdgpu_device *adev, struct amdgpu_mc *mc);
++#if !defined(BUILD_AS_DKMS) || LINUX_VERSION_CODE >= KERNEL_VERSION(4, 15, 0)
+ int amdgpu_device_resize_fb_bar(struct amdgpu_device *adev);
++#endif
+ void amdgpu_ttm_set_active_vram_size(struct amdgpu_device *adev, u64 size);
+ int amdgpu_ttm_init(struct amdgpu_device *adev);
+ void amdgpu_ttm_fini(struct amdgpu_device *adev);
+diff --git a/drivers/gpu/drm/amd/amdgpu/amdgpu_device.c b/drivers/gpu/drm/amd/amdgpu/amdgpu_device.c
+index 226e68b..bede13a 100644
+--- a/drivers/gpu/drm/amd/amdgpu/amdgpu_device.c
++++ b/drivers/gpu/drm/amd/amdgpu/amdgpu_device.c
+@@ -726,6 +726,8 @@ int amdgpu_fw_reserve_vram_init(struct amdgpu_device *adev)
+ 	return r;
+ }
+ 
++
++#if !defined(BUILD_AS_DKMS) ||  LINUX_VERSION_CODE >= KERNEL_VERSION(4, 15, 0)
+ /**
+  * amdgpu_device_resize_fb_bar - try to resize FB BAR
+  *
+@@ -795,6 +797,7 @@ int amdgpu_device_resize_fb_bar(struct amdgpu_device *adev)
+ 
+ 	return 0;
+ }
++#endif
+ 
+ /*
+  * GPU helpers function.
+diff --git a/drivers/gpu/drm/amd/amdgpu/gmc_v6_0.c b/drivers/gpu/drm/amd/amdgpu/gmc_v6_0.c
+index 468281f..105ebe9 100644
+--- a/drivers/gpu/drm/amd/amdgpu/gmc_v6_0.c
++++ b/drivers/gpu/drm/amd/amdgpu/gmc_v6_0.c
+@@ -324,11 +324,13 @@ static int gmc_v6_0_mc_init(struct amdgpu_device *adev)
+ 	adev->mc.mc_vram_size = RREG32(mmCONFIG_MEMSIZE) * 1024ULL * 1024ULL;
+ 	adev->mc.real_vram_size = RREG32(mmCONFIG_MEMSIZE) * 1024ULL * 1024ULL;
+ 
++#if !defined(BUILD_AS_DKMS) || LINUX_VERSION_CODE >= KERNEL_VERSION(4, 15, 0)
+ 	if (!(adev->flags & AMD_IS_APU)) {
+ 		r = amdgpu_device_resize_fb_bar(adev);
+ 		if (r)
+ 			return r;
+ 	}
++#endif
+ 	adev->mc.aper_base = pci_resource_start(adev->pdev, 0);
+ 	adev->mc.aper_size = pci_resource_len(adev->pdev, 0);
+ 	adev->mc.visible_vram_size = adev->mc.aper_size;
+diff --git a/drivers/gpu/drm/amd/amdgpu/gmc_v7_0.c b/drivers/gpu/drm/amd/amdgpu/gmc_v7_0.c
+index ce7d9dd..ff5c7a4 100644
+--- a/drivers/gpu/drm/amd/amdgpu/gmc_v7_0.c
++++ b/drivers/gpu/drm/amd/amdgpu/gmc_v7_0.c
+@@ -368,11 +368,13 @@ static int gmc_v7_0_mc_init(struct amdgpu_device *adev)
+ 	adev->mc.mc_vram_size = RREG32(mmCONFIG_MEMSIZE) * 1024ULL * 1024ULL;
+ 	adev->mc.real_vram_size = RREG32(mmCONFIG_MEMSIZE) * 1024ULL * 1024ULL;
+ 
++#if !defined(BUILD_AS_DKMS) || LINUX_VERSION_CODE >= KERNEL_VERSION(4, 15, 0)
+ 	if (!(adev->flags & AMD_IS_APU)) {
+ 		r = amdgpu_device_resize_fb_bar(adev);
+ 		if (r)
+ 			return r;
+ 	}
++#endif
+ 	adev->mc.aper_base = pci_resource_start(adev->pdev, 0);
+ 	adev->mc.aper_size = pci_resource_len(adev->pdev, 0);
+ 
+diff --git a/drivers/gpu/drm/amd/amdgpu/gmc_v8_0.c b/drivers/gpu/drm/amd/amdgpu/gmc_v8_0.c
+index e9242ce..24c4d47 100644
+--- a/drivers/gpu/drm/amd/amdgpu/gmc_v8_0.c
++++ b/drivers/gpu/drm/amd/amdgpu/gmc_v8_0.c
+@@ -548,11 +548,13 @@ static int gmc_v8_0_mc_init(struct amdgpu_device *adev)
+ 	adev->mc.mc_vram_size = RREG32(mmCONFIG_MEMSIZE) * 1024ULL * 1024ULL;
+ 	adev->mc.real_vram_size = RREG32(mmCONFIG_MEMSIZE) * 1024ULL * 1024ULL;
+ 
++#if !defined(BUILD_AS_DKMS) || LINUX_VERSION_CODE >= KERNEL_VERSION(4, 15, 0)
+ 	if (!(adev->flags & AMD_IS_APU)) {
+ 		r = amdgpu_device_resize_fb_bar(adev);
+ 		if (r)
+ 			return r;
+ 	}
++#endif
+ 	adev->mc.aper_base = pci_resource_start(adev->pdev, 0);
+ 	adev->mc.aper_size = pci_resource_len(adev->pdev, 0);
+ 
+diff --git a/drivers/gpu/drm/amd/amdgpu/gmc_v9_0.c b/drivers/gpu/drm/amd/amdgpu/gmc_v9_0.c
+index 96a81dc..62a493b 100644
+--- a/drivers/gpu/drm/amd/amdgpu/gmc_v9_0.c
++++ b/drivers/gpu/drm/amd/amdgpu/gmc_v9_0.c
+@@ -707,11 +707,13 @@ static int gmc_v9_0_mc_init(struct amdgpu_device *adev)
+ 		 nbio_v6_1_get_memsize(adev)) * 1024ULL * 1024ULL;
+ 	adev->mc.real_vram_size = adev->mc.mc_vram_size;
+ 
++#if !defined(BUILD_AS_DKMS) || LINUX_VERSION_CODE >= KERNEL_VERSION(4, 15, 0)
+ 	if (!(adev->flags & AMD_IS_APU)) {
+ 		r = amdgpu_device_resize_fb_bar(adev);
+ 		if (r)
+ 			return r;
+ 	}
++#endif
+ 	adev->mc.aper_base = pci_resource_start(adev->pdev, 0);
+ 	adev->mc.aper_size = pci_resource_len(adev->pdev, 0);
+ 
+-- 
+2.7.4
+

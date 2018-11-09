@@ -1,0 +1,42 @@
+From fe35cfb1ff8d2d0d2cdcff1fb730acbb20d6d822 Mon Sep 17 00:00:00 2001
+From: Rex Zhu <Rex.Zhu@amd.com>
+Date: Fri, 23 Mar 2018 10:45:00 +0800
+Subject: [PATCH 3951/4131] drm/amd/pp: Remove useless fw load error handler on
+ Polaris
+
+Change-Id: I3a3e9c14be4b2173915b3ed8975338c61af5f1cf
+Acked-by: Huang Rui <ray.huang@amd.com>
+Signed-off-by: Rex Zhu <Rex.Zhu@amd.com>
+---
+ drivers/gpu/drm/amd/powerplay/smumgr/polaris10_smumgr.c | 12 ++----------
+ 1 file changed, 2 insertions(+), 10 deletions(-)
+
+diff --git a/drivers/gpu/drm/amd/powerplay/smumgr/polaris10_smumgr.c b/drivers/gpu/drm/amd/powerplay/smumgr/polaris10_smumgr.c
+index 997a777..fe6854e 100644
+--- a/drivers/gpu/drm/amd/powerplay/smumgr/polaris10_smumgr.c
++++ b/drivers/gpu/drm/amd/powerplay/smumgr/polaris10_smumgr.c
+@@ -301,19 +301,11 @@ static int polaris10_start_smu(struct pp_hwmgr *hwmgr)
+ 		smu_data->smu7_data.security_hard_key = (uint8_t) (PHM_READ_VFPF_INDIRECT_FIELD(hwmgr->device, CGS_IND_REG__SMC, SMU_FIRMWARE, SMU_SEL));
+ 
+ 		/* Check if SMU is running in protected mode */
+-		if (smu_data->protected_mode == 0) {
++		if (smu_data->protected_mode == 0)
+ 			result = polaris10_start_smu_in_non_protection_mode(hwmgr);
+-		} else {
++		else
+ 			result = polaris10_start_smu_in_protection_mode(hwmgr);
+ 
+-			/* If failed, try with different security Key. */
+-			if (result != 0) {
+-				smu_data->smu7_data.security_hard_key ^= 1;
+-				cgs_rel_firmware(hwmgr->device, CGS_UCODE_ID_SMU);
+-				result = polaris10_start_smu_in_protection_mode(hwmgr);
+-			}
+-		}
+-
+ 		if (result != 0)
+ 			PP_ASSERT_WITH_CODE(0, "Failed to load SMU ucode.", return result);
+ 
+-- 
+2.7.4
+

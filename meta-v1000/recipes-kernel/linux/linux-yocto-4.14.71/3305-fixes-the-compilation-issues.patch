@@ -1,0 +1,38 @@
+From 701ca128eaf6f833e6f629edb12acfc1f79cf191 Mon Sep 17 00:00:00 2001
+From: Kalyan Alle <kalyan.alle@amd.com>
+Date: Fri, 27 Apr 2018 18:10:23 +0530
+Subject: [PATCH 3305/4131] fixes the compilation issues
+
+This patch fixes the compilation issue. ttm_bo_validate called
+in amdgpu_vm.c has 4 args (as per the drm call in 4.14.14 kernel)
+reverting back the modified one back.
+
+Signed-off-by: kalyan alle <kalyan.alle@amd.com>
+---
+ drivers/gpu/drm/amd/amdgpu/amdgpu_vm.c | 3 +--
+ 1 file changed, 1 insertion(+), 2 deletions(-)
+
+diff --git a/drivers/gpu/drm/amd/amdgpu/amdgpu_vm.c b/drivers/gpu/drm/amd/amdgpu/amdgpu_vm.c
+index 8bc290c..3d6d64c 100644
+--- a/drivers/gpu/drm/amd/amdgpu/amdgpu_vm.c
++++ b/drivers/gpu/drm/amd/amdgpu/amdgpu_vm.c
+@@ -270,7 +270,6 @@ static int amdgpu_vm_clear_bo(struct amdgpu_device *adev,
+ 			      struct amdgpu_vm *vm, struct amdgpu_bo *bo,
+ 			      unsigned level, bool pte_support_ats)
+ {
+-	struct ttm_operation_ctx ctx = { true, false };
+ 	struct dma_fence *fence = NULL;
+ 	unsigned entries, ats_entries;
+ 	struct amdgpu_ring *ring;
+@@ -302,7 +301,7 @@ static int amdgpu_vm_clear_bo(struct amdgpu_device *adev,
+ 	if (r)
+ 		return r;
+ 
+-	r = ttm_bo_validate(&bo->tbo, &bo->placement, &ctx);
++	r = ttm_bo_validate(&bo->tbo, &bo->placement, true, false);
+ 	if (r)
+ 		goto error;
+ 
+-- 
+2.7.4
+

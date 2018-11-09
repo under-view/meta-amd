@@ -1,0 +1,33 @@
+From da6d94d6557a0995675815096d6dfdfeda6c337e Mon Sep 17 00:00:00 2001
+From: Kalyan Alle <kalyan.alle@amd.com>
+Date: Wed, 3 Jan 2018 13:25:20 +0530
+Subject: [PATCH 0852/4131] drm/amd/amdgpu: Disable CG for eStoney.
+
+This patch disables the CG on eStoney
+to get rid of the filesystem corruption,booting issue and IOMMU errors.
+
+Signed-off-by: Kalyan Alle <kalyan.alle@amd.com
+---
+ drivers/gpu/drm/amd/amdgpu/vi.c | 6 +++++-
+ 1 file changed, 5 insertions(+), 1 deletion(-)
+
+diff --git a/drivers/gpu/drm/amd/amdgpu/vi.c b/drivers/gpu/drm/amd/amdgpu/vi.c
+index 7d4d22d..f5ec5f8 100644
+--- a/drivers/gpu/drm/amd/amdgpu/vi.c
++++ b/drivers/gpu/drm/amd/amdgpu/vi.c
+@@ -1066,7 +1066,11 @@ static int vi_common_early_init(void *handle)
+ 			AMD_CG_SUPPORT_GFX_CP_LS |
+ 			AMD_CG_SUPPORT_GFX_CGTS |
+ 			AMD_CG_SUPPORT_GFX_CGTS_LS |
+-			AMD_CG_SUPPORT_GFX_CGCG |
++			/* Enabling CGCG on 4.9 kernel results in
++			* IOMMU errors and filesystem corruption
++			* Disable CGCG until the issue is fixed properly
++			*/
++			//AMD_CG_SUPPORT_GFX_CGCG |
+ 			AMD_CG_SUPPORT_GFX_CGLS |
+ 			AMD_CG_SUPPORT_BIF_LS |
+ 			AMD_CG_SUPPORT_HDP_MGCG |
+-- 
+2.7.4
+

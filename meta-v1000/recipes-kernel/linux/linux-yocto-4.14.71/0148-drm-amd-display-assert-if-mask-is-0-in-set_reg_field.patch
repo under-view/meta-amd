@@ -1,0 +1,30 @@
+From f58a68bc2e598716e93bbd61593c42dd925b9afb Mon Sep 17 00:00:00 2001
+From: Tony Cheng <tony.cheng@amd.com>
+Date: Sat, 14 Jan 2017 01:44:52 -0500
+Subject: [PATCH 0148/4131] drm/amd/display: assert if mask is 0 in
+ set_reg_field_value_ex
+
+-  mask = 0 means something is wrong in caller and no register field will be updated
+
+Signed-off-by: Tony Cheng <tony.cheng@amd.com>
+Reviewed-by: Harry Wentland <Harry.Wentland@amd.com>
+Signed-off-by: Alex Deucher <alexander.deucher@amd.com>
+---
+ drivers/gpu/drm/amd/display/dc/dm_services.h | 1 +
+ 1 file changed, 1 insertion(+)
+
+diff --git a/drivers/gpu/drm/amd/display/dc/dm_services.h b/drivers/gpu/drm/amd/display/dc/dm_services.h
+index 11a0abf..052a43a 100644
+--- a/drivers/gpu/drm/amd/display/dc/dm_services.h
++++ b/drivers/gpu/drm/amd/display/dc/dm_services.h
+@@ -165,6 +165,7 @@ static inline uint32_t set_reg_field_value_ex(
+ 	uint32_t mask,
+ 	uint8_t shift)
+ {
++	ASSERT(mask != 0);
+ 	return (reg_value & ~mask) | (mask & (value << shift));
+ }
+ 
+-- 
+2.7.4
+

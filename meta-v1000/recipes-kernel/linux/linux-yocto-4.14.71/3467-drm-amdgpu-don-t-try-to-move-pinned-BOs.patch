@@ -1,0 +1,33 @@
+From d9638acb699667cd9dc1d10a71dcf48a4b667c36 Mon Sep 17 00:00:00 2001
+From: =?UTF-8?q?Christian=20K=C3=B6nig?= <christian.koenig@amd.com>
+Date: Fri, 24 Nov 2017 11:39:30 +0100
+Subject: [PATCH 3467/4131] drm/amdgpu: don't try to move pinned BOs
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+Never try to move pinned BOs during CS.
+
+Signed-off-by: Christian König <christian.koenig@amd.com>
+Reviewed-by: Michel Dänzer <michel.daenzer@amd.com>
+Signed-off-by: Alex Deucher <alexander.deucher@amd.com>
+---
+ drivers/gpu/drm/amd/amdgpu/amdgpu_cs.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/drivers/gpu/drm/amd/amdgpu/amdgpu_cs.c b/drivers/gpu/drm/amd/amdgpu/amdgpu_cs.c
+index 2683278..9e9a299 100644
+--- a/drivers/gpu/drm/amd/amdgpu/amdgpu_cs.c
++++ b/drivers/gpu/drm/amd/amdgpu/amdgpu_cs.c
+@@ -416,7 +416,7 @@ static bool amdgpu_cs_try_evict(struct amdgpu_cs_parser *p,
+ 		if (candidate->robj == validated)
+ 			break;
+ 
+-		/* We can't move pinned BOs here */
++		/* We can't move pinned BOs here  */
+ 		if (bo->pin_count)
+ 			continue;
+ 
+-- 
+2.7.4
+

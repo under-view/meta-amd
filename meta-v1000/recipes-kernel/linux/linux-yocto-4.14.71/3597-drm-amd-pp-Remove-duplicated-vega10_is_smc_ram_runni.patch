@@ -1,0 +1,73 @@
+From ee7730bb978776a2cab9705e3546fd084bd1f525 Mon Sep 17 00:00:00 2001
+From: Rex Zhu <Rex.Zhu@amd.com>
+Date: Thu, 22 Feb 2018 16:33:05 +0800
+Subject: [PATCH 3597/4131] drm/amd/pp: Remove duplicated
+ vega10_is_smc_ram_running calls
+
+Avoid conflicts in reading the same register mmPCIE_INDEX2
+with other clients
+
+Reviewed-by: Alex Deucher <alexander.deucher@amd.com>
+Signed-off-by: Rex Zhu <Rex.Zhu@amd.com>
+Signed-off-by: Alex Deucher <alexander.deucher@amd.com>
+---
+ drivers/gpu/drm/amd/powerplay/smumgr/vega10_smumgr.c | 15 +++------------
+ 1 file changed, 3 insertions(+), 12 deletions(-)
+
+diff --git a/drivers/gpu/drm/amd/powerplay/smumgr/vega10_smumgr.c b/drivers/gpu/drm/amd/powerplay/smumgr/vega10_smumgr.c
+index f6f39d0..0f76a54 100644
+--- a/drivers/gpu/drm/amd/powerplay/smumgr/vega10_smumgr.c
++++ b/drivers/gpu/drm/amd/powerplay/smumgr/vega10_smumgr.c
+@@ -84,9 +84,6 @@ static uint32_t vega10_wait_for_response(struct pp_hwmgr *hwmgr)
+ {
+ 	uint32_t reg;
+ 
+-	if (!vega10_is_smc_ram_running(hwmgr))
+-		return -EINVAL;
+-
+ 	reg = soc15_get_register_offset(MP1_HWID, 0,
+ 			mmMP1_SMN_C2PMSG_90_BASE_IDX, mmMP1_SMN_C2PMSG_90);
+ 
+@@ -107,9 +104,6 @@ int vega10_send_msg_to_smc_without_waiting(struct pp_hwmgr *hwmgr,
+ {
+ 	uint32_t reg;
+ 
+-	if (!vega10_is_smc_ram_running(hwmgr))
+-		return -EINVAL;
+-
+ 	reg = soc15_get_register_offset(MP1_HWID, 0,
+ 			mmMP1_SMN_C2PMSG_66_BASE_IDX, mmMP1_SMN_C2PMSG_66);
+ 	cgs_write_register(hwmgr->device, reg, msg);
+@@ -127,9 +121,6 @@ int vega10_send_msg_to_smc(struct pp_hwmgr *hwmgr, uint16_t msg)
+ {
+ 	uint32_t reg;
+ 
+-	if (!vega10_is_smc_ram_running(hwmgr))
+-		return -EINVAL;
+-
+ 	vega10_wait_for_response(hwmgr);
+ 
+ 	reg = soc15_get_register_offset(MP1_HWID, 0,
+@@ -156,9 +147,6 @@ int vega10_send_msg_to_smc_with_parameter(struct pp_hwmgr *hwmgr,
+ {
+ 	uint32_t reg;
+ 
+-	if (!vega10_is_smc_ram_running(hwmgr))
+-		return -EINVAL;
+-
+ 	vega10_wait_for_response(hwmgr);
+ 
+ 	reg = soc15_get_register_offset(MP1_HWID, 0,
+@@ -581,6 +569,9 @@ static int vega10_smu_fini(struct pp_hwmgr *hwmgr)
+ 
+ static int vega10_start_smu(struct pp_hwmgr *hwmgr)
+ {
++	if (!vega10_is_smc_ram_running(hwmgr))
++		return -EINVAL;
++
+ 	PP_ASSERT_WITH_CODE(!vega10_verify_smc_interface(hwmgr),
+ 			"Failed to verify SMC interface!",
+ 			return -EINVAL);
+-- 
+2.7.4
+

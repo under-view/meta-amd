@@ -1,0 +1,60 @@
+From e2702b4c59790aa18b408b1bdf667bce46eb263d Mon Sep 17 00:00:00 2001
+From: "Leo (Sunpeng) Li" <sunpeng.li@amd.com>
+Date: Tue, 25 Jul 2017 18:00:44 -0400
+Subject: [PATCH 0551/4131] drm/amd/display: Move drm_get_vblank from legacy
+ code
+
+Previously, we assumed that allow_modeset=false => page flip. This
+assumption breaks when an atomic commit is submitted with allow_modeset
+set to false, since the legacy flip code is never called (the legacy
+code grabs the vblank reference).
+
+Fix: Move drm_vblank_get() from amdgpu_atomic_helper_page_flip() to
+amdgpu_dm_commit_surfaces().
+
+Signed-off-by: Leo (Sunpeng) Li <sunpeng.li@amd.com>
+Reviewed-by: Andrey Grodzovsky <Andrey.Grodzovsky@amd.com>
+Acked-by: Harry Wentland <Harry.Wentland@amd.com>
+Signed-off-by: Alex Deucher <alexander.deucher@amd.com>
+---
+ drivers/gpu/drm/amd/display/amdgpu_dm/amdgpu_dm_types.c | 10 ++++------
+ 1 file changed, 4 insertions(+), 6 deletions(-)
+
+diff --git a/drivers/gpu/drm/amd/display/amdgpu_dm/amdgpu_dm_types.c b/drivers/gpu/drm/amd/display/amdgpu_dm/amdgpu_dm_types.c
+index f5079ae..6cbbf77 100644
+--- a/drivers/gpu/drm/amd/display/amdgpu_dm/amdgpu_dm_types.c
++++ b/drivers/gpu/drm/amd/display/amdgpu_dm/amdgpu_dm_types.c
+@@ -976,10 +976,6 @@ static int amdgpu_atomic_helper_page_flip(struct drm_crtc *crtc,
+ 	if (!state)
+ 		return -ENOMEM;
+ 
+-	ret = drm_crtc_vblank_get(crtc);
+-	if (ret)
+-		return ret;
+-
+ 	state->acquire_ctx = ctx;
+ 
+ 	crtc_state = drm_atomic_get_crtc_state(state, crtc);
+@@ -2532,8 +2528,6 @@ static void amdgpu_dm_commit_surfaces(struct drm_atomic_state *state,
+ 			if (!con_state)
+ 				continue;
+ 
+-
+-
+ 			add_surface(dm->dc, crtc, plane,
+ 				    &dc_surfaces_constructed[planes_count]);
+ 			if (dc_surfaces_constructed[planes_count] == NULL) {
+@@ -2552,6 +2546,10 @@ static void amdgpu_dm_commit_surfaces(struct drm_atomic_state *state,
+ 				acrtc_attach->flip_flags & DRM_MODE_PAGE_FLIP_ASYNC ?
+ 				false : true;
+ 
++			/* TODO: Needs rework for multiplane flip */
++			if (plane->type == DRM_PLANE_TYPE_PRIMARY)
++				drm_crtc_vblank_get(crtc);
++
+ 			amdgpu_dm_do_flip(
+ 				crtc,
+ 				fb,
+-- 
+2.7.4
+

@@ -1,0 +1,53 @@
+From 7dcdacdac312eabe78109c052a0783a833b2e1ac Mon Sep 17 00:00:00 2001
+From: =?UTF-8?q?Christian=20K=C3=B6nig?= <christian.koenig@amd.com>
+Date: Tue, 7 Nov 2017 12:03:31 +0100
+Subject: [PATCH 2240/4131] drm/amdgpu: expose the VA above the hole to
+ userspace
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+Let userspace know how much area we have above the 48bit VA hole on
+Vega10.
+
+Signed-off-by: Christian König <christian.koenig@amd.com>
+Reviewed-by: Alex Deucher <alexander.deucher@amd.com>
+---
+ drivers/gpu/drm/amd/amdgpu/amdgpu_kms.c | 12 ++++++++++--
+ 1 file changed, 10 insertions(+), 2 deletions(-)
+
+diff --git a/drivers/gpu/drm/amd/amdgpu/amdgpu_kms.c b/drivers/gpu/drm/amd/amdgpu/amdgpu_kms.c
+index f978739..1481a4a 100644
+--- a/drivers/gpu/drm/amd/amdgpu/amdgpu_kms.c
++++ b/drivers/gpu/drm/amd/amdgpu/amdgpu_kms.c
+@@ -590,6 +590,7 @@ static int amdgpu_info_ioctl(struct drm_device *dev, void *data, struct drm_file
+ 	}
+ 	case AMDGPU_INFO_DEV_INFO: {
+ 		struct drm_amdgpu_info_device dev_info = {};
++		uint64_t vm_size;
+ 
+ 		dev_info.device_id = dev->pdev->device;
+ 		dev_info.chip_rev = adev->rev_id;
+@@ -617,10 +618,17 @@ static int amdgpu_info_ioctl(struct drm_device *dev, void *data, struct drm_file
+ 			dev_info.ids_flags |= AMDGPU_IDS_FLAGS_FUSION;
+ 		if (amdgpu_sriov_vf(adev))
+ 			dev_info.ids_flags |= AMDGPU_IDS_FLAGS_PREEMPTION;
++
++		vm_size = adev->vm_manager.max_pfn * AMDGPU_GPU_PAGE_SIZE;
+ 		dev_info.virtual_address_offset = AMDGPU_VA_RESERVED_SIZE;
+ 		dev_info.virtual_address_max =
+-			min(adev->vm_manager.max_pfn * AMDGPU_GPU_PAGE_SIZE,
+-			    AMDGPU_VA_HOLE_START);
++			min(vm_size, AMDGPU_VA_HOLE_START);
++
++		vm_size -= AMDGPU_VA_RESERVED_SIZE;
++		if (vm_size > AMDGPU_VA_HOLE_START) {
++			dev_info.high_va_offset = AMDGPU_VA_HOLE_END;
++			dev_info.high_va_max = AMDGPU_VA_HOLE_END | vm_size;
++		}
+ 		dev_info.virtual_address_alignment = max((int)PAGE_SIZE, AMDGPU_GPU_PAGE_SIZE);
+ 		dev_info.pte_fragment_size = (1 << adev->vm_manager.fragment_size) * AMDGPU_GPU_PAGE_SIZE;
+ 		dev_info.gart_page_size = AMDGPU_GPU_PAGE_SIZE;
+-- 
+2.7.4
+

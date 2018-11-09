@@ -1,0 +1,54 @@
+From 3314ec02441280895fdefa296b1f7012640730b5 Mon Sep 17 00:00:00 2001
+From: Ben Goz <ben.goz@amd.com>
+Date: Wed, 1 Nov 2017 19:21:30 -0400
+Subject: [PATCH 3383/4131] drm/amdkfd: Register/Deregister process on qpd
+ resolution
+
+Process registration needs to happen on each device. So use per-device
+queue lists to determine when to register/deregister the process.
+
+Signed-off-by: Ben Goz <ben.goz@amd.com>
+Signed-off-by: Felix Kuehling <Felix.Kuehling@amd.com>
+Reviewed-by: Oded Gabbay <oded.gabbay@gmail.com>
+Signed-off-by: Oded Gabbay <oded.gabbay@gmail.com>
+---
+ drivers/gpu/drm/amd/amdkfd/kfd_process_queue_manager.c | 9 ++++++---
+ 1 file changed, 6 insertions(+), 3 deletions(-)
+
+diff --git a/drivers/gpu/drm/amd/amdkfd/kfd_process_queue_manager.c b/drivers/gpu/drm/amd/amdkfd/kfd_process_queue_manager.c
+index f9d272c..e2e0441 100644
+--- a/drivers/gpu/drm/amd/amdkfd/kfd_process_queue_manager.c
++++ b/drivers/gpu/drm/amd/amdkfd/kfd_process_queue_manager.c
+@@ -177,7 +177,8 @@ int pqm_create_queue(struct process_queue_manager *pqm,
+ 	if (retval != 0)
+ 		return retval;
+ 
+-	if (list_empty(&pqm->queues)) {
++	if (list_empty(&pdd->qpd.queues_list) &&
++	    list_empty(&pdd->qpd.priv_queue_list)) {
+ 		pdd->qpd.pqm = pqm;
+ 		dev->dqm->ops.register_process(dev->dqm, &pdd->qpd);
+ 	}
+@@ -248,7 +249,8 @@ int pqm_create_queue(struct process_queue_manager *pqm,
+ err_allocate_pqn:
+ 	/* check if queues list is empty unregister process from device */
+ 	clear_bit(*qid, pqm->queue_slot_bitmap);
+-	if (list_empty(&pqm->queues))
++	if (list_empty(&pdd->qpd.queues_list) &&
++	    list_empty(&pdd->qpd.priv_queue_list))
+ 		dev->dqm->ops.unregister_process(dev->dqm, &pdd->qpd);
+ 	return retval;
+ }
+@@ -302,7 +304,8 @@ int pqm_destroy_queue(struct process_queue_manager *pqm, unsigned int qid)
+ 	kfree(pqn);
+ 	clear_bit(qid, pqm->queue_slot_bitmap);
+ 
+-	if (list_empty(&pqm->queues))
++	if (list_empty(&pdd->qpd.queues_list) &&
++	    list_empty(&pdd->qpd.priv_queue_list))
+ 		dqm->ops.unregister_process(dqm, &pdd->qpd);
+ 
+ 	return retval;
+-- 
+2.7.4
+

@@ -1,0 +1,25 @@
+From 6a9a858e8fd9f7ab1501b98ab26461fe35f72910 Mon Sep 17 00:00:00 2001
+From: Yong Zhao <yong.zhao@amd.com>
+Date: Wed, 30 Mar 2016 18:26:14 -0400
+Subject: [PATCH 1371/4131] Makefile change
+
+Change-Id: Ib484d84c18a0cffafb44ada3a66f46cdd0f96db2
+---
+ drivers/gpu/drm/amd/amdgpu/Makefile | 1 +
+ 1 file changed, 1 insertion(+)
+
+diff --git a/drivers/gpu/drm/amd/amdgpu/Makefile b/drivers/gpu/drm/amd/amdgpu/Makefile
+index bc6f49e..9540fbf 100755
+--- a/drivers/gpu/drm/amd/amdgpu/Makefile
++++ b/drivers/gpu/drm/amd/amdgpu/Makefile
+@@ -110,6 +110,7 @@ amdgpu-y += \
+ 	 amdgpu_amdkfd.o \
+ 	 amdgpu_amdkfd_gfx_v7.o \
+ 	 amdgpu_amdkfd_gfx_v8.o \
++	 amdgpu_amdkfd_gpuvm.o
+ 
+ # add cgs
+ amdgpu-y += amdgpu_cgs.o
+-- 
+2.7.4
+

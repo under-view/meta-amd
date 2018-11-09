@@ -1,0 +1,62 @@
+From a54645ae2fee3512db0857d23d3c68021c11f32c Mon Sep 17 00:00:00 2001
+From: Alex Deucher <alexander.deucher@amd.com>
+Date: Fri, 16 Mar 2018 11:04:53 -0500
+Subject: [PATCH 3821/4131] drm/amdgpu: add VCN to firmware query interface
+
+Need to be able to query the VCN firmware version from
+userspace to determine supported features, etc.
+
+Acked-by: Leo Liu <leo.liu@amd.com>
+Signed-off-by: Alex Deucher <alexander.deucher@amd.com>
+Signed-off-by: Kalyan Alle <kalyan.alle@amd.com>
+---
+ drivers/gpu/drm/amd/amdgpu/amdgpu_kms.c | 12 ++++++++++++
+ include/uapi/drm/amdgpu_drm.h           |  2 ++
+ 2 files changed, 14 insertions(+)
+
+diff --git a/drivers/gpu/drm/amd/amdgpu/amdgpu_kms.c b/drivers/gpu/drm/amd/amdgpu/amdgpu_kms.c
+index 511a22f..178f179 100644
+--- a/drivers/gpu/drm/amd/amdgpu/amdgpu_kms.c
++++ b/drivers/gpu/drm/amd/amdgpu/amdgpu_kms.c
+@@ -187,6 +187,10 @@ static int amdgpu_firmware_info(struct drm_amdgpu_info_firmware *fw_info,
+ 		fw_info->ver = adev->uvd.fw_version;
+ 		fw_info->feature = 0;
+ 		break;
++	case AMDGPU_INFO_FW_VCN:
++		fw_info->ver = adev->vcn.fw_version;
++		fw_info->feature = 0;
++		break;
+ 	case AMDGPU_INFO_FW_GMC:
+ 		fw_info->ver = adev->gmc.fw_version;
+ 		fw_info->feature = 0;
+@@ -1225,6 +1229,14 @@ static int amdgpu_debugfs_firmware_info(struct seq_file *m, void *data)
+ 			   i, fw_info.feature, fw_info.ver);
+ 	}
+ 
++	/* VCN */
++	query_fw.fw_type = AMDGPU_INFO_FW_VCN;
++	ret = amdgpu_firmware_info(&fw_info, &query_fw, adev);
++	if (ret)
++		return ret;
++	seq_printf(m, "VCN feature version: %u, firmware version: 0x%08x\n",
++		   fw_info.feature, fw_info.ver);
++
+ 	return 0;
+ }
+ 
+diff --git a/include/uapi/drm/amdgpu_drm.h b/include/uapi/drm/amdgpu_drm.h
+index d589a8b..b133e6d 100644
+--- a/include/uapi/drm/amdgpu_drm.h
++++ b/include/uapi/drm/amdgpu_drm.h
+@@ -684,6 +684,8 @@ struct drm_amdgpu_cs_chunk_data {
+ 	#define AMDGPU_INFO_FW_SOS		0x0c
+ 	/* Subquery id: Query PSP ASD firmware version */
+ 	#define AMDGPU_INFO_FW_ASD		0x0d
++	/* Subquery id: Query VCN firmware version */
++	#define AMDGPU_INFO_FW_VCN              0x0e
+ /* number of bytes moved for TTM migration */
+ #define AMDGPU_INFO_NUM_BYTES_MOVED		0x0f
+ /* the used VRAM size */
+-- 
+2.7.4
+

@@ -1,0 +1,183 @@
+From 9d8abd0c511117cf877398a34b49069bf9f675c3 Mon Sep 17 00:00:00 2001
+From: Sudheesh Mavila <sudheesh.mavila@amd.com>
+Date: Sun, 19 Aug 2018 22:33:59 +0530
+Subject: [PATCH 4122/4131] mp2-i2c Bus id is used instead of i2c device
+ context
+
+Signed-off-by: Sudheesh Mavila <sudheesh.mavila@amd.com>
+---
+ drivers/i2c/busses/i2c-amd-pci-mp2.c | 23 ++++++++++++-----------
+ drivers/i2c/busses/i2c-amd-pci-mp2.h | 10 +++++-----
+ drivers/i2c/busses/i2c-amd-platdrv.c | 18 +++++++++++-------
+ 3 files changed, 28 insertions(+), 23 deletions(-)
+
+diff --git a/drivers/i2c/busses/i2c-amd-pci-mp2.c b/drivers/i2c/busses/i2c-amd-pci-mp2.c
+index 1804141..e8c58c7 100644
+--- a/drivers/i2c/busses/i2c-amd-pci-mp2.c
++++ b/drivers/i2c/busses/i2c-amd-pci-mp2.c
+@@ -87,6 +87,7 @@ int amd_mp2_connect(struct pci_dev *dev,
+ 		writel(i2c_cmd_base.ul, privdata->mmio + AMD_C2P_MSG0);
+ 	} else {
+ 		dev_err(ndev_dev(privdata), "%s Invalid bus id\n", __func__);
++		raw_spin_unlock_irqrestore(&privdata->lock, flags);
+ 		return -EINVAL;
+ 	}
+ 	raw_spin_unlock_irqrestore(&privdata->lock, flags);
+@@ -223,14 +224,14 @@ int amd_mp2_write(struct pci_dev *dev, struct i2c_write_config write_cfg)
+ EXPORT_SYMBOL_GPL(amd_mp2_write);
+ 
+ int amd_i2c_register_cb(struct pci_dev *dev, const struct amd_i2c_pci_ops *ops,
+-			void *dev_ctx)
++			u8 bus_id)
+ {
+ 	struct amd_mp2_dev *privdata = pci_get_drvdata(dev);
+ 
+ 	privdata->ops = ops;
+-	privdata->i2c_dev_ctx = dev_ctx;
++	privdata->i2c_dev_id= bus_id;
+ 
+-	if (!privdata->ops || !privdata->i2c_dev_ctx)
++	if (!privdata->ops)
+ 		return -EINVAL;
+ 
+ 	return 0;
+@@ -255,33 +256,33 @@ static void amd_mp2_pci_work(struct work_struct *work)
+ 					privdata->eventval.buf[i] = readdata;
+ 				}
+ 				privdata->ops->read_complete(privdata->eventval,
+-						privdata->i2c_dev_ctx);
++						privdata->i2c_dev_id);
+ 			} else {
+ 				privdata->ops->read_complete(privdata->eventval,
+-						privdata->i2c_dev_ctx);
++						privdata->i2c_dev_id);
+ 			}
+ 		}
+ 	} else if (res == command_success && sts == i2c_writecomplete_event) {
+ 		if (privdata->ops->write_complete)
+ 			privdata->ops->write_complete(privdata->eventval,
+-					privdata->i2c_dev_ctx);
++					privdata->i2c_dev_id);
+ 	} else if (res == command_success && sts == i2c_busenable_complete) {
+ 		if (privdata->ops->connect_complete)
+ 			privdata->ops->connect_complete(privdata->eventval,
+-					privdata->i2c_dev_ctx);
++					privdata->i2c_dev_id);
+ 	} else {
+ 		if (sts == i2c_busenable_failed) {
+ 			if (privdata->ops->connect_complete)
+ 			privdata->ops->connect_complete(privdata->eventval,
+-					privdata->i2c_dev_ctx);
+-		}else if (sts == i2c_writefail_event) {
++					privdata->i2c_dev_id);
++		} else if (sts == i2c_writefail_event) {
+ 			if (privdata->ops->write_complete)
+ 				privdata->ops->write_complete(privdata->eventval,
+-					privdata->i2c_dev_ctx);
++					privdata->i2c_dev_id);
+ 		}else if (sts == i2c_readfail_event) {
+ 			if (privdata->ops->read_complete) 
+ 			privdata->ops->read_complete(privdata->eventval,
+-						privdata->i2c_dev_ctx);
++						privdata->i2c_dev_id);
+ 		} else
+ 		dev_err(ndev_dev(privdata), "ERROR!!nothing to be handled !\n");
+ 	}
+diff --git a/drivers/i2c/busses/i2c-amd-pci-mp2.h b/drivers/i2c/busses/i2c-amd-pci-mp2.h
+index da77b9f..d4b343a 100644
+--- a/drivers/i2c/busses/i2c-amd-pci-mp2.h
++++ b/drivers/i2c/busses/i2c-amd-pci-mp2.h
+@@ -206,9 +206,9 @@ struct i2c_read_config {
+ 
+ // struct to send/receive data b/w pci and i2c drivers
+ struct amd_i2c_pci_ops {
+-	int (*read_complete)(struct i2c_event event, void *dev_ctx);
+-	int (*write_complete)(struct i2c_event event, void *dev_ctx);
+-	int (*connect_complete)(struct i2c_event event, void *dev_ctx);
++	int (*read_complete)(struct i2c_event event,  u8 bus_id);
++	int (*write_complete)(struct i2c_event event,  u8 bus_id);
++	int (*connect_complete)(struct i2c_event event, u8 bus_id);
+ };
+ 
+ struct amd_i2c_common {
+@@ -232,7 +232,7 @@ struct amd_mp2_dev {
+ 	union i2c_cmd_base i2c_cmd_base;
+ 	const struct amd_i2c_pci_ops *ops;
+ 	struct delayed_work work;
+-	void *i2c_dev_ctx;
++	u8 i2c_dev_id;
+ 	bool	requested;
+ 	raw_spinlock_t lock;
+ };
+@@ -243,7 +243,7 @@ int amd_mp2_write(struct pci_dev *pdev,
+ int amd_mp2_connect(struct pci_dev *pdev,
+ 		    struct i2c_connect_config connect_cfg);
+ int amd_i2c_register_cb(struct pci_dev *pdev, const struct amd_i2c_pci_ops *ops,
+-			void *dev_ctx);
++			u8 bus_id);
+ 
+ #define ndev_pdev(ndev) ((ndev)->pdev)
+ #define ndev_name(ndev) pci_name(ndev_pdev(ndev))
+diff --git a/drivers/i2c/busses/i2c-amd-platdrv.c b/drivers/i2c/busses/i2c-amd-platdrv.c
+index 2f3d2ad..0868778 100644
+--- a/drivers/i2c/busses/i2c-amd-platdrv.c
++++ b/drivers/i2c/busses/i2c-amd-platdrv.c
+@@ -71,9 +71,11 @@ struct amd_i2c_dev {
+ 
+ };
+ 
+-static int i2c_amd_read_completion(struct i2c_event event, void *dev_ctx)
++struct amd_i2c_dev *i2c_dev_table[i2c_bus_max];
++
++static int i2c_amd_read_completion(struct i2c_event event, u8 bus_id)
+ {
+-	struct amd_i2c_dev *i2c_dev = (struct amd_i2c_dev *)dev_ctx;
++	struct amd_i2c_dev *i2c_dev = i2c_dev_table[bus_id];
+ 	struct amd_i2c_common *commond = &i2c_dev->i2c_common;
+ 	int i = 0;
+ 
+@@ -113,9 +115,9 @@ static int i2c_amd_read_completion(struct i2c_event event, void *dev_ctx)
+ 	return 0;
+ }
+ 
+-static int i2c_amd_write_completion(struct i2c_event event, void *dev_ctx)
++static int i2c_amd_write_completion(struct i2c_event event, u8 bus_id)
+ {
+-	struct amd_i2c_dev *i2c_dev = (struct amd_i2c_dev *)dev_ctx;
++	struct amd_i2c_dev *i2c_dev = i2c_dev_table[bus_id];
+ 
+ 	if (event.base.r.status == i2c_writecomplete_event) {
+ 		i2c_dev->err = i2c_writecomplete_event;
+@@ -128,9 +130,9 @@ static int i2c_amd_write_completion(struct i2c_event event, void *dev_ctx)
+ 	return 0;
+ }
+ 
+-static int i2c_amd_connect_completion(struct i2c_event event, void *dev_ctx)
++static int i2c_amd_connect_completion(struct i2c_event event, u8 bus_id)
+ {
+-	struct amd_i2c_dev *i2c_dev = (struct amd_i2c_dev *)dev_ctx;
++	struct amd_i2c_dev *i2c_dev = i2c_dev_table[bus_id];
+ 
+ 	if (event.base.r.status == i2c_busenable_complete) {
+ 		i2c_dev->err = i2c_busenable_complete;
+@@ -153,7 +155,7 @@ static int i2c_amd_pci_configure(struct amd_i2c_dev *i2c_dev, int slaveaddr)
+ 	struct amd_i2c_common *i2c_common = &i2c_dev->i2c_common;
+ 	int ret;
+ 
+-	amd_i2c_register_cb(i2c_common->pdev, &data_handler, (void *)i2c_dev);
++	amd_i2c_register_cb(i2c_common->pdev, &data_handler, i2c_dev->bus_id);
+ 	i2c_common->connect_cfg.bus_id = i2c_dev->bus_id;
+ 	i2c_common->connect_cfg.dev_addr = slaveaddr;
+ 	i2c_common->connect_cfg.i2c_speed = speed400k;
+@@ -309,6 +311,8 @@ static int i2c_amd_probe(struct platform_device *pdev)
+ 	}
+ 
+ 	i2c_dev->err = i2C_bus_notinitialized;
++	
++	i2c_dev_table[i2c_dev->bus_id]= i2c_dev;
+ 
+ 	platform_set_drvdata(pdev, i2c_dev);
+ 
+-- 
+2.7.4
+

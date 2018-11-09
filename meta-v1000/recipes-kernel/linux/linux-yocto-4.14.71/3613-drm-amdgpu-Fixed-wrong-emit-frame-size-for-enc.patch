@@ -1,0 +1,33 @@
+From 466ad7fcb08e9dd7b8512652444df64bc3d7fadc Mon Sep 17 00:00:00 2001
+From: James Zhu <James.Zhu@amd.com>
+Date: Tue, 27 Feb 2018 09:55:17 -0500
+Subject: [PATCH 3613/4131] drm/amdgpu:Fixed wrong emit frame size for enc
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+Emit frame size should match with corresponding function,
+uvd_v6_0_enc_ring_emit_vm_flush has 5 amdgpu_ring_write
+
+Signed-off-by: James Zhu <James.Zhu@amd.com>
+Reviewed-by: Christian König <christian.koenig@amd.com>
+---
+ drivers/gpu/drm/amd/amdgpu/uvd_v6_0.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/drivers/gpu/drm/amd/amdgpu/uvd_v6_0.c b/drivers/gpu/drm/amd/amdgpu/uvd_v6_0.c
+index 816d706..9241218 100644
+--- a/drivers/gpu/drm/amd/amdgpu/uvd_v6_0.c
++++ b/drivers/gpu/drm/amd/amdgpu/uvd_v6_0.c
+@@ -1613,7 +1613,7 @@ static const struct amdgpu_ring_funcs uvd_v6_0_enc_ring_vm_funcs = {
+ 	.set_wptr = uvd_v6_0_enc_ring_set_wptr,
+ 	.emit_frame_size =
+ 		4 + /* uvd_v6_0_enc_ring_emit_pipeline_sync */
+-		6 + /* uvd_v6_0_enc_ring_emit_vm_flush */
++		5 + /* uvd_v6_0_enc_ring_emit_vm_flush */
+ 		5 + 5 + /* uvd_v6_0_enc_ring_emit_fence x2 vm fence */
+ 		1, /* uvd_v6_0_enc_ring_insert_end */
+ 	.emit_ib_size = 5, /* uvd_v6_0_enc_ring_emit_ib */
+-- 
+2.7.4
+

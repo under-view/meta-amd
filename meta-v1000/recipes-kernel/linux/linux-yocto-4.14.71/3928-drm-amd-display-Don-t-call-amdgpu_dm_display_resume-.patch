@@ -1,0 +1,30 @@
+From 3178833a3effab743d9d29d73c8325476c0bc7fd Mon Sep 17 00:00:00 2001
+From: Mikita Lipski <mikita.lipski@amd.com>
+Date: Wed, 7 Mar 2018 16:59:43 -0500
+Subject: [PATCH 3928/4131] drm/amd/display: Don't call
+ amdgpu_dm_display_resume as it doesn't exist
+
+amdgpu_dm_display_resume was merged into dm_resume.
+No need to call these functions separately.
+
+Signed-off-by: Mikita Lipski <mikita.lipski@amd.com>
+Reviewed-by: Harry Wentland <Harry.Wentland@amd.com>
+---
+ drivers/gpu/drm/amd/display/amdgpu_dm/amdgpu_dm.c | 1 -
+ 1 file changed, 1 deletion(-)
+
+diff --git a/drivers/gpu/drm/amd/display/amdgpu_dm/amdgpu_dm.c b/drivers/gpu/drm/amd/display/amdgpu_dm/amdgpu_dm.c
+index c48bef0..18cb5e8 100644
+--- a/drivers/gpu/drm/amd/display/amdgpu_dm/amdgpu_dm.c
++++ b/drivers/gpu/drm/amd/display/amdgpu_dm/amdgpu_dm.c
+@@ -1636,7 +1636,6 @@ static ssize_t s3_debug_store(struct device *device,
+ 	if (ret == 0) {
+ 		if (s3_state) {
+ 			dm_resume(adev);
+-			amdgpu_dm_display_resume(adev);
+ 			drm_kms_helper_hotplug_event(adev->ddev);
+ 		} else
+ 			dm_suspend(adev);
+-- 
+2.7.4
+

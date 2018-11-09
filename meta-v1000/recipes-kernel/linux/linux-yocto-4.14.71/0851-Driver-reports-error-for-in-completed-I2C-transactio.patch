@@ -1,0 +1,143 @@
+From 3019de114b6a3214e89383f760b6ec7fe238aa77 Mon Sep 17 00:00:00 2001
+From: Sudheesh Mavila <sudheesh.mavila@amd.com>
+Date: Wed, 31 Jan 2018 11:01:15 +0530
+Subject: [PATCH 0851/4131] Driver reports error for in-completed I2C
+ transaction
+
+Signed-off-by: Sudheesh Mavila <sudheesh.mavila@amd.com>
+---
+ drivers/i2c/busses/i2c-designware-common.c |  5 +++--
+ drivers/i2c/busses/i2c-designware-core.h   |  2 +-
+ drivers/i2c/busses/i2c-designware-master.c | 18 +++++++++++++-----
+ drivers/i2c/busses/i2c-designware-slave.c  |  6 ++++--
+ 4 files changed, 21 insertions(+), 10 deletions(-)
+ mode change 100644 => 100755 drivers/i2c/busses/i2c-designware-common.c
+ mode change 100644 => 100755 drivers/i2c/busses/i2c-designware-core.h
+ mode change 100644 => 100755 drivers/i2c/busses/i2c-designware-master.c
+ mode change 100644 => 100755 drivers/i2c/busses/i2c-designware-slave.c
+
+diff --git a/drivers/i2c/busses/i2c-designware-common.c b/drivers/i2c/busses/i2c-designware-common.c
+old mode 100644
+new mode 100755
+index d1a6937..68707cd
+--- a/drivers/i2c/busses/i2c-designware-common.c
++++ b/drivers/i2c/busses/i2c-designware-common.c
+@@ -153,14 +153,14 @@ void __i2c_dw_enable(struct dw_i2c_dev *dev, bool enable)
+ 	dw_writel(dev, enable, DW_IC_ENABLE);
+ }
+ 
+-void __i2c_dw_enable_and_wait(struct dw_i2c_dev *dev, bool enable)
++int __i2c_dw_enable_and_wait(struct dw_i2c_dev *dev, bool enable)
+ {
+ 	int timeout = 100;
+ 
+ 	do {
+ 		__i2c_dw_enable(dev, enable);
+ 		if ((dw_readl(dev, DW_IC_ENABLE_STATUS) & 1) == enable)
+-			return;
++			return 0;
+ 
+ 		/*
+ 		 * Wait 10 times the signaling period of the highest I2C
+@@ -172,6 +172,7 @@ void __i2c_dw_enable_and_wait(struct dw_i2c_dev *dev, bool enable)
+ 
+ 	dev_warn(dev->dev, "timeout in %sabling adapter\n",
+ 		 enable ? "en" : "dis");
++	return -ETIMEDOUT;
+ }
+ 
+ unsigned long i2c_dw_clk_rate(struct dw_i2c_dev *dev)
+diff --git a/drivers/i2c/busses/i2c-designware-core.h b/drivers/i2c/busses/i2c-designware-core.h
+old mode 100644
+new mode 100755
+index 9fee4c0..9652765
+--- a/drivers/i2c/busses/i2c-designware-core.h
++++ b/drivers/i2c/busses/i2c-designware-core.h
+@@ -297,7 +297,7 @@ void dw_writel(struct dw_i2c_dev *dev, u32 b, int offset);
+ u32 i2c_dw_scl_hcnt(u32 ic_clk, u32 tSYMBOL, u32 tf, int cond, int offset);
+ u32 i2c_dw_scl_lcnt(u32 ic_clk, u32 tLOW, u32 tf, int offset);
+ void __i2c_dw_enable(struct dw_i2c_dev *dev, bool enable);
+-void __i2c_dw_enable_and_wait(struct dw_i2c_dev *dev, bool enable);
++int __i2c_dw_enable_and_wait(struct dw_i2c_dev *dev, bool enable);
+ unsigned long i2c_dw_clk_rate(struct dw_i2c_dev *dev);
+ int i2c_dw_acquire_lock(struct dw_i2c_dev *dev);
+ void i2c_dw_release_lock(struct dw_i2c_dev *dev);
+diff --git a/drivers/i2c/busses/i2c-designware-master.c b/drivers/i2c/busses/i2c-designware-master.c
+old mode 100644
+new mode 100755
+index 4915fa3..34dffd6
+--- a/drivers/i2c/busses/i2c-designware-master.c
++++ b/drivers/i2c/busses/i2c-designware-master.c
+@@ -79,7 +79,9 @@ static int i2c_dw_init_master(struct dw_i2c_dev *dev)
+ 	comp_param1 = dw_readl(dev, DW_IC_COMP_PARAM_1);
+ 
+ 	/* Disable the adapter */
+-	__i2c_dw_enable_and_wait(dev, false);
++	ret = __i2c_dw_enable_and_wait(dev, false);
++	if (ret<0)
++		return ret;
+ 
+ 	/* Set standard and fast speed deviders for high/low periods */
+ 
+@@ -172,13 +174,16 @@ static int i2c_dw_init_master(struct dw_i2c_dev *dev)
+ 	return 0;
+ }
+ 
+-static void i2c_dw_xfer_init(struct dw_i2c_dev *dev)
++static int i2c_dw_xfer_init(struct dw_i2c_dev *dev)
+ {
+ 	struct i2c_msg *msgs = dev->msgs;
+ 	u32 ic_con, ic_tar = 0;
++	int ret = 0;
+ 
+ 	/* Disable the adapter */
+-	__i2c_dw_enable_and_wait(dev, false);
++	ret = __i2c_dw_enable_and_wait(dev, false);
++	if (ret<0)
++		return ret;
+ 
+ 	/* If the slave address is ten bit address, enable 10BITADDR */
+ 	ic_con = dw_readl(dev, DW_IC_CON);
+@@ -215,6 +220,7 @@ static void i2c_dw_xfer_init(struct dw_i2c_dev *dev)
+ 	/* Clear and enable interrupts */
+ 	dw_readl(dev, DW_IC_CLR_INTR);
+ 	dw_writel(dev, DW_IC_INTR_MASTER_MASK, DW_IC_INTR_MASK);
++	return ret;
+ }
+ 
+ /*
+@@ -439,8 +445,10 @@ i2c_dw_xfer(struct i2c_adapter *adap, struct i2c_msg msgs[], int num)
+ 	if (ret < 0)
+ 		goto done;
+ 
+-	/* Start the transfers */
+-	i2c_dw_xfer_init(dev);
++	/* start the transfers */
++	ret = i2c_dw_xfer_init(dev);
++	if (ret < 0)
++		goto done;
+ 
+ 	/* Wait for tx to complete */
+ 	if (!wait_for_completion_timeout(&dev->cmd_complete, adap->timeout)) {
+diff --git a/drivers/i2c/busses/i2c-designware-slave.c b/drivers/i2c/busses/i2c-designware-slave.c
+old mode 100644
+new mode 100755
+index ea9578a..13154a3
+--- a/drivers/i2c/busses/i2c-designware-slave.c
++++ b/drivers/i2c/busses/i2c-designware-slave.c
+@@ -76,8 +76,10 @@ static int i2c_dw_init_slave(struct dw_i2c_dev *dev)
+ 
+ 	comp_param1 = dw_readl(dev, DW_IC_COMP_PARAM_1);
+ 
+-	/* Disable the adapter. */
+-	__i2c_dw_enable_and_wait(dev, false);
++	/* Disable the adapter */
++	ret = __i2c_dw_enable_and_wait(dev, false);
++	if (ret<0)
++		return ret;
+ 
+ 	/* Set standard and fast speed deviders for high/low periods. */
+ 	sda_falling_time = dev->sda_falling_time ?: 300; /* ns */
+-- 
+2.7.4
+

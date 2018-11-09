@@ -1,0 +1,63 @@
+From 0a91ed2e2b0f3c2adc7e1da28a3543131bf27068 Mon Sep 17 00:00:00 2001
+From: Harry Wentland <harry.wentland@amd.com>
+Date: Tue, 13 Feb 2018 10:54:26 -0500
+Subject: [PATCH 3652/4131] drm/amd/display: Use crtc enable/disable_vblank
+ hooks
+
+Signed-off-by: Harry Wentland <harry.wentland@amd.com>
+Reviewed-by: Tony Cheng <Tony.Cheng@amd.com>
+Acked-by: Harry Wentland <harry.wentland@amd.com>
+
+Conflicts:
+      drivers/gpu/drm/amd/display/amdgpu_dm/amdgpu_dm.c
+
+Change-Id: Ida057f4212c38ea45310f4e7c6860f000ab86517
+---
+ drivers/gpu/drm/amd/display/amdgpu_dm/amdgpu_dm.c | 24 +++++++++++++++++++++++
+ 1 file changed, 24 insertions(+)
+
+diff --git a/drivers/gpu/drm/amd/display/amdgpu_dm/amdgpu_dm.c b/drivers/gpu/drm/amd/display/amdgpu_dm/amdgpu_dm.c
+index 795232c..91abd47 100644
+--- a/drivers/gpu/drm/amd/display/amdgpu_dm/amdgpu_dm.c
++++ b/drivers/gpu/drm/amd/display/amdgpu_dm/amdgpu_dm.c
+@@ -2559,6 +2559,28 @@ dm_crtc_duplicate_state(struct drm_crtc *crtc)
+ 	return &state->base;
+ }
+ 
++
++static inline int dm_set_vblank(struct drm_crtc *crtc, bool enable)
++{
++	enum dc_irq_source irq_source;
++	struct amdgpu_crtc *acrtc = to_amdgpu_crtc(crtc);
++	struct amdgpu_device *adev = crtc->dev->dev_private;
++
++	irq_source = IRQ_TYPE_VBLANK + acrtc->otg_inst;
++	dc_interrupt_set(adev->dm.dc, irq_source, enable);
++	return 0;
++}
++
++static int dm_enable_vblank(struct drm_crtc *crtc)
++{
++	return dm_set_vblank(crtc, true);
++}
++
++static void dm_disable_vblank(struct drm_crtc *crtc)
++{
++	dm_set_vblank(crtc, false);
++}
++
+ /* Implemented only the options currently availible for the driver */
+ static const struct drm_crtc_funcs amdgpu_dm_crtc_funcs = {
+ 	.reset = dm_crtc_reset_state,
+@@ -2570,6 +2592,8 @@ static const struct drm_crtc_funcs amdgpu_dm_crtc_funcs = {
+ 	.atomic_duplicate_state = dm_crtc_duplicate_state,
+ 	.atomic_destroy_state = dm_crtc_destroy_state,
+ 	.set_crc_source = amdgpu_dm_crtc_set_crc_source,
++	.enable_vblank = dm_enable_vblank,
++	.disable_vblank = dm_disable_vblank,
+ };
+ 
+ static enum drm_connector_status
+-- 
+2.7.4
+

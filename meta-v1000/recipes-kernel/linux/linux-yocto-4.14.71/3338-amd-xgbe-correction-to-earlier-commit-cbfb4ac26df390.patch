@@ -1,0 +1,31 @@
+From 5f7f1e6680a1c9de3cd72d99e362709d84dbd732 Mon Sep 17 00:00:00 2001
+From: Sudheesh Mavila <sudheesh.mavila@amd.com>
+Date: Fri, 4 May 2018 09:17:56 +0530
+Subject: [PATCH 3338/4131] amd-xgbe correction to earlier commit
+ cbfb4ac26df390aca9739043604bcc837b27ded7
+
+Signed-off-by: Sudheesh Mavila <sudheesh.mavila@amd.com>
+---
+ drivers/net/ethernet/amd/xgbe/xgbe-pci.c | 3 ---
+ 1 file changed, 3 deletions(-)
+ mode change 100644 => 100755 drivers/net/ethernet/amd/xgbe/xgbe-pci.c
+
+diff --git a/drivers/net/ethernet/amd/xgbe/xgbe-pci.c b/drivers/net/ethernet/amd/xgbe/xgbe-pci.c
+old mode 100644
+new mode 100755
+index 266f0c7..82d1f41
+--- a/drivers/net/ethernet/amd/xgbe/xgbe-pci.c
++++ b/drivers/net/ethernet/amd/xgbe/xgbe-pci.c
+@@ -431,9 +431,6 @@ static int xgbe_pci_resume(struct pci_dev *pdev)
+ 	pdata->lpm_ctrl &= ~MDIO_CTRL1_LPOWER;
+ 	XMDIO_WRITE(pdata, MDIO_MMD_PCS, MDIO_CTRL1, pdata->lpm_ctrl);
+ 
+-	/* Enable all interrupts in the hardware */
+-	XP_IOWRITE(pdata, XP_INT_EN, 0x1fffff);
+-
+ 	if (netif_running(netdev)) {
+ 		ret = xgbe_powerup(netdev, XGMAC_DRIVER_CONTEXT);
+ 
+-- 
+2.7.4
+

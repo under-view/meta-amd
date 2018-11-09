@@ -1,0 +1,66 @@
+From 862b17a4ef83880a5784e5c03f98c36797f77e7f Mon Sep 17 00:00:00 2001
+From: =?UTF-8?q?Christian=20K=C3=B6nig?= <christian.koenig@amd.com>
+Date: Tue, 20 Feb 2018 19:51:02 +0100
+Subject: [PATCH 3692/4131] drm/amdgpu: further mitigate workaround for i915
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+Disable the workaround on imported BOs as well.
+
+Signed-off-by: Christian König <christian.koenig@amd.com>
+Reviewed-by: Alex Deucher <alexdeucher@amd.com>
+Signed-off-by: Kalyan Alle <kalyan.alle@amd.com>
+---
+ drivers/gpu/drm/amd/amdgpu/amdgpu_prime.c | 25 ++++++-------------------
+ 1 file changed, 6 insertions(+), 19 deletions(-)
+
+diff --git a/drivers/gpu/drm/amd/amdgpu/amdgpu_prime.c b/drivers/gpu/drm/amd/amdgpu/amdgpu_prime.c
+index 88d9fd6..3af671b 100644
+--- a/drivers/gpu/drm/amd/amdgpu/amdgpu_prime.c
++++ b/drivers/gpu/drm/amd/amdgpu/amdgpu_prime.c
+@@ -100,35 +100,22 @@ amdgpu_gem_prime_import_sg_table(struct drm_device *dev,
+ 	struct reservation_object *resv = attach->dmabuf->resv;
+ 	struct amdgpu_device *adev = dev->dev_private;
+ 	struct amdgpu_bo *bo;
+-	struct amdgpu_gem_object *gobj;
+ 	int ret;
+ 
+ 	ww_mutex_lock(&resv->lock, NULL);
+ 	ret = amdgpu_bo_create(adev, attach->dmabuf->size, PAGE_SIZE, false,
+ 			       AMDGPU_GEM_DOMAIN_GTT, 0, sg, resv, &bo);
+-	ww_mutex_unlock(&resv->lock);
+ 	if (ret)
+-		return ERR_PTR(ret);
++		goto error;
+ 
+ 	bo->prime_shared_count = 1;
+ 
+-	gobj = kzalloc(sizeof(struct amdgpu_gem_object), GFP_KERNEL);
+-	if (unlikely(!gobj)) {
+-		amdgpu_bo_unref(&bo);
+-		return ERR_PTR(-ENOMEM);
+-	}
+-
+-	ret = drm_gem_object_init(adev->ddev, &gobj->base, amdgpu_bo_size(bo));
+-	if (unlikely(ret)) {
+-		kfree(gobj);
+-		amdgpu_bo_unref(&bo);
+-		return ERR_PTR(ret);
+-	}
+-
+-	list_add(&gobj->list, &bo->gem_objects);
+-	gobj->bo = amdgpu_bo_ref(bo);
++	ww_mutex_unlock(&resv->lock);
++	return &bo->gem_base;
+ 
+-	return &gobj->base;
++error:
++	ww_mutex_unlock(&resv->lock);
++	return ERR_PTR(ret);
+ }
+ 
+ struct reservation_object *amdgpu_gem_prime_res_obj(struct drm_gem_object *obj)
+-- 
+2.7.4
+

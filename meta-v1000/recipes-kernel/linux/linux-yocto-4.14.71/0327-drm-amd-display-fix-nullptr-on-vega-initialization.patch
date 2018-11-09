@@ -1,0 +1,28 @@
+From 2c128846a505bbde8a436dbe7c494142c7d4c293 Mon Sep 17 00:00:00 2001
+From: Alex Deucher <alexander.deucher@amd.com>
+Date: Thu, 15 Jun 2017 16:25:11 -0400
+Subject: [PATCH 0327/4131] drm/amd/display: fix nullptr on vega initialization
+
+Signed-off-by: Jordan Lazare <Jordan.Lazare@amd.com>
+Reviewed-by: Tony Cheng <Tony.Cheng@amd.com>
+Reviewed-by: Roman Li <Roman.Li@amd.com>
+Signed-off-by: Alex Deucher <alexander.deucher@amd.com>
+---
+ drivers/gpu/drm/amd/display/amdgpu_dm/amdgpu_dm.c | 1 +
+ 1 file changed, 1 insertion(+)
+
+diff --git a/drivers/gpu/drm/amd/display/amdgpu_dm/amdgpu_dm.c b/drivers/gpu/drm/amd/display/amdgpu_dm/amdgpu_dm.c
+index 6a149c8..345841c 100644
+--- a/drivers/gpu/drm/amd/display/amdgpu_dm/amdgpu_dm.c
++++ b/drivers/gpu/drm/amd/display/amdgpu_dm/amdgpu_dm.c
+@@ -1432,6 +1432,7 @@ static int dm_early_init(void *handle)
+ 		adev->mode_info.num_crtc = 6;
+ 		adev->mode_info.num_hpd = 6;
+ 		adev->mode_info.num_dig = 6;
++		adev->mode_info.plane_type = dm_surfaces_type_default;
+ 		break;
+ 	default:
+ 		DRM_ERROR("Usupported ASIC type: 0x%X\n", adev->asic_type);
+-- 
+2.7.4
+

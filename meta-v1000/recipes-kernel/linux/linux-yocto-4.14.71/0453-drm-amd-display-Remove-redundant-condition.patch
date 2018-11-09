@@ -1,0 +1,41 @@
+From 5811c4cfbe092fbe583944b501a84dbf566faa85 Mon Sep 17 00:00:00 2001
+From: Andrey Grodzovsky <Andrey.Grodzovsky@amd.com>
+Date: Thu, 18 May 2017 13:35:22 -0400
+Subject: [PATCH 0453/4131] drm/amd/display: Remove redundant condition.
+
+You cannot have modeset and flip in the same call for
+same CRTC, in such case it will be set mode and set plane,
+not a flip.
+
+Signed-off-by: Andrey Grodzovsky <Andrey.Grodzovsky@amd.com>
+Reviewed-by: Andrey Grodzovsky <Andrey.Grodzovsky@amd.com>
+Acked-by: Harry Wentland <Harry.Wentland@amd.com>
+Signed-off-by: Alex Deucher <alexander.deucher@amd.com>
+---
+ drivers/gpu/drm/amd/display/amdgpu_dm/amdgpu_dm_types.c | 8 +-------
+ 1 file changed, 1 insertion(+), 7 deletions(-)
+
+diff --git a/drivers/gpu/drm/amd/display/amdgpu_dm/amdgpu_dm_types.c b/drivers/gpu/drm/amd/display/amdgpu_dm/amdgpu_dm_types.c
+index 4367e28..55d278b 100644
+--- a/drivers/gpu/drm/amd/display/amdgpu_dm/amdgpu_dm_types.c
++++ b/drivers/gpu/drm/amd/display/amdgpu_dm/amdgpu_dm_types.c
+@@ -3293,15 +3293,9 @@ int amdgpu_dm_atomic_check(struct drm_device *dev,
+ 
+ 			action = get_dm_commit_action(crtc->state);
+ 
+-			/* Surfaces are created under two scenarios:
+-			 * 1. This commit is not a page flip.
+-			 * 2. This commit is a page flip, and streams are created.
+-			 */
+ 			crtc_state = drm_atomic_get_crtc_state(state, crtc);
+ 			pflip_needed = !state->allow_modeset;
+-			if (!pflip_needed ||
+-				action == DM_COMMIT_ACTION_DPMS_ON ||
+-				action == DM_COMMIT_ACTION_SET) {
++			if (!pflip_needed) {
+ 				struct dc_surface *surface;
+ 
+ 				list_for_each_entry(connector,
+-- 
+2.7.4
+

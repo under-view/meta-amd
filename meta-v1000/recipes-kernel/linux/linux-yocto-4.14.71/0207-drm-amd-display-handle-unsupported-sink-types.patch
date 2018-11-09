@@ -1,0 +1,31 @@
+From d6d5d99c95d7f1e621f4de079c1064664030cdc0 Mon Sep 17 00:00:00 2001
+From: Reza Amini <reza.amini@amd.com>
+Date: Fri, 3 Feb 2017 14:19:41 -0500
+Subject: [PATCH 0207/4131] drm/amd/display: handle unsupported sink types
+
+Signed-off-by: Reza Amini <reza.amini@amd.com>
+Reviewed-by: Wesley Chalmers <Wesley.Chalmers@amd.com>
+Acked-by: Harry Wentland <Harry.Wentland@amd.com>
+Signed-off-by: Alex Deucher <alexander.deucher@amd.com>
+---
+ drivers/gpu/drm/amd/display/dc/core/dc_sink.c | 4 ++++
+ 1 file changed, 4 insertions(+)
+
+diff --git a/drivers/gpu/drm/amd/display/dc/core/dc_sink.c b/drivers/gpu/drm/amd/display/dc/core/dc_sink.c
+index 9dff0bf..0a805ea 100644
+--- a/drivers/gpu/drm/amd/display/dc/core/dc_sink.c
++++ b/drivers/gpu/drm/amd/display/dc/core/dc_sink.c
+@@ -53,6 +53,10 @@ static bool construct(struct sink *sink, const struct dc_sink_init_data *init_pa
+ 
+ 	struct core_link *core_link = DC_LINK_TO_LINK(init_params->link);
+ 
++	if (!core_link) {
++		return false;
++	}
++
+ 	sink->protected.public.sink_signal = init_params->sink_signal;
+ 	sink->protected.link = core_link;
+ 	sink->protected.ctx = core_link->ctx;
+-- 
+2.7.4
+

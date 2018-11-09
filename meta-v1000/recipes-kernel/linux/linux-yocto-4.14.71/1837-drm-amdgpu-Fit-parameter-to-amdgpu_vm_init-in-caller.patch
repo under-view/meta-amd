@@ -1,0 +1,29 @@
+From 0419c9fe83ebf23eac4c1e30424deb09e75c6fd2 Mon Sep 17 00:00:00 2001
+From: "Le.Ma" <Le.Ma@amd.com>
+Date: Mon, 9 Oct 2017 17:31:03 +0800
+Subject: [PATCH 1837/4131] drm/amdgpu: Fit parameter to amdgpu_vm_init() in
+ caller
+
+Change-Id: I7dbb431ec6db54c2675d49af2f394729347de586
+Signed-off-by: Le.Ma <Le.Ma@amd.com>
+Reviewed-by: Junwei Zhang <Jerry.Zhang@amd.com>
+---
+ drivers/gpu/drm/amd/amdgpu/amdgpu_amdkfd_gpuvm.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/drivers/gpu/drm/amd/amdgpu/amdgpu_amdkfd_gpuvm.c b/drivers/gpu/drm/amd/amdgpu/amdgpu_amdkfd_gpuvm.c
+index 8de304b..5c6452c 100644
+--- a/drivers/gpu/drm/amd/amdgpu/amdgpu_amdkfd_gpuvm.c
++++ b/drivers/gpu/drm/amd/amdgpu/amdgpu_amdkfd_gpuvm.c
+@@ -1413,7 +1413,7 @@ int amdgpu_amdkfd_gpuvm_create_process_vm(struct kgd_dev *kgd, void **vm,
+ 		return -ENOMEM;
+ 
+ 	/* Initialize the VM context, allocate the page directory and zero it */
+-	ret = amdgpu_vm_init(adev, &new_vm->base, AMDGPU_VM_CONTEXT_COMPUTE);
++	ret = amdgpu_vm_init(adev, &new_vm->base, AMDGPU_VM_CONTEXT_COMPUTE, 0);
+ 	if (ret != 0) {
+ 		pr_err("Failed init vm ret %d\n", ret);
+ 		/* Undo everything related to the new VM context */
+-- 
+2.7.4
+

@@ -1,0 +1,70 @@
+From 5d739d19f3ed9451fbe28973519703cbc3987d92 Mon Sep 17 00:00:00 2001
+From: =?UTF-8?q?Christian=20K=C3=B6nig?= <christian.koenig@amd.com>
+Date: Wed, 26 Apr 2017 16:31:14 +0200
+Subject: [PATCH 2235/4131] drm/ttm: add context to driver move callback as
+ well
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+Instead of passing the parameters manually.
+
+Signed-off-by: Christian König <christian.koenig@amd.com>
+Reviewed-by: Michel Dänzer <michel.daenzer@amd.com>
+Reviewed-by: Chunming Zhou <david1.zhou@amd.com>
+Tested-by: Dieter Nützel <Dieter@nuetzel-hh.de>
+Tested-by: Michel Dänzer <michel.daenzer@amd.com>
+Acked-by: Felix Kuehling <Felix.Kuehling@amd.com>
+---
+ drivers/gpu/drm/amd/amdgpu/amdgpu_ttm.c | 21 +++++++++++----------
+ 1 file changed, 11 insertions(+), 10 deletions(-)
+
+diff --git a/drivers/gpu/drm/amd/amdgpu/amdgpu_ttm.c b/drivers/gpu/drm/amd/amdgpu/amdgpu_ttm.c
+index 5ada329..7c5b127 100644
+--- a/drivers/gpu/drm/amd/amdgpu/amdgpu_ttm.c
++++ b/drivers/gpu/drm/amd/amdgpu/amdgpu_ttm.c
+@@ -596,10 +596,9 @@ static int amdgpu_move_ram_vram(struct ttm_buffer_object *bo,
+ 	return r;
+ }
+ 
+-static int amdgpu_bo_move(struct ttm_buffer_object *bo,
+-			bool evict, bool interruptible,
+-			bool no_wait_gpu,
+-			struct ttm_mem_reg *new_mem)
++static int amdgpu_bo_move(struct ttm_buffer_object *bo, bool evict,
++			  struct ttm_operation_ctx *ctx,
++			  struct ttm_mem_reg *new_mem)
+ {
+ 	struct amdgpu_device *adev;
+ 	struct amdgpu_bo *abo;
+@@ -638,19 +637,21 @@ static int amdgpu_bo_move(struct ttm_buffer_object *bo,
+ 
+ 	if (old_mem->mem_type == TTM_PL_VRAM &&
+ 	    new_mem->mem_type == TTM_PL_SYSTEM) {
+-		r = amdgpu_move_vram_ram(bo, evict, interruptible,
+-					no_wait_gpu, new_mem);
++		r = amdgpu_move_vram_ram(bo, evict, ctx->interruptible,
++					ctx->no_wait_gpu, new_mem);
+ 	} else if (old_mem->mem_type == TTM_PL_SYSTEM &&
+ 		   new_mem->mem_type == TTM_PL_VRAM) {
+-		r = amdgpu_move_ram_vram(bo, evict, interruptible,
+-					    no_wait_gpu, new_mem);
++		r = amdgpu_move_ram_vram(bo, evict, ctx->interruptible,
++					    ctx->no_wait_gpu, new_mem);
+ 	} else {
+-		r = amdgpu_move_blit(bo, evict, no_wait_gpu, new_mem, old_mem);
++		r = amdgpu_move_blit(bo, evict, ctx->no_wait_gpu,
++				     new_mem, old_mem);
+ 	}
+ 
+ 	if (r) {
+ memcpy:
+-		r = ttm_bo_move_memcpy(bo, interruptible, no_wait_gpu, new_mem);
++		r = ttm_bo_move_memcpy(bo, ctx->interruptible,
++				       ctx->no_wait_gpu, new_mem);
+ 		if (r) {
+ 			return r;
+ 		}
+-- 
+2.7.4
+

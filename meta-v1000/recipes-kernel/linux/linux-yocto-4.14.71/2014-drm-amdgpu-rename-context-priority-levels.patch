@@ -1,0 +1,42 @@
+From a8a2e6905f78219e6da92d47d0ccea7e87844acc Mon Sep 17 00:00:00 2001
+From: Andres Rodriguez <andresx7@gmail.com>
+Date: Fri, 13 Oct 2017 14:58:14 -0400
+Subject: [PATCH 2014/4131] drm/amdgpu: rename context priority levels
+
+Don't leak implementation details about how each priority behaves to
+usermode. This allows greater flexibility in the future.
+
+Squash into c2636dc53abd8269a0930bccd564f2f195dba729
+
+Signed-off-by: Andres Rodriguez <andresx7@gmail.com>
+Signed-off-by: Alex Deucher <alexander.deucher@amd.com>
+---
+ drivers/gpu/drm/amd/amdgpu/amdgpu_sched.c | 8 ++++----
+ 1 file changed, 4 insertions(+), 4 deletions(-)
+
+diff --git a/drivers/gpu/drm/amd/amdgpu/amdgpu_sched.c b/drivers/gpu/drm/amd/amdgpu/amdgpu_sched.c
+index cd12330..290cc3f 100644
+--- a/drivers/gpu/drm/amd/amdgpu/amdgpu_sched.c
++++ b/drivers/gpu/drm/amd/amdgpu/amdgpu_sched.c
+@@ -32,14 +32,14 @@
+ enum amd_sched_priority amdgpu_to_sched_priority(int amdgpu_priority)
+ {
+ 	switch (amdgpu_priority) {
+-	case AMDGPU_CTX_PRIORITY_HIGH_HW:
++	case AMDGPU_CTX_PRIORITY_VERY_HIGH:
+ 		return AMD_SCHED_PRIORITY_HIGH_HW;
+-	case AMDGPU_CTX_PRIORITY_HIGH_SW:
++	case AMDGPU_CTX_PRIORITY_HIGH:
+ 		return AMD_SCHED_PRIORITY_HIGH_SW;
+ 	case AMDGPU_CTX_PRIORITY_NORMAL:
+ 		return AMD_SCHED_PRIORITY_NORMAL;
+-	case AMDGPU_CTX_PRIORITY_LOW_SW:
+-	case AMDGPU_CTX_PRIORITY_LOW_HW:
++	case AMDGPU_CTX_PRIORITY_LOW:
++	case AMDGPU_CTX_PRIORITY_VERY_LOW:
+ 		return AMD_SCHED_PRIORITY_LOW;
+ 	case AMDGPU_CTX_PRIORITY_UNSET:
+ 		return AMD_SCHED_PRIORITY_UNSET;
+-- 
+2.7.4
+

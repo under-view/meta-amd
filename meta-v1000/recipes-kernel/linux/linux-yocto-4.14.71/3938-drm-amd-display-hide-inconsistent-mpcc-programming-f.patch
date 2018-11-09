@@ -1,0 +1,36 @@
+From 9d1fdea5147a4cb2fbaad483283f9c65446aa001 Mon Sep 17 00:00:00 2001
+From: Dmytro Laktyushkin <Dmytro.Laktyushkin@amd.com>
+Date: Thu, 15 Mar 2018 10:25:43 -0400
+Subject: [PATCH 3938/4131] drm/amd/display: hide inconsistent mpcc programming
+ from dtn log
+
+Signed-off-by: Dmytro Laktyushkin <Dmytro.Laktyushkin@amd.com>
+Reviewed-by: Tony Cheng <Tony.Cheng@amd.com>
+Acked-by: Harry Wentland <harry.wentland@amd.com>
+---
+ drivers/gpu/drm/amd/display/dc/dcn10/dcn10_hw_sequencer.c | 9 +++++----
+ 1 file changed, 5 insertions(+), 4 deletions(-)
+
+diff --git a/drivers/gpu/drm/amd/display/dc/dcn10/dcn10_hw_sequencer.c b/drivers/gpu/drm/amd/display/dc/dcn10/dcn10_hw_sequencer.c
+index 27ae88e3..e214581 100644
+--- a/drivers/gpu/drm/amd/display/dc/dcn10/dcn10_hw_sequencer.c
++++ b/drivers/gpu/drm/amd/display/dc/dcn10/dcn10_hw_sequencer.c
+@@ -157,10 +157,11 @@ void dcn10_log_hw_state(struct dc *dc)
+ 		struct mpcc_state s = {0};
+ 
+ 		pool->mpc->funcs->read_mpcc_state(pool->mpc, i, &s);
+-		DTN_INFO("[%2d]:  %2xh  %2xh  %6xh  %4d  %10d  %7d  %12d  %4d\n",
+-			i, s.opp_id, s.dpp_id, s.bot_mpcc_id,
+-			s.mode, s.alpha_mode, s.pre_multiplied_alpha, s.overlap_only,
+-			s.idle);
++		if (s.opp_id != 0xf)
++			DTN_INFO("[%2d]:  %2xh  %2xh  %6xh  %4d  %10d  %7d  %12d  %4d\n",
++				i, s.opp_id, s.dpp_id, s.bot_mpcc_id,
++				s.mode, s.alpha_mode, s.pre_multiplied_alpha, s.overlap_only,
++				s.idle);
+ 	}
+ 	DTN_INFO("\n");
+ 
+-- 
+2.7.4
+

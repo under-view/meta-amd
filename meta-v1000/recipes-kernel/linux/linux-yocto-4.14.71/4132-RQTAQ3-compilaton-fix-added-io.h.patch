@@ -1,0 +1,25 @@
+From de5ec2bba10e60033ecbcb1bcbb66ada8664c256 Mon Sep 17 00:00:00 2001
+From: Chaudhary Amit Kumar <chaudharyamit.kumar@amd.com>
+Date: Mon, 29 Oct 2018 12:52:16 +0530
+Subject: [PATCH] RQTAQ3 compilaton fix added io.h
+
+---
+ sound/soc/amd/raven/acp3x-pcm-dma.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/sound/soc/amd/raven/acp3x-pcm-dma.c b/sound/soc/amd/raven/acp3x-pcm-dma.c
+index 5246d28..7ed9d0e 100644
+--- a/sound/soc/amd/raven/acp3x-pcm-dma.c
++++ b/sound/soc/amd/raven/acp3x-pcm-dma.c
+@@ -22,7 +22,7 @@
+ #include <sound/pcm_params.h>
+ #include <sound/soc.h>
+ #include <sound/soc-dai.h>
+-
++#include <linux/io.h>
+ #include "acp3x.h"
+ 
+ struct i2s_dev_data {
+-- 
+2.7.4
+

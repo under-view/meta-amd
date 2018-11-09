@@ -1,0 +1,35 @@
+From ae8e6673a522e8daad87721009cc2ee71fcea94c Mon Sep 17 00:00:00 2001
+From: Kalyan Alle <kalyan.alle@amd.com>
+Date: Fri, 20 Jul 2018 21:14:12 +0530
+Subject: [PATCH 4094/4131] drm/amd/amdkfd: added BUILD_AS_DKMS flag to fix the
+ compilation issue.
+
+Signed-off-by: Kalyan Alle <kalyan.alle@amd.com>
+---
+ drivers/gpu/drm/amd/amdkfd/kfd_device.c | 4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
+
+diff --git a/drivers/gpu/drm/amd/amdkfd/kfd_device.c b/drivers/gpu/drm/amd/amdkfd/kfd_device.c
+index 52f456e..14275b1 100755
+--- a/drivers/gpu/drm/amd/amdkfd/kfd_device.c
++++ b/drivers/gpu/drm/amd/amdkfd/kfd_device.c
+@@ -366,14 +366,14 @@ struct kfd_dev *kgd2kfd_probe(struct kgd_dev *kgd,
+ 		 * 32 and 64-bit requests are possible and must be
+ 		 * supported.
+ 		 */
+-
++#if defined(BUILD_AS_DKMS)
+                 if (pci_enable_atomic_ops_to_root(pdev) < 0) {
+                         dev_info(kfd_device,
+                                 "skipped device %x:%x, PCI rejects atomics",
+                                  pdev->vendor, pdev->device);
+                         return NULL;
+                 }
+-
++#endif
+ 	}
+ 
+ 	kfd = kzalloc(sizeof(*kfd), GFP_KERNEL);
+-- 
+2.7.4
+

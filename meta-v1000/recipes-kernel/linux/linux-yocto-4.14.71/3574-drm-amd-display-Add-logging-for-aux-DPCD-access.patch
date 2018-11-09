@@ -1,0 +1,59 @@
+From 44f558d7f1721abe4ddd122c49935cd6b7e2d3bf Mon Sep 17 00:00:00 2001
+From: Eric Yang <Eric.Yang2@amd.com>
+Date: Tue, 6 Feb 2018 17:28:46 -0500
+Subject: [PATCH 3574/4131] drm/amd/display: Add logging for aux DPCD access
+
+Add basic logging for DPCD access. Does not print
+by default.
+
+Currently only prints first byte of the data accessed.
+
+Technical debt: Need to make it so that the entire
+data block accessed is printed. Also need to log
+address space that's not DPCD.
+
+Signed-off-by: Eric Yang <Eric.Yang2@amd.com>
+Reviewed-by: Tony Cheng <Tony.Cheng@amd.com>
+Acked-by: Harry Wentland <harry.wentland@amd.com>
+Signed-off-by: Alex Deucher <alexander.deucher@amd.com>
+---
+ drivers/gpu/drm/amd/display/dc/i2caux/aux_engine.c | 16 ++++++++++++++++
+ 1 file changed, 16 insertions(+)
+
+diff --git a/drivers/gpu/drm/amd/display/dc/i2caux/aux_engine.c b/drivers/gpu/drm/amd/display/dc/i2caux/aux_engine.c
+index fc7a7d4..0b1db48f 100644
+--- a/drivers/gpu/drm/amd/display/dc/i2caux/aux_engine.c
++++ b/drivers/gpu/drm/amd/display/dc/i2caux/aux_engine.c
+@@ -284,6 +284,14 @@ static bool read_command(
+ 				msleep(engine->delay);
+ 	} while (ctx.operation_succeeded && !ctx.transaction_complete);
+ 
++	if (request->payload.address_space ==
++		I2CAUX_TRANSACTION_ADDRESS_SPACE_DPCD) {
++		dm_logger_write(engine->base.ctx->logger, LOG_I2C_AUX, "READ: addr:0x%x  value:0x%x Result:%d",
++				request->payload.address,
++				request->payload.data[0],
++				ctx.operation_succeeded);
++	}
++
+ 	return ctx.operation_succeeded;
+ }
+ 
+@@ -484,6 +492,14 @@ static bool write_command(
+ 				msleep(engine->delay);
+ 	} while (ctx.operation_succeeded && !ctx.transaction_complete);
+ 
++	if (request->payload.address_space ==
++		I2CAUX_TRANSACTION_ADDRESS_SPACE_DPCD) {
++		dm_logger_write(engine->base.ctx->logger, LOG_I2C_AUX, "WRITE: addr:0x%x  value:0x%x Result:%d",
++				request->payload.address,
++				request->payload.data[0],
++				ctx.operation_succeeded);
++	}
++
+ 	return ctx.operation_succeeded;
+ }
+ 
+-- 
+2.7.4
+

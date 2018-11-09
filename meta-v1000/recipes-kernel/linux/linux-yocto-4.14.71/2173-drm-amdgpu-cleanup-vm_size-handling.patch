@@ -1,0 +1,171 @@
+From d4f4fb164c39a92754881ee59333a2690ee7827f Mon Sep 17 00:00:00 2001
+From: =?UTF-8?q?Christian=20K=C3=B6nig?= <christian.koenig@amd.com>
+Date: Sat, 4 Nov 2017 16:51:44 +0100
+Subject: [PATCH 2173/4131] drm/amdgpu: cleanup vm_size handling
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+It's pointless to have the same value twice, just always use max_pfn.
+
+Signed-off-by: Christian König <christian.koenig@amd.com>
+Reviewed-by: Alex Deucher <alexander.deucher@amd.com>
+---
+ drivers/gpu/drm/amd/amdgpu/amdgpu_vm.c | 18 +++++++++---------
+ drivers/gpu/drm/amd/amdgpu/amdgpu_vm.h |  7 +++----
+ drivers/gpu/drm/amd/amdgpu/gmc_v6_0.c  |  1 -
+ drivers/gpu/drm/amd/amdgpu/gmc_v7_0.c  |  1 -
+ drivers/gpu/drm/amd/amdgpu/gmc_v8_0.c  |  1 -
+ drivers/gpu/drm/amd/amdgpu/gmc_v9_0.c  | 13 +++++--------
+ 6 files changed, 17 insertions(+), 24 deletions(-)
+
+diff --git a/drivers/gpu/drm/amd/amdgpu/amdgpu_vm.c b/drivers/gpu/drm/amd/amdgpu/amdgpu_vm.c
+index d4e8de3..efe6b95 100644
+--- a/drivers/gpu/drm/amd/amdgpu/amdgpu_vm.c
++++ b/drivers/gpu/drm/amd/amdgpu/amdgpu_vm.c
+@@ -2604,27 +2604,27 @@ void amdgpu_vm_set_fragment_size(struct amdgpu_device *adev,
+  * @adev: amdgpu_device pointer
+  * @vm_size: the default vm size if it's set auto
+  */
+-void amdgpu_vm_adjust_size(struct amdgpu_device *adev, uint64_t vm_size,
++void amdgpu_vm_adjust_size(struct amdgpu_device *adev, uint32_t vm_size,
+ 			   uint32_t fragment_size_default)
+ {
+ 	/* adjust vm size firstly */
+-	if (amdgpu_vm_size == -1)
+-		adev->vm_manager.vm_size = vm_size;
+-	else
+-		adev->vm_manager.vm_size = amdgpu_vm_size;
++	if (amdgpu_vm_size != -1)
++		vm_size = amdgpu_vm_size;
++
++	adev->vm_manager.max_pfn = (uint64_t)vm_size << 18;
+ 
+ 	/* block size depends on vm size */
+ 	if (amdgpu_vm_block_size == -1)
+ 		adev->vm_manager.block_size =
+-			amdgpu_vm_get_block_size(adev->vm_manager.vm_size);
++			amdgpu_vm_get_block_size(vm_size);
+ 	else
+ 		adev->vm_manager.block_size = amdgpu_vm_block_size;
+ 
+ 	amdgpu_vm_set_fragment_size(adev, fragment_size_default);
+ 
+-	DRM_INFO("vm size is %llu GB, block size is %u-bit, fragment size is %u-bit\n",
+-		adev->vm_manager.vm_size, adev->vm_manager.block_size,
+-		adev->vm_manager.fragment_size);
++	DRM_INFO("vm size is %u GB, block size is %u-bit, fragment size is %u-bit\n",
++		 vm_size, adev->vm_manager.block_size,
++		 adev->vm_manager.fragment_size);
+ }
+ 
+ /**
+diff --git a/drivers/gpu/drm/amd/amdgpu/amdgpu_vm.h b/drivers/gpu/drm/amd/amdgpu/amdgpu_vm.h
+index fb7de5a..50725b4 100644
+--- a/drivers/gpu/drm/amd/amdgpu/amdgpu_vm.h
++++ b/drivers/gpu/drm/amd/amdgpu/amdgpu_vm.h
+@@ -223,7 +223,6 @@ struct amdgpu_vm_manager {
+ 
+ 	uint64_t				max_pfn;
+ 	uint32_t				num_level;
+-	uint64_t				vm_size;
+ 	uint32_t				block_size;
+ 	uint32_t				fragment_size;
+ 	/* vram base address for page table entry  */
+@@ -317,9 +316,9 @@ struct amdgpu_bo_va_mapping *amdgpu_vm_bo_lookup_mapping(struct amdgpu_vm *vm,
+ void amdgpu_vm_bo_rmv(struct amdgpu_device *adev,
+ 		      struct amdgpu_bo_va *bo_va);
+ void amdgpu_vm_set_fragment_size(struct amdgpu_device *adev,
+-				uint32_t fragment_size_default);
+-void amdgpu_vm_adjust_size(struct amdgpu_device *adev, uint64_t vm_size,
+-				uint32_t fragment_size_default);
++				 uint32_t fragment_size_default);
++void amdgpu_vm_adjust_size(struct amdgpu_device *adev, uint32_t vm_size,
++			   uint32_t fragment_size_default);
+ int amdgpu_vm_ioctl(struct drm_device *dev, void *data, struct drm_file *filp);
+ bool amdgpu_vm_need_pipeline_sync(struct amdgpu_ring *ring,
+ 				  struct amdgpu_job *job);
+diff --git a/drivers/gpu/drm/amd/amdgpu/gmc_v6_0.c b/drivers/gpu/drm/amd/amdgpu/gmc_v6_0.c
+index f4603a7..c9f144d 100644
+--- a/drivers/gpu/drm/amd/amdgpu/gmc_v6_0.c
++++ b/drivers/gpu/drm/amd/amdgpu/gmc_v6_0.c
+@@ -832,7 +832,6 @@ static int gmc_v6_0_sw_init(void *handle)
+ 		return r;
+ 
+ 	amdgpu_vm_adjust_size(adev, 64, 9);
+-	adev->vm_manager.max_pfn = adev->vm_manager.vm_size << 18;
+ 
+ 	adev->mc.mc_mask = 0xffffffffffULL;
+ 
+diff --git a/drivers/gpu/drm/amd/amdgpu/gmc_v7_0.c b/drivers/gpu/drm/amd/amdgpu/gmc_v7_0.c
+index b2fde23..cf23c70 100644
+--- a/drivers/gpu/drm/amd/amdgpu/gmc_v7_0.c
++++ b/drivers/gpu/drm/amd/amdgpu/gmc_v7_0.c
+@@ -974,7 +974,6 @@ static int gmc_v7_0_sw_init(void *handle)
+ 	 * Max GPUVM size for cayman and SI is 40 bits.
+ 	 */
+ 	amdgpu_vm_adjust_size(adev, 64, 9);
+-	adev->vm_manager.max_pfn = adev->vm_manager.vm_size << 18;
+ 
+ 	/* Set the internal MC address mask
+ 	 * This is the max address of the GPU's
+diff --git a/drivers/gpu/drm/amd/amdgpu/gmc_v8_0.c b/drivers/gpu/drm/amd/amdgpu/gmc_v8_0.c
+index 97be951..868dff2 100644
+--- a/drivers/gpu/drm/amd/amdgpu/gmc_v8_0.c
++++ b/drivers/gpu/drm/amd/amdgpu/gmc_v8_0.c
+@@ -1075,7 +1075,6 @@ static int gmc_v8_0_sw_init(void *handle)
+ 	 * Max GPUVM size for cayman and SI is 40 bits.
+ 	 */
+ 	amdgpu_vm_adjust_size(adev, 64, 9);
+-	adev->vm_manager.max_pfn = adev->vm_manager.vm_size << 18;
+ 
+ 	/* Set the internal MC address mask
+ 	 * This is the max address of the GPU's
+diff --git a/drivers/gpu/drm/amd/amdgpu/gmc_v9_0.c b/drivers/gpu/drm/amd/amdgpu/gmc_v9_0.c
+index 3ef4e2c..047e7d7 100644
+--- a/drivers/gpu/drm/amd/amdgpu/gmc_v9_0.c
++++ b/drivers/gpu/drm/amd/amdgpu/gmc_v9_0.c
+@@ -561,7 +561,7 @@ static int gmc_v9_0_sw_init(void *handle)
+ 	case CHIP_RAVEN:
+ 		adev->mc.vram_type = AMDGPU_VRAM_TYPE_UNKNOWN;
+ 		if (adev->rev_id == 0x0 || adev->rev_id == 0x1) {
+-			adev->vm_manager.vm_size = 1U << 18;
++			adev->vm_manager.max_pfn = 1ULL << 36;
+ 			adev->vm_manager.block_size = 9;
+ 			adev->vm_manager.num_level = 3;
+ 			amdgpu_vm_set_fragment_size(adev, 9);
+@@ -579,7 +579,7 @@ static int gmc_v9_0_sw_init(void *handle)
+ 		 * vm size is 256TB (48bit), maximum size of Vega10,
+ 		 * block size 512 (9bit)
+ 		 */
+-		adev->vm_manager.vm_size = 1U << 18;
++		adev->vm_manager.max_pfn = 1ULL << 36;
+ 		adev->vm_manager.block_size = 9;
+ 		adev->vm_manager.num_level = 3;
+ 		amdgpu_vm_set_fragment_size(adev, 9);
+@@ -588,10 +588,9 @@ static int gmc_v9_0_sw_init(void *handle)
+ 		break;
+ 	}
+ 
+-	DRM_INFO("vm size is %llu GB, block size is %u-bit,fragment size is %u-bit\n",
+-			adev->vm_manager.vm_size,
+-			adev->vm_manager.block_size,
+-			adev->vm_manager.fragment_size);
++	DRM_INFO("vm size is %llu GB, block size is %u-bit, fragment size is %u-bit\n",
++		 adev->vm_manager.max_pfn >> 18, adev->vm_manager.block_size,
++		 adev->vm_manager.fragment_size);
+ 
+ 	/* This interrupt is VMC page fault.*/
+ 	r = amdgpu_irq_add_id(adev, AMDGPU_IH_CLIENTID_VMC, 0,
+@@ -602,8 +601,6 @@ static int gmc_v9_0_sw_init(void *handle)
+ 	if (r)
+ 		return r;
+ 
+-	adev->vm_manager.max_pfn = adev->vm_manager.vm_size << 18;
+-
+ 	/* Set the internal MC address mask
+ 	 * This is the max address of the GPU's
+ 	 * internal address space.
+-- 
+2.7.4
+

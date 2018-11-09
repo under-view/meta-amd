@@ -1,0 +1,35 @@
+From 8cc0992fd305944f7bb0841a806f0f125f282709 Mon Sep 17 00:00:00 2001
+From: Chaudhary Amit Kumar <chaudharyamit.kumar@amd.com>
+Date: Thu, 18 Oct 2018 19:00:54 +0530
+Subject: [PATCH 1404/4131] drm/amdgpu: Fix get_cu_info
+
+Change-Id: Icd35c1a5ebc486e262393bca5745f0c6a7dc92e9
+From: Kent Russell <kent.russell@amd.com>
+Signed-off-by: Chaudhary Amit Kumar <chaudharyamit.kumar@amd.com>
+---
+ drivers/gpu/drm/amd/amdgpu/amdgpu_amdkfd.c | 4 +---
+ 1 file changed, 1 insertion(+), 3 deletions(-)
+
+diff --git a/drivers/gpu/drm/amd/amdgpu/amdgpu_amdkfd.c b/drivers/gpu/drm/amd/amdgpu/amdgpu_amdkfd.c
+index 57eef1e..5de1ca1 100755
+--- a/drivers/gpu/drm/amd/amdgpu/amdgpu_amdkfd.c
++++ b/drivers/gpu/drm/amd/amdgpu/amdgpu_amdkfd.c
+@@ -408,14 +408,12 @@ uint32_t get_max_engine_clock_in_mhz(struct kgd_dev *kgd)
+ void get_cu_info(struct kgd_dev *kgd, struct kfd_cu_info *cu_info)
+ {
+         struct amdgpu_device *adev = (struct amdgpu_device *)kgd;
+-        struct amdgpu_cu_info acu_info;
++	struct amdgpu_cu_info acu_info = adev->gfx.cu_info;
+ 
+         memset(cu_info, 0, sizeof(*cu_info));
+         if (sizeof(cu_info->cu_bitmap) != sizeof(acu_info.bitmap))
+                 return;
+ 
+-        memset(&acu_info, 0, sizeof(acu_info));
+-
+         cu_info->cu_active_number = acu_info.number;
+         cu_info->cu_ao_mask = acu_info.ao_cu_mask;
+         memcpy(&cu_info->cu_bitmap[0], &acu_info.bitmap[0], sizeof(acu_info.bitmap));
+-- 
+2.7.4
+

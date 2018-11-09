@@ -1,0 +1,35 @@
+From 763eb549e19378cd6dd0f8fa08cc772fa320b021 Mon Sep 17 00:00:00 2001
+From: Vitaly Prosyak <vitaly.prosyak@amd.com>
+Date: Wed, 29 Nov 2017 12:54:53 -0600
+Subject: [PATCH 3000/4131] drm/amd/display: Define BLNDGAM_CONFIG_STATUS
+
+Signed-off-by: Vitaly Prosyak <vitaly.prosyak@amd.com>
+Reviewed-by: Tony Cheng <Tony.Cheng@amd.com>
+Acked-by: Harry Wentland <harry.wentland@amd.com>
+---
+ drivers/gpu/drm/amd/display/dc/dcn10/dcn10_dpp.h | 2 ++
+ 1 file changed, 2 insertions(+)
+
+diff --git a/drivers/gpu/drm/amd/display/dc/dcn10/dcn10_dpp.h b/drivers/gpu/drm/amd/display/dc/dcn10/dcn10_dpp.h
+index b6d5260..a093ae5 100644
+--- a/drivers/gpu/drm/amd/display/dc/dcn10/dcn10_dpp.h
++++ b/drivers/gpu/drm/amd/display/dc/dcn10/dcn10_dpp.h
+@@ -730,6 +730,7 @@
+ 	type CM_BLNDGAM_RAMA_EXP_REGION33_NUM_SEGMENTS; \
+ 	type CM_BLNDGAM_LUT_WRITE_EN_MASK; \
+ 	type CM_BLNDGAM_LUT_WRITE_SEL; \
++	type CM_BLNDGAM_CONFIG_STATUS; \
+ 	type CM_BLNDGAM_LUT_INDEX; \
+ 	type BLNDGAM_MEM_PWR_FORCE; \
+ 	type CM_3DLUT_MODE; \
+@@ -905,6 +906,7 @@
+ 	type CM_SHAPER_RAMA_EXP_REGION33_LUT_OFFSET; \
+ 	type CM_SHAPER_RAMA_EXP_REGION33_NUM_SEGMENTS; \
+ 	type CM_SHAPER_LUT_WRITE_EN_MASK; \
++	type CM_SHAPER_CONFIG_STATUS; \
+ 	type CM_SHAPER_LUT_WRITE_SEL; \
+ 	type CM_SHAPER_LUT_INDEX; \
+ 	type CM_SHAPER_LUT_DATA; \
+-- 
+2.7.4
+

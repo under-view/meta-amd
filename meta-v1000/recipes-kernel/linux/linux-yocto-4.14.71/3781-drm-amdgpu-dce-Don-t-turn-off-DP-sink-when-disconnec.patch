@@ -1,0 +1,42 @@
+From f9552a577c91f1424cb54eb53fcccea0d4ca9fec Mon Sep 17 00:00:00 2001
+From: =?UTF-8?q?Michel=20D=C3=A4nzer?= <michel.daenzer@amd.com>
+Date: Fri, 9 Mar 2018 18:26:18 +0100
+Subject: [PATCH 3781/4131] drm/amdgpu/dce: Don't turn off DP sink when
+ disconnected
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+Turning off the sink in this case causes various issues, because
+userspace expects it to stay on until it turns it off explicitly.
+
+Instead, turn the sink off and back on when a display is connected
+again. This dance seems necessary for link training to work correctly.
+
+Bugzilla: https://bugs.freedesktop.org/105308
+Cc: stable@vger.kernel.org
+Reviewed-by: Alex Deucher <alexander.deucher@amd.com>
+Signed-off-by: Michel Dänzer <michel.daenzer@amd.com>
+---
+ drivers/gpu/drm/amd/amdgpu/amdgpu_connectors.c | 2 ++
+ 1 file changed, 2 insertions(+)
+
+diff --git a/drivers/gpu/drm/amd/amdgpu/amdgpu_connectors.c b/drivers/gpu/drm/amd/amdgpu/amdgpu_connectors.c
+index 6ab01c4..cdf9b0c 100644
+--- a/drivers/gpu/drm/amd/amdgpu/amdgpu_connectors.c
++++ b/drivers/gpu/drm/amd/amdgpu/amdgpu_connectors.c
+@@ -69,9 +69,11 @@ void amdgpu_connector_hotplug(struct drm_connector *connector)
+ 		/* don't do anything if sink is not display port, i.e.,
+ 		 * passive dp->(dvi|hdmi) adaptor
+ 		 */
++
+ 		if (dig_connector->dp_sink_type == CONNECTOR_OBJECT_ID_DISPLAYPORT &&
+ 		    amdgpu_display_hpd_sense(adev, amdgpu_connector->hpd.hpd) &&
+ 		    amdgpu_atombios_dp_needs_link_train(amdgpu_connector)) {
++
+ 			/* Don't start link training before we have the DPCD */
+ 			if (amdgpu_atombios_dp_get_dpcd(amdgpu_connector))
+ 				return;
+-- 
+2.7.4
+

@@ -1,0 +1,28 @@
+From dd4b8b52e45029be9781ae87728edc35378e3f68 Mon Sep 17 00:00:00 2001
+From: Alex Deucher <alexander.deucher@amd.com>
+Date: Fri, 1 Sep 2017 16:37:59 -0400
+Subject: [PATCH 3866/4131] drm/amdgpu/virtual_dce: add vega12 support
+
+Add virtual dce support for vega12.
+
+Signed-off-by: Alex Deucher <alexander.deucher@amd.com>
+Reviewed-by: Feifei Xu <Feifei.Xu@amd.com>
+---
+ drivers/gpu/drm/amd/amdgpu/dce_virtual.c | 1 +
+ 1 file changed, 1 insertion(+)
+
+diff --git a/drivers/gpu/drm/amd/amdgpu/dce_virtual.c b/drivers/gpu/drm/amd/amdgpu/dce_virtual.c
+index 724882a..bdcc7f8 100644
+--- a/drivers/gpu/drm/amd/amdgpu/dce_virtual.c
++++ b/drivers/gpu/drm/amd/amdgpu/dce_virtual.c
+@@ -474,6 +474,7 @@ static int dce_virtual_hw_init(void *handle)
+ 		/* no DCE */
+ 		break;
+ 	case CHIP_VEGA10:
++	case CHIP_VEGA12:
+ 		break;
+ 	default:
+ 		DRM_ERROR("Virtual display unsupported ASIC type: 0x%X\n", adev->asic_type);
+-- 
+2.7.4
+

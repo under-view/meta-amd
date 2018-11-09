@@ -1,0 +1,44 @@
+From b62541eb9518498ef45550ec1d2d5e668d22aac6 Mon Sep 17 00:00:00 2001
+From: Monk Liu <Monk.Liu@amd.com>
+Date: Mon, 23 Oct 2017 12:25:24 +0800
+Subject: [PATCH 2053/4131] drm/amdgpu:pass ctx->guilty address to entity init
+
+this way the real interested guilty is connected to entity->guilty
+pointer, and we can use entity->pointer later in gpu recovery procedure
+
+Change-Id: I09b392ebfc59254795e4fbd5816abd3d94a95853
+Signed-off-by: Monk Liu <Monk.Liu@amd.com>
+Reviewed-by: Chunming Zhou <David1.Zhou@amd.com>
+---
+ drivers/gpu/drm/amd/amdgpu/amdgpu.h     | 1 +
+ drivers/gpu/drm/amd/amdgpu/amdgpu_ctx.c | 2 +-
+ 2 files changed, 2 insertions(+), 1 deletion(-)
+
+diff --git a/drivers/gpu/drm/amd/amdgpu/amdgpu.h b/drivers/gpu/drm/amd/amdgpu/amdgpu.h
+index 65860f7..96c1e3f 100755
+--- a/drivers/gpu/drm/amd/amdgpu/amdgpu.h
++++ b/drivers/gpu/drm/amd/amdgpu/amdgpu.h
+@@ -764,6 +764,7 @@ struct amdgpu_ctx {
+ 	enum amd_sched_priority init_priority;
+ 	enum amd_sched_priority override_priority;
+ 	struct mutex            lock;
++	atomic_t	guilty;
+ };
+ 
+ struct amdgpu_ctx_mgr {
+diff --git a/drivers/gpu/drm/amd/amdgpu/amdgpu_ctx.c b/drivers/gpu/drm/amd/amdgpu/amdgpu_ctx.c
+index 9dc1cea..04f7b4b 100644
+--- a/drivers/gpu/drm/amd/amdgpu/amdgpu_ctx.c
++++ b/drivers/gpu/drm/amd/amdgpu/amdgpu_ctx.c
+@@ -92,7 +92,7 @@ static int amdgpu_ctx_init(struct amdgpu_device *adev,
+ 			continue;
+ 
+ 		r = amd_sched_entity_init(&ring->sched, &ctx->rings[i].entity,
+-					  rq, amdgpu_sched_jobs, NULL);
++					  rq, amdgpu_sched_jobs, &ctx->guilty);
+ 		if (r)
+ 			goto failed;
+ 	}
+-- 
+2.7.4
+

@@ -1,0 +1,45 @@
+From 737bca06a27ad7963ac1f020537361fac4785b54 Mon Sep 17 00:00:00 2001
+From: =?UTF-8?q?Christian=20K=C3=B6nig?= <christian.koenig@amd.com>
+Date: Wed, 12 Apr 2017 14:41:43 +0200
+Subject: [PATCH 2233/4131] drm/ttm: use an operation ctx for
+ ttm_bo_init_reserved
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+Instead of specifying if sleeping should be interruptible.
+
+Signed-off-by: Christian König <christian.koenig@amd.com>
+Reviewed-by: Michel Dänzer <michel.daenzer@amd.com>
+Reviewed-by: Chunming Zhou <david1.zhou@amd.com>
+Tested-by: Dieter Nützel <Dieter@nuetzel-hh.de>
+Tested-by: Michel Dänzer <michel.daenzer@amd.com>
+Acked-by: Felix Kuehling <Felix.Kuehling@amd.com>
+---
+ drivers/gpu/drm/amd/amdgpu/amdgpu_object.c | 3 ++-
+ 1 file changed, 2 insertions(+), 1 deletion(-)
+
+diff --git a/drivers/gpu/drm/amd/amdgpu/amdgpu_object.c b/drivers/gpu/drm/amd/amdgpu/amdgpu_object.c
+index fd5e911..1c0711b 100755
+--- a/drivers/gpu/drm/amd/amdgpu/amdgpu_object.c
++++ b/drivers/gpu/drm/amd/amdgpu/amdgpu_object.c
+@@ -353,6 +353,7 @@ static int amdgpu_bo_do_create(struct amdgpu_device *adev,
+ 			       uint64_t init_value,
+ 			       struct amdgpu_bo **bo_ptr)
+ {
++	struct ttm_operation_ctx ctx = { !kernel, false };
+ 	struct amdgpu_bo *bo;
+ 	enum ttm_bo_type type;
+ 	unsigned long page_align;
+@@ -433,7 +434,7 @@ static int amdgpu_bo_do_create(struct amdgpu_device *adev,
+ 	initial_bytes_moved = atomic64_read(&adev->num_bytes_moved);
+ 	/* Kernel allocation are uninterruptible */
+ 	r = ttm_bo_init_reserved(&adev->mman.bdev, &bo->tbo, size, type,
+-				 &bo->placement, page_align, !kernel, NULL,
++				 &bo->placement, page_align, &ctx, NULL,
+ 				 acc_size, sg, resv, &amdgpu_ttm_bo_destroy);
+ 	if (unlikely(r != 0))
+ 		return r;
+-- 
+2.7.4
+

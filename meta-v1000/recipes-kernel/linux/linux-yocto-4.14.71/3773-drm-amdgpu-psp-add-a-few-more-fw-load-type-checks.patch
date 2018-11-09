@@ -1,0 +1,55 @@
+From e067ce42b1bbf9f37230b8b6e41e31994c353219 Mon Sep 17 00:00:00 2001
+From: Alex Deucher <alexander.deucher@amd.com>
+Date: Thu, 8 Mar 2018 15:47:04 -0500
+Subject: [PATCH 3773/4131] drm/amdgpu/psp: add a few more fw load type checks
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+We already checked and returned early in most of the IP
+functions, fill in the rest as well.
+
+Reviewed-by: Rex Zhu <rezhu@amd.com>
+Acked-by: Christian König <christian.koenig@amd.com>
+Signed-off-by: Alex Deucher <alexander.deucher@amd.com>
+---
+ drivers/gpu/drm/amd/amdgpu/amdgpu_psp.c | 9 +++++++++
+ 1 file changed, 9 insertions(+)
+
+diff --git a/drivers/gpu/drm/amd/amdgpu/amdgpu_psp.c b/drivers/gpu/drm/amd/amdgpu/amdgpu_psp.c
+index d9e395c..298ce3d 100644
+--- a/drivers/gpu/drm/amd/amdgpu/amdgpu_psp.c
++++ b/drivers/gpu/drm/amd/amdgpu/amdgpu_psp.c
+@@ -62,6 +62,9 @@ static int psp_sw_init(void *handle)
+ 
+ 	psp->adev = adev;
+ 
++	if (adev->firmware.load_type != AMDGPU_FW_LOAD_PSP)
++		return 0;
++
+ 	ret = psp_init_microcode(psp);
+ 	if (ret) {
+ 		DRM_ERROR("Failed to load psp firmware!\n");
+@@ -75,6 +78,9 @@ static int psp_sw_fini(void *handle)
+ {
+ 	struct amdgpu_device *adev = (struct amdgpu_device *)handle;
+ 
++	if (adev->firmware.load_type != AMDGPU_FW_LOAD_PSP)
++		return 0;
++
+ 	release_firmware(adev->psp.sos_fw);
+ 	adev->psp.sos_fw = NULL;
+ 	release_firmware(adev->psp.asd_fw);
+@@ -458,6 +464,9 @@ static int psp_suspend(void *handle)
+ 	struct amdgpu_device *adev = (struct amdgpu_device *)handle;
+ 	struct psp_context *psp = &adev->psp;
+ 
++	if (adev->firmware.load_type != AMDGPU_FW_LOAD_PSP)
++		return 0;
++
+ 	ret = psp_ring_stop(psp, PSP_RING_TYPE__KM);
+ 	if (ret) {
+ 		DRM_ERROR("PSP ring stop failed\n");
+-- 
+2.7.4
+

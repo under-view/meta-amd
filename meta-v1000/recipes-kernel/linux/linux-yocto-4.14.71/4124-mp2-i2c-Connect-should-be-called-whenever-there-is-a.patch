@@ -1,0 +1,75 @@
+From 299c3f820368486de625d531aa6303d126830e89 Mon Sep 17 00:00:00 2001
+From: Sudheesh Mavila <sudheesh.mavila@amd.com>
+Date: Mon, 20 Aug 2018 00:36:06 +0530
+Subject: [PATCH 4124/4131] mp2-i2c Connect should be called whenever there is
+ a change in device id Without this fix, switching between i2c0 and i2c1 fails
+ after sometime.
+
+Signed-off-by: Sudheesh Mavila <sudheesh.mavila@amd.com>
+---
+ drivers/i2c/busses/i2c-amd-platdrv.c | 24 +++++++++++++++---------
+ 1 file changed, 15 insertions(+), 9 deletions(-)
+
+diff --git a/drivers/i2c/busses/i2c-amd-platdrv.c b/drivers/i2c/busses/i2c-amd-platdrv.c
+index 0868778..38358f8 100644
+--- a/drivers/i2c/busses/i2c-amd-platdrv.c
++++ b/drivers/i2c/busses/i2c-amd-platdrv.c
+@@ -72,6 +72,7 @@ struct amd_i2c_dev {
+ };
+ 
+ struct amd_i2c_dev *i2c_dev_table[i2c_bus_max];
++struct amd_i2c_dev *port = 0;
+ 
+ static int i2c_amd_read_completion(struct i2c_event event, u8 bus_id)
+ {
+@@ -154,18 +155,23 @@ static int i2c_amd_pci_configure(struct amd_i2c_dev *i2c_dev, int slaveaddr)
+ {
+ 	struct amd_i2c_common *i2c_common = &i2c_dev->i2c_common;
+ 	int ret;
++	int timeout;
+ 
+ 	amd_i2c_register_cb(i2c_common->pdev, &data_handler, i2c_dev->bus_id);
+ 	i2c_common->connect_cfg.bus_id = i2c_dev->bus_id;
+ 	i2c_common->connect_cfg.dev_addr = slaveaddr;
+ 	i2c_common->connect_cfg.i2c_speed = speed400k;
++	
++	if ((i2c_dev->is_configured == 0) || (port != i2c_dev)) {
+ 
+-	ret = amd_mp2_connect(i2c_common->pdev, i2c_common->connect_cfg);
+-	if (ret)
++		ret = amd_mp2_connect(i2c_common->pdev, i2c_common->connect_cfg);
++		if (ret)
+ 		return -1;
+-
+-	mdelay(100);
+-
++		timeout = wait_for_completion_timeout(&i2c_dev->msg_complete, 20);
++		i2c_dev->is_configured =  1;
++		port = i2c_dev;
++	}	
++	
+ 	i2c_common->write_cfg.bus_id = i2c_dev->bus_id;
+ 	i2c_common->write_cfg.dev_addr = slaveaddr;
+ 	i2c_common->write_cfg.i2c_speed = speed400k;
+@@ -186,14 +192,14 @@ static int i2c_amd_xfer(struct i2c_adapter *adap, struct i2c_msg *msgs, int num)
+ 	unsigned long timeout;
+ 	struct i2c_msg *pmsg;
+ 	unsigned char *buf;
++	int ret;
+ 
+ 	dma_addr_t phys;
+ 
+ 	reinit_completion(&dev->msg_complete);
+-	if (dev->is_configured == 0) {
+-		i2c_amd_pci_configure(dev, msgs->addr);
+-		timeout = wait_for_completion_timeout(&dev->msg_complete, 50);
+-		dev->is_configured = 1;
++	ret = i2c_amd_pci_configure(dev, msgs->addr);
++	if(ret) {
++		return -EIO;
+ 	}
+ 
+ 	for (i = 0; i < num; i++) {
+-- 
+2.7.4
+

@@ -1,0 +1,130 @@
+From 7363ed0c57b235e95e07d7c9bff6eeeee671203a Mon Sep 17 00:00:00 2001
+From: Sudheesh Mavila <sudheesh.mavila@amd.com>
+Date: Sun, 19 Aug 2018 10:45:25 +0530
+Subject: [PATCH 4121/4131] mp2-i2c error handling in read/write operation
+
+Signed-off-by: Sudheesh Mavila <sudheesh.mavila@amd.com>
+---
+ drivers/i2c/busses/i2c-amd-pci-mp2.c | 13 +++++++++++++
+ drivers/i2c/busses/i2c-amd-platdrv.c | 37 ++++++++++++++++++++++++++++++++----
+ 2 files changed, 46 insertions(+), 4 deletions(-)
+
+diff --git a/drivers/i2c/busses/i2c-amd-pci-mp2.c b/drivers/i2c/busses/i2c-amd-pci-mp2.c
+index 15d671a..1804141 100644
+--- a/drivers/i2c/busses/i2c-amd-pci-mp2.c
++++ b/drivers/i2c/busses/i2c-amd-pci-mp2.c
+@@ -270,6 +270,19 @@ static void amd_mp2_pci_work(struct work_struct *work)
+ 			privdata->ops->connect_complete(privdata->eventval,
+ 					privdata->i2c_dev_ctx);
+ 	} else {
++		if (sts == i2c_busenable_failed) {
++			if (privdata->ops->connect_complete)
++			privdata->ops->connect_complete(privdata->eventval,
++					privdata->i2c_dev_ctx);
++		}else if (sts == i2c_writefail_event) {
++			if (privdata->ops->write_complete)
++				privdata->ops->write_complete(privdata->eventval,
++					privdata->i2c_dev_ctx);
++		}else if (sts == i2c_readfail_event) {
++			if (privdata->ops->read_complete) 
++			privdata->ops->read_complete(privdata->eventval,
++						privdata->i2c_dev_ctx);
++		} else
+ 		dev_err(ndev_dev(privdata), "ERROR!!nothing to be handled !\n");
+ 	}
+ }
+diff --git a/drivers/i2c/busses/i2c-amd-platdrv.c b/drivers/i2c/busses/i2c-amd-platdrv.c
+index 090f087..2f3d2ad 100644
+--- a/drivers/i2c/busses/i2c-amd-platdrv.c
++++ b/drivers/i2c/busses/i2c-amd-platdrv.c
+@@ -67,6 +67,7 @@ struct amd_i2c_dev {
+ 	struct i2c_msg *msg_buf;
+ 	bool is_configured;
+ 	u8 bus_id;
++	u16 err;
+ 
+ };
+ 
+@@ -102,7 +103,10 @@ static int i2c_amd_read_completion(struct i2c_event event, void *dev_ctx)
+ 					 DRIVER_NAME, __func__, ((unsigned int *)
+ 					commond->read_cfg.buf)[i]);
+ 		}
+-
++		i2c_dev->err = i2c_readcomplete_event;
++		complete(&i2c_dev->msg_complete);
++	} else {
++		i2c_dev->err = i2c_readfail_event;
+ 		complete(&i2c_dev->msg_complete);
+ 	}
+ 
+@@ -113,8 +117,13 @@ static int i2c_amd_write_completion(struct i2c_event event, void *dev_ctx)
+ {
+ 	struct amd_i2c_dev *i2c_dev = (struct amd_i2c_dev *)dev_ctx;
+ 
+-	if (event.base.r.status == i2c_writecomplete_event)
++	if (event.base.r.status == i2c_writecomplete_event) {
++		i2c_dev->err = i2c_writecomplete_event;
++		complete(&i2c_dev->msg_complete);
++	} else {
++		i2c_dev->err = i2c_writefail_event;
+ 		complete(&i2c_dev->msg_complete);
++	}
+ 
+ 	return 0;
+ }
+@@ -123,9 +132,13 @@ static int i2c_amd_connect_completion(struct i2c_event event, void *dev_ctx)
+ {
+ 	struct amd_i2c_dev *i2c_dev = (struct amd_i2c_dev *)dev_ctx;
+ 
+-	if (event.base.r.status == i2c_busenable_complete)
++	if (event.base.r.status == i2c_busenable_complete) {
++		i2c_dev->err = i2c_busenable_complete;
+ 		complete(&i2c_dev->msg_complete);
+-
++	} else {
++		i2c_dev->err = i2c_busenable_failed;
++		complete(&i2c_dev->msg_complete);
++	}
+ 	return 0;
+ }
+ 
+@@ -211,6 +224,13 @@ static int i2c_amd_xfer(struct i2c_adapter *adap, struct i2c_msg *msgs, int num)
+ 			else
+ 				dma_free_coherent(&i2c_common->pdev->dev,
+ 						  pmsg->len, buf, phys);
++						  
++			if((timeout == 0)||(dev->err != i2c_readcomplete_event)) {
++				if(dev->err != i2c_readcomplete_event) 
++					return -EIO;
++				else
++					return -ETIMEDOUT;
++			}
+ 		} else {
+ 			i2c_common->write_cfg.buf = (unsigned int *)pmsg->buf;
+ 			i2c_common->write_cfg.length = pmsg->len;
+@@ -219,6 +239,12 @@ static int i2c_amd_xfer(struct i2c_adapter *adap, struct i2c_msg *msgs, int num)
+ 
+ 			timeout = wait_for_completion_timeout
+ 						(&dev->msg_complete, 50);
++			if((timeout == 0)||(dev->err != i2c_writecomplete_event)) {
++				if(dev->err != i2c_writecomplete_event) 
++					return -EIO;
++				else 
++					return -ETIMEDOUT;
++			}
+ 		}
+ 	}
+ 	return num;
+@@ -281,6 +307,9 @@ static int i2c_amd_probe(struct platform_device *pdev)
+ 		pr_err("%s Could not find pdev in i2c\n", __func__);
+ 		return -EINVAL;
+ 	}
++
++	i2c_dev->err = i2C_bus_notinitialized;
++
+ 	platform_set_drvdata(pdev, i2c_dev);
+ 
+ 	i2c_set_adapdata(&i2c_dev->adapter, i2c_dev);
+-- 
+2.7.4
+

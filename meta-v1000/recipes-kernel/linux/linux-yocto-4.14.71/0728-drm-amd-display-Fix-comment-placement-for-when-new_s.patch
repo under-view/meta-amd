@@ -1,0 +1,49 @@
+From f7c6093e0473cf6f80456e61a5de39cfe62c34bd Mon Sep 17 00:00:00 2001
+From: Bhawanpreet Lakha <Bhawanpreet.Lakha@amd.com>
+Date: Mon, 31 Jul 2017 12:09:02 -0400
+Subject: [PATCH 0728/4131] drm/amd/display: Fix comment placement for when
+ new_stream is null
+
+Signed-off-by: Bhawanpreet Lakha <Bhawanpreet.Lakha@amd.com>
+Reviewed-by: Harry Wentland <Harry.Wentland@amd.com>
+Signed-off-by: Alex Deucher <alexander.deucher@amd.com>
+---
+ drivers/gpu/drm/amd/display/amdgpu_dm/amdgpu_dm.c | 15 +++++++--------
+ 1 file changed, 7 insertions(+), 8 deletions(-)
+
+diff --git a/drivers/gpu/drm/amd/display/amdgpu_dm/amdgpu_dm.c b/drivers/gpu/drm/amd/display/amdgpu_dm/amdgpu_dm.c
+index 2c948d9..d81c0a0 100644
+--- a/drivers/gpu/drm/amd/display/amdgpu_dm/amdgpu_dm.c
++++ b/drivers/gpu/drm/amd/display/amdgpu_dm/amdgpu_dm.c
+@@ -4761,6 +4761,13 @@ int amdgpu_dm_atomic_check(struct drm_device *dev,
+ 								    &crtc_state->mode,
+ 								    dm_conn_state);
+ 
++				/*
++				 * we can have no stream on ACTION_SET if a display
++				 * was disconnected during S3, in this case it not and
++				 * error, the OS will be updated after detection, and
++				 * do the right thing on next atomic commit
++				 */
++
+ 				if (!new_stream) {
+ 					DRM_DEBUG_KMS("%s: Failed to create new stream for crtc %d\n",
+ 							__func__, acrtc->base.base.id);
+@@ -4773,14 +4780,6 @@ int amdgpu_dm_atomic_check(struct drm_device *dev,
+ 			if (modeset_required(crtc_state, new_stream,
+ 					     old_acrtc_state->stream)) {
+ 
+-
+-			/*
+-			 * we can have no stream on ACTION_SET if a display
+-			 * was disconnected during S3, in this case it not and
+-			 * error, the OS will be updated after detection, and
+-			 * do the right thing on next atomic commit
+-			 */
+-
+ 				if (new_acrtc_state->stream)
+ 					dc_stream_release(new_acrtc_state->stream);
+ 
+-- 
+2.7.4
+

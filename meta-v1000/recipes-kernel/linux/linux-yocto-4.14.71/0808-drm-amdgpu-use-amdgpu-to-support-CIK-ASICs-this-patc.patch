@@ -1,0 +1,90 @@
+From 01cd51f1283253c43b453f89f2ab1ff8cde357fc Mon Sep 17 00:00:00 2001
+From: Evan Quan <evan.quan@amd.com>
+Date: Mon, 19 Jun 2017 16:45:33 +0800
+Subject: [PATCH 0808/4131] drm/amdgpu: use amdgpu to support CIK ASICs - this
+ patch is needed only by hybrid staging - we may update packing script to add
+ cik_support system config in future. Then this commit will be not needed.
+
+Change-Id: Iba5a69fe1db01a290d8b27dff7116f9e534a74ae
+Signed-off-by: Evan Quan <evan.quan@amd.com>
+Reviewed-by: Junwei Zhang <Jerry.Zhang@amd.com>
+---
+ drivers/gpu/drm/amd/amdgpu/Kconfig      | 8 ++++----
+ drivers/gpu/drm/amd/amdgpu/amdgpu_drv.c | 9 ++++-----
+ drivers/gpu/drm/amd/amdgpu/amdgpu_kms.c | 7 ++-----
+ 3 files changed, 10 insertions(+), 14 deletions(-)
+
+diff --git a/drivers/gpu/drm/amd/amdgpu/Kconfig b/drivers/gpu/drm/amd/amdgpu/Kconfig
+index e8af1f5..468a19b 100644
+--- a/drivers/gpu/drm/amd/amdgpu/Kconfig
++++ b/drivers/gpu/drm/amd/amdgpu/Kconfig
+@@ -17,11 +17,11 @@ config DRM_AMDGPU_CIK
+ 	help
+ 	  Choose this option if you want to enable support for CIK asics.
+ 
+-	  CIK is already supported in radeon. Support for CIK in amdgpu
+-	  will be disabled by default and is still provided by radeon.
+-	  Use module options to override this:
++	  CIK is already supported in radeon. If you enable this option,
++	  support for CIK will be provided by amdgpu and disabled in
++	  radeon by default. Use module options to override this:
+ 
+-	  radeon.cik_support=0 amdgpu.cik_support=1
++	  radeon.cik_support=1 amdgpu.cik_support=0
+ 
+ config DRM_AMDGPU_USERPTR
+ 	bool "Always enable userptr write support"
+diff --git a/drivers/gpu/drm/amd/amdgpu/amdgpu_drv.c b/drivers/gpu/drm/amd/amdgpu/amdgpu_drv.c
+index 005aa07..0bf678f 100644
+--- a/drivers/gpu/drm/amd/amdgpu/amdgpu_drv.c
++++ b/drivers/gpu/drm/amd/amdgpu/amdgpu_drv.c
+@@ -274,17 +274,16 @@ module_param_named(lbpw, amdgpu_lbpw, int, 0444);
+ 
+ #ifdef CONFIG_DRM_AMDGPU_SI
+ 
+-int amdgpu_si_support = 0;
+-MODULE_PARM_DESC(si_support, "SI support (1 = enabled, 0 = disabled (default))");
++int amdgpu_si_support = 1;
++MODULE_PARM_DESC(si_support, "SI support (1 = enabled (default), 0 = disabled)");
+ 
+ module_param_named(si_support, amdgpu_si_support, int, 0444);
+ #endif
+ 
+ #ifdef CONFIG_DRM_AMDGPU_CIK
+ 
+-int amdgpu_cik_support = 0;
+-MODULE_PARM_DESC(cik_support, "CIK support (1 = enabled, 0 = disabled (default))");
+-
++int amdgpu_cik_support = 1;
++MODULE_PARM_DESC(cik_support, "CIK support (1 = enabled (default), 0 = disabled)");
+ module_param_named(cik_support, amdgpu_cik_support, int, 0444);
+ #endif
+ 
+diff --git a/drivers/gpu/drm/amd/amdgpu/amdgpu_kms.c b/drivers/gpu/drm/amd/amdgpu/amdgpu_kms.c
+index 2fe14b2..3d08c6f 100644
+--- a/drivers/gpu/drm/amd/amdgpu/amdgpu_kms.c
++++ b/drivers/gpu/drm/amd/amdgpu/amdgpu_kms.c
+@@ -98,7 +98,7 @@ int amdgpu_driver_load_kms(struct drm_device *dev, unsigned long flags)
+ 			dev_info(dev->dev,
+ 				 "SI support provided by radeon.\n");
+ 			dev_info(dev->dev,
+-				 "Use radeon.si_support=0 amdgpu.si_support=1 to override.\n"
++		"Use radeon.si_support=0 amdgpu.si_support=1 to override.\n"
+ 				);
+ 			return -ENODEV;
+ 		}
+@@ -113,10 +113,7 @@ int amdgpu_driver_load_kms(struct drm_device *dev, unsigned long flags)
+ 		case CHIP_KABINI:
+ 		case CHIP_MULLINS:
+ 			dev_info(dev->dev,
+-				 "CIK support provided by radeon.\n");
+-			dev_info(dev->dev,
+-				 "Use radeon.cik_support=0 amdgpu.cik_support=1 to override.\n"
+-				);
++				 "CIK support disabled by module param\n");
+ 			return -ENODEV;
+ 		}
+ 	}
+-- 
+2.7.4
+

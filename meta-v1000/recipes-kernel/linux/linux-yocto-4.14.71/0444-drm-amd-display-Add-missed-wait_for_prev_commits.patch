@@ -1,0 +1,27 @@
+From 73fc88c4a55f653c75ea6fc4322a47e63d6ba4d8 Mon Sep 17 00:00:00 2001
+From: Andrey Grodzovsky <Andrey.Grodzovsky@amd.com>
+Date: Wed, 17 May 2017 18:05:36 -0400
+Subject: [PATCH 0444/4131] drm/amd/display: Add missed wait_for_prev_commits.
+
+Signed-off-by: Andrey Grodzovsky <Andrey.Grodzovsky@amd.com>
+Reviewed-by: Harry Wentland <Harry.Wentland@amd.com>
+Signed-off-by: Alex Deucher <alexander.deucher@amd.com>
+---
+ drivers/gpu/drm/amd/display/amdgpu_dm/amdgpu_dm_types.c | 1 +
+ 1 file changed, 1 insertion(+)
+
+diff --git a/drivers/gpu/drm/amd/display/amdgpu_dm/amdgpu_dm_types.c b/drivers/gpu/drm/amd/display/amdgpu_dm/amdgpu_dm_types.c
+index 03f05a7..c1d0a31 100644
+--- a/drivers/gpu/drm/amd/display/amdgpu_dm/amdgpu_dm_types.c
++++ b/drivers/gpu/drm/amd/display/amdgpu_dm/amdgpu_dm_types.c
+@@ -3289,6 +3289,7 @@ int amdgpu_dm_atomic_check(struct drm_device *dev,
+ 							surface);
+ 
+ 				need_to_validate = true;
++				wait_for_prev_commits = true;
+ 			}
+ 		}
+ 	}
+-- 
+2.7.4
+

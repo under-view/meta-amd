@@ -1,0 +1,57 @@
+From 658058954abccdcbfd432511edf80911e913098e Mon Sep 17 00:00:00 2001
+From: Chaudhary Amit Kumar <chaudharyamit.kumar@amd.com>
+Date: Mon, 22 Oct 2018 18:15:31 +0530
+Subject: [PATCH 4131/4131] RTQA3 Backporting comilation fix for drm change
+
+---
+ drivers/gpu/drm/drm_syncobj.c | 17 +++++++++++++++++
+ include/drm/drm_syncobj.h     |  5 +++++
+ 2 files changed, 22 insertions(+)
+
+diff --git a/drivers/gpu/drm/drm_syncobj.c b/drivers/gpu/drm/drm_syncobj.c
+index 5cd8269..e02eb4b 100644
+--- a/drivers/gpu/drm/drm_syncobj.c
++++ b/drivers/gpu/drm/drm_syncobj.c
+@@ -369,6 +369,23 @@ static const struct file_operations drm_syncobj_file_fops = {
+ 	.release = drm_syncobj_file_release,
+ };
+ 
++static int drm_syncobj_alloc_file(struct drm_syncobj *syncobj)
++{
++	struct file *file = anon_inode_getfile("syncobj_file",
++					       &drm_syncobj_file_fops,
++					       syncobj, 0);
++	if (IS_ERR(file))
++		return PTR_ERR(file);
++
++	drm_syncobj_get(syncobj);
++	if (cmpxchg(&syncobj->file, NULL, file)) {
++		/* lost the race */
++		fput(file);
++	}
++
++	return 0;
++}
++
+ int drm_syncobj_get_fd(struct drm_syncobj *syncobj, int *p_fd)
+ {
+         int ret;
+diff --git a/include/drm/drm_syncobj.h b/include/drm/drm_syncobj.h
+index 30c452f..ab643fe 100644
+--- a/include/drm/drm_syncobj.h
++++ b/include/drm/drm_syncobj.h
+@@ -60,6 +60,11 @@ struct drm_syncobj {
+ 	 * locks cb_list and write-locks fence.
+ 	 */
+ 	spinlock_t lock;
++		/**
++	 * @file:
++	 * a file backing for this syncobj.
++	 */
++	struct file *file;
+ };
+ 
+ typedef void (*drm_syncobj_func_t)(struct drm_syncobj *syncobj,
+-- 
+2.7.4
+

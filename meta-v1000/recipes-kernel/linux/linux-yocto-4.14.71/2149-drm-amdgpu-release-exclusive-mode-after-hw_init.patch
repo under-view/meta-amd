@@ -1,0 +1,44 @@
+From 5c2b5af5ae7a9e75df18f622a36d615a3dda4d11 Mon Sep 17 00:00:00 2001
+From: pding <Pixel.Ding@amd.com>
+Date: Mon, 6 Nov 2017 11:21:55 +0800
+Subject: [PATCH 2149/4131] drm/amdgpu: release exclusive mode after hw_init
+
+Signed-off-by: pding <Pixel.Ding@amd.com>
+Reviewed-by: Felix Kuehling <Felix.Kuehling@amd.com>
+---
+ drivers/gpu/drm/amd/amdgpu/amdgpu_device.c | 4 ++++
+ drivers/gpu/drm/amd/amdgpu/amdgpu_kms.c    | 3 ---
+ 2 files changed, 4 insertions(+), 3 deletions(-)
+
+diff --git a/drivers/gpu/drm/amd/amdgpu/amdgpu_device.c b/drivers/gpu/drm/amd/amdgpu/amdgpu_device.c
+index 85adb1e..03ebd93 100644
+--- a/drivers/gpu/drm/amd/amdgpu/amdgpu_device.c
++++ b/drivers/gpu/drm/amd/amdgpu/amdgpu_device.c
+@@ -1766,6 +1766,10 @@ static int amdgpu_init(struct amdgpu_device *adev)
+ 	}
+ 
+ 	amdgpu_amdkfd_device_init(adev);
++
++	if (amdgpu_sriov_vf(adev))
++		amdgpu_virt_release_full_gpu(adev, true);
++
+ 	return 0;
+ }
+ 
+diff --git a/drivers/gpu/drm/amd/amdgpu/amdgpu_kms.c b/drivers/gpu/drm/amd/amdgpu/amdgpu_kms.c
+index 3a0dd2c..27e7eea 100644
+--- a/drivers/gpu/drm/amd/amdgpu/amdgpu_kms.c
++++ b/drivers/gpu/drm/amd/amdgpu/amdgpu_kms.c
+@@ -189,9 +189,6 @@ int amdgpu_driver_load_kms(struct drm_device *dev, unsigned long flags)
+ 		pm_runtime_put_autosuspend(dev->dev);
+ 	}
+ 
+-	if (amdgpu_sriov_vf(adev))
+-		amdgpu_virt_release_full_gpu(adev, true);
+-
+ out:
+ 	if (r) {
+ 		/* balance pm_runtime_get_sync in amdgpu_driver_unload_kms */
+-- 
+2.7.4
+

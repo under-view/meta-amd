@@ -1,0 +1,61 @@
+From db32e9cf03255a2d18f822ef106f6e9799c46ba7 Mon Sep 17 00:00:00 2001
+From: Chunming Zhou <David1.Zhou@amd.com>
+Date: Wed, 25 Nov 2015 18:09:10 +0800
+Subject: [PATCH 3859/4131] drm/amdgpu: return bo itself if userptr is cpu addr
+ of bo V2
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+V2: get original gem handle from gobj
+
+Change-Id: Ie804242c8ef523560d370d4f6cc19d3ef03d94f1
+Signed-off-by: Chunming Zhou <David1.Zhou@amd.com>
+Reviewed-by: Christian König <christian.koenig@amd.com>
+Reviewed-by: Jammy Zhou <Jammy.Zhou@amd.com>
+---
+ drivers/gpu/drm/amd/amdgpu/amdgpu_gem.c | 13 ++-----------
+ 1 file changed, 2 insertions(+), 11 deletions(-)
+
+diff --git a/drivers/gpu/drm/amd/amdgpu/amdgpu_gem.c b/drivers/gpu/drm/amd/amdgpu/amdgpu_gem.c
+index d5a265e..d6403dd 100644
+--- a/drivers/gpu/drm/amd/amdgpu/amdgpu_gem.c
++++ b/drivers/gpu/drm/amd/amdgpu/amdgpu_gem.c
+@@ -321,7 +321,6 @@ int amdgpu_gem_find_bo_by_cpu_mapping_ioctl(struct drm_device *dev, void *data,
+ {
+ 	struct drm_amdgpu_gem_find_bo *args = data;
+ 	struct drm_gem_object *gobj;
+-	struct amdgpu_gem_object *amdgpu_gobj;
+ 	struct amdgpu_bo *bo;
+ 	struct ttm_buffer_object *tbo;
+ 	struct vm_area_struct *vma;
+@@ -343,16 +342,8 @@ int amdgpu_gem_find_bo_by_cpu_mapping_ioctl(struct drm_device *dev, void *data,
+ 	bo = container_of(tbo, struct amdgpu_bo, tbo);
+ 	amdgpu_bo_ref(bo);
+ 
+-	ww_mutex_lock(&bo->tbo.resv->lock, NULL);
+-	list_for_each_entry(amdgpu_gobj, &bo->gem_objects, list) {
+-		if (amdgpu_gobj->base.dev != filp->minor->dev)
+-			continue;
++	gobj = &bo->gem_base;	
+ 
+-		ww_mutex_unlock(&bo->tbo.resv->lock);
+-		break;
+-	}
+-	gobj = &amdgpu_gobj->base;
+-	
+ 	handle = amdgpu_gem_get_handle_from_object(filp, gobj);
+ 	if (handle == 0) {
+ 		r = drm_gem_handle_create(filp, gobj, &handle);
+@@ -845,7 +836,7 @@ int amdgpu_gem_op_ioctl(struct drm_device *dev, void *data,
+ 		struct drm_amdgpu_gem_create_in info;
+ 		void __user *out = u64_to_user_ptr(args->value);
+ 
+-		info.bo_size = amdgpu_bo_size(robj);
++		info.bo_size = robj->gem_base.size;
+ 		info.alignment = robj->tbo.mem.page_alignment << PAGE_SHIFT;
+ 		info.domains = robj->preferred_domains;
+ 		info.domain_flags = robj->flags;
+-- 
+2.7.4
+

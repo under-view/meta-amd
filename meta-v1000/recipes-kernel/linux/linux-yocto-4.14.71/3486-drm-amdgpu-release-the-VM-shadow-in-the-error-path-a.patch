@@ -1,0 +1,41 @@
+From 39476fe336be3c47699fc1e4603060f3392650ac Mon Sep 17 00:00:00 2001
+From: =?UTF-8?q?Christian=20K=C3=B6nig?= <christian.koenig@amd.com>
+Date: Fri, 2 Feb 2018 21:00:44 +0100
+Subject: [PATCH 3486/4131] drm/amdgpu: release the VM shadow in the error path
+ as well
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+Without it we run into a memory leak.
+
+Signed-off-by: Christian König <christian.koenig@amd.com>
+Reviewed-by: Chunming Zhou <david1.zhou@amd.com>
+Signed-off-by: Alex Deucher <alexander.deucher@amd.com>
+---
+ drivers/gpu/drm/amd/amdgpu/amdgpu_vm.c | 2 ++
+ 1 file changed, 2 insertions(+)
+
+diff --git a/drivers/gpu/drm/amd/amdgpu/amdgpu_vm.c b/drivers/gpu/drm/amd/amdgpu/amdgpu_vm.c
+index 90a5d33..5eb3181 100644
+--- a/drivers/gpu/drm/amd/amdgpu/amdgpu_vm.c
++++ b/drivers/gpu/drm/amd/amdgpu/amdgpu_vm.c
+@@ -411,6 +411,7 @@ static int amdgpu_vm_alloc_levels(struct amdgpu_device *adev,
+ 
+ 			r = amdgpu_vm_clear_bo(adev, vm, pt, level, ats);
+ 			if (r) {
++				amdgpu_bo_unref(&pt->shadow);
+ 				amdgpu_bo_unref(&pt);
+ 				return r;
+ 			}
+@@ -418,6 +419,7 @@ static int amdgpu_vm_alloc_levels(struct amdgpu_device *adev,
+ 			if (vm->use_cpu_for_update) {
+ 				r = amdgpu_bo_kmap(pt, NULL);
+ 				if (r) {
++					amdgpu_bo_unref(&pt->shadow);
+ 					amdgpu_bo_unref(&pt);
+ 					return r;
+ 				}
+-- 
+2.7.4
+

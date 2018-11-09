@@ -1,0 +1,35 @@
+From a492bec4de1de46d5934b49592ebbae3f0f6fc21 Mon Sep 17 00:00:00 2001
+From: Alex Deucher <alexander.deucher@amd.com>
+Date: Tue, 13 Feb 2018 14:33:51 -0500
+Subject: [PATCH 3585/4131] drm/amdgpu/cgs: add refresh rate checking to non-DC
+ display code
+
+Clamp the vblank period to 0 if the refresh rate is larger than
+120 hz for non-DC.  This allows us to remove the refresh rate
+checks from powerplay for mclk switching.
+
+Reviewed-by: Eric Huang <JinhuiEric.Huang@amd.com>
+Signed-off-by: Alex Deucher <alexander.deucher@amd.com>
+---
+ drivers/gpu/drm/amd/amdgpu/amdgpu_cgs.c | 5 +++++
+ 1 file changed, 5 insertions(+)
+
+diff --git a/drivers/gpu/drm/amd/amdgpu/amdgpu_cgs.c b/drivers/gpu/drm/amd/amdgpu/amdgpu_cgs.c
+index 71b4aec..dc3360b 100644
+--- a/drivers/gpu/drm/amd/amdgpu/amdgpu_cgs.c
++++ b/drivers/gpu/drm/amd/amdgpu/amdgpu_cgs.c
+@@ -953,6 +953,11 @@ static int amdgpu_cgs_get_active_displays_info(struct cgs_device *cgs_device,
+ 								(amdgpu_crtc->v_border * 2);
+ 					mode_info->vblank_time_us = vblank_lines * line_time_us;
+ 					mode_info->refresh_rate = drm_mode_vrefresh(&amdgpu_crtc->hw_mode);
++					/* we have issues with mclk switching with refresh rates
++					 * over 120 hz on the non-DC code.
++					 */
++					if (mode_info->refresh_rate > 120)
++						mode_info->vblank_time_us = 0;
+ 					mode_info = NULL;
+ 				}
+ 			}
+-- 
+2.7.4
+

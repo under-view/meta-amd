@@ -1,0 +1,47 @@
+From 18d323f96f4730cabe1e26e1f470f81dc986cee1 Mon Sep 17 00:00:00 2001
+From: =?UTF-8?q?Christian=20K=C3=B6nig?= <christian.koenig@amd.com>
+Date: Fri, 16 Feb 2018 09:52:51 +0100
+Subject: [PATCH 3588/4131] drm/amdgpu: use drm_gem_private_object_init
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+We use our own backing store and don't need the shmem file.
+
+Signed-off-by: Christian König <christian.koenig@amd.com>
+Acked-by: Daniel Vetter <daniel.vetter@ffwll.ch>
+Signed-off-by: Alex Deucher <alexander.deucher@amd.com>
+---
+ drivers/gpu/drm/amd/amdgpu/amdgpu_object.c | 3 ++-
+ drivers/gpu/drm/amd/amdgpu/amdgpu_object.h | 1 +
+ 2 files changed, 3 insertions(+), 1 deletion(-)
+
+diff --git a/drivers/gpu/drm/amd/amdgpu/amdgpu_object.c b/drivers/gpu/drm/amd/amdgpu/amdgpu_object.c
+index 32fab21..d17419b 100755
+--- a/drivers/gpu/drm/amd/amdgpu/amdgpu_object.c
++++ b/drivers/gpu/drm/amd/amdgpu/amdgpu_object.c
+@@ -392,7 +392,8 @@ static int amdgpu_bo_do_create(struct amdgpu_device *adev,
+ 	bo = kzalloc(sizeof(struct amdgpu_bo), GFP_KERNEL);
+ 	if (bo == NULL)
+ 		return -ENOMEM;
+-
++	
++	drm_gem_private_object_init(adev->ddev, &bo->gem_base, size);
+ 	INIT_LIST_HEAD(&bo->shadow_list);
+ 	INIT_LIST_HEAD(&bo->va);
+ 	INIT_LIST_HEAD(&bo->gem_objects);
+diff --git a/drivers/gpu/drm/amd/amdgpu/amdgpu_object.h b/drivers/gpu/drm/amd/amdgpu/amdgpu_object.h
+index d018bf4..f1f031e 100755
+--- a/drivers/gpu/drm/amd/amdgpu/amdgpu_object.h
++++ b/drivers/gpu/drm/amd/amdgpu/amdgpu_object.h
+@@ -84,6 +84,7 @@ struct amdgpu_bo {
+ 	/* list of all virtual address to which this bo is associated to */
+ 	struct list_head		va;
+ 	/* Constant after initialization */
++	struct drm_gem_object           gem_base;
+ 	struct amdgpu_bo		*parent;
+ 	struct amdgpu_bo		*shadow;
+ 
+-- 
+2.7.4
+

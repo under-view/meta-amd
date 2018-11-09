@@ -1,0 +1,30 @@
+From 91fa49b251e28bcddf25fc0d7397f5116582eda0 Mon Sep 17 00:00:00 2001
+From: Bhawanpreet Lakha <Bhawanpreet.Lakha@amd.com>
+Date: Thu, 17 Aug 2017 17:00:47 -0400
+Subject: [PATCH 0848/4131] drm/amd/display: Disable stutter for Raven
+
+Signed-off-by: Bhawanpreet Lakha <Bhawanpreet.Lakha@amd.com>
+Reviewed-by: Tony Cheng <Tony.Cheng@amd.com>
+Acked-by: Harry Wentland <Harry.Wentland@amd.com>
+---
+ drivers/gpu/drm/amd/display/amdgpu_dm/amdgpu_dm.c | 4 ++++
+ 1 file changed, 4 insertions(+)
+
+diff --git a/drivers/gpu/drm/amd/display/amdgpu_dm/amdgpu_dm.c b/drivers/gpu/drm/amd/display/amdgpu_dm/amdgpu_dm.c
+index fe8a240..1ffe709 100644
+--- a/drivers/gpu/drm/amd/display/amdgpu_dm/amdgpu_dm.c
++++ b/drivers/gpu/drm/amd/display/amdgpu_dm/amdgpu_dm.c
+@@ -1506,6 +1506,10 @@ int amdgpu_dm_initialize_drm_device(struct amdgpu_device *adev)
+ 			DRM_ERROR("DM: Failed to initialize IRQ\n");
+ 			goto fail_free_encoder;
+ 		}
++		/*
++		* Temporary disable until pplib/smu interaction is implemented
++		*/
++		dm->dc->debug.disable_stutter = true;
+ 		break;
+ #endif
+ 	default:
+-- 
+2.7.4
+

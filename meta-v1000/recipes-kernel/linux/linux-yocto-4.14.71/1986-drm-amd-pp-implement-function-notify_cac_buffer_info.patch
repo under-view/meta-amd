@@ -1,0 +1,62 @@
+From 75c02d72f6dd20290835f41ffb696aca6ce63128 Mon Sep 17 00:00:00 2001
+From: Rex Zhu <Rex.Zhu@amd.com>
+Date: Fri, 15 Sep 2017 19:39:09 +0800
+Subject: [PATCH 1986/4131] drm/amd/pp: implement function
+ notify_cac_buffer_info on Vega
+
+Change-Id: I85ba442bd31484cf1c3f7bd59d87202ce892bbb5
+Reviewed-by: Alex Deucher <alexander.deucher@amd.com>
+Signed-off-by: Rex Zhu <Rex.Zhu@amd.com>
+---
+ drivers/gpu/drm/amd/powerplay/hwmgr/vega10_hwmgr.c | 28 ++++++++++++++++++++++
+ 1 file changed, 28 insertions(+)
+
+diff --git a/drivers/gpu/drm/amd/powerplay/hwmgr/vega10_hwmgr.c b/drivers/gpu/drm/amd/powerplay/hwmgr/vega10_hwmgr.c
+index 5f2e789..59851d8 100644
+--- a/drivers/gpu/drm/amd/powerplay/hwmgr/vega10_hwmgr.c
++++ b/drivers/gpu/drm/amd/powerplay/hwmgr/vega10_hwmgr.c
+@@ -4997,6 +4997,33 @@ static int vega10_set_mclk_od(struct pp_hwmgr *hwmgr, uint32_t value)
+ 	return 0;
+ }
+ 
++static int vega10_notify_cac_buffer_info(struct pp_hwmgr *hwmgr,
++					uint32_t virtual_addr_low,
++					uint32_t virtual_addr_hi,
++					uint32_t mc_addr_low,
++					uint32_t mc_addr_hi,
++					uint32_t size)
++{
++	smum_send_msg_to_smc_with_parameter(hwmgr,
++					PPSMC_MSG_SetSystemVirtualDramAddrHigh,
++					virtual_addr_hi);
++	smum_send_msg_to_smc_with_parameter(hwmgr,
++					PPSMC_MSG_SetSystemVirtualDramAddrLow,
++					virtual_addr_low);
++	smum_send_msg_to_smc_with_parameter(hwmgr,
++					PPSMC_MSG_DramLogSetDramAddrHigh,
++					mc_addr_hi);
++
++	smum_send_msg_to_smc_with_parameter(hwmgr,
++					PPSMC_MSG_DramLogSetDramAddrLow,
++					mc_addr_low);
++
++	smum_send_msg_to_smc_with_parameter(hwmgr,
++					PPSMC_MSG_DramLogSetDramSize,
++					size);
++	return 0;
++}
++
+ static int vega10_register_thermal_interrupt(struct pp_hwmgr *hwmgr,
+ 		const void *info)
+ {
+@@ -5082,6 +5109,7 @@ static const struct pp_hwmgr_func vega10_hwmgr_funcs = {
+ 	.get_mclk_od = vega10_get_mclk_od,
+ 	.set_mclk_od = vega10_set_mclk_od,
+ 	.avfs_control = vega10_avfs_enable,
++	.notify_cac_buffer_info = vega10_notify_cac_buffer_info,
+ 	.register_internal_thermal_interrupt = vega10_register_thermal_interrupt,
+ };
+ 
+-- 
+2.7.4
+

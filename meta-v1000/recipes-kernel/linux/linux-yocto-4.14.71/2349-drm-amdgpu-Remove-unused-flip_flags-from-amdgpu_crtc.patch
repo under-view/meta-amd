@@ -1,0 +1,33 @@
+From dae9e1ae78f3bc14f58dbe555a04e6ca522a6547 Mon Sep 17 00:00:00 2001
+From: Harry Wentland <harry.wentland@amd.com>
+Date: Thu, 31 Aug 2017 21:17:05 -0400
+Subject: [PATCH 2349/4131] drm/amdgpu: Remove unused flip_flags from
+ amdgpu_crtc
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+No more need since Andrey's change to use drm_crtc's version
+
+Signed-off-by: Harry Wentland <harry.wentland@amd.com>
+Reviewed-by: Michel Dänzer <michel.daenzer@amd.com>
+Signed-off-by: Alex Deucher <alexander.deucher@amd.com>
+---
+ drivers/gpu/drm/amd/amdgpu/amdgpu_mode.h | 1 -
+ 1 file changed, 1 deletion(-)
+
+diff --git a/drivers/gpu/drm/amd/amdgpu/amdgpu_mode.h b/drivers/gpu/drm/amd/amdgpu/amdgpu_mode.h
+index 4a74a12..11bdfd1 100644
+--- a/drivers/gpu/drm/amd/amdgpu/amdgpu_mode.h
++++ b/drivers/gpu/drm/amd/amdgpu/amdgpu_mode.h
+@@ -443,7 +443,6 @@ struct amdgpu_crtc {
+ 	enum amdgpu_interrupt_state vsync_timer_enabled;
+ 
+ 	int otg_inst;
+-	uint32_t flip_flags;
+ 	/* After Set Mode stream will be non-NULL */
+ 	const struct dc_stream_state *stream;
+ 	struct drm_pending_vblank_event *event;
+-- 
+2.7.4
+

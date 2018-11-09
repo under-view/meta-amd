@@ -1,0 +1,44 @@
+From 5df92ca22532ab926b65641f678def3dec823267 Mon Sep 17 00:00:00 2001
+From: Tom St Denis <tom.stdenis@amd.com>
+Date: Tue, 20 Mar 2018 09:13:08 -0400
+Subject: [PATCH 3824/4131] drm/amd/amdgpu: fix offset into page with
+ amdgpu_iomem debugfs file
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+The offset inside the page wasn't included in the copy call meaning
+the start of the page was being read/written instead.
+
+Reported-by: Jay Cornwall <Jay.Cornwall@amd.com>
+Signed-off-by: Tom St Denis <tom.stdenis@amd.com>
+Reviewed-by: Christian König <christian.koenig@amd.com>
+---
+ drivers/gpu/drm/amd/amdgpu/amdgpu_ttm.c | 4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
+
+diff --git a/drivers/gpu/drm/amd/amdgpu/amdgpu_ttm.c b/drivers/gpu/drm/amd/amdgpu/amdgpu_ttm.c
+index 2c4eed2..e6946fe 100644
+--- a/drivers/gpu/drm/amd/amdgpu/amdgpu_ttm.c
++++ b/drivers/gpu/drm/amd/amdgpu/amdgpu_ttm.c
+@@ -2232,7 +2232,7 @@ static ssize_t amdgpu_iomem_read(struct file *f, char __user *buf,
+ 			return -EPERM;
+ 
+ 		ptr = kmap(p);
+-		r = copy_to_user(buf, ptr, bytes);
++		r = copy_to_user(buf, ptr + off, bytes);
+ 		kunmap(p);
+ 		if (r)
+ 			return -EFAULT;
+@@ -2276,7 +2276,7 @@ static ssize_t amdgpu_iomem_write(struct file *f, const char __user *buf,
+ 			return -EPERM;
+ 
+ 		ptr = kmap(p);
+-		r = copy_from_user(ptr, buf, bytes);
++		r = copy_from_user(ptr + off, buf, bytes);
+ 		kunmap(p);
+ 		if (r)
+ 			return -EFAULT;
+-- 
+2.7.4
+

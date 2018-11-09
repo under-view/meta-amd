@@ -1,0 +1,137 @@
+From a66807bc26d7af6eee83d74a73439b4a07d68ac0 Mon Sep 17 00:00:00 2001
+From: =?UTF-8?q?Christian=20K=C3=B6nig?= <christian.koenig@amd.com>
+Date: Fri, 16 Feb 2018 13:16:11 +0100
+Subject: [PATCH 3587/4131] drm/amdgpu: implement
+ amdgpu_gem_map_(attach/detach)
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+Instead of the pin/unpin callback implement the attach/detach ones.
+
+Functional identical, but allows us access to the attachment.
+
+Signed-off-by: Christian König <christian.koenig@amd.com>
+Reviewed-by: Alex Deucher <alexander.deucher@amd.com>
+Signed-off-by: Alex Deucher <alexander.deucher@amd.com>
+
+Conflicts:
+      drivers/gpu/drm/amd/amdgpu/amdgpu.h
+      drivers/gpu/drm/amd/amdgpu/amdgpu_drv.c
+
+Change-Id: I1ffb1dca6f185e77a82322a32043ce7095277a87
+---
+ drivers/gpu/drm/amd/amdgpu/amdgpu_drv.c   |  2 --
+ drivers/gpu/drm/amd/amdgpu/amdgpu_prime.c | 45 -------------------------------
+ drivers/gpu/drm/drm_prime.c               |  2 ++
+ include/drm/drm_prime.h                   |  5 +++-
+ 4 files changed, 6 insertions(+), 48 deletions(-)
+
+diff --git a/drivers/gpu/drm/amd/amdgpu/amdgpu_drv.c b/drivers/gpu/drm/amd/amdgpu/amdgpu_drv.c
+index e51cefc..0c3868c 100644
+--- a/drivers/gpu/drm/amd/amdgpu/amdgpu_drv.c
++++ b/drivers/gpu/drm/amd/amdgpu/amdgpu_drv.c
+@@ -880,8 +880,6 @@ static struct drm_driver kms_driver = {
+ 	.prime_fd_to_handle = drm_gem_prime_fd_to_handle,
+ 	.gem_prime_export = amdgpu_gem_prime_export,
+ 	.gem_prime_import = drm_gem_prime_import,
+-	.gem_prime_pin = amdgpu_gem_prime_pin,
+-	.gem_prime_unpin = amdgpu_gem_prime_unpin,
+ 	.gem_prime_res_obj = amdgpu_gem_prime_res_obj,
+ 	.gem_prime_get_sg_table = amdgpu_gem_prime_get_sg_table,
+ 	.gem_prime_import_sg_table = amdgpu_gem_prime_import_sg_table,
+diff --git a/drivers/gpu/drm/amd/amdgpu/amdgpu_prime.c b/drivers/gpu/drm/amd/amdgpu/amdgpu_prime.c
+index 730a904..88d9fd6 100644
+--- a/drivers/gpu/drm/amd/amdgpu/amdgpu_prime.c
++++ b/drivers/gpu/drm/amd/amdgpu/amdgpu_prime.c
+@@ -131,51 +131,6 @@ amdgpu_gem_prime_import_sg_table(struct drm_device *dev,
+ 	return &gobj->base;
+ }
+ 
+-int amdgpu_gem_prime_pin(struct drm_gem_object *obj)
+-{
+-	struct amdgpu_bo *bo = gem_to_amdgpu_bo(obj);
+-	long ret = 0;
+-
+-	ret = amdgpu_bo_reserve(bo, false);
+-	if (unlikely(ret != 0))
+-		return ret;
+-
+-	/*
+-	 * Wait for all shared fences to complete before we switch to future
+-	 * use of exclusive fence on this prime shared bo.
+-	 */
+-	ret = reservation_object_wait_timeout_rcu(bo->tbo.resv, true, false,
+-						  MAX_SCHEDULE_TIMEOUT);
+-	if (unlikely(ret < 0)) {
+-		DRM_DEBUG_PRIME("Fence wait failed: %li\n", ret);
+-		amdgpu_bo_unreserve(bo);
+-		return ret;
+-	}
+-
+-	/* pin buffer into GTT */
+-	ret = amdgpu_bo_pin(bo, AMDGPU_GEM_DOMAIN_GTT, NULL);
+-	if (likely(ret == 0))
+-		bo->prime_shared_count++;
+-
+-	amdgpu_bo_unreserve(bo);
+-	return ret;
+-}
+-
+-void amdgpu_gem_prime_unpin(struct drm_gem_object *obj)
+-{
+-	struct amdgpu_bo *bo = gem_to_amdgpu_bo(obj);
+-	int ret = 0;
+-
+-	ret = amdgpu_bo_reserve(bo, true);
+-	if (unlikely(ret != 0))
+-		return;
+-
+-	amdgpu_bo_unpin(bo);
+-	if (bo->prime_shared_count)
+-		bo->prime_shared_count--;
+-	amdgpu_bo_unreserve(bo);
+-}
+-
+ struct reservation_object *amdgpu_gem_prime_res_obj(struct drm_gem_object *obj)
+ {
+ 	struct amdgpu_bo *bo = gem_to_amdgpu_bo(obj);
+diff --git a/drivers/gpu/drm/drm_prime.c b/drivers/gpu/drm/drm_prime.c
+index 4099901..31363bd 100644
+--- a/drivers/gpu/drm/drm_prime.c
++++ b/drivers/gpu/drm/drm_prime.c
+@@ -200,6 +200,7 @@ static int drm_gem_map_attach(struct dma_buf *dma_buf,
+ 
+ 	return dev->driver->gem_prime_pin(obj);
+ }
++EXPORT_SYMBOL(drm_gem_map_attach);
+ 
+ static void drm_gem_map_detach(struct dma_buf *dma_buf,
+ 			       struct dma_buf_attachment *attach)
+@@ -227,6 +228,7 @@ static void drm_gem_map_detach(struct dma_buf *dma_buf,
+ 	kfree(prime_attach);
+ 	attach->priv = NULL;
+ }
++EXPORT_SYMBOL(drm_gem_map_detach);
+ 
+ void drm_prime_remove_buf_handle_locked(struct drm_prime_file_private *prime_fpriv,
+ 					struct dma_buf *dma_buf)
+diff --git a/include/drm/drm_prime.h b/include/drm/drm_prime.h
+index 9322340..5dd0089 100644
+--- a/include/drm/drm_prime.h
++++ b/include/drm/drm_prime.h
+@@ -81,7 +81,10 @@ int drm_gem_prime_fd_to_handle(struct drm_device *dev,
+ struct dma_buf *drm_gem_dmabuf_export(struct drm_device *dev,
+ 				      struct dma_buf_export_info *exp_info);
+ void drm_gem_dmabuf_release(struct dma_buf *dma_buf);
+-
++int drm_gem_map_attach(struct dma_buf *dma_buf, struct device *target_dev,
++                       struct dma_buf_attachment *attach);
++void drm_gem_map_detach(struct dma_buf *dma_buf,
++                        struct dma_buf_attachment *attach);
+ int drm_prime_sg_to_page_addr_arrays(struct sg_table *sgt, struct page **pages,
+ 				     dma_addr_t *addrs, int max_pages);
+ struct sg_table *drm_prime_pages_to_sg(struct page **pages, unsigned int nr_pages);
+-- 
+2.7.4
+

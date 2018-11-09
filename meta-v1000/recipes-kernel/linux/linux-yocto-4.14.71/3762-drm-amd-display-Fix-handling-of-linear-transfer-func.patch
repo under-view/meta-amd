@@ -1,0 +1,275 @@
+From 519b0f28f67d53cea4fedcbb9abdf8220c812f7d Mon Sep 17 00:00:00 2001
+From: Vitaly Prosyak <vitaly.prosyak@amd.com>
+Date: Wed, 28 Feb 2018 10:44:54 -0600
+Subject: [PATCH 3762/4131] drm/amd/display: Fix handling of linear transfer
+ function
+
+Signed-off-by: Vitaly Prosyak <vitaly.prosyak@amd.com>
+Reviewed-by: Tony Cheng <Tony.Cheng@amd.com>
+Acked-by: Harry Wentland <harry.wentland@amd.com>
+---
+ .../drm/amd/display/modules/color/color_gamma.c    | 124 ++++++++++++---------
+ 1 file changed, 70 insertions(+), 54 deletions(-)
+
+diff --git a/drivers/gpu/drm/amd/display/modules/color/color_gamma.c b/drivers/gpu/drm/amd/display/modules/color/color_gamma.c
+index bf629fa..e7e374f 100644
+--- a/drivers/gpu/drm/amd/display/modules/color/color_gamma.c
++++ b/drivers/gpu/drm/amd/display/modules/color/color_gamma.c
+@@ -156,15 +156,26 @@ void precompute_de_pq(void)
+ {
+ 	int i;
+ 	struct fixed31_32  y;
+-	const struct hw_x_point *coord_x = degamma_coordinates_x;
++	uint32_t begin_index, end_index;
++
+ 	struct fixed31_32 scaling_factor = dal_fixed31_32_from_int(125);
+ 
++	/* X points is 2^-25 to 2^7
++	 * De-gamma X is 2^-12 to 2^0 – we are skipping first -12-(-25) = 13 regions
++	 */
++	begin_index = 13 * NUM_PTS_IN_REGION;
++	end_index = begin_index + 12 * NUM_PTS_IN_REGION;
++
++	for (i = 0; i <= begin_index; i++)
++		de_pq_table[i] = dal_fixed31_32_zero;
+ 
+-	for (i = 0; i <= MAX_HW_DEGAMMA_POINTS; i++) {
+-		compute_de_pq(coord_x->x, &y);
++	for (; i <= end_index; i++) {
++		compute_de_pq(coordinates_x[i].x, &y);
+ 		de_pq_table[i] = dal_fixed31_32_mul(y, scaling_factor);
+-		++coord_x;
+ 	}
++
++	for (; i <= MAX_HW_POINTS; i++)
++		de_pq_table[i] = de_pq_table[i-1];
+ }
+ struct dividers {
+ 	struct fixed31_32 divider1;
+@@ -594,8 +605,6 @@ static void build_de_pq(struct pwl_float_data_ex *de_pq,
+ 	uint32_t i;
+ 	struct fixed31_32 output;
+ 
+-	struct pwl_float_data_ex *rgb = de_pq;
+-	const struct hw_x_point *coord_x = degamma_coordinates_x;
+ 	struct fixed31_32 scaling_factor = dal_fixed31_32_from_int(125);
+ 
+ 	if (!de_pq_initialized) {
+@@ -611,13 +620,9 @@ static void build_de_pq(struct pwl_float_data_ex *de_pq,
+ 			output = dal_fixed31_32_zero;
+ 		else if (dal_fixed31_32_lt(scaling_factor, output))
+ 			output = scaling_factor;
+-
+-		rgb->r = output;
+-		rgb->g = output;
+-		rgb->b = output;
+-
+-		++coord_x;
+-		++rgb;
++		de_pq[i].r = output;
++		de_pq[i].g = output;
++		de_pq[i].b = output;
+ 	}
+ }
+ 
+@@ -652,24 +657,37 @@ static void build_degamma(struct pwl_float_data_ex *curve,
+ 		const struct hw_x_point *coordinate_x, bool is_2_4)
+ {
+ 	uint32_t i;
+-
+ 	struct gamma_coefficients coeff;
+-	struct pwl_float_data_ex *rgb = curve;
+-	const struct hw_x_point *coord_x = degamma_coordinates_x;
++	uint32_t begin_index, end_index;
+ 
+ 	build_coefficients(&coeff, is_2_4);
+-
+ 	i = 0;
+ 
++	/* X points is 2^-25 to 2^7
++	 * De-gamma X is 2^-12 to 2^0 – we are skipping first -12-(-25) = 13 regions
++	 */
++	begin_index = 13 * NUM_PTS_IN_REGION;
++	end_index = begin_index + 12 * NUM_PTS_IN_REGION;
++
++	while (i != begin_index) {
++		curve[i].r = dal_fixed31_32_zero;
++		curve[i].g = dal_fixed31_32_zero;
++		curve[i].b = dal_fixed31_32_zero;
++		i++;
++	}
++
++	while (i != end_index) {
++		curve[i].r = translate_to_linear_space_ex(
++				coordinate_x[i].x, &coeff, 0);
++		curve[i].g = curve[i].r;
++		curve[i].b = curve[i].r;
++		i++;
++	}
+ 	while (i != hw_points_num + 1) {
+-		/*TODO use y vs r,g,b*/
+-		rgb->r = translate_to_linear_space_ex(
+-			coord_x->x, &coeff, 0);
+-		rgb->g = rgb->r;
+-		rgb->b = rgb->r;
+-		++coord_x;
+-		++rgb;
+-		++i;
++		curve[i].r = dal_fixed31_32_one;
++		curve[i].g = dal_fixed31_32_one;
++		curve[i].b = dal_fixed31_32_one;
++		i++;
+ 	}
+ }
+ 
+@@ -1150,10 +1168,6 @@ bool mod_color_calculate_regamma_params(struct dc_transfer_func *output_tf,
+ 	return ret;
+ }
+ 
+-
+-/*TODO fix me should be 2*/
+-#define _EXTRA_POINTS 3
+-
+ bool mod_color_calculate_degamma_params(struct dc_transfer_func *input_tf,
+ 		const struct dc_gamma *ramp, bool mapUserRamp)
+ {
+@@ -1182,7 +1196,7 @@ bool mod_color_calculate_degamma_params(struct dc_transfer_func *input_tf,
+ 			   GFP_KERNEL);
+ 	if (!rgb_user)
+ 		goto rgb_user_alloc_fail;
+-	curve = kzalloc(sizeof(*curve) * (MAX_HW_DEGAMMA_POINTS + _EXTRA_POINTS),
++	curve = kzalloc(sizeof(*curve) * (MAX_HW_POINTS + _EXTRA_POINTS),
+ 			GFP_KERNEL);
+ 	if (!curve)
+ 		goto curve_alloc_fail;
+@@ -1190,7 +1204,7 @@ bool mod_color_calculate_degamma_params(struct dc_transfer_func *input_tf,
+ 			 GFP_KERNEL);
+ 	if (!axix_x)
+ 		goto axix_x_alloc_fail;
+-	coeff = kzalloc(sizeof(*coeff) * (MAX_HW_DEGAMMA_POINTS + _EXTRA_POINTS), GFP_KERNEL);
++	coeff = kzalloc(sizeof(*coeff) * (MAX_HW_POINTS + _EXTRA_POINTS), GFP_KERNEL);
+ 	if (!coeff)
+ 		goto coeff_alloc_fail;
+ 
+@@ -1212,12 +1226,12 @@ bool mod_color_calculate_degamma_params(struct dc_transfer_func *input_tf,
+ 
+ 	if (tf == TRANSFER_FUNCTION_PQ)
+ 		build_de_pq(curve,
+-				MAX_HW_DEGAMMA_POINTS,
+-				degamma_coordinates_x);
++				MAX_HW_POINTS,
++				coordinates_x);
+ 	else
+ 		build_degamma(curve,
+-				MAX_HW_DEGAMMA_POINTS,
+-				degamma_coordinates_x,
++				MAX_HW_POINTS,
++				coordinates_x,
+ 				tf == TRANSFER_FUNCTION_SRGB ? true:false);
+ 
+ 	tf_pts->end_exponent = 0;
+@@ -1226,8 +1240,8 @@ bool mod_color_calculate_degamma_params(struct dc_transfer_func *input_tf,
+ 	tf_pts->x_point_at_y1_blue = 1;
+ 
+ 	map_regamma_hw_to_x_user(ramp, coeff, rgb_user,
+-			degamma_coordinates_x, axix_x, curve,
+-			MAX_HW_DEGAMMA_POINTS, tf_pts,
++			coordinates_x, axix_x, curve,
++			MAX_HW_POINTS, tf_pts,
+ 			mapUserRamp);
+ 
+ 	ret = true;
+@@ -1253,13 +1267,14 @@ bool  mod_color_calculate_curve(enum dc_transfer_func_predefined trans,
+ 	bool ret = false;
+ 	struct pwl_float_data_ex *rgb_regamma = NULL;
+ 
+-	if (trans == TRANSFER_FUNCTION_UNITY) {
++	if (trans == TRANSFER_FUNCTION_UNITY ||
++		trans == TRANSFER_FUNCTION_LINEAR) {
+ 		points->end_exponent = 0;
+ 		points->x_point_at_y1_red = 1;
+ 		points->x_point_at_y1_green = 1;
+ 		points->x_point_at_y1_blue = 1;
+ 
+-		for (i = 0; i < MAX_HW_POINTS ; i++) {
++		for (i = 0; i <= MAX_HW_POINTS ; i++) {
+ 			points->red[i]    = coordinates_x[i].x;
+ 			points->green[i]  = coordinates_x[i].x;
+ 			points->blue[i]   = coordinates_x[i].x;
+@@ -1280,7 +1295,7 @@ bool  mod_color_calculate_curve(enum dc_transfer_func_predefined trans,
+ 				MAX_HW_POINTS,
+ 				coordinates_x,
+ 				80);
+-		for (i = 0; i < MAX_HW_POINTS ; i++) {
++		for (i = 0; i <= MAX_HW_POINTS ; i++) {
+ 			points->red[i]    = rgb_regamma[i].r;
+ 			points->green[i]  = rgb_regamma[i].g;
+ 			points->blue[i]   = rgb_regamma[i].b;
+@@ -1302,7 +1317,7 @@ bool  mod_color_calculate_curve(enum dc_transfer_func_predefined trans,
+ 		build_regamma(rgb_regamma,
+ 				MAX_HW_POINTS,
+ 				coordinates_x, trans == TRANSFER_FUNCTION_SRGB ? true:false);
+-		for (i = 0; i < MAX_HW_POINTS ; i++) {
++		for (i = 0; i <= MAX_HW_POINTS ; i++) {
+ 			points->red[i]    = rgb_regamma[i].r;
+ 			points->green[i]  = rgb_regamma[i].g;
+ 			points->blue[i]   = rgb_regamma[i].b;
+@@ -1323,25 +1338,26 @@ bool  mod_color_calculate_degamma_curve(enum dc_transfer_func_predefined trans,
+ 	bool ret = false;
+ 	struct pwl_float_data_ex *rgb_degamma = NULL;
+ 
+-	if (trans == TRANSFER_FUNCTION_UNITY) {
++	if (trans == TRANSFER_FUNCTION_UNITY ||
++		trans == TRANSFER_FUNCTION_LINEAR) {
+ 
+-		for (i = 0; i < MAX_HW_DEGAMMA_POINTS ; i++) {
+-			points->red[i]    = degamma_coordinates_x[i].x;
+-			points->green[i]  = degamma_coordinates_x[i].x;
+-			points->blue[i]   = degamma_coordinates_x[i].x;
++		for (i = 0; i <= MAX_HW_POINTS ; i++) {
++			points->red[i]    = coordinates_x[i].x;
++			points->green[i]  = coordinates_x[i].x;
++			points->blue[i]   = coordinates_x[i].x;
+ 		}
+ 		ret = true;
+ 	} else if (trans == TRANSFER_FUNCTION_PQ) {
+-		rgb_degamma = kzalloc(sizeof(*rgb_degamma) * (MAX_HW_DEGAMMA_POINTS +
++		rgb_degamma = kzalloc(sizeof(*rgb_degamma) * (MAX_HW_POINTS +
+ 						_EXTRA_POINTS), GFP_KERNEL);
+ 		if (!rgb_degamma)
+ 			goto rgb_degamma_alloc_fail;
+ 
+ 
+ 		build_de_pq(rgb_degamma,
+-				MAX_HW_DEGAMMA_POINTS,
+-				degamma_coordinates_x);
+-		for (i = 0; i < MAX_HW_DEGAMMA_POINTS ; i++) {
++				MAX_HW_POINTS,
++				coordinates_x);
++		for (i = 0; i <= MAX_HW_POINTS ; i++) {
+ 			points->red[i]    = rgb_degamma[i].r;
+ 			points->green[i]  = rgb_degamma[i].g;
+ 			points->blue[i]   = rgb_degamma[i].b;
+@@ -1351,15 +1367,15 @@ bool  mod_color_calculate_degamma_curve(enum dc_transfer_func_predefined trans,
+ 		kfree(rgb_degamma);
+ 	} else if (trans == TRANSFER_FUNCTION_SRGB ||
+ 			  trans == TRANSFER_FUNCTION_BT709) {
+-		rgb_degamma = kzalloc(sizeof(*rgb_degamma) * (MAX_HW_DEGAMMA_POINTS +
++		rgb_degamma = kzalloc(sizeof(*rgb_degamma) * (MAX_HW_POINTS +
+ 						_EXTRA_POINTS), GFP_KERNEL);
+ 		if (!rgb_degamma)
+ 			goto rgb_degamma_alloc_fail;
+ 
+ 		build_degamma(rgb_degamma,
+-				MAX_HW_DEGAMMA_POINTS,
+-				degamma_coordinates_x, trans == TRANSFER_FUNCTION_SRGB ? true:false);
+-		for (i = 0; i < MAX_HW_DEGAMMA_POINTS ; i++) {
++				MAX_HW_POINTS,
++				coordinates_x, trans == TRANSFER_FUNCTION_SRGB ? true:false);
++		for (i = 0; i <= MAX_HW_POINTS ; i++) {
+ 			points->red[i]    = rgb_degamma[i].r;
+ 			points->green[i]  = rgb_degamma[i].g;
+ 			points->blue[i]   = rgb_degamma[i].b;
+-- 
+2.7.4
+

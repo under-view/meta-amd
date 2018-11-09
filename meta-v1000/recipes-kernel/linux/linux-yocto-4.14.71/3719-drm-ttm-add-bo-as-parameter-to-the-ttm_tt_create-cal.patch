@@ -1,0 +1,662 @@
+From 3724aa1de1301cc5f40e83bce2718ba82d1ee0fb Mon Sep 17 00:00:00 2001
+From: =?UTF-8?q?Christian=20K=C3=B6nig?= <christian.koenig@amd.com>
+Date: Thu, 22 Feb 2018 10:18:14 +0100
+Subject: [PATCH 3719/4131] drm/ttm: add bo as parameter to the ttm_tt_create
+ callback
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+Instead of calculating the size in bytes just to recalculate the number
+of pages from it pass the BO directly to the function.
+
+Signed-off-by: Christian König <christian.koenig@amd.com>
+Reviewed-by: Roger He <Hongbo.He@amd.com>
+
+Conflicts:
+      drivers/gpu/drm/qxl/qxl_ttm.c
+      drivers/gpu/drm/virtio/virtgpu_ttm.c
+
+Change-Id: Id4fabcd4461211aabf5a4c1f9f59b1940a73ed42
+---
+ drivers/gpu/drm/amd/amdgpu/amdgpu_ttm.c     |  8 +--
+ drivers/gpu/drm/ast/ast_ttm.c               |  6 +--
+ drivers/gpu/drm/bochs/bochs_mm.c            |  5 +-
+ drivers/gpu/drm/cirrus/cirrus_ttm.c         |  6 +--
+ drivers/gpu/drm/hisilicon/hibmc/hibmc_ttm.c |  5 +-
+ drivers/gpu/drm/mgag200/mgag200_ttm.c       |  6 +--
+ drivers/gpu/drm/nouveau/nouveau_bo.c        | 10 ++--
+ drivers/gpu/drm/nouveau/nouveau_sgdma.c     |  7 ++-
+ drivers/gpu/drm/nouveau/nouveau_ttm.h       |  4 +-
+ drivers/gpu/drm/qxl/qxl_ttm.c               |  8 +--
+ drivers/gpu/drm/radeon/radeon_ttm.c         | 12 ++---
+ drivers/gpu/drm/ttm/ttm_agp_backend.c       |  6 +--
+ drivers/gpu/drm/ttm/ttm_bo.c                |  5 +-
+ drivers/gpu/drm/ttm/ttm_tt.c                | 81 ++++++++++++++++++++---------
+ drivers/gpu/drm/virtio/virtgpu_ttm.c        |  7 ++-
+ drivers/gpu/drm/vmwgfx/vmwgfx_buffer.c      | 10 ++--
+ drivers/staging/vboxvideo/vbox_ttm.c        |  8 ++-
+ include/drm/amd_asic_type.h                 |  1 +
+ include/drm/ttm/ttm_bo_driver.h             | 26 +++++----
+ 19 files changed, 121 insertions(+), 100 deletions(-)
+
+diff --git a/drivers/gpu/drm/amd/amdgpu/amdgpu_ttm.c b/drivers/gpu/drm/amd/amdgpu/amdgpu_ttm.c
+index 401318b..b5ba7eb 100644
+--- a/drivers/gpu/drm/amd/amdgpu/amdgpu_ttm.c
++++ b/drivers/gpu/drm/amd/amdgpu/amdgpu_ttm.c
+@@ -1036,13 +1036,13 @@ static struct ttm_backend_func amdgpu_backend_func = {
+ 	.destroy = &amdgpu_ttm_backend_destroy,
+ };
+ 
+-static struct ttm_tt *amdgpu_ttm_tt_create(struct ttm_bo_device *bdev,
+-				    unsigned long size, uint32_t page_flags)
++static struct ttm_tt *amdgpu_ttm_tt_create(struct ttm_buffer_object *bo,
++						uint32_t page_flags)
+ {
+ 	struct amdgpu_device *adev;
+ 	struct amdgpu_ttm_tt *gtt;
+ 
+-	adev = amdgpu_ttm_adev(bdev);
++	adev = amdgpu_ttm_adev(bo->bdev);
+ 
+ 	gtt = kzalloc(sizeof(struct amdgpu_ttm_tt), GFP_KERNEL);
+ 	if (gtt == NULL) {
+@@ -1050,7 +1050,7 @@ static struct ttm_tt *amdgpu_ttm_tt_create(struct ttm_bo_device *bdev,
+ 	}
+ 	gtt->ttm.ttm.func = &amdgpu_backend_func;
+ 	gtt->adev = adev;
+-	if (ttm_sg_tt_init(&gtt->ttm, bdev, size, page_flags)) {
++	if (ttm_sg_tt_init(&gtt->ttm, bo, page_flags)) {
+ 		kfree(gtt);
+ 		return NULL;
+ 	}
+diff --git a/drivers/gpu/drm/ast/ast_ttm.c b/drivers/gpu/drm/ast/ast_ttm.c
+index 9c0c44b..aa15ddd 100644
+--- a/drivers/gpu/drm/ast/ast_ttm.c
++++ b/drivers/gpu/drm/ast/ast_ttm.c
+@@ -199,8 +199,8 @@ static struct ttm_backend_func ast_tt_backend_func = {
+ };
+ 
+ 
+-static struct ttm_tt *ast_ttm_tt_create(struct ttm_bo_device *bdev,
+-				 unsigned long size, uint32_t page_flags)
++static struct ttm_tt *ast_ttm_tt_create(struct ttm_buffer_object *bo,
++					uint32_t page_flags)
+ {
+ 	struct ttm_tt *tt;
+ 
+@@ -208,7 +208,7 @@ static struct ttm_tt *ast_ttm_tt_create(struct ttm_bo_device *bdev,
+ 	if (tt == NULL)
+ 		return NULL;
+ 	tt->func = &ast_tt_backend_func;
+-	if (ttm_tt_init(tt, bdev, size, page_flags)) {
++	if (ttm_tt_init(tt, bo, page_flags)) {
+ 		kfree(tt);
+ 		return NULL;
+ 	}
+diff --git a/drivers/gpu/drm/bochs/bochs_mm.c b/drivers/gpu/drm/bochs/bochs_mm.c
+index 7b48dda..a31c673 100644
+--- a/drivers/gpu/drm/bochs/bochs_mm.c
++++ b/drivers/gpu/drm/bochs/bochs_mm.c
+@@ -176,8 +176,7 @@ static struct ttm_backend_func bochs_tt_backend_func = {
+ 	.destroy = &bochs_ttm_backend_destroy,
+ };
+ 
+-static struct ttm_tt *bochs_ttm_tt_create(struct ttm_bo_device *bdev,
+-					  unsigned long size,
++static struct ttm_tt *bochs_ttm_tt_create(struct ttm_buffer_object *bo,
+ 					  uint32_t page_flags)
+ {
+ 	struct ttm_tt *tt;
+@@ -186,7 +185,7 @@ static struct ttm_tt *bochs_ttm_tt_create(struct ttm_bo_device *bdev,
+ 	if (tt == NULL)
+ 		return NULL;
+ 	tt->func = &bochs_tt_backend_func;
+-	if (ttm_tt_init(tt, bdev, size, page_flags)) {
++	if (ttm_tt_init(tt, bo, page_flags)) {
+ 		kfree(tt);
+ 		return NULL;
+ 	}
+diff --git a/drivers/gpu/drm/cirrus/cirrus_ttm.c b/drivers/gpu/drm/cirrus/cirrus_ttm.c
+index 1546efb..22d2646 100644
+--- a/drivers/gpu/drm/cirrus/cirrus_ttm.c
++++ b/drivers/gpu/drm/cirrus/cirrus_ttm.c
+@@ -199,8 +199,8 @@ static struct ttm_backend_func cirrus_tt_backend_func = {
+ };
+ 
+ 
+-static struct ttm_tt *cirrus_ttm_tt_create(struct ttm_bo_device *bdev,
+-				 unsigned long size, uint32_t page_flags)
++static struct ttm_tt *cirrus_ttm_tt_create(struct ttm_buffer_object *bo,
++					   uint32_t page_flags)
+ {
+ 	struct ttm_tt *tt;
+ 
+@@ -208,7 +208,7 @@ static struct ttm_tt *cirrus_ttm_tt_create(struct ttm_bo_device *bdev,
+ 	if (tt == NULL)
+ 		return NULL;
+ 	tt->func = &cirrus_tt_backend_func;
+-	if (ttm_tt_init(tt, bdev, size, page_flags)) {
++	if (ttm_tt_init(tt, bo, page_flags)) {
+ 		kfree(tt);
+ 		return NULL;
+ 	}
+diff --git a/drivers/gpu/drm/hisilicon/hibmc/hibmc_ttm.c b/drivers/gpu/drm/hisilicon/hibmc/hibmc_ttm.c
+index 8cf4f3c..78eb23c 100644
+--- a/drivers/gpu/drm/hisilicon/hibmc/hibmc_ttm.c
++++ b/drivers/gpu/drm/hisilicon/hibmc/hibmc_ttm.c
+@@ -200,8 +200,7 @@ static struct ttm_backend_func hibmc_tt_backend_func = {
+ 	.destroy = &hibmc_ttm_backend_destroy,
+ };
+ 
+-static struct ttm_tt *hibmc_ttm_tt_create(struct ttm_bo_device *bdev,
+-					  unsigned long size,
++static struct ttm_tt *hibmc_ttm_tt_create(struct ttm_buffer_object *bo,
+ 					  u32 page_flags)
+ {
+ 	struct ttm_tt *tt;
+@@ -213,7 +212,7 @@ static struct ttm_tt *hibmc_ttm_tt_create(struct ttm_bo_device *bdev,
+ 		return NULL;
+ 	}
+ 	tt->func = &hibmc_tt_backend_func;
+-	ret = ttm_tt_init(tt, bdev, size, page_flags);
++	ret = ttm_tt_init(tt, bo, page_flags);
+ 	if (ret) {
+ 		DRM_ERROR("failed to initialize ttm_tt: %d\n", ret);
+ 		kfree(tt);
+diff --git a/drivers/gpu/drm/mgag200/mgag200_ttm.c b/drivers/gpu/drm/mgag200/mgag200_ttm.c
+index 54703b9..eece4e6 100644
+--- a/drivers/gpu/drm/mgag200/mgag200_ttm.c
++++ b/drivers/gpu/drm/mgag200/mgag200_ttm.c
+@@ -199,8 +199,8 @@ static struct ttm_backend_func mgag200_tt_backend_func = {
+ };
+ 
+ 
+-static struct ttm_tt *mgag200_ttm_tt_create(struct ttm_bo_device *bdev,
+-				 unsigned long size, uint32_t page_flags)
++static struct ttm_tt *mgag200_ttm_tt_create(struct ttm_buffer_object *bo,
++					    uint32_t page_flags)
+ {
+ 	struct ttm_tt *tt;
+ 
+@@ -208,7 +208,7 @@ static struct ttm_tt *mgag200_ttm_tt_create(struct ttm_bo_device *bdev,
+ 	if (tt == NULL)
+ 		return NULL;
+ 	tt->func = &mgag200_tt_backend_func;
+-	if (ttm_tt_init(tt, bdev, size, page_flags)) {
++	if (ttm_tt_init(tt, bo, page_flags)) {
+ 		kfree(tt);
+ 		return NULL;
+ 	}
+diff --git a/drivers/gpu/drm/nouveau/nouveau_bo.c b/drivers/gpu/drm/nouveau/nouveau_bo.c
+index 77c9571..f43cf45 100644
+--- a/drivers/gpu/drm/nouveau/nouveau_bo.c
++++ b/drivers/gpu/drm/nouveau/nouveau_bo.c
+@@ -541,19 +541,17 @@ nouveau_bo_wr32(struct nouveau_bo *nvbo, unsigned index, u32 val)
+ }
+ 
+ static struct ttm_tt *
+-nouveau_ttm_tt_create(struct ttm_bo_device *bdev, unsigned long size,
+-		      uint32_t page_flags)
++nouveau_ttm_tt_create(struct ttm_buffer_object *bo, uint32_t page_flags)
+ {
+ #if IS_ENABLED(CONFIG_AGP)
+-	struct nouveau_drm *drm = nouveau_bdev(bdev);
++	struct nouveau_drm *drm = nouveau_bdev(bo->bdev);
+ 
+ 	if (drm->agp.bridge) {
+-		return ttm_agp_tt_create(bdev, drm->agp.bridge, size,
+-					 page_flags);
++		return ttm_agp_tt_create(bo, drm->agp.bridge, page_flags);
+ 	}
+ #endif
+ 
+-	return nouveau_sgdma_create_ttm(bdev, size, page_flags);
++	return nouveau_sgdma_create_ttm(bo, page_flags);
+ }
+ 
+ static int
+diff --git a/drivers/gpu/drm/nouveau/nouveau_sgdma.c b/drivers/gpu/drm/nouveau/nouveau_sgdma.c
+index 99511b6..516ca59 100644
+--- a/drivers/gpu/drm/nouveau/nouveau_sgdma.c
++++ b/drivers/gpu/drm/nouveau/nouveau_sgdma.c
+@@ -90,10 +90,9 @@ static struct ttm_backend_func nv50_sgdma_backend = {
+ };
+ 
+ struct ttm_tt *
+-nouveau_sgdma_create_ttm(struct ttm_bo_device *bdev,
+-			 unsigned long size, uint32_t page_flags)
++nouveau_sgdma_create_ttm(struct ttm_buffer_object *bo, uint32_t page_flags)
+ {
+-	struct nouveau_drm *drm = nouveau_bdev(bdev);
++	struct nouveau_drm *drm = nouveau_bdev(bo->bdev);
+ 	struct nouveau_sgdma_be *nvbe;
+ 
+ 	nvbe = kzalloc(sizeof(*nvbe), GFP_KERNEL);
+@@ -105,7 +104,7 @@ nouveau_sgdma_create_ttm(struct ttm_bo_device *bdev,
+ 	else
+ 		nvbe->ttm.ttm.func = &nv50_sgdma_backend;
+ 
+-	if (ttm_dma_tt_init(&nvbe->ttm, bdev, size, page_flags))
++	if (ttm_dma_tt_init(&nvbe->ttm, bo, page_flags))
+ 		/*
+ 		 * A failing ttm_dma_tt_init() will call ttm_tt_destroy()
+ 		 * and thus our nouveau_sgdma_destroy() hook, so we don't need
+diff --git a/drivers/gpu/drm/nouveau/nouveau_ttm.h b/drivers/gpu/drm/nouveau/nouveau_ttm.h
+index 64e484e..89929ad 100644
+--- a/drivers/gpu/drm/nouveau/nouveau_ttm.h
++++ b/drivers/gpu/drm/nouveau/nouveau_ttm.h
+@@ -12,8 +12,8 @@ extern const struct ttm_mem_type_manager_func nouveau_vram_manager;
+ extern const struct ttm_mem_type_manager_func nouveau_gart_manager;
+ extern const struct ttm_mem_type_manager_func nv04_gart_manager;
+ 
+-struct ttm_tt *nouveau_sgdma_create_ttm(struct ttm_bo_device *,
+-					unsigned long size, u32 page_flags);
++struct ttm_tt *nouveau_sgdma_create_ttm(struct ttm_buffer_object *bo,
++					u32 page_flags);
+ 
+ int  nouveau_ttm_init(struct nouveau_drm *drm);
+ void nouveau_ttm_fini(struct nouveau_drm *drm);
+diff --git a/drivers/gpu/drm/qxl/qxl_ttm.c b/drivers/gpu/drm/qxl/qxl_ttm.c
+index 955cd45..05990f6 100644
+--- a/drivers/gpu/drm/qxl/qxl_ttm.c
++++ b/drivers/gpu/drm/qxl/qxl_ttm.c
+@@ -313,19 +313,19 @@ static void qxl_ttm_tt_unpopulate(struct ttm_tt *ttm)
+ 	ttm_pool_unpopulate(ttm);
+ }
+ 
+-static struct ttm_tt *qxl_ttm_tt_create(struct ttm_bo_device *bdev,
+-					unsigned long size, uint32_t page_flags)
++static struct ttm_tt *qxl_ttm_tt_create(struct ttm_buffer_object *bo,
++					uint32_t page_flags)
+ {
+ 	struct qxl_device *qdev;
+ 	struct qxl_ttm_tt *gtt;
+ 
+-	qdev = qxl_get_qdev(bdev);
++	qdev = qxl_get_qdev(bo->bdev);
+ 	gtt = kzalloc(sizeof(struct qxl_ttm_tt), GFP_KERNEL);
+ 	if (gtt == NULL)
+ 		return NULL;
+ 	gtt->ttm.ttm.func = &qxl_backend_func;
+ 	gtt->qdev = qdev;
+-	if (ttm_dma_tt_init(&gtt->ttm, bdev, size, page_flags)) {
++	if (ttm_dma_tt_init(&gtt->ttm, bo, page_flags)) {
+ 		kfree(gtt);
+ 		return NULL;
+ 	}
+diff --git a/drivers/gpu/drm/radeon/radeon_ttm.c b/drivers/gpu/drm/radeon/radeon_ttm.c
+index 7bc0b61..5ff8611 100644
+--- a/drivers/gpu/drm/radeon/radeon_ttm.c
++++ b/drivers/gpu/drm/radeon/radeon_ttm.c
+@@ -686,17 +686,17 @@ static struct ttm_backend_func radeon_backend_func = {
+ 	.destroy = &radeon_ttm_backend_destroy,
+ };
+ 
+-static struct ttm_tt *radeon_ttm_tt_create(struct ttm_bo_device *bdev,
+-				    unsigned long size, uint32_t page_flags)
++static struct ttm_tt *radeon_ttm_tt_create(struct ttm_buffer_object *bo,
++					   uint32_t page_flags)
+ {
+ 	struct radeon_device *rdev;
+ 	struct radeon_ttm_tt *gtt;
+ 
+-	rdev = radeon_get_rdev(bdev);
++	rdev = radeon_get_rdev(bo->bdev);
+ #if IS_ENABLED(CONFIG_AGP)
+ 	if (rdev->flags & RADEON_IS_AGP) {
+-		return ttm_agp_tt_create(bdev, rdev->ddev->agp->bridge,
+-					 size, page_flags);
++		return ttm_agp_tt_create(bo, rdev->ddev->agp->bridge,
++					 page_flags);
+ 	}
+ #endif
+ 
+@@ -706,7 +706,7 @@ static struct ttm_tt *radeon_ttm_tt_create(struct ttm_bo_device *bdev,
+ 	}
+ 	gtt->ttm.ttm.func = &radeon_backend_func;
+ 	gtt->rdev = rdev;
+-	if (ttm_dma_tt_init(&gtt->ttm, bdev, size, page_flags)) {
++	if (ttm_dma_tt_init(&gtt->ttm, bo, page_flags)) {
+ 		kfree(gtt);
+ 		return NULL;
+ 	}
+diff --git a/drivers/gpu/drm/ttm/ttm_agp_backend.c b/drivers/gpu/drm/ttm/ttm_agp_backend.c
+index cfd1931..7222017 100644
+--- a/drivers/gpu/drm/ttm/ttm_agp_backend.c
++++ b/drivers/gpu/drm/ttm/ttm_agp_backend.c
+@@ -110,9 +110,9 @@ static struct ttm_backend_func ttm_agp_func = {
+ 	.destroy = ttm_agp_destroy,
+ };
+ 
+-struct ttm_tt *ttm_agp_tt_create(struct ttm_bo_device *bdev,
++struct ttm_tt *ttm_agp_tt_create(struct ttm_buffer_object *bo,
+ 				 struct agp_bridge_data *bridge,
+-				 unsigned long size, uint32_t page_flags)
++				 uint32_t page_flags)
+ {
+ 	struct ttm_agp_backend *agp_be;
+ 
+@@ -124,7 +124,7 @@ struct ttm_tt *ttm_agp_tt_create(struct ttm_bo_device *bdev,
+ 	agp_be->bridge = bridge;
+ 	agp_be->ttm.func = &ttm_agp_func;
+ 
+-	if (ttm_tt_init(&agp_be->ttm, bdev, size, page_flags)) {
++	if (ttm_tt_init(&agp_be->ttm, bo, page_flags)) {
+ 		kfree(agp_be);
+ 		return NULL;
+ 	}
+diff --git a/drivers/gpu/drm/ttm/ttm_bo.c b/drivers/gpu/drm/ttm/ttm_bo.c
+index 0e9b255..b100343 100644
+--- a/drivers/gpu/drm/ttm/ttm_bo.c
++++ b/drivers/gpu/drm/ttm/ttm_bo.c
+@@ -244,13 +244,12 @@ static int ttm_bo_add_ttm(struct ttm_buffer_object *bo, bool zero_alloc)
+ 		if (zero_alloc)
+ 			page_flags |= TTM_PAGE_FLAG_ZERO_ALLOC;
+ 	case ttm_bo_type_kernel:
+-		bo->ttm = bdev->driver->ttm_tt_create(bdev, bo->num_pages << PAGE_SHIFT,
+-						      page_flags);
++		bo->ttm = bdev->driver->ttm_tt_create(bo, page_flags);
+ 		if (unlikely(bo->ttm == NULL))
+ 			ret = -ENOMEM;
+ 		break;
+ 	case ttm_bo_type_sg:
+-		bo->ttm = bdev->driver->ttm_tt_create(bdev, bo->num_pages << PAGE_SHIFT,
++		bo->ttm = bdev->driver->ttm_tt_create(bo,
+ 						      page_flags | TTM_PAGE_FLAG_SG);
+ 		if (unlikely(bo->ttm == NULL)) {
+ 			ret = -ENOMEM;
+diff --git a/drivers/gpu/drm/ttm/ttm_tt.c b/drivers/gpu/drm/ttm/ttm_tt.c
+index b2426cb..5155acc 100644
+--- a/drivers/gpu/drm/ttm/ttm_tt.c
++++ b/drivers/gpu/drm/ttm/ttm_tt.c
+@@ -48,6 +48,48 @@
+ #endif
+ 
+ /**
++ * Allocates a ttm structure for the given BO.
++ */
++int ttm_tt_create(struct ttm_buffer_object *bo, bool zero_alloc)
++{
++        struct ttm_bo_device *bdev = bo->bdev;
++        uint32_t page_flags = 0;
++
++        reservation_object_assert_held(bo->resv);
++
++        if (bdev->need_dma32)
++                page_flags |= TTM_PAGE_FLAG_DMA32;
++
++        if (bdev->no_retry)
++                page_flags |= TTM_PAGE_FLAG_NO_RETRY;
++
++        switch (bo->type) {
++        case ttm_bo_type_device:
++                if (zero_alloc)
++                        page_flags |= TTM_PAGE_FLAG_ZERO_ALLOC;
++                break;
++        case ttm_bo_type_kernel:
++                break;
++        case ttm_bo_type_sg:
++                page_flags |= TTM_PAGE_FLAG_SG;
++                break;
++        default:
++                bo->ttm = NULL;
++                pr_err("Illegal buffer object type\n");
++                return -EINVAL;
++        }
++
++        bo->ttm = bdev->driver->ttm_tt_create(bo, page_flags);
++        if (unlikely(bo->ttm == NULL))
++                return -ENOMEM;
++
++        if (bo->type == ttm_bo_type_sg)
++                bo->ttm->sg = bo->sg;
++
++        return 0;
++}
++
++/**
+  * Allocates storage for pointers to the pages that back the ttm.
+  */
+ static void ttm_tt_alloc_page_directory(struct ttm_tt *ttm)
+@@ -194,27 +236,22 @@ void ttm_tt_destroy(struct ttm_tt *ttm)
+ 	ttm->func->destroy(ttm);
+ }
+ 
+-void ttm_tt_init_fields(struct ttm_tt *ttm, struct ttm_bo_device *bdev,
+-			unsigned long size, uint32_t page_flags)
++
++void ttm_tt_init_fields(struct ttm_tt *ttm, struct ttm_buffer_object *bo,
++			uint32_t page_flags)
+ {
+-	ttm->bdev = bdev;
+-	ttm->num_pages = (size + PAGE_SIZE - 1) >> PAGE_SHIFT;
++	ttm->bdev = bo->bdev;
++	ttm->num_pages = bo->num_pages;
+ 	ttm->caching_state = tt_cached;
+ 	ttm->page_flags = page_flags;
+ 	ttm->state = tt_unpopulated;
+ 	ttm->swap_storage = NULL;
+ }
+ 
+-int ttm_tt_init(struct ttm_tt *ttm, struct ttm_bo_device *bdev,
+-		unsigned long size, uint32_t page_flags)
++int ttm_tt_init(struct ttm_tt *ttm, struct ttm_buffer_object *bo,
++		uint32_t page_flags)
+ {
+-	ttm->bdev = bdev;
+-	ttm->glob = bdev->glob;
+-	ttm->num_pages = (size + PAGE_SIZE - 1) >> PAGE_SHIFT;
+-	ttm->caching_state = tt_cached;
+-	ttm->page_flags = page_flags;
+-	ttm->state = tt_unpopulated;
+-	ttm->swap_storage = NULL;
++	ttm_tt_init_fields(ttm, bo, page_flags);
+ 
+ 	ttm_tt_alloc_page_directory(ttm);
+ 	if (!ttm->pages) {
+@@ -233,18 +270,12 @@ void ttm_tt_fini(struct ttm_tt *ttm)
+ }
+ EXPORT_SYMBOL(ttm_tt_fini);
+ 
+-int ttm_dma_tt_init(struct ttm_dma_tt *ttm_dma, struct ttm_bo_device *bdev,
+-		    unsigned long size, uint32_t page_flags)
++int ttm_dma_tt_init(struct ttm_dma_tt *ttm_dma, struct ttm_buffer_object *bo,
++			uint32_t page_flags)
+ {
+ 	struct ttm_tt *ttm = &ttm_dma->ttm;
+ 
+-	ttm->bdev = bdev;
+-	ttm->glob = bdev->glob;
+-	ttm->num_pages = (size + PAGE_SIZE - 1) >> PAGE_SHIFT;
+-	ttm->caching_state = tt_cached;
+-	ttm->page_flags = page_flags;
+-	ttm->state = tt_unpopulated;
+-	ttm->swap_storage = NULL;
++	ttm_tt_init_fields(ttm, bo, page_flags);
+ 
+ 	INIT_LIST_HEAD(&ttm_dma->pages_list);
+ 	ttm_dma_tt_alloc_page_directory(ttm_dma);
+@@ -257,13 +288,13 @@ int ttm_dma_tt_init(struct ttm_dma_tt *ttm_dma, struct ttm_bo_device *bdev,
+ }
+ EXPORT_SYMBOL(ttm_dma_tt_init);
+ 
+-int ttm_sg_tt_init(struct ttm_dma_tt *ttm_dma, struct ttm_bo_device *bdev,
+-                   unsigned long size, uint32_t page_flags)
++int ttm_sg_tt_init(struct ttm_dma_tt *ttm_dma, struct ttm_buffer_object *bo,
++			uint32_t page_flags)
+ {
+         struct ttm_tt *ttm = &ttm_dma->ttm;
+         int ret;
+ 
+-        ttm_tt_init_fields(ttm, bdev, size, page_flags);
++	ttm_tt_init_fields(ttm, bo, page_flags);
+ 
+         INIT_LIST_HEAD(&ttm_dma->pages_list);
+         if (page_flags & TTM_PAGE_FLAG_SG)
+diff --git a/drivers/gpu/drm/virtio/virtgpu_ttm.c b/drivers/gpu/drm/virtio/virtgpu_ttm.c
+index f94becd..81f9427 100644
+--- a/drivers/gpu/drm/virtio/virtgpu_ttm.c
++++ b/drivers/gpu/drm/virtio/virtgpu_ttm.c
+@@ -337,20 +337,19 @@ static void virtio_gpu_ttm_tt_unpopulate(struct ttm_tt *ttm)
+ 	ttm_pool_unpopulate(ttm);
+ }
+ 
+-static struct ttm_tt *virtio_gpu_ttm_tt_create(struct ttm_bo_device *bdev,
+-					       unsigned long size,
++static struct ttm_tt *virtio_gpu_ttm_tt_create(struct ttm_buffer_object *bo,
+ 					       uint32_t page_flags)
+ {
+ 	struct virtio_gpu_device *vgdev;
+ 	struct virtio_gpu_ttm_tt *gtt;
+ 
+-	vgdev = virtio_gpu_get_vgdev(bdev);
++	vgdev = virtio_gpu_get_vgdev(bo->bdev);
+ 	gtt = kzalloc(sizeof(struct virtio_gpu_ttm_tt), GFP_KERNEL);
+ 	if (gtt == NULL)
+ 		return NULL;
+ 	gtt->ttm.ttm.func = &virtio_gpu_backend_func;
+ 	gtt->vgdev = vgdev;
+-	if (ttm_dma_tt_init(&gtt->ttm, bdev, size, page_flags)) {
++	if (ttm_dma_tt_init(&gtt->ttm, bo, page_flags)) {
+ 		kfree(gtt);
+ 		return NULL;
+ 	}
+diff --git a/drivers/gpu/drm/vmwgfx/vmwgfx_buffer.c b/drivers/gpu/drm/vmwgfx/vmwgfx_buffer.c
+index c762686..2c78d47 100644
+--- a/drivers/gpu/drm/vmwgfx/vmwgfx_buffer.c
++++ b/drivers/gpu/drm/vmwgfx/vmwgfx_buffer.c
+@@ -689,8 +689,8 @@ static struct ttm_backend_func vmw_ttm_func = {
+ 	.destroy = vmw_ttm_destroy,
+ };
+ 
+-static struct ttm_tt *vmw_ttm_tt_create(struct ttm_bo_device *bdev,
+-				 unsigned long size, uint32_t page_flags)
++static struct ttm_tt *vmw_ttm_tt_create(struct ttm_buffer_object *bo,
++					uint32_t page_flags)
+ {
+ 	struct vmw_ttm_tt *vmw_be;
+ 	int ret;
+@@ -700,13 +700,13 @@ static struct ttm_tt *vmw_ttm_tt_create(struct ttm_bo_device *bdev,
+ 		return NULL;
+ 
+ 	vmw_be->dma_ttm.ttm.func = &vmw_ttm_func;
+-	vmw_be->dev_priv = container_of(bdev, struct vmw_private, bdev);
++	vmw_be->dev_priv = container_of(bo->bdev, struct vmw_private, bdev);
+ 	vmw_be->mob = NULL;
+ 
+ 	if (vmw_be->dev_priv->map_mode == vmw_dma_alloc_coherent)
+-		ret = ttm_dma_tt_init(&vmw_be->dma_ttm, bdev, size, page_flags);
++		ret = ttm_dma_tt_init(&vmw_be->dma_ttm, bo, page_flags);
+ 	else
+-		ret = ttm_tt_init(&vmw_be->dma_ttm.ttm, bdev, size, page_flags);
++		ret = ttm_tt_init(&vmw_be->dma_ttm.ttm, bo, page_flags);
+ 	if (unlikely(ret != 0))
+ 		goto out_no_init;
+ 
+diff --git a/drivers/staging/vboxvideo/vbox_ttm.c b/drivers/staging/vboxvideo/vbox_ttm.c
+index 4eb410a..1a199f4 100644
+--- a/drivers/staging/vboxvideo/vbox_ttm.c
++++ b/drivers/staging/vboxvideo/vbox_ttm.c
+@@ -200,10 +200,8 @@ static struct ttm_backend_func vbox_tt_backend_func = {
+ 	.destroy = &vbox_ttm_backend_destroy,
+ };
+ 
+-static struct ttm_tt *vbox_ttm_tt_create(struct ttm_bo_device *bdev,
+-					 unsigned long size,
+-					 u32 page_flags,
+-					 struct page *dummy_read_page)
++static struct ttm_tt *vbox_ttm_tt_create(struct ttm_buffer_object *bo,
++					u32 page_flags)
+ {
+ 	struct ttm_tt *tt;
+ 
+@@ -212,7 +210,7 @@ static struct ttm_tt *vbox_ttm_tt_create(struct ttm_bo_device *bdev,
+ 		return NULL;
+ 
+ 	tt->func = &vbox_tt_backend_func;
+-	if (ttm_tt_init(tt, bdev, size, page_flags, dummy_read_page)) {
++	if (ttm_tt_init(tt, bo, page_flags)) {
+ 		kfree(tt);
+ 		return NULL;
+ 	}
+diff --git a/include/drm/amd_asic_type.h b/include/drm/amd_asic_type.h
+index 599028f..6c731c5 100644
+--- a/include/drm/amd_asic_type.h
++++ b/include/drm/amd_asic_type.h
+@@ -45,6 +45,7 @@ enum amd_asic_type {
+ 	CHIP_POLARIS11,
+ 	CHIP_POLARIS12,
+ 	CHIP_VEGA10,
++	CHIP_VEGA12,
+ 	CHIP_RAVEN,
+ 	CHIP_LAST,
+ };
+diff --git a/include/drm/ttm/ttm_bo_driver.h b/include/drm/ttm/ttm_bo_driver.h
+index 329adaf..df69af9 100644
+--- a/include/drm/ttm/ttm_bo_driver.h
++++ b/include/drm/ttm/ttm_bo_driver.h
+@@ -86,6 +86,7 @@ struct ttm_backend_func {
+ #define TTM_PAGE_FLAG_ZERO_ALLOC      (1 << 6)
+ #define TTM_PAGE_FLAG_DMA32           (1 << 7)
+ #define TTM_PAGE_FLAG_SG              (1 << 8)
++#define TTM_PAGE_FLAG_NO_RETRY        (1 << 9)
+ 
+ enum ttm_caching_state {
+ 	tt_uncached,
+@@ -327,9 +328,7 @@ struct ttm_mem_type_manager {
+ struct ttm_bo_driver {
+ 	/**
+ 	 * ttm_tt_create
+-	 *
+-	 * @bdev: pointer to a struct ttm_bo_device:
+-	 * @size: Size of the data needed backing.
++	 * @bo: The buffer object to create the ttm for.*
+ 	 * @page_flags: Page flags as identified by TTM_PAGE_FLAG_XX flags.
+ 	 * @dummy_read_page: See struct ttm_bo_device.
+ 	 *
+@@ -338,8 +337,7 @@ struct ttm_bo_driver {
+ 	 * Returns:
+ 	 * NULL: Out of memory.
+ 	 */
+-        struct ttm_tt *(*ttm_tt_create)(struct ttm_bo_device *bdev,
+-                                        unsigned long size,
++	 struct ttm_tt *(*ttm_tt_create)(struct ttm_buffer_object *bo,
+                                         uint32_t page_flags);
+ 	/**
+ 	 * ttm_tt_populate
+@@ -627,12 +625,12 @@ ttm_flag_masked(uint32_t *old, uint32_t new, uint32_t mask)
+  * Returns:
+  * NULL: Out of memory.
+  */
+-extern int ttm_tt_init(struct ttm_tt *ttm, struct ttm_bo_device *bdev,
+-                unsigned long size, uint32_t page_flags);
+-extern int ttm_dma_tt_init(struct ttm_dma_tt *ttm_dma, struct ttm_bo_device *bdev,
+-                    unsigned long size, uint32_t page_flags);
+-extern int ttm_sg_tt_init(struct ttm_dma_tt *ttm_dma, struct ttm_bo_device *bdev,
+-				unsigned long size, uint32_t page_flags);
++extern int ttm_tt_init(struct ttm_tt *ttm, struct ttm_buffer_object *bo,
++		 uint32_t page_flags);
++extern int ttm_dma_tt_init(struct ttm_dma_tt *ttm_dma, struct ttm_buffer_object *bo,
++		 	uint32_t page_flags);
++extern int ttm_sg_tt_init(struct ttm_dma_tt *ttm_dma, struct ttm_buffer_object *bo,
++		    uint32_t page_flags);
+ 
+ /**
+  * ttm_tt_fini
+@@ -1108,9 +1106,9 @@ extern const struct ttm_mem_type_manager_func ttm_bo_manager_func;
+  * for TT memory. This function uses the linux agpgart interface to
+  * bind and unbind memory backing a ttm_tt.
+  */
+-struct ttm_tt *ttm_agp_tt_create(struct ttm_bo_device *bdev,
+-                                 struct agp_bridge_data *bridge,
+-                                 unsigned long size, uint32_t page_flags);
++struct ttm_tt *ttm_agp_tt_create(struct ttm_buffer_object *bo,
++				struct agp_bridge_data *bridge,
++				uint32_t page_flags);
+ int ttm_agp_tt_populate(struct ttm_tt *ttm);
+ void ttm_agp_tt_unpopulate(struct ttm_tt *ttm);
+ #endif
+-- 
+2.7.4
+

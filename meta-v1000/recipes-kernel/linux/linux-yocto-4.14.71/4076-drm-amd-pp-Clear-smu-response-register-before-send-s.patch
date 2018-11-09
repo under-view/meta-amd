@@ -1,0 +1,48 @@
+From 8f22424f65ef004203f75f22b50a7ad81779e6bb Mon Sep 17 00:00:00 2001
+From: Rex Zhu <Rex.Zhu@amd.com>
+Date: Wed, 11 Apr 2018 18:11:49 +0800
+Subject: [PATCH 4076/4131] drm/amd/pp: Clear smu response register before send
+ smu message
+
+smu firmware do not update response register immediately under
+some delay tasks, we may read out the original value.
+
+so need to clear the register before send smu message.
+
+Acked-by: Alex Deucher <alexander.deucher@amd.com>
+Signed-off-by: Rex Zhu <Rex.Zhu@amd.com>
+---
+ drivers/gpu/drm/amd/powerplay/smumgr/ci_smumgr.c   | 4 +---
+ drivers/gpu/drm/amd/powerplay/smumgr/smu7_smumgr.c | 1 +
+ 2 files changed, 2 insertions(+), 3 deletions(-)
+
+diff --git a/drivers/gpu/drm/amd/powerplay/smumgr/ci_smumgr.c b/drivers/gpu/drm/amd/powerplay/smumgr/ci_smumgr.c
+index 2a93f3a..2d4ec8a 100644
+--- a/drivers/gpu/drm/amd/powerplay/smumgr/ci_smumgr.c
++++ b/drivers/gpu/drm/amd/powerplay/smumgr/ci_smumgr.c
+@@ -208,9 +208,7 @@ static int ci_send_msg_to_smc(struct pp_hwmgr *hwmgr, uint16_t msg)
+ {
+ 	int ret;
+ 
+-	if (!ci_is_smc_ram_running(hwmgr))
+-		return -EINVAL;
+-
++	cgs_write_register(hwmgr->device, mmSMC_RESP_0, 0);
+ 	cgs_write_register(hwmgr->device, mmSMC_MESSAGE_0, msg);
+ 
+ 	PHM_WAIT_FIELD_UNEQUAL(hwmgr, SMC_RESP_0, SMC_RESP, 0);
+diff --git a/drivers/gpu/drm/amd/powerplay/smumgr/smu7_smumgr.c b/drivers/gpu/drm/amd/powerplay/smumgr/smu7_smumgr.c
+index 10a1123..64d33b7 100644
+--- a/drivers/gpu/drm/amd/powerplay/smumgr/smu7_smumgr.c
++++ b/drivers/gpu/drm/amd/powerplay/smumgr/smu7_smumgr.c
+@@ -176,6 +176,7 @@ int smu7_send_msg_to_smc(struct pp_hwmgr *hwmgr, uint16_t msg)
+ 	else if (ret != 1)
+ 		pr_info("\n last message was failed ret is %d\n", ret);
+ 
++	cgs_write_register(hwmgr->device, mmSMC_RESP_0, 0);
+ 	cgs_write_register(hwmgr->device, mmSMC_MESSAGE_0, msg);
+ 
+ 	PHM_WAIT_FIELD_UNEQUAL(hwmgr, SMC_RESP_0, SMC_RESP, 0);
+-- 
+2.7.4
+

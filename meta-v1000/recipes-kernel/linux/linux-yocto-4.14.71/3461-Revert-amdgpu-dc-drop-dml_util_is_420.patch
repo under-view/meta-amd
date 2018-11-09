@@ -1,0 +1,86 @@
+From 929fa2ee47ae7f5c627b3996725712e8df747502 Mon Sep 17 00:00:00 2001
+From: Harry Wentland <harry.wentland@amd.com>
+Date: Mon, 16 Oct 2017 22:10:54 -0400
+Subject: [PATCH 3461/4131] Revert "amdgpu/dc: drop dml_util_is_420"
+
+This reverts commit e5bcf3d83e40cc7acc9d111519b7bacaf4a01070.
+
+Unfortunately these clash with our DML update from the HW guys.
+Will attempt to reroll them after.
+
+Signed-off-by: Alex Deucher <alexander.deucher@amd.com>
+Signed-off-by: Kalyan Alle <kalyan.alle@amd.com>
+---
+ drivers/gpu/drm/amd/display/dc/dml/Makefile        |  1 -
+ .../gpu/drm/amd/display/dc/dml/dml_common_defs.c   | 33 ++++++++++++++++++++++
+ .../gpu/drm/amd/display/dc/dml/dml_common_defs.h   |  1 +
+ 3 files changed, 34 insertions(+), 1 deletion(-)
+
+diff --git a/drivers/gpu/drm/amd/display/dc/dml/Makefile b/drivers/gpu/drm/amd/display/dc/dml/Makefile
+index f195aca..cea34ff 100644
+--- a/drivers/gpu/drm/amd/display/dc/dml/Makefile
++++ b/drivers/gpu/drm/amd/display/dc/dml/Makefile
+@@ -11,7 +11,6 @@ CFLAGS_display_rq_dlg_helpers.o := -mhard-float -msse -mpreferred-stack-boundary
+ CFLAGS_soc_bounding_box.o := -mhard-float -msse -mpreferred-stack-boundary=4
+ CFLAGS_dml_common_defs.o := -mhard-float -msse -mpreferred-stack-boundary=4
+ 
+-
+ DML = display_mode_lib.o display_rq_dlg_helpers.o dml1_display_rq_dlg_calc.o \
+ 	  soc_bounding_box.o dml_common_defs.o
+ 
+diff --git a/drivers/gpu/drm/amd/display/dc/dml/dml_common_defs.c b/drivers/gpu/drm/amd/display/dc/dml/dml_common_defs.c
+index edda8cf..d403dda 100644
+--- a/drivers/gpu/drm/amd/display/dc/dml/dml_common_defs.c
++++ b/drivers/gpu/drm/amd/display/dc/dml/dml_common_defs.c
+@@ -60,3 +60,36 @@ unsigned int dml_round_to_multiple(
+                 return (num - remainder);
+ }
+ 
++bool dml_util_is_420(enum source_format_class sorce_format)
++{
++	bool val = false;
++
++	switch (sorce_format) {
++	case dm_444_16:
++		val = false;
++		break;
++	case dm_444_32:
++		val = false;
++		break;
++	case dm_444_64:
++		val = false;
++		break;
++	case dm_420_8:
++		val = true;
++		break;
++	case dm_420_10:
++		val = true;
++		break;
++	case dm_422_8:
++		val = false;
++		break;
++	case dm_422_10:
++		val = false;
++		break;
++	default:
++		BREAK_TO_DEBUGGER();
++	}
++
++	return val;
++}
++
+diff --git a/drivers/gpu/drm/amd/display/dc/dml/dml_common_defs.h b/drivers/gpu/drm/amd/display/dc/dml/dml_common_defs.h
+index 2354f83..a0439c9 100644
+--- a/drivers/gpu/drm/amd/display/dc/dml/dml_common_defs.h
++++ b/drivers/gpu/drm/amd/display/dc/dml/dml_common_defs.h
+@@ -34,6 +34,7 @@
+ #define dml_print(str, ...) {dm_logger_write(mode_lib->logger, LOG_DML, str, ##__VA_ARGS__); }
+ #define DTRACE(str, ...) {dm_logger_write(mode_lib->logger, LOG_DML, str, ##__VA_ARGS__); }
+ 
++bool dml_util_is_420(enum source_format_class sorce_format);
+ double dml_round(double a);
+ unsigned int dml_round_to_multiple(
+                         unsigned int num, unsigned int multiple, bool up);
+-- 
+2.7.4
+

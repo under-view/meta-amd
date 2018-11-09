@@ -1,0 +1,142 @@
+From 98c4f124258c5987846edc3166b890e7460a4253 Mon Sep 17 00:00:00 2001
+From: Kalyan Alle <kalyan.alle@amd.com>
+Date: Thu, 26 Apr 2018 17:02:09 +0530
+Subject: [PATCH 3143/4131] fixes the compilation issues v6
+
+This patch fixes the compilation issues during porting
+from branch:amd-18.10 , repo: brahma/ec/linux
+till commit : c34be06954313c21ec311bd8e1c3a152d91ed91b
+
+Signed-off-by: kalyan alle <kalyan.alle@amd.com>
+---
+ drivers/gpu/drm/amd/amdgpu/amdgpu.h       |  4 --
+ drivers/gpu/drm/amd/amdgpu/amdgpu_drv.c   |  2 +-
+ drivers/gpu/drm/amd/amdgpu/amdgpu_prime.c | 65 -------------------------------
+ 3 files changed, 1 insertion(+), 70 deletions(-)
+
+diff --git a/drivers/gpu/drm/amd/amdgpu/amdgpu.h b/drivers/gpu/drm/amd/amdgpu/amdgpu.h
+index de34485d..33d2365 100755
+--- a/drivers/gpu/drm/amd/amdgpu/amdgpu.h
++++ b/drivers/gpu/drm/amd/amdgpu/amdgpu.h
+@@ -432,8 +432,6 @@ struct dma_buf *amdgpu_gem_prime_export(struct drm_device *dev,
+ 					int flags);
+ struct drm_gem_object *
+ amdgpu_gem_prime_foreign_bo(struct amdgpu_device *adev, struct amdgpu_bo *bo);
+-struct drm_gem_object *amdgpu_gem_prime_import(struct drm_device *dev,
+-					       struct dma_buf *dma_buf);
+ int amdgpu_gem_prime_pin(struct drm_gem_object *obj);
+ void amdgpu_gem_prime_unpin(struct drm_gem_object *obj);
+ struct reservation_object *amdgpu_gem_prime_res_obj(struct drm_gem_object *);
+@@ -1978,9 +1976,7 @@ void amdgpu_device_vram_location(struct amdgpu_device *adev,
+ 				 struct amdgpu_mc *mc, u64 base);
+ void amdgpu_device_gart_location(struct amdgpu_device *adev,
+ 				 struct amdgpu_mc *mc);
+-#if !defined(BUILD_AS_DKMS) || LINUX_VERSION_CODE >= KERNEL_VERSION(4, 15, 0)
+ int amdgpu_device_resize_fb_bar(struct amdgpu_device *adev);
+-#endif
+ void amdgpu_ttm_set_active_vram_size(struct amdgpu_device *adev, u64 size);
+ int amdgpu_ttm_init(struct amdgpu_device *adev);
+ void amdgpu_ttm_fini(struct amdgpu_device *adev);
+diff --git a/drivers/gpu/drm/amd/amdgpu/amdgpu_drv.c b/drivers/gpu/drm/amd/amdgpu/amdgpu_drv.c
+index 7b4a20c..3f9a5fc 100644
+--- a/drivers/gpu/drm/amd/amdgpu/amdgpu_drv.c
++++ b/drivers/gpu/drm/amd/amdgpu/amdgpu_drv.c
+@@ -860,7 +860,7 @@ static struct drm_driver kms_driver = {
+ 	.prime_handle_to_fd = drm_gem_prime_handle_to_fd,
+ 	.prime_fd_to_handle = drm_gem_prime_fd_to_handle,
+ 	.gem_prime_export = amdgpu_gem_prime_export,
+-	.gem_prime_import = amdgpu_gem_prime_import,
++	.gem_prime_import = drm_gem_prime_import,
+ 	.gem_prime_pin = amdgpu_gem_prime_pin,
+ 	.gem_prime_unpin = amdgpu_gem_prime_unpin,
+ 	.gem_prime_res_obj = amdgpu_gem_prime_res_obj,
+diff --git a/drivers/gpu/drm/amd/amdgpu/amdgpu_prime.c b/drivers/gpu/drm/amd/amdgpu/amdgpu_prime.c
+index de6d7ae..74124aa 100644
+--- a/drivers/gpu/drm/amd/amdgpu/amdgpu_prime.c
++++ b/drivers/gpu/drm/amd/amdgpu/amdgpu_prime.c
+@@ -183,50 +183,6 @@ struct reservation_object *amdgpu_gem_prime_res_obj(struct drm_gem_object *obj)
+ 	return bo->tbo.resv;
+ }
+ 
+-static int amdgpu_gem_begin_cpu_access(struct dma_buf *dma_buf,
+-				       enum dma_data_direction direction)
+-{
+-	struct amdgpu_bo *bo = gem_to_amdgpu_bo(dma_buf->priv);
+-	struct amdgpu_device *adev = amdgpu_ttm_adev(bo->tbo.bdev);
+-	struct ttm_operation_ctx ctx = { true, false };
+-	u32 domain = amdgpu_display_framebuffer_domains(adev);
+-	int ret;
+-	bool reads = (direction == DMA_BIDIRECTIONAL ||
+-		      direction == DMA_FROM_DEVICE);
+-
+-	if (!reads || !(domain & AMDGPU_GEM_DOMAIN_GTT))
+-		return 0;
+-
+-	/* move to gtt */
+-	ret = amdgpu_bo_reserve(bo, false);
+-	if (unlikely(ret != 0))
+-		return ret;
+-
+-	if (!bo->pin_count && (bo->allowed_domains & AMDGPU_GEM_DOMAIN_GTT)) {
+-		amdgpu_ttm_placement_from_domain(bo, AMDGPU_GEM_DOMAIN_GTT);
+-		ret = ttm_bo_validate(&bo->tbo, &bo->placement, &ctx);
+-	}
+-
+-	amdgpu_bo_unreserve(bo);
+-	return ret;
+-}
+-
+-static const struct dma_buf_ops amdgpu_dmabuf_ops = {
+-	.attach = drm_gem_map_attach,
+-	.detach = drm_gem_map_detach,
+-	.map_dma_buf = drm_gem_map_dma_buf,
+-	.unmap_dma_buf = drm_gem_unmap_dma_buf,
+-	.release = drm_gem_dmabuf_release,
+-	.begin_cpu_access = amdgpu_gem_begin_cpu_access,
+-	.map = drm_gem_dmabuf_kmap,
+-	.map_atomic = drm_gem_dmabuf_kmap_atomic,
+-	.unmap = drm_gem_dmabuf_kunmap,
+-	.unmap_atomic = drm_gem_dmabuf_kunmap_atomic,
+-	.mmap = drm_gem_dmabuf_mmap,
+-	.vmap = drm_gem_dmabuf_vmap,
+-	.vunmap = drm_gem_dmabuf_vunmap,
+-};
+-
+ struct dma_buf *amdgpu_gem_prime_export(struct drm_device *dev,
+ 					struct drm_gem_object *gobj,
+ 					int flags)
+@@ -241,7 +197,6 @@ struct dma_buf *amdgpu_gem_prime_export(struct drm_device *dev,
+ 	buf = drm_gem_prime_export(dev, gobj, flags);
+ 	if (!IS_ERR(buf))
+ 		buf->file->f_mapping = dev->anon_inode->i_mapping;
+-	buf->ops = &amdgpu_dmabuf_ops;
+ 
+ 	return buf;
+ }
+@@ -286,23 +241,3 @@ amdgpu_gem_prime_foreign_bo(struct amdgpu_device *adev, struct amdgpu_bo *bo)
+ 	return &gobj->base;
+ }
+ 
+-struct drm_gem_object *amdgpu_gem_prime_import(struct drm_device *dev,
+-						struct dma_buf *dma_buf)
+-{
+-	struct drm_gem_object *obj;
+-
+-	if (dma_buf->ops == &amdgpu_dmabuf_ops) {
+-		obj = dma_buf->priv;
+-		if (obj->dev == dev) {
+-			/*
+-			* Importing dmabuf exported from out own gem increases
+-			* refcount on gem itself instead of f_count of dmabuf.
+-			*/
+-			drm_gem_object_get(obj);
+-			return obj;
+-                }
+-        }
+-	
+-	return drm_gem_prime_import(dev, dma_buf);
+-}
+-
+-- 
+2.7.4
+

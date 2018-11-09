@@ -1,0 +1,46 @@
+From bee6d503ecdec66ff9aabe6d97997927bdb9b7f6 Mon Sep 17 00:00:00 2001
+From: Kalyan Alle <kalyan.alle@amd.com>
+Date: Wed, 3 Jan 2018 13:25:20 +0530
+Subject: [PATCH 0690/4131] drm/amd/amdgpu: enable GFX PG for carrizo and
+
+disable CG for eStoney.
+
+Enables the GFX PG for carrizo as a workaround to make the amd-17.50
+kernel boot on carrizo. This patch also disables the CG on eStoney
+to get rid of the filesystem corruption and IOMMU errors.
+
+Signed-off-by: Kalyan Alle <kalyan.alle@amd.com>
+---
+ drivers/gpu/drm/amd/amdgpu/vi.c | 9 +++++++--
+ 1 file changed, 7 insertions(+), 2 deletions(-)
+
+diff --git a/drivers/gpu/drm/amd/amdgpu/vi.c b/drivers/gpu/drm/amd/amdgpu/vi.c
+index e131eb3..f5ec5f8 100644
+--- a/drivers/gpu/drm/amd/amdgpu/vi.c
++++ b/drivers/gpu/drm/amd/amdgpu/vi.c
+@@ -1066,7 +1066,11 @@ static int vi_common_early_init(void *handle)
+ 			AMD_CG_SUPPORT_GFX_CP_LS |
+ 			AMD_CG_SUPPORT_GFX_CGTS |
+ 			AMD_CG_SUPPORT_GFX_CGTS_LS |
+-			AMD_CG_SUPPORT_GFX_CGCG |
++			/* Enabling CGCG on 4.9 kernel results in
++			* IOMMU errors and filesystem corruption
++			* Disable CGCG until the issue is fixed properly
++			*/
++			//AMD_CG_SUPPORT_GFX_CGCG |
+ 			AMD_CG_SUPPORT_GFX_CGLS |
+ 			AMD_CG_SUPPORT_BIF_LS |
+ 			AMD_CG_SUPPORT_HDP_MGCG |
+@@ -1077,7 +1081,8 @@ static int vi_common_early_init(void *handle)
+ 		/* rev0 hardware requires workarounds to support PG */
+ 		adev->pg_flags = 0;
+ 		if (adev->rev_id != 0x00 || CZ_REV_BRISTOL(adev->pdev->revision)) {
+-			adev->pg_flags |= AMD_PG_SUPPORT_GFX_SMG |
++			adev->pg_flags |= AMD_PG_SUPPORT_GFX_PG |
++				AMD_PG_SUPPORT_GFX_SMG |
+ 				AMD_PG_SUPPORT_GFX_PIPELINE |
+ 				AMD_PG_SUPPORT_CP |
+ 				AMD_PG_SUPPORT_UVD |
+-- 
+2.7.4
+

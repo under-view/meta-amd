@@ -1,0 +1,33 @@
+From 97f36aa13d56cb37198ac707674df58322789fc9 Mon Sep 17 00:00:00 2001
+From: Jerry Zuo <Jerry.Zuo@amd.com>
+Date: Wed, 24 May 2017 11:01:32 -0400
+Subject: [PATCH 0474/4131] drm/amd/display: fix NULL pointer in
+ dm_commit_surfaces
+
+Check if adding surface is failed to prevent NULL pointer deref.
+
+Signed-off-by: Jerry Zuo <Jerry.Zuo@amd.com>
+Reviewed-by: Harry Wentland <Harry.Wentland@amd.com>
+Signed-off-by: Alex Deucher <alexander.deucher@amd.com>
+---
+ drivers/gpu/drm/amd/display/amdgpu_dm/amdgpu_dm_types.c | 4 ++++
+ 1 file changed, 4 insertions(+)
+
+diff --git a/drivers/gpu/drm/amd/display/amdgpu_dm/amdgpu_dm_types.c b/drivers/gpu/drm/amd/display/amdgpu_dm/amdgpu_dm_types.c
+index 2f46859..3f6a6b8 100644
+--- a/drivers/gpu/drm/amd/display/amdgpu_dm/amdgpu_dm_types.c
++++ b/drivers/gpu/drm/amd/display/amdgpu_dm/amdgpu_dm_types.c
+@@ -2573,6 +2573,10 @@ static void amdgpu_dm_commit_surfaces(struct drm_atomic_state *state,
+ 			if (crtc == pcrtc) {
+ 				add_surface(dm->dc, crtc, plane,
+ 					    &dc_surfaces_constructed[planes_count]);
++				if (dc_surfaces_constructed[planes_count] == NULL) {
++					dm_error("%s: Failed to add surface!\n", __func__);
++					continue;
++				}
+ 				dc_stream_attach = acrtc_attach->stream;
+ 				planes_count++;
+ 			}
+-- 
+2.7.4
+

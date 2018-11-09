@@ -1,0 +1,35 @@
+From d4f570d715f3af3ab75842c5459bc06aaf45e489 Mon Sep 17 00:00:00 2001
+From: Huang Rui <ray.huang@amd.com>
+Date: Fri, 15 Dec 2017 14:34:57 +0800
+Subject: [PATCH 4049/4131] drm/amdgpu: set CGPG if gfxoff is enabled for raven
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+Signed-off-by: Huang Rui <ray.huang@amd.com>
+Reviewed-by: Hawking Zhang <Hawking.Zhang@amd.com>
+Reviewed-by: Alex Deucher <alexander.deucher@amd.com>
+Acked-by: Christian König <christian.koenig@amd.com>
+---
+ drivers/gpu/drm/amd/amdgpu/soc15.c | 5 +++++
+ 1 file changed, 5 insertions(+)
+
+diff --git a/drivers/gpu/drm/amd/amdgpu/soc15.c b/drivers/gpu/drm/amd/amdgpu/soc15.c
+index 2e9ebe8..0be00c4 100644
+--- a/drivers/gpu/drm/amd/amdgpu/soc15.c
++++ b/drivers/gpu/drm/amd/amdgpu/soc15.c
+@@ -679,6 +679,11 @@ static int soc15_common_early_init(void *handle)
+ 			AMD_CG_SUPPORT_SDMA_LS;
+ 		adev->pg_flags = AMD_PG_SUPPORT_SDMA;
+ 
++		if (adev->powerplay.pp_feature & PP_GFXOFF_MASK)
++			adev->pg_flags |= AMD_PG_SUPPORT_GFX_PG |
++				AMD_PG_SUPPORT_CP |
++				AMD_PG_SUPPORT_RLC_SMU_HS;
++
+ 		adev->external_rev_id = 0x1;
+ 		break;
+ 	default:
+-- 
+2.7.4
+

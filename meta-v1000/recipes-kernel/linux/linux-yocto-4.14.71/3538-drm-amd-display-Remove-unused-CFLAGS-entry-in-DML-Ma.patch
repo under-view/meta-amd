@@ -1,0 +1,30 @@
+From 79212faf7e8fcbb4e7ab621b1afce1cdca895eed Mon Sep 17 00:00:00 2001
+From: Harry Wentland <harry.wentland@amd.com>
+Date: Thu, 8 Feb 2018 16:46:30 -0500
+Subject: [PATCH 3538/4131] drm/amd/display: Remove unused CFLAGS entry in DML
+ Makefile
+
+Missed that with a previous change that removed unused files.
+
+Signed-off-by: Harry Wentland <harry.wentland@amd.com>
+Acked-by: Alex Deucher <alexander.deucher@amd.com>
+Signed-off-by: Alex Deucher <alexander.deucher@amd.com>
+---
+ drivers/gpu/drm/amd/display/dc/dml/Makefile | 1 -
+ 1 file changed, 1 deletion(-)
+
+diff --git a/drivers/gpu/drm/amd/display/dc/dml/Makefile b/drivers/gpu/drm/amd/display/dc/dml/Makefile
+index 8551603..a29fa6d 100644
+--- a/drivers/gpu/drm/amd/display/dc/dml/Makefile
++++ b/drivers/gpu/drm/amd/display/dc/dml/Makefile
+@@ -11,7 +11,6 @@ endif
+ 
+ dml_ccflags := -mhard-float -msse $(cc_stack_align)
+ 
+-CFLAGS_display_mode_vba.o := $(dml_ccflags)
+ CFLAGS_display_mode_lib.o := $(dml_ccflags)
+ CFLAGS_display_pipe_clocks.o := $(dml_ccflags)
+ CFLAGS_dml1_display_rq_dlg_calc.o := $(dml_ccflags)
+-- 
+2.7.4
+

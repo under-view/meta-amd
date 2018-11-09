@@ -1,0 +1,38 @@
+From 2b64bce2327336c9a3b8097e36ed34922a117f87 Mon Sep 17 00:00:00 2001
+From: Mikita Lipski <mikita.lipski@amd.com>
+Date: Thu, 18 Jan 2018 14:53:57 -0500
+Subject: [PATCH 3497/4131] drm/amd/display: Set irq state only on existing
+ crtcs
+
+Because AMDGPU_CRTC_IRQ_VLINE1 = 6, it expected 6 more crtcs to be
+programed with disabled irq state in amdgpu_irq_disable_all. That caused errors and accessed
+the wrong memory location.
+
+Signed-off-by: Mikita Lipski <mikita.lipski@amd.com>
+Reviewed-by: Tony Cheng <Tony.Cheng@amd.com>
+Reviewed-by: Harry Wentland <Harry.Wentland@amd.com>
+Signed-off-by: Alex Deucher <alexander.deucher@amd.com>
+---
+ drivers/gpu/drm/amd/display/amdgpu_dm/amdgpu_dm_irq.c | 6 ++----
+ 1 file changed, 2 insertions(+), 4 deletions(-)
+
+diff --git a/drivers/gpu/drm/amd/display/amdgpu_dm/amdgpu_dm_irq.c b/drivers/gpu/drm/amd/display/amdgpu_dm/amdgpu_dm_irq.c
+index 4b9ea76..470c4e2 100644
+--- a/drivers/gpu/drm/amd/display/amdgpu_dm/amdgpu_dm_irq.c
++++ b/drivers/gpu/drm/amd/display/amdgpu_dm/amdgpu_dm_irq.c
+@@ -607,10 +607,8 @@ static const struct amdgpu_irq_src_funcs dm_hpd_irq_funcs = {
+ 
+ void amdgpu_dm_set_irq_funcs(struct amdgpu_device *adev)
+ {
+-	if (adev->mode_info.num_crtc > 0)
+-		adev->crtc_irq.num_types = AMDGPU_CRTC_IRQ_VLINE1 + adev->mode_info.num_crtc;
+-	else
+-		adev->crtc_irq.num_types = 0;
++
++	adev->crtc_irq.num_types = adev->mode_info.num_crtc;
+ 	adev->crtc_irq.funcs = &dm_crtc_irq_funcs;
+ 
+ 	adev->pageflip_irq.num_types = adev->mode_info.num_crtc;
+-- 
+2.7.4
+

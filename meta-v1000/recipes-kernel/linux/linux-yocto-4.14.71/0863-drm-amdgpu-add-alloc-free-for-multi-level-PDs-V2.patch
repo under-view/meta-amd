@@ -1,0 +1,50 @@
+From e2a7f2af50163c59dccb82f56b38bd30018a5e96 Mon Sep 17 00:00:00 2001
+From: =?UTF-8?q?Christian=20K=C3=B6nig?= <christian.koenig@amd.com>
+Date: Thu, 27 Oct 2016 20:04:38 +0200
+Subject: [PATCH 0863/4131] drm/amdgpu: add alloc/free for multi level PDs V2
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+Allocate and free page directories on demand.
+
+V2:
+a. clear entries allocation
+b. fix entries index calculation
+c. need alloc sub level even parent bo was allocated
+
+Signed-off-by: Christian König <christian.koenig@amd.com> (v1)
+Reviewed-by: Alex Deucher <alexander.deucher@amd.com> (v1)
+Signed-off-by: Chunming Zhou <David1.Zhou@amd.com> (v2)
+Acked-by: Alex Deucher <alexander.deucher@amd.com> (v2)
+Signed-off-by: Alex Deucher <alexander.deucher@amd.com>
+---
+ drivers/gpu/drm/amd/amdgpu/amdgpu_vm.c | 12 ++----------
+ 1 file changed, 2 insertions(+), 10 deletions(-)
+
+diff --git a/drivers/gpu/drm/amd/amdgpu/amdgpu_vm.c b/drivers/gpu/drm/amd/amdgpu/amdgpu_vm.c
+index d09a079..05737f2 100644
+--- a/drivers/gpu/drm/amd/amdgpu/amdgpu_vm.c
++++ b/drivers/gpu/drm/amd/amdgpu/amdgpu_vm.c
+@@ -2637,16 +2637,8 @@ void amdgpu_vm_fini(struct amdgpu_device *adev, struct amdgpu_vm *vm)
+ 		list_del(&mapping->list);
+ 		amdgpu_vm_free_mapping(adev, vm, mapping, NULL);
+ 	}
+-
+-	root = amdgpu_bo_ref(vm->root.bo);
+-	r = amdgpu_bo_reserve(root, true);
+-	if (r) {
+-		dev_err(adev->dev, "Leaking page tables because BO reservation failed\n");
+-	} else {
+-		amdgpu_vm_free_levels(&vm->root);
+-		amdgpu_bo_unreserve(root);
+-	}
+-	amdgpu_bo_unref(&root);
++	
++	amdgpu_vm_free_levels(&vm->root);
+ 	dma_fence_put(vm->last_dir_update);
+ 	for (i = 0; i < AMDGPU_MAX_VMHUBS; i++)
+ 		amdgpu_vm_free_reserved_vmid(adev, vm, i);
+-- 
+2.7.4
+

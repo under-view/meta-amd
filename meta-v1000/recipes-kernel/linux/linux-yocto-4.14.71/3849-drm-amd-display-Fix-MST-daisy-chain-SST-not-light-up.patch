@@ -1,0 +1,77 @@
+From 767038bed7f5824505542eb2fad630c809e072f4 Mon Sep 17 00:00:00 2001
+From: Jerry Zuo <Jerry.Zuo@amd.com>
+Date: Wed, 20 Sep 2017 15:04:52 -0400
+Subject: [PATCH 3849/4131] drm/amd/display: Fix MST daisy chain SST not light
+ up
+
+In SST daisy chain scenario, edid is getting read in mst hotplug
+routine. It is getting conflict with drm send_enum_path_resources
+kernel thread in terms of i2c bus which is getting locked up in
+such case.
+
+Have edid being read in get_mode hook, instead of in hotplug
+routine.
+
+Signed-off-by: Jerry Zuo <Jerry.Zuo@amd.com>
+Reviewed-by: Roman Li <Roman.Li@amd.com>
+Acked-by: Harry Wentland <Harry.Wentland@amd.com>
+Signed-off-by: Alex Deucher <alexander.deucher@amd.com>
+---
+ .../gpu/drm/amd/display/amdgpu_dm/amdgpu_dm_mst_types.c | 17 +++++++++++++----
+ 1 file changed, 13 insertions(+), 4 deletions(-)
+
+diff --git a/drivers/gpu/drm/amd/display/amdgpu_dm/amdgpu_dm_mst_types.c b/drivers/gpu/drm/amd/display/amdgpu_dm/amdgpu_dm_mst_types.c
+index b88b0e4..8467541 100644
+--- a/drivers/gpu/drm/amd/display/amdgpu_dm/amdgpu_dm_mst_types.c
++++ b/drivers/gpu/drm/amd/display/amdgpu_dm/amdgpu_dm_mst_types.c
+@@ -167,18 +167,27 @@ dm_dp_mst_connector_destroy(struct drm_connector *connector)
+ }
+ 
+ static const struct drm_connector_funcs dm_dp_mst_connector_funcs = {
+-	.dpms = drm_atomic_helper_connector_dpms,
+ 	.detect = dm_dp_mst_detect,
+ 	.fill_modes = drm_helper_probe_single_connector_modes,
+ 	.destroy = dm_dp_mst_connector_destroy,
+ 	.reset = amdgpu_dm_connector_funcs_reset,
+-	.set_property = drm_atomic_helper_connector_set_property,
+ 	.atomic_duplicate_state = amdgpu_dm_connector_atomic_duplicate_state,
+ 	.atomic_destroy_state = drm_atomic_helper_connector_destroy_state,
+ 	.atomic_set_property = amdgpu_dm_connector_atomic_set_property,
+ 	.atomic_get_property = amdgpu_dm_connector_atomic_get_property
+ };
+ 
++static int dm_connector_update_modes(struct drm_connector *connector,
++                               struct edid *edid)
++{
++       int ret;
++
++       ret = drm_add_edid_modes(connector, edid);
++       drm_edid_to_eld(connector, edid);
++
++       return ret;
++}
++
+ void dm_dp_mst_dc_sink_create(struct drm_connector *connector)
+ {
+ 	struct amdgpu_dm_connector *aconnector = to_amdgpu_dm_connector(connector);
+@@ -227,7 +236,7 @@ static int dm_dp_mst_get_modes(struct drm_connector *connector)
+ 	int ret = 0;
+ 
+ 	if (!aconnector)
+-		return drm_add_edid_modes(connector, NULL);
++		return dm_connector_update_modes(connector, NULL);
+ 
+ 	if (!aconnector->edid) {
+ 		struct edid *edid;
+@@ -263,7 +272,7 @@ static int dm_dp_mst_get_modes(struct drm_connector *connector)
+ 						&aconnector->base, edid);
+ 	}
+ 
+-	ret = drm_add_edid_modes(connector, aconnector->edid);
++	ret = dm_connector_update_modes(connector, aconnector->edid);
+ 
+ 	return ret;
+ }
+-- 
+2.7.4
+

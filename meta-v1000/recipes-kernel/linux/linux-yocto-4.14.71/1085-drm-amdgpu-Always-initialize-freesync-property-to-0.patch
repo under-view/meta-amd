@@ -1,0 +1,57 @@
+From bdbb4bdec8d322f957fa52f06eb9c8bd6be37512 Mon Sep 17 00:00:00 2001
+From: "Leo (Sunpeng) Li" <sunpeng.li@amd.com>
+Date: Mon, 20 Nov 2017 15:00:02 -0500
+Subject: [PATCH 1085/4131] drm/amdgpu: Always initialize freesync property to
+ 0
+
+Freesync should be disabled by default, regardless of display
+capabilities.
+
+Signed-off-by: Leo (Sunpeng) Li <sunpeng.li@amd.com>
+---
+ drivers/gpu/drm/amd/display/amdgpu_dm/amdgpu_dm.c | 10 ++++------
+ 1 file changed, 4 insertions(+), 6 deletions(-)
+
+diff --git a/drivers/gpu/drm/amd/display/amdgpu_dm/amdgpu_dm.c b/drivers/gpu/drm/amd/display/amdgpu_dm/amdgpu_dm.c
+index a44b9dd..51d06df 100644
+--- a/drivers/gpu/drm/amd/display/amdgpu_dm/amdgpu_dm.c
++++ b/drivers/gpu/drm/amd/display/amdgpu_dm/amdgpu_dm.c
+@@ -2610,16 +2610,14 @@ amdgpu_dm_connector_detect(struct drm_connector *connector, bool force)
+ /* Compare user free sync property with immunable property free sync capable
+  * and if display is not free sync capable sets free sync property to 0
+  */
+-static int amdgpu_freesync_update_property_atomic(
+-				struct drm_connector *connector,
+-				uint64_t val_capable)
++static int amdgpu_freesync_update_property_atomic(struct drm_connector *connector)
+ {
+ 	struct drm_device *dev = connector->dev;
+ 	struct amdgpu_device *adev = dev->dev_private;
+ 
+ 	return drm_object_property_set_value(&connector->base,
+ 					     adev->mode_info.freesync_property,
+-					     val_capable);
++					     0);
+ 
+ 
+ }
+@@ -5047,7 +5045,7 @@ void amdgpu_dm_add_sink_to_freesync_module(
+ 	drm_object_property_set_value(&connector->base,
+ 				      adev->mode_info.freesync_capable_property,
+ 				      val_capable);
+-	amdgpu_freesync_update_property_atomic(connector, val_capable);
++	amdgpu_freesync_update_property_atomic(connector);
+ 
+ }
+ 
+@@ -5074,6 +5072,6 @@ void amdgpu_dm_remove_sink_from_freesync_module(
+ 	drm_object_property_set_value(&connector->base,
+ 				      adev->mode_info.freesync_capable_property,
+ 				      0);
+-	amdgpu_freesync_update_property_atomic(connector, 0);
++	amdgpu_freesync_update_property_atomic(connector);
+ 
+ }
+-- 
+2.7.4
+

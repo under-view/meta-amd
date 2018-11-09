@@ -1,0 +1,53 @@
+From 2fffe8a779e81d0385d03270ee024bc3fbe1979a Mon Sep 17 00:00:00 2001
+From: "monk.liu" <monk.liu@amd.com>
+Date: Thu, 22 Oct 2015 11:21:52 +0800
+Subject: [PATCH 0764/4131] drm/amdgpu: improve GTT BO alloc speed in OGL
+
+original we use ttm_dma path to allocate GTT bo, which is too much
+slower than the path of ttm_pool, in most cases.
+
+Change-Id: I3f634d826139f4df074e68ec5fc0477b1c9126cc
+Signed-off-by: monk.liu <Monk.Liu@amd.com>
+Reviewed-by: Jammy Zhou <jammy.zhou@amd.com>
+
+ Conflicts:
+	drivers/gpu/drm/amd/amdgpu/amdgpu_ttm.c
+---
+ drivers/gpu/drm/amd/amdgpu/amdgpu_ttm.c | 14 --------------
+ 1 file changed, 14 deletions(-)
+
+diff --git a/drivers/gpu/drm/amd/amdgpu/amdgpu_ttm.c b/drivers/gpu/drm/amd/amdgpu/amdgpu_ttm.c
+index 0d70747..9e15cc3 100644
+--- a/drivers/gpu/drm/amd/amdgpu/amdgpu_ttm.c
++++ b/drivers/gpu/drm/amd/amdgpu/amdgpu_ttm.c
+@@ -950,13 +950,6 @@ static int amdgpu_ttm_tt_populate(struct ttm_tt *ttm)
+ 		goto trace_mappings;
+ 	}
+ 
+-#ifdef CONFIG_SWIOTLB
+-	if (swiotlb_nr_tbl()) {
+-		r = ttm_dma_populate(&gtt->ttm, adev->dev);
+-		goto trace_mappings;
+-	}
+-#endif
+-
+ 	r = ttm_populate_and_map_pages(adev->dev, &gtt->ttm);
+ trace_mappings:
+ 	if (likely(!r))
+@@ -983,13 +976,6 @@ static void amdgpu_ttm_tt_unpopulate(struct ttm_tt *ttm)
+ 
+ 	amdgpu_trace_dma_unmap(ttm);
+ 
+-#ifdef CONFIG_SWIOTLB
+-	if (swiotlb_nr_tbl()) {
+-		ttm_dma_unpopulate(&gtt->ttm, adev->dev);
+-		return;
+-	}
+-#endif
+-
+ 	ttm_unmap_and_unpopulate_pages(adev->dev, &gtt->ttm);
+ }
+ 
+-- 
+2.7.4
+

@@ -1,0 +1,28 @@
+From fe38d64c21584f8d6217cd708c2cbbbe938aece1 Mon Sep 17 00:00:00 2001
+From: Monk Liu <Monk.Liu@amd.com>
+Date: Thu, 18 Jan 2018 16:58:04 +0800
+Subject: [PATCH 3607/4131] drm/amdgpu: skip ECC for SRIOV in gmc late_init
+
+Change-Id: I2865a11d1dded214de289787d334ec4a22b5db19
+Signed-off-by: Monk Liu <Monk.Liu@amd.com>
+Acked-by: Alex Deucher <alexander.deucher@amd.com>
+---
+ drivers/gpu/drm/amd/amdgpu/gmc_v9_0.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/drivers/gpu/drm/amd/amdgpu/gmc_v9_0.c b/drivers/gpu/drm/amd/amdgpu/gmc_v9_0.c
+index 90f6afb..f097135 100644
+--- a/drivers/gpu/drm/amd/amdgpu/gmc_v9_0.c
++++ b/drivers/gpu/drm/amd/amdgpu/gmc_v9_0.c
+@@ -672,7 +672,7 @@ static int gmc_v9_0_late_init(void *handle)
+ 	for(i = 0; i < AMDGPU_MAX_VMHUBS; ++i)
+ 		BUG_ON(vm_inv_eng[i] > 16);
+ 
+-	if (adev->asic_type == CHIP_VEGA10) {
++	if (adev->asic_type == CHIP_VEGA10 && !amdgpu_sriov_vf(adev)) {
+ 		r = gmc_v9_0_ecc_available(adev);
+ 		if (r == 1) {
+ 			DRM_INFO("ECC is active.\n");
+-- 
+2.7.4
+

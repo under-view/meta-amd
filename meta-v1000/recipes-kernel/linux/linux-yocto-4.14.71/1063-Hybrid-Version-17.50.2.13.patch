@@ -1,0 +1,24 @@
+From 0fec7fb5d42b449c8545a2820de4627b3922ff2e Mon Sep 17 00:00:00 2001
+From: Junshan Fang <Junshan.Fang@amd.com>
+Date: Wed, 11 Oct 2017 13:58:47 +0800
+Subject: [PATCH 1063/4131] Hybrid Version: 17.50.2.13
+
+Change-Id: Ia42fba75b99e685fbcad5f52a1ae6cfe9164149f
+Signed-off-by: Junshan Fang <Junshan.Fang@amd.com>
+---
+ drivers/gpu/drm/amd/amdgpu/amdgpu_drv.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/drivers/gpu/drm/amd/amdgpu/amdgpu_drv.c b/drivers/gpu/drm/amd/amdgpu/amdgpu_drv.c
+index 8e56956..e587416 100644
+--- a/drivers/gpu/drm/amd/amdgpu/amdgpu_drv.c
++++ b/drivers/gpu/drm/amd/amdgpu/amdgpu_drv.c
+@@ -931,4 +931,4 @@ module_exit(amdgpu_exit);
+ MODULE_AUTHOR(DRIVER_AUTHOR);
+ MODULE_DESCRIPTION(DRIVER_DESC);
+ MODULE_LICENSE("GPL and additional rights");
+-MODULE_VERSION("17.50.1.13");
++MODULE_VERSION("17.50.2.13");
+-- 
+2.7.4
+

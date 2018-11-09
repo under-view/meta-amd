@@ -1,0 +1,30 @@
+From 044c9c63364b8c7f0db9c8e7bbaa7e42a056f4d6 Mon Sep 17 00:00:00 2001
+From: Daniel Vetter <daniel.vetter@ffwll.ch>
+Date: Wed, 24 May 2017 16:51:39 +0200
+Subject: [PATCH 3842/4131] drm: Remove drm_driver->set_busid hook
+
+The only special-case is pci devices, and we can easily handle this in
+the core. Do so and drop a pile of boilerplate from drivers.
+
+Acked-by: Thierry Reding <treding@nvidia.com>
+Signed-off-by: Daniel Vetter <daniel.vetter@intel.com>
+Link: http://patchwork.freedesktop.org/patch/msgid/20170524145212.27837-5-daniel.vetter@ffwll.ch
+---
+ drivers/gpu/drm/amd/amdgpu/amdgpu_drv.c | 1 -
+ 1 file changed, 1 deletion(-)
+
+diff --git a/drivers/gpu/drm/amd/amdgpu/amdgpu_drv.c b/drivers/gpu/drm/amd/amdgpu/amdgpu_drv.c
+index 69383e3..3e02995 100644
+--- a/drivers/gpu/drm/amd/amdgpu/amdgpu_drv.c
++++ b/drivers/gpu/drm/amd/amdgpu/amdgpu_drv.c
+@@ -868,7 +868,6 @@ static struct drm_driver kms_driver = {
+ 	.open = amdgpu_driver_open_kms,
+ 	.postclose = amdgpu_driver_postclose_kms,
+ 	.lastclose = amdgpu_driver_lastclose_kms,
+-	.set_busid = drm_pci_set_busid,
+ 	.unload = amdgpu_driver_unload_kms,
+ 	.get_vblank_counter = amdgpu_get_vblank_counter_kms,
+ 	.enable_vblank = amdgpu_enable_vblank_kms,
+-- 
+2.7.4
+

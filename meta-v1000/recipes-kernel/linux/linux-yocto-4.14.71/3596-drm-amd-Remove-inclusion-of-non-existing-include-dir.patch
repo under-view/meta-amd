@@ -1,0 +1,42 @@
+From 28a8454d26f9b01a6eb5e1869959b542b75b3736 Mon Sep 17 00:00:00 2001
+From: Corentin Labbe <clabbe@baylibre.com>
+Date: Thu, 22 Feb 2018 08:21:49 +0000
+Subject: [PATCH 3596/4131] drm/amd: Remove inclusion of non-existing include
+ directories
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+This patch fix the following build warnings:
+  CC [M]  drivers/gpu/drm/amd/amdgpu/amdgpu_drv.o
+cc1: warning: ../display/: No such file or directory [-Wmissing-include-dirs]
+cc1: warning: ../display/include: No such file or directory [-Wmissing-include-dirs]
+  CC [M]  drivers/gpu/drm/amd/amdgpu/amdgpu_device.o
+cc1: warning: ../display/: No such file or directory [-Wmissing-include-dirs]
+cc1: warning: ../display/include: No such file or directory [-Wmissing-include-dirs]
+[...]
+This warning is shown for each file in amdgpu directory, so it spams a lot.
+
+Acked-by: Christian König <christian.koenig@amd.com>
+Signed-off-by: Corentin Labbe <clabbe@baylibre.com>
+Signed-off-by: Alex Deucher <alexander.deucher@amd.com>
+---
+ drivers/gpu/drm/amd/display/Makefile | 2 --
+ 1 file changed, 2 deletions(-)
+
+diff --git a/drivers/gpu/drm/amd/display/Makefile b/drivers/gpu/drm/amd/display/Makefile
+index c348feb..4674952 100644
+--- a/drivers/gpu/drm/amd/display/Makefile
++++ b/drivers/gpu/drm/amd/display/Makefile
+@@ -5,8 +5,6 @@
+ 
+ AMDDALPATH = $(RELATIVE_AMD_DISPLAY_PATH)
+ 
+-subdir-ccflags-y += -I$(AMDDALPATH)/ -I$(AMDDALPATH)/include
+-
+ subdir-ccflags-y += -I$(FULL_AMD_DISPLAY_PATH)/dc/inc/
+ subdir-ccflags-y += -I$(FULL_AMD_DISPLAY_PATH)/dc/inc/hw
+ subdir-ccflags-y += -I$(FULL_AMD_DISPLAY_PATH)/modules/inc
+-- 
+2.7.4
+

@@ -1,0 +1,44 @@
+From 53b588e2029a01f079512b3f50b9d411f86b9206 Mon Sep 17 00:00:00 2001
+From: Flora Cui <Flora.Cui@amd.com>
+Date: Thu, 22 Sep 2016 10:37:14 +0800
+Subject: [PATCH 0777/4131] drm/amdgpu: clear wc flag in direct gma domain
+
+Change-Id: I5cd22621f2eab0ceb43b161bc8564c7ca6bb33a4
+Signed-off-by: Flora Cui <Flora.Cui@amd.com>
+Reviewed-by: Hawking Zhang <Hawking.Zhang@amd.com>
+---
+ drivers/gpu/drm/amd/amdgpu/amdgpu_object.c | 2 +-
+ drivers/gpu/drm/amd/amdgpu/amdgpu_ttm.c    | 4 ++--
+ 2 files changed, 3 insertions(+), 3 deletions(-)
+
+diff --git a/drivers/gpu/drm/amd/amdgpu/amdgpu_object.c b/drivers/gpu/drm/amd/amdgpu/amdgpu_object.c
+index 1cee845..d8e1b7e 100644
+--- a/drivers/gpu/drm/amd/amdgpu/amdgpu_object.c
++++ b/drivers/gpu/drm/amd/amdgpu/amdgpu_object.c
+@@ -82,7 +82,7 @@ static void amdgpu_ttm_placement_init(struct amdgpu_device *adev,
+ 	if ((domain & AMDGPU_GEM_DOMAIN_DGMA) && amdgpu_direct_gma_size) {
+ 		places[c].fpfn = 0;
+ 		places[c].lpfn = 0;
+-		places[c].flags = TTM_PL_FLAG_WC | TTM_PL_FLAG_UNCACHED |
++		places[c].flags = TTM_PL_FLAG_UNCACHED |
+ 			AMDGPU_PL_FLAG_DGMA | TTM_PL_FLAG_NO_EVICT;
+ 		c++;
+ 	}
+diff --git a/drivers/gpu/drm/amd/amdgpu/amdgpu_ttm.c b/drivers/gpu/drm/amd/amdgpu/amdgpu_ttm.c
+index 6cd35d3..39dfc3a 100644
+--- a/drivers/gpu/drm/amd/amdgpu/amdgpu_ttm.c
++++ b/drivers/gpu/drm/amd/amdgpu/amdgpu_ttm.c
+@@ -189,8 +189,8 @@ static int amdgpu_init_mem_type(struct ttm_bo_device *bdev, uint32_t type,
+ 		man->func = &ttm_bo_manager_func;
+ 		man->gpu_offset = amdgpu_bo_gpu_offset(adev->direct_gma.dgma_bo);
+ 		man->flags = TTM_MEMTYPE_FLAG_FIXED | TTM_MEMTYPE_FLAG_MAPPABLE;
+-		man->available_caching = TTM_PL_FLAG_UNCACHED | TTM_PL_FLAG_WC;
+-		man->default_caching = TTM_PL_FLAG_WC;
++		man->available_caching = TTM_PL_FLAG_UNCACHED;
++		man->default_caching = TTM_PL_FLAG_UNCACHED;
+ 		break;
+ 	case AMDGPU_PL_DGMA_IMPORT:
+ 		/* reserved GTT space for direct GMA */
+-- 
+2.7.4
+

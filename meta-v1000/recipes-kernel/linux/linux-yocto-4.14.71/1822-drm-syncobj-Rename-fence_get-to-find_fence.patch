@@ -1,0 +1,34 @@
+From 79dac831de760f2df6b91f1820065996c816e772 Mon Sep 17 00:00:00 2001
+From: Jason Ekstrand <jason@jlekstrand.net>
+Date: Fri, 25 Aug 2017 10:52:19 -0700
+Subject: [PATCH 1822/4131] drm/syncobj: Rename fence_get to find_fence
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+The function has far more in common with drm_syncobj_find than with
+any in the get/put functions.
+
+Signed-off-by: Jason Ekstrand <jason@jlekstrand.net>
+Acked-by: Christian König <christian.koenig@amd.com> (v1)
+Signed-off-by: Dave Airlie <airlied@redhat.com>
+---
+ drivers/gpu/drm/amd/amdgpu/amdgpu_cs.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/drivers/gpu/drm/amd/amdgpu/amdgpu_cs.c b/drivers/gpu/drm/amd/amdgpu/amdgpu_cs.c
+index 1ecc133..70a9c65 100644
+--- a/drivers/gpu/drm/amd/amdgpu/amdgpu_cs.c
++++ b/drivers/gpu/drm/amd/amdgpu/amdgpu_cs.c
+@@ -1068,7 +1068,7 @@ static int amdgpu_syncobj_lookup_and_add_to_sync(struct amdgpu_cs_parser *p,
+ {
+ 	int r;
+ 	struct dma_fence *fence;
+-	r = drm_syncobj_fence_get(p->filp, handle, &fence);
++	r = drm_syncobj_find_fence(p->filp, handle, &fence);
+ 	if (r)
+ 		return r;
+ 
+-- 
+2.7.4
+

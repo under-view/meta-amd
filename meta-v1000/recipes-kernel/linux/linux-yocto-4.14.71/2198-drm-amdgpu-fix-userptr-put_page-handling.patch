@@ -1,0 +1,42 @@
+From be5e3418e270579c2f1cd113274cf9d0098506f4 Mon Sep 17 00:00:00 2001
+From: Felix Kuehling <Felix.Kuehling@amd.com>
+Date: Tue, 5 Sep 2017 17:56:36 -0400
+Subject: [PATCH 2198/4131] drm/amdgpu: fix userptr put_page handling
+
+Follow up for Christian's change with the same headline, adapting
+KFD's userptr handling.
+
+Change-Id: I58d88345ce9b73298a483fa1c1c2d14c03b583a2
+Signed-off-by: Felix Kuehling <Felix.Kuehling@amd.com>
+---
+ drivers/gpu/drm/amd/amdgpu/amdgpu_amdkfd_gpuvm.c | 7 +++----
+ 1 file changed, 3 insertions(+), 4 deletions(-)
+
+diff --git a/drivers/gpu/drm/amd/amdgpu/amdgpu_amdkfd_gpuvm.c b/drivers/gpu/drm/amd/amdgpu/amdgpu_amdkfd_gpuvm.c
+index ec81a41..aec0d44 100644
+--- a/drivers/gpu/drm/amd/amdgpu/amdgpu_amdkfd_gpuvm.c
++++ b/drivers/gpu/drm/amd/amdgpu/amdgpu_amdkfd_gpuvm.c
+@@ -592,8 +592,7 @@ static int init_user_pages(struct kgd_mem *mem, struct mm_struct *mm,
+ 		goto free_out;
+ 	}
+ 
+-	memcpy(bo->tbo.ttm->pages, mem->user_pages,
+-	       sizeof(struct page *) * bo->tbo.ttm->num_pages);
++	amdgpu_ttm_tt_set_user_pages(bo->tbo.ttm, mem->user_pages);
+ 
+ 	ret = amdgpu_bo_reserve(bo, true);
+ 	if (ret) {
+@@ -2128,8 +2127,8 @@ static int validate_invalid_user_pages(struct amdkfd_process_info *process_info)
+ 
+ 		/* Copy pages array and validate the BO if we got user pages */
+ 		if (mem->user_pages[0]) {
+-			memcpy(bo->tbo.ttm->pages, mem->user_pages,
+-			       sizeof(struct page *) * bo->tbo.ttm->num_pages);
++			amdgpu_ttm_tt_set_user_pages(bo->tbo.ttm,
++						     mem->user_pages);
+ 			amdgpu_ttm_placement_from_domain(bo, mem->domain);
+ 			ret = ttm_bo_validate(&bo->tbo, &bo->placement,
+ 					      false, false);
+-- 
+2.7.4
+

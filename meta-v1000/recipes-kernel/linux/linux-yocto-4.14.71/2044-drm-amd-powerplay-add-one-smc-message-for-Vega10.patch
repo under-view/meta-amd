@@ -1,0 +1,30 @@
+From 3b0074ba202116230f5cfceb51f894d6eb88c552 Mon Sep 17 00:00:00 2001
+From: Eric Huang <JinHuiEric.Huang@amd.com>
+Date: Thu, 19 Oct 2017 14:44:36 -0400
+Subject: [PATCH 2044/4131] drm/amd/powerplay: add one smc message for Vega10
+
+This is used to fix performance drop caused by updated SMU FW.
+
+Signed-off-by: Eric Huang <JinHuiEric.Huang@amd.com>
+Acked-by: Alex Deucher <alexander.deucher@amd.com>
+---
+ drivers/gpu/drm/amd/powerplay/inc/vega10_ppsmc.h | 3 ++-
+ 1 file changed, 2 insertions(+), 1 deletion(-)
+
+diff --git a/drivers/gpu/drm/amd/powerplay/inc/vega10_ppsmc.h b/drivers/gpu/drm/amd/powerplay/inc/vega10_ppsmc.h
+index b7638ba..b5aa700 100644
+--- a/drivers/gpu/drm/amd/powerplay/inc/vega10_ppsmc.h
++++ b/drivers/gpu/drm/amd/powerplay/inc/vega10_ppsmc.h
+@@ -132,7 +132,8 @@ typedef uint16_t PPSMC_Result;
+ #define PPSMC_MSG_InitializeAcg                  0x5F
+ #define PPSMC_MSG_GetCurrPkgPwr                  0x61
+ #define PPSMC_MSG_UpdatePkgPwrPidAlpha           0x68
+-#define PPSMC_Message_Count                      0x62
++#define PPSMC_MSG_UpdatePkgPwrPidAlpha           0x68
++#define PPSMC_Message_Count                      0x69
+ 
+ 
+ typedef int PPSMC_Msg;
+-- 
+2.7.4
+
