@@ -1,0 +1,54 @@
+From 02447b560c6a421194c98f9528c61b563925f9c0 Mon Sep 17 00:00:00 2001
+From: Brijesh Singh <brijesh.singh@amd.com>
+Date: Mon, 4 Dec 2017 10:57:39 -0600
+Subject: [PATCH 83/95] KVM: SVM: Clear C-bit from the page fault address
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+When SEV is active, on #VMEXIT the  page fault address will contain the
+C-bit. We must clear the C-bit before handling the fault.
+
+Cc: Thomas Gleixner <tglx@linutronix.de>
+Cc: Ingo Molnar <mingo@redhat.com>
+Cc: "H. Peter Anvin" <hpa@zytor.com>
+Cc: Paolo Bonzini <pbonzini@redhat.com>
+Cc: "Radim Krčmář" <rkrcmar@redhat.com>
+Cc: Joerg Roedel <joro@8bytes.org>
+Cc: Borislav Petkov <bp@suse.de>
+Cc: Tom Lendacky <thomas.lendacky@amd.com>
+Cc: x86@kernel.org
+Cc: kvm@vger.kernel.org
+Cc: linux-kernel@vger.kernel.org
+Reviewed-by: Borislav Petkov <bp@suse.de>
+Signed-off-by: Brijesh Singh <brijesh.singh@amd.com>
+Signed-off-by: Sudheesh Mavila <sudheesh.mavila@amd.com>
+---
+ arch/x86/kvm/svm.c | 4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
+
+diff --git a/arch/x86/kvm/svm.c b/arch/x86/kvm/svm.c
+index 364531e..331b127 100755
+--- a/arch/x86/kvm/svm.c
++++ b/arch/x86/kvm/svm.c
+@@ -2483,7 +2483,7 @@ static void svm_set_dr7(struct kvm_vcpu *vcpu, unsigned long value)
+ 
+ static int pf_interception(struct vcpu_svm *svm)
+ {
+-	u64 fault_address = svm->vmcb->control.exit_info_2;
++	u64 fault_address = __sme_clr(svm->vmcb->control.exit_info_2);
+ 	u64 error_code = svm->vmcb->control.exit_info_1;
+ 
+ 	return kvm_handle_page_fault(&svm->vcpu, error_code, fault_address,
+@@ -2493,7 +2493,7 @@ static int pf_interception(struct vcpu_svm *svm)
+ 
+ static int npf_interception(struct vcpu_svm *svm)
+ {
+-	u64 fault_address = svm->vmcb->control.exit_info_2;
++	u64 fault_address = __sme_clr(svm->vmcb->control.exit_info_2);
+ 	u64 error_code = svm->vmcb->control.exit_info_1;
+ 
+ 	trace_kvm_page_fault(fault_address, error_code);
+-- 
+2.7.4
+

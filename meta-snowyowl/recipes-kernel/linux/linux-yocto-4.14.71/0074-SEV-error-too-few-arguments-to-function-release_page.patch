@@ -1,0 +1,39 @@
+From 8e2188a2d2a2d01b1f5e7ad9052e8fc91f7080a7 Mon Sep 17 00:00:00 2001
+From: Sudheesh Mavila <sudheesh.mavila@amd.com>
+Date: Tue, 14 Aug 2018 22:35:18 +0530
+Subject: [PATCH 74/95] =?UTF-8?q?SEV=20error:=20too=20few=20arguments=20to?=
+ =?UTF-8?q?=20function=20=E2=80=98release=5Fpages=E2=80=99=20is=20fixed?=
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+Signed-off-by: Sudheesh Mavila <sudheesh.mavila@amd.com>
+---
+ arch/x86/kvm/svm.c | 4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
+
+diff --git a/arch/x86/kvm/svm.c b/arch/x86/kvm/svm.c
+index 6e9ddde..bdc08e2 100755
+--- a/arch/x86/kvm/svm.c
++++ b/arch/x86/kvm/svm.c
+@@ -1657,7 +1657,7 @@ static struct page **sev_pin_memory(struct kvm *kvm, unsigned long uaddr,
+ 
+ err:
+ 	if (npinned > 0)
+-		release_pages(pages, npinned);
++		release_pages(pages, npinned, 0);
+ 
+ 	kvfree(pages);
+ 	return NULL;
+@@ -1668,7 +1668,7 @@ static void sev_unpin_memory(struct kvm *kvm, struct page **pages,
+ {
+ 	struct kvm_sev_info *sev = &kvm->arch.sev_info;
+ 
+-	release_pages(pages, npages);
++	release_pages(pages, npages, 0);
+ 	kvfree(pages);
+ 	sev->pages_locked -= npages;
+ }
+-- 
+2.7.4
+
