@@ -2,4 +2,4 @@
 # long-description: Creates a USB image with all files in the IMAGE_BOOT_FILES
 # var e.g. bootloader, initrd, kernel & rootfs.img.
 
-part /boot --source bootimg-partition --ondisk sda --fstype=vfat --label mel-live --active --align 1024
+part /boot --source bootimg-partition --ondisk sda --fstype=vfat --label boot --active --align 1024
