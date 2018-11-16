@@ -10,7 +10,7 @@ LIC_FILES_CHKSUM = "file://LICENSE.md;md5=b1afa13daf74f4073c4813368bc1b1b0"
 RDEPENDS_${PN} = "libpci numactl"
 
 SRC_URI = "file://libhsakmt.tar.gz"
-SRC_URI[md5sum] = "42cd36a0dd85f892fc0d334cc92a91d7"
+SRC_URI[md5sum] = "4fe4381a7ec30219f115a8915c85a97c"
 
 S = "${WORKDIR}/libhsakmt"
 
