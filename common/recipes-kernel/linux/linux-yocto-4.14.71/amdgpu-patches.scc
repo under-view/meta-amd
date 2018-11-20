@@ -1110,7 +1110,6 @@ patch 1109-ASoC-AMD-enable-ACP3x-drivers-build.patch
 patch 1110-ASoC-AMD-create-add-dummy-codec-and-machine-devices-.patch
 patch 1111-soc-amd-raven-Disabling-TDM-mode-flag.patch
 patch 1112-ASoC-AMD-Enable-pci-bus-mastering-for-ACP3.x-device.patch
-patch 1113-amd-xgbe-Fix-to-phy-failure-after-a-suspend-resume-o.patch
 patch 1114-drm-amd-pp-Read-the-maximum-clock-frequency-from-ppl.patch
 patch 1115-drm-amd-display-Fix-pflip-irq-for-fourth-display.patch
 patch 1116-pinctrl-eMMC-and-PinCtrl-is-sharing-the-interrupt-no.patch
@@ -1363,7 +1362,6 @@ patch 1362-Revert-drm-amd-amdgpu-enable-GFX-PG-for-carrizo-and.patch
 patch 1363-x86-cpufeatures-Device-IDs-of-AMD-V1000-root-complex.patch
 patch 1364-drivers-net-amd-Convert-timers-to-use-timer_setup.patch
 patch 1365-mm-remove-__GFP_COLD.patch
-patch 1366-net-amd-xgbe-Get-rid-of-custom-hex_dump_to_buffer.patch
 patch 1367-ethernet-Use-octal-not-symbolic-permissions.patch
 patch 1368-drm-amdkfd-revert-kfd-part-to-a-previous-state.patch
 patch 1369-Revert-drm-amdgpu-unify-MQD-programming-sequence.patch
@@ -3335,7 +3333,6 @@ patch 3334-drm-amdgpu-no-job-timeout-setting-on-compute-queues.patch
 patch 3335-drm-amdgpu-drop-compute-ring-timeout-setting-for-non.patch
 patch 3336-drm-amd-pp-Change-pstate_clk-frequency-unit-to-10KHz.patch
 patch 3337-drm-amd-pp-Use-dynamic-gfx_clk-rather-than-hardcoded.patch
-patch 3338-amd-xgbe-correction-to-earlier-commit-cbfb4ac26df390.patch
 patch 3339-revert-to-old-stack.patch
 patch 3340-drm-amdkfd-Separate-doorbell-allocation-from-PASID.patch
 patch 3341-drm-amdkfd-Use-PASID-manager-from-KGD.patch
@@ -4097,18 +4094,6 @@ patch 4096-check-pci-dev-before-getting-pci-alias.patch
 patch 4097-Revert-drm-amdgpu-Restore-scalable-VM-size-calculati.patch
 patch 4098-drm-handle-override-and-firmware-EDID-at-drm_do_get_.patch
 patch 4099-drm-amd-pp-Use-dynamic-gfx_clk-rather-than-hardcoded.patch
-patch 4100-amd-xgbe-Fix-debug-output-of-max-channel-counts.patch
-patch 4101-amd-xgbe-Read-and-save-the-port-property-registers-d.patch
-patch 4102-amd-xgbe-Remove-use-of-comm_owned-field.patch
-patch 4103-amd-xgbe-Remove-field-that-indicates-SFP-diagnostic-.patch
-patch 4104-amd-xgbe-Add-ethtool-support-to-retrieve-SFP-module-.patch
-patch 4105-amd-xgbe-Add-ethtool-show-set-ring-parameter-support.patch
-patch 4106-amd-xgbe-Prepare-for-ethtool-set-channel-support.patch
-patch 4107-amd-xgbe-Add-ethtool-show-set-channels-support.patch
-patch 4108-amd-xgbe-Always-attempt-link-training-in-KR-mode.patch
-patch 4109-amd-xgbe-Advertise-FEC-support-with-the-KR-re-driver.patch
-patch 4110-amd-xgbe-Update-the-BelFuse-quirk-to-support-SGMII.patch
-patch 4111-amd-xgbe-Improve-SFP-100Mbps-auto-negotiation.patch
 patch 4112-drm-amdgpu-add-tmr-mac-address-into-amdgpu_firmware_.patch
 patch 4113-drm-amdgpu-update-tmr-mac-address.patch
 patch 4114-Fix-for-ROCm-not-working-on-dGPU-issue.patch

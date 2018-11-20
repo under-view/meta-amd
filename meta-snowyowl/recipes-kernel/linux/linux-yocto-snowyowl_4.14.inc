@@ -1,7 +1,6 @@
 FILESEXTRAPATHS_prepend := "${THISDIR}/linux-yocto-${LINUX_VERSION}:"
 
 SRC_URI_append_snowyowl += "file://snowyowl-user-features.scc \
-    file://amd-xgbe-patches.scc \
     file://amd-emmc-patches.scc \
     file://snowyowl-user-patches.scc \
     file://snowyowl.cfg \
