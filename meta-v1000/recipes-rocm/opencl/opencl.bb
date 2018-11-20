@@ -8,7 +8,7 @@ LIC_FILES_CHKSUM = "file://${COMMON_LICENSE_DIR}/MIT;md5=0835ade698e0bcf8506ecda
 RDEPENDS_${PN} = "hsa ${PN}-bitcodes ${PN}-amd-drivers"
 
 SRC_URI = "file://opencl.tar.gz"
-SRC_URI[md5sum] = "977cf66239988d166b2a542cad23487b"
+SRC_URI[md5sum] = "8ace16bb9d76824ffad1dc0d18089466"
 
 S = "${WORKDIR}/opencl"
 

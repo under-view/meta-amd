@@ -10,7 +10,7 @@ LIC_FILES_CHKSUM = "file://LICENSE.txt;md5=abc754edcbe650f4f548eb4efc3cf8d5"
 RDEPENDS_${PN} = "libhsakmt"
 
 SRC_URI = "file://hsa.tar.gz"
-SRC_URI[md5sum] = "385631b37d8fc208a2c8843e263e7de2"
+SRC_URI[md5sum] = "e27a7b3821a6be61c510542840e865d2"
 
 S = "${WORKDIR}/hsa"
 
