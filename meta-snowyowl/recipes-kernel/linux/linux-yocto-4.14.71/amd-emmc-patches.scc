@@ -1,0 +1,3 @@
+patch 0093-check-pci-dev-before-getting-pci-alias.patch
+patch 0094-mmc-sdhci-acpi-Add-support-for-ACPI-HID-of-AMD-Contr.patch
+patch 0095-eMMC-patch-4.14.48.patch
