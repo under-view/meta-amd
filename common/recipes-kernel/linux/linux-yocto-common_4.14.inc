@@ -6,6 +6,7 @@ LINUX_VERSION_amdx86 ?= "4.14.71"
 
 FILESEXTRAPATHS_prepend := "${THISDIR}/linux-yocto-${LINUX_VERSION}:"
 
-SRC_URI_append = " file://amd-xgbe-patches.scc"
+SRC_URI_append = " file://amd-xgbe-patches.scc \
+                   file://amd-emmc-patches.scc"
 
 KERNEL_FEATURES_append_amdx86 = " cfg/smp.scc"

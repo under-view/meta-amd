@@ -850,7 +850,6 @@ patch 0849-drm-amd-amdgpu-revert-back-the-CG-disabling-for-esto.patch
 patch 0850-Linux-UART-driver-to-support-DEV-ID-AMDI0021.patch
 patch 0851-Driver-reports-error-for-in-completed-I2C-transactio.patch
 patch 0852-drm-amd-amdgpu-Disable-CG-for-eStoney.patch
-patch 0853-AMD-eMMC-5.0-support.patch
 patch 0854-drm-amd-amdgpu-excluded-HIQ-on-Carrizo.patch
 patch 0855-drm-amdgpu-fixed-raven-psp-cmd-prepare-and-submit.patch
 patch 0856-drm-amdgpu-added-api-for-stopping-psp-ring-v2.patch
@@ -1112,7 +1111,6 @@ patch 1111-soc-amd-raven-Disabling-TDM-mode-flag.patch
 patch 1112-ASoC-AMD-Enable-pci-bus-mastering-for-ACP3.x-device.patch
 patch 1114-drm-amd-pp-Read-the-maximum-clock-frequency-from-ppl.patch
 patch 1115-drm-amd-display-Fix-pflip-irq-for-fourth-display.patch
-patch 1116-pinctrl-eMMC-and-PinCtrl-is-sharing-the-interrupt-no.patch
 patch 1117-Adding-raven-acp3.x-layer-in-Makefile.patch
 patch 1118-Added-raven-audio-Kconfig.patch
 patch 1119-Revert-pinctrl-amd-Set-the-level-based-on-ACPI-table.patch
@@ -4090,7 +4088,6 @@ patch 4092-drm-amdgpu-fix-CG-enabling-hang-with-gfxoff-enabled.patch
 patch 4093-drm-amd-powerplay-remove-uncessary-extra-gfxoff-cont.patch
 patch 4094-drm-amd-amdkfd-added-BUILD_AS_DKMS-flag-to-fix-the-c.patch
 patch 4095-drm-amd-amdgpu-workaround-to-resolve-the-mgpu.patch
-patch 4096-check-pci-dev-before-getting-pci-alias.patch
 patch 4097-Revert-drm-amdgpu-Restore-scalable-VM-size-calculati.patch
 patch 4098-drm-handle-override-and-firmware-EDID-at-drm_do_get_.patch
 patch 4099-drm-amd-pp-Use-dynamic-gfx_clk-rather-than-hardcoded.patch
