@@ -1,0 +1,3 @@
+patch 0853-AMD-eMMC-5.0-support.patch
+patch 1116-pinctrl-eMMC-and-PinCtrl-is-sharing-the-interrupt-no.patch
+patch 4096-check-pci-dev-before-getting-pci-alias.patch
