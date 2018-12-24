@@ -6,7 +6,16 @@ LINUX_VERSION_amdx86 ?= "4.14.71"
 
 FILESEXTRAPATHS_prepend := "${THISDIR}/linux-yocto-${LINUX_VERSION}:"
 
-SRC_URI_append = " file://amd-xgbe-patches.scc \
-                   file://amd-emmc-patches.scc"
+SRC_URI_append_amdx86 = " file://amd-xgbe-patches.scc \
+                   file://amd-emmc-patches.scc \
+                   file://logo.cfg \
+                   file://console.cfg \
+                   file://sound.cfg \
+                   file://hid.cfg \
+                   file://usb-serial.cfg \
+                   file://wifi-drivers.cfg \
+                   file://disable-intel-graphics.cfg \
+                   ${@bb.utils.contains('DISTRO_FEATURES', 'bluetooth', 'file://enable-bluetooth.cfg', 'file://disable-bluetooth.cfg', d)} \
+                   ${@bb.utils.contains('DISTRO', 'mel', 'file://enable-kgdb.cfg', 'file://disable-kgdb.cfg', d)}"
 
 KERNEL_FEATURES_append_amdx86 = " cfg/smp.scc"
