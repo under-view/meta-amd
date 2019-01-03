@@ -1,7 +1,7 @@
-From a78cf1d41c3a7078af39e96c9033c5900dd77513 Mon Sep 17 00:00:00 2001
+From 1bca08eb860a16e2679655918bd36f21fa213422 Mon Sep 17 00:00:00 2001
 From: Suravee Suthikulpanit <suravee.suthikulpanit@amd.com>
 Date: Thu, 26 Apr 2018 23:31:29 -0500
-Subject: [PATCH 4096/4131] check pci dev before getting pci alias
+Subject: [PATCH 93/95] check pci dev before getting pci alias
 
 Signed-off-by: Sudheesh Mavila <sudheesh.mavila@amd.com>
 ---
