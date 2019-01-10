@@ -42,13 +42,6 @@ APPEND += "${APPEND_ADDITIONAL}"
 
 EXTRA_OECONF_append_pn-matchbox-panel-2 = " --with-battery=acpi"
 
-# MEL adds vmlinux to KERNEL_IMAGETYPES which ends up in the rootfs of
-# the image being built where it is not needed by us, and as a
-# side-effect, it results in increasing the size of the image by a
-# considerable amount. Therefore we do as follows, and we'll remove
-# it from here once fixed in MEL.
-KERNEL_IMAGETYPES_remove = "${@bb.utils.contains_any("DISTRO", "mel mel-lite", "vmlinux", "", d)}"
-
 # IMAGE_FSTYPES "live" is enabled by default in oe-core which is
 # responsible for building both "iso" & "hddimg". Although the 
 # right way to specify which ones to build is using NOISO & NOHDD
