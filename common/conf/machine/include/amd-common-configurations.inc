@@ -10,7 +10,7 @@ PREFERRED_VERSION_libav ?= "9.18"
 MULTILIBS ?= ""
 require conf/multilib.conf
 
-MACHINE_FEATURES += "wifi efi pcbios alsa"
+MACHINE_FEATURES += "wifi efi alsa"
 
 # QEMU does not support some of the enhanced instructions available
 # on the AMD chips which causes some build time failures.
@@ -29,9 +29,7 @@ APPEND += "${KERNEL_SERIAL_CONSOLE}"
 # Make sure the kernel messages go to the VGA console
 APPEND += "console=tty0"
 
-# Set a generic video mode, use vga=xxx for syslinux and
-# gfxpayload=wxh for grub2
-SYSLINUX_KERNEL_ARGS += "vga=803"
+# Set a generic video mode, use gfxpayload=wxh for grub2
 GRUB_OPTS_append = ";set gfxpayload=1024x768"
 
 # We use ext4 rootfs normally so give it priority rather than trying other FS first
@@ -61,11 +59,6 @@ WKS_FILES ?= "amd-usbimage.wks"
 IMAGE_BOOT_FILES ?= " \
         ${EFIIMGDIR}${EFIDIR}/*;EFI/BOOT/ \
         ${EFIIMGDIR}/startup.nsh;startup.nsh \
-        ${STAGING_DATADIR}/syslinux/vesamenu.c32;vesamenu.c32 \
-        ${STAGING_DATADIR}/syslinux/libcom32.c32;libcom32.c32 \
-        ${STAGING_DATADIR}/syslinux/libutil.c32;libutil.c32 \
-        ${STAGING_DATADIR}/syslinux/ldlinux.sys;ldlinux.sys \
-        ${SYSLINUX_CFG_LIVE};syslinux.cfg \
         ${KERNEL_IMAGETYPE} \
         ${INITRD_IMAGE_LIVE}-${MACHINE}.cpio.gz;initrd \
         ${ROOTFS};rootfs.img \
@@ -76,8 +69,8 @@ do_image_wic[depends] += "${IMAGE_BASENAME}:do_bootimg"
 
 IMAGE_OVERHEAD_FACTOR = "1.1"
 
-MACHINE_FEATURES_append_amdgpu = " ${@bb.utils.contains("EXTRA_IMAGE_FEATURES", "graphics", "x11", "", d)}"
-MACHINE_FEATURES_append_radeon = " ${@bb.utils.contains("EXTRA_IMAGE_FEATURES", "graphics", "x11", "", d)}"
+MACHINE_FEATURES_append_amdgpu := " ${@bb.utils.contains("EXTRA_IMAGE_FEATURES", "graphics", "x11", "", d)}"
+MACHINE_FEATURES_append_radeon := " ${@bb.utils.contains("EXTRA_IMAGE_FEATURES", "graphics", "x11", "", d)}"
 
 # Add common feartures to be supported for all machines here
 EXTRA_IMAGE_FEATURES += "amd-misc-pkgs"
