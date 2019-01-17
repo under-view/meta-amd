@@ -76,8 +76,8 @@ do_image_wic[depends] += "${IMAGE_BASENAME}:do_bootimg"
 
 IMAGE_OVERHEAD_FACTOR = "1.1"
 
-MACHINE_FEATURES_append_amdgpu = " ${@bb.utils.contains("EXTRA_IMAGE_FEATURES", "graphics", "x11", "", d)}"
-MACHINE_FEATURES_append_radeon = " ${@bb.utils.contains("EXTRA_IMAGE_FEATURES", "graphics", "x11", "", d)}"
+MACHINE_FEATURES_append_amdgpu := " ${@bb.utils.contains("EXTRA_IMAGE_FEATURES", "graphics", "x11", "", d)}"
+MACHINE_FEATURES_append_radeon := " ${@bb.utils.contains("EXTRA_IMAGE_FEATURES", "graphics", "x11", "", d)}"
 
 # Add common feartures to be supported for all machines here
 EXTRA_IMAGE_FEATURES += "amd-misc-pkgs"
