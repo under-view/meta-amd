@@ -1,0 +1,101 @@
+software =
+{
+        version = "1.0";
+        hardware-compatibility = [ "1.0" ];
+        stable:
+        {
+                platform0:
+                {
+                        images: (
+                        {
+                                filename = "${image}";
+                                device = "/dev/mmcblk0p2";
+                                installed-directly = TRUE;
+                        }
+                        );
+                        files: (
+                        {
+                                filename = "bzImage";
+                                path = "/boot/bzImageA";
+                                type = "rawfile";
+                        }
+                        );
+                        scripts: (
+                        {
+                                filename = "postinstall.sh";
+                                type = "postinstall";
+                        }
+                        );
+                };
+                platform1:
+                {
+                        images: (
+                        {
+                                filename = "${image}";
+                                device = "/dev/mmcblk0p3";
+                                installed-directly = TRUE;
+                        }
+                        );
+                        files: (
+                        {
+                                filename = "bzImage";
+                                path = "/boot/bzImageA";
+                                type = "rawfile";
+                        }
+                        );
+                        scripts: (
+                        {
+                                filename = "postinstall.sh";
+                                encrypted = false;
+                        }
+                        );
+                };
+                platform2:
+                {
+                        images: (
+                        {
+                                filename = "${image}";
+                                device = "/dev/mmcblk0p2";
+                                installed-directly = TRUE;
+                        }
+                        );
+                        files: (
+                        {
+                                filename = "bzImage";
+                                path = "/boot/bzImageB";
+                                type = "rawfile";
+                        }
+                        );
+                        scripts: (
+                        {
+                                filename = "postinstall.sh";
+                                type = "postinstall";
+                        }
+                        );
+                };
+                platform3:
+                {
+                        images: (
+                        {
+                                filename = "${image}";
+                                device = "/dev/mmcblk0p3";
+                                installed-directly = TRUE;
+                        }
+                        );
+                        files: (
+                        {
+                                filename = "bzImage";
+                                path = "/boot/bzImageB";
+                                type = "rawfile";
+                        }
+                        );
+                        scripts: (
+                        {
+                                filename = "postinstall.sh";
+                                type = "postinstall";
+                        }
+                        );
+
+                };
+        };
+}
