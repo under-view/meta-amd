@@ -1,0 +1,30 @@
+From 31a8e28e9a1735d58fa0a70ea92d66233fe48c4b Mon Sep 17 00:00:00 2001
+From: Awais Belal <awais_belal@mentor.com>
+Date: Wed, 16 Jan 2019 16:18:54 +0500
+Subject: [PATCH 7/7] init-install-efi: grub don't set a timeout
+
+We don't want our installed system to show grub
+menus as it wouldn't make any sense and we also
+want to switch to the fallback entry seamlessly.
+
+Signed-off-by: Awais Belal <awais_belal@mentor.com>
+---
+ init-install-efi.sh | 2 ++
+ 1 file changed, 2 insertions(+)
+
+diff --git a/init-install-efi.sh b/init-install-efi.sh
+index efe0c64..ba0de76 100644
+--- a/init-install-efi.sh
++++ b/init-install-efi.sh
+@@ -298,6 +298,8 @@ if [ -f /run/media/$1/EFI/BOOT/grub.cfg ]; then
+     sed -i "/initrd /d" $GRUBCFG
+     # Delete any LABEL= strings
+     sed -i "s/ LABEL=[^ ]*/ /" $GRUBCFG
++    # Mentor- SWUpdate - don't set a timeout
++    sed -i "s/timeout=.*/timeout=0/" $GRUBCFG
+     # Mentor- SWUpdate - force grub to load our env which we'll use to specify RFS and KERNEL
+     sed -i "1iload_env --file ${GRUBENV#\/boot}" $GRUBCFG
+     # Set current and fallback rootfs using variable via our grub.env
+-- 
+2.11.1
+
