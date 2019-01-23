@@ -67,6 +67,11 @@ MACHINE_BOOT_FILES = " \
 "
 IMAGE_BOOT_FILES = "${MACHINE_BOOT_FILES}"
 
+# Force our swupdate implementation to not pick up boot files while creating
+# the .swu otherwise we run into a circular dependency
+# This can still be overridden from local.conf
+SWDESC_INCLUDE_BOOT_FILES ?= "0"
+
 # This makes sure that boot files are deployed before do_image_wic starts execution
 do_image_wic[depends] += "${IMAGE_BASENAME}:do_bootimg"
 
