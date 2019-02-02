@@ -13,3 +13,8 @@ SRC_URI_append_r1000 = " git://anongit.freedesktop.org/mesa/mesa;branch=master"
 DEBUG_BUILD = "1"
 
 PACKAGECONFIG_append_r1000 = " dri3"
+
+EXTRA_OECONF_remove_r1000 = "--enable-texture-float"
+
+PACKAGES += "${PN}-driconfigs"
+FILES_${PN}-driconfigs += "${datadir}/drirc.d/*"
