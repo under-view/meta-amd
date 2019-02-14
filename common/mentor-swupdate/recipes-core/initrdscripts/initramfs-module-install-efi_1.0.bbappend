@@ -5,4 +5,7 @@ SRC_URI += "file://0001-init-install-efi-manage-partitioning-scheme-as-per-M.pat
             file://0004-init-install-efi-pick-kernel-and-rootfs-from-grub.en.patch \
             file://0005-init-install-efi-create-fallback-entry.patch \
             file://0006-init-install-efi-don-t-unnecessarily-set-the-rootfs-.patch \
-            file://0007-init-install-efi-grub-don-t-set-a-timeout.patch"
+            file://0007-init-install-efi-grub-don-t-set-a-timeout.patch \
+            file://0001-init-install-efi-SWU-fallback-incase-WDT-fired-SWU-p.patch \
+            file://0002-init-install-efi-SWU-add-setup-WDT-routine-to-enable.patch \
+            file://0003-init-install-efi-SWU-start-the-WDT-as-soon-as-a-menu.patch"
