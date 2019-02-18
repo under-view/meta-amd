@@ -11,3 +11,11 @@ patch 0010-amd-xgbe-Advertise-FEC-support-with-the-KR-re-driver.patch
 patch 0011-amd-xgbe-Update-the-BelFuse-quirk-to-support-SGMII.patch
 patch 0012-amd-xgbe-Improve-SFP-100Mbps-auto-negotiation.patch
 patch 0013-amd-xgbe-Merged-From-453f85d43fa9ee243f0fc3ac4e1be45.patch
+patch 0111-amd-xgbe-use-dma_mapping_error-to-check-map-errors.patch
+patch 0112-lib-crc-Move-polynomial-definition-to-separate-heade.patch
+patch 0113-lib-crc-Use-consistent-naming-for-CRC-32-polynomials.patch
+patch 0114-net-ethernet-Use-existing-define-with-polynomial.patch
+patch 0115-net-amd-fix-return-type-of-ndo_start_xmit-function.patch
+patch 0116-net-phy-Add-helper-for-advertise-to-lcl-value.patch
+patch 0117-drivers-net-remove-net-busy_poll.h-inclusion-when-no.patch
+patch 0118-net-ethernet-xgbe-expand-PHY_GBIT_FEAUTRES.patch
