@@ -77,3 +77,16 @@ patch 0089-KVM-SVM-install-RSM-intercept.patch
 patch 0090-KVM-SVM-Fix-SEV-LAUNCH_SECRET-command.patch
 patch 0091-KVM-x86-define-SVM-VMX-specific-kvm_arch_-alloc-free.patch
 patch 0092-KVM-SVM-add-struct-kvm_svm-to-hold-SVM-specific-KVM-.patch
+patch 0119-crypto-ahash-remove-useless-setting-of-type-flags.patch
+patch 0120-crypto-ahash-remove-useless-setting-of-cra_type.patch
+patch 0121-crypto-ccp-Fix-command-completion-detection-race.patch
+patch 0122-crypto-ccp-Add-psp-enabled-message-when-initializati.patch
+patch 0123-crypto-ccp-Remove-unused-defines.patch
+patch 0124-crypto-ccp-Support-register-differences-between-PSP-.patch
+patch 0125-crypto-ccp-Add-support-for-new-CCP-PSP-device-ID.patch
+patch 0126-crypto-ccp-Check-for-NULL-PSP-pointer-at-module-unlo.patch
+patch 0127-crypto-ccp-add-timeout-support-in-the-SEV-command.patch
+patch 0128-crypto-ccp-Fix-static-checker-warning.patch
+patch 0129-crypto-ccp-Allow-SEV-firmware-to-be-chosen-based-on-.patch
+patch 0130-crypto-ccp-Remove-forward-declaration.patch
+patch 0131-crypto-ccp-Make-function-sev_get_firmware-static.patch
