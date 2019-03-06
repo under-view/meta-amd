@@ -6,6 +6,7 @@ LIC_FILES_CHKSUM = "file://spirom-test.c;endline=29;md5=8e7a9706367d146e5073510a
 
 SRC_URI = "file://spirom-test.c \
            file://spirom.h \
+           file://0001-Modified-the-spi-driver-test-application-to-support-.patch \
           "
 
 S = "${WORKDIR}"
