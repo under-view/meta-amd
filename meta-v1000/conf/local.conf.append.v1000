@@ -51,3 +51,7 @@ INCLUDE_VULKAN ??= "no"
 # MEL supports OpenCL - The Open Computing Language. In order to
 # include it into your image, set the following to "yes"
 INCLUDE_OPENCL ??= "no"
+
+# MEL supports OpenCV - The Open Computer Vision Library. In order to
+# include it into your image, set the following to "yes"
+INCLUDE_OPENCV ??= "no"
