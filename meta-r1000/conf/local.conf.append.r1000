@@ -1,0 +1,3 @@
+# MEL supports OpenCL - The Open Computing Language. In order to
+# include it into your image, set the following to "yes"
+INCLUDE_OPENCL ??= "no"

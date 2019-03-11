@@ -47,3 +47,7 @@ CORE_IMAGE_EXTRA_INSTALL_append = "${@' packagegroup-multimedia-risky' if bb.uti
 # please change the below define to "yes" before building the
 # image or generating ADE.
 INCLUDE_VULKAN ??= "no"
+
+# MEL supports OpenCL - The Open Computing Language. In order to
+# include it into your image, set the following to "yes"
+INCLUDE_OPENCL ??= "no"
