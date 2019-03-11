@@ -1,0 +1,5 @@
+patch 5726-amd-i2s-fix-to-the-fage-fault-when-iommu-is-enabled.patch
+patch 5727-amd-i2s-dma-pointer-uses-Link-position-counter.This-.patch
+patch 5740-lib-crc-Move-polynomial-definition-to-separate-heade.patch
+patch 5741-lib-crc-Use-consistent-naming-for-CRC-32-polynomials.patch
+
