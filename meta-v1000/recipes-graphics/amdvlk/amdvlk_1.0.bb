@@ -2,7 +2,7 @@ DESCRIPTION = "AMD Vulkan ICD Library"
 LICENSE = "BSD"
 RDEPENDS_${PN} = "libdrm vulkan-loader-layers"
 
-LIC_FILES_CHKSUM = "file://amd_icd64.json;md5=169a0ec488fc9361f17883a5abdc5265"
+LIC_FILES_CHKSUM = "file://amd_icd64.json;md5=10cb7871f46c13ca7d2c9547969347b6"
 
 SRC_URI = "file://amdvlk64.so \
 	   file://amd_icd64.json \
