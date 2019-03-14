@@ -5,9 +5,9 @@ S = "${WORKDIR}/git"
 DEPENDS_append = " python-mako-native"
 inherit pythonnative
 
-SRCREV_amd = "1f3536b80baf248761ccffcfc59d9fad23933945"
+SRCREV_amd = "0144bbdb98f515cce31688fce57d769e7fd82d52"
 LIC_FILES_CHKSUM_amd = "file://docs/license.html;md5=725f991a1cc322aa7a0cd3a2016621c4"
-PV_amd = "18.1.1+git${SRCPV}"
+PV_amd = "19.0.0+git${SRCPV}"
 
 DEPENDS_append_amd = " libvdpau libomxil"
 
@@ -24,19 +24,20 @@ LIBVA_PLATFORMS .= "${@bb.utils.contains('DISTRO_FEATURES', 'x11', ' libva-x11',
 LIBVA_PLATFORMS .= "${@bb.utils.contains('DISTRO_FEATURES', 'wayland', ' libva-wayland', '', d)}"
 RDEPENDS_mesa-megadriver += "${@bb.utils.contains('PACKAGECONFIG', 'va', '${LIBVA_PLATFORMS}', '', d)}"
 
-MESA_LLVM_RELEASE_amd = "6.0"
+MESA_LLVM_RELEASE_amd = "7"
 
-SRC_URI_amd = "git://anongit.freedesktop.org/mesa/mesa;branch=18.1 \
+SRC_URI_amd = "git://anongit.freedesktop.org/mesa/mesa;branch=master \
                file://0001-configure.ac-obey-llvm_prefix-if-available.patch \
-               file://0001-configure.ac-adjust-usage-of-LLVM-flags.patch"
+               file://0001-configure.ac-adjust-usage-of-LLVM-flags.patch \
+               file://0001-gallium-add-missing-PIPE_CAP_SURFACE_SAMPLE_COUNT-de.patch"
 
 EXTRA_OECONF_append_amd = " \
 		 --enable-vdpau \
 		 --enable-osmesa \
 		 --enable-glx \
 		 --enable-omx-bellagio \
-		 --with-omx-bellagio-libdir=${libdir}/bellagio \
-		 --enable-texture-float"
+		 --with-omx-bellagio-libdir=${libdir}/bellagio"
+EXTRA_OECONF_remove_amd = "--enable-texture-float"
 
 # Package all the libXvMC gallium extensions together
 # they provide the shared lib libXvMCGallium and splitting
@@ -56,9 +57,10 @@ FILES_${PN}-dbg += "${libdir}/vdpau/.debug"
 # libomx files are non-versioned so we put *.so directly in the
 # main package as opposed to the -dev package.
 #
-PACKAGES =+ "libomx-${PN} libomx-${PN}-dev"
+PACKAGES =+ "libomx-${PN} libomx-${PN}-dev ${PN}-driconfigs"
 FILES_libomx-${PN} = "${libdir}/bellagio/libomx_*.so"
 FILES_libomx-${PN}-dev = "${libdir}/bellagio/libomx_*.la"
+FILES_${PN}-driconfigs = "${datadir}/drirc.d/*"
 FILES_${PN}-dbg += "${libdir}/bellagio/.debug"
 
 # Set DRIDRIVERS with anonymous python so we can effectively
