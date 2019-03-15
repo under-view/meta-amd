@@ -1,0 +1,39 @@
+From 34fb95494f01cd0adbcfae5d113f669336d8cf0c Mon Sep 17 00:00:00 2001
+From: "Arsalan H. Awan" <Arsalan_Awan@mentor.com>
+Date: Fri, 8 Mar 2019 12:05:56 +0500
+Subject: [PATCH 2/3] init-install-efi/SWU: add setup WDT routine to enable if
+ mel_wdt is 1
+
+> set WDT timeout to 60s by default to reboot in case system hangs.
+> start WDT ONLY IF mel_wdt is set to 1.
+>> this allows user to disable the WDT in case the user is doing
+   kernel debugging or so and wants the system to keep running.
+> enable WDT (set mel_wdt=1) by default
+
+Signed-off-by: Arsalan H. Awan <Arsalan_Awan@mentor.com>
+---
+ init-install-efi.sh | 8 ++++++++
+ 1 file changed, 8 insertions(+)
+
+diff --git a/init-install-efi.sh b/init-install-efi.sh
+index e259785..270b254 100644
+--- a/init-install-efi.sh
++++ b/init-install-efi.sh
+@@ -323,6 +323,14 @@ FALL_BACK
+     # Mentor - SWUpdate - set the default boot as per the WDT and SWU status
+     # If WDT fired && SWU performed, fallback to last working state, else normal boot
+     sed -i "/default=boot/a if ! amd-wdt getstatus; then\n  if test \$KERNEL != \$FB_KERNEL; then\n    set default='fallback'\n  fi\nfi\n" $GRUBCFG
++    # Mentor - SWUpdate - setup routine for WDT
++    sed -i "/menuentry.*boot/i function setup_wdt {\n}\n" $GRUBCFG
++    # > If mel_wdt is set to 1, ONLY THEN start the WDT
++    sed -i "/function setup_wdt/a if test \$mel_wdt -eq 1; then amd-wdt start; fi" $GRUBCFG
++    # > set WDT timeout value to 60s by default
++    sed -i "/function setup_wdt/a amd-wdt settime 60" $GRUBCFG
++    # Mentor - SWUpdate - enable WDT by default
++    sed -i "/menuentry.*boot/i set mel_wdt=1\n" $GRUBCFG
+ fi
+ 
+ if [ -d /run/media/$1/loader ]; then
+-- 
+2.11.1
+
