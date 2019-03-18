@@ -5,3 +5,4 @@ EXTRA_OECONF_append_amd = " --disable-glx"
 PACKAGES_remove_amd = "libva-x11 libva-glx"
 # This package (without x11) is no more dependent on mesa
 DEPENDS_remove_amd = "virtual/mesa"
+RRECOMMENDS_${PN}_append_amd = " libva-utils"
