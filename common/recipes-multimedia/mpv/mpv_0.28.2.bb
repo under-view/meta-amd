@@ -9,7 +9,7 @@ DEPENDS = "zlib ffmpeg jpeg virtual/libx11 xsp libxv \
 REQUIRED_DISTRO_FEATURES = "x11"
 
 LICENSE = "GPLv2+"
-LIC_FILES_CHKSUM = "file://LICENSE;md5=91f1cb870c1cc2d31351a4d2595441cb"
+LIC_FILES_CHKSUM = "file://LICENSE.GPL;md5=91f1cb870c1cc2d31351a4d2595441cb"
 
 # While this item does not require it, it depends on ffmpeg which does
 LICENSE_FLAGS = "commercial"
