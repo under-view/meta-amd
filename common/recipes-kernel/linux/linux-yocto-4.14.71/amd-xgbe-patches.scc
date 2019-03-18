@@ -13,3 +13,10 @@ patch 4108-amd-xgbe-Always-attempt-link-training-in-KR-mode.patch
 patch 4109-amd-xgbe-Advertise-FEC-support-with-the-KR-re-driver.patch
 patch 4110-amd-xgbe-Update-the-BelFuse-quirk-to-support-SGMII.patch
 patch 4111-amd-xgbe-Improve-SFP-100Mbps-auto-negotiation.patch
+patch 5739-amd-xgbe-use-dma_mapping_error-to-check-map-errors.patch
+patch 5742-net-ethernet-Use-existing-define-with-polynomial.patch
+patch 5743-net-amd-fix-return-type-of-ndo_start_xmit-function.patch
+patch 5744-net-phy-Add-helper-for-advertise-to-lcl-value.patch
+patch 5745-drivers-net-remove-net-busy_poll.h-inclusion-when-no.patch
+patch 5749-net-phy-Also-request-modules-for-C45-IDs.patch
+patch 5750-amd-xgbe-Fix-mdio-access-for-non-zero-ports-and-clau.patch
