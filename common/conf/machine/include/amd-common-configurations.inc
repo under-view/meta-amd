@@ -52,7 +52,6 @@ EXTRA_OECONF_append_pn-matchbox-panel-2 = " --with-battery=acpi"
 # because NOISO = "1" by default (See c787dcd in oe-core).
 # Therefore, we do as follows:
 IMAGE_FSTYPES += "wic iso"
-IMAGE_FSTYPES += "${@bb.utils.contains('COMBINED_FEATURES', 'swupdate', 'ext4.swu', '', d)}"
 NOISO = "0"
 NOHDD = "1"
 
