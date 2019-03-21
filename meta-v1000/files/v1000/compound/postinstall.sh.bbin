@@ -1,4 +1,0 @@
-#!/bin/sh
-
-printf "kernel=%d\nrootfs=%d\n" 1 1 > /tmp/swupdate_type
-
