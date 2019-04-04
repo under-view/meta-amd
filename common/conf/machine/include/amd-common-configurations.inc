@@ -93,3 +93,8 @@ EXTRA_IMAGE_FEATURES_append_amdgpu := " ${@bb.utils.contains("EXTRA_IMAGE_FEATUR
                                         ${@bb.utils.contains_any("EXTRA_IMAGE_FEATURES", "graphics", "amd-feature-graphics", "", d)}"
 EXTRA_IMAGE_FEATURES_append_radeon := " ${@bb.utils.contains("EXTRA_IMAGE_FEATURES", "multimedia", "amd-feature-multimedia", "", d)} \
                                         ${@bb.utils.contains_any("EXTRA_IMAGE_FEATURES", "graphics", "amd-feature-graphics", "", d)}"
+
+# Workaround for a MEL related issue
+# revert as soon as the fixes are merged
+# in the main layer.
+dm-initramfs_mel ?= ""
