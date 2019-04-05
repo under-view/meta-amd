@@ -24,8 +24,6 @@ LIBVA_PLATFORMS .= "${@bb.utils.contains('DISTRO_FEATURES', 'x11', ' libva-x11',
 LIBVA_PLATFORMS .= "${@bb.utils.contains('DISTRO_FEATURES', 'wayland', ' libva-wayland', '', d)}"
 RDEPENDS_mesa-megadriver += "${@bb.utils.contains('PACKAGECONFIG', 'va', '${LIBVA_PLATFORMS}', '', d)}"
 
-MESA_LLVM_RELEASE_amd = "7"
-
 SRC_URI_amd = "git://anongit.freedesktop.org/mesa/mesa;branch=master \
                file://0001-configure.ac-obey-llvm_prefix-if-available.patch \
                file://0001-configure.ac-adjust-usage-of-LLVM-flags.patch \

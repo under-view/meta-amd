@@ -8,6 +8,10 @@ PREFERRED_VERSION_linux-yocto ?= "4.4%"
 PREFERRED_VERSION_libav ?= "9.18"
 PREFERRED_PROVIDER_llvm ?= "llvm7"
 
+# Components that depend on LLVM should set versions here
+# so we know what needs to be changed/validated as LLVM moves
+MESA_LLVM_RELEASE_amd = "7"
+
 MULTILIBS ?= ""
 require conf/multilib.conf
 
