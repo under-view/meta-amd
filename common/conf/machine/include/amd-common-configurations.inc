@@ -11,6 +11,7 @@ PREFERRED_PROVIDER_llvm ?= "llvm7"
 # Components that depend on LLVM should set versions here
 # so we know what needs to be changed/validated as LLVM moves
 MESA_LLVM_RELEASE_amd = "7"
+CLAMAV_LLVM_RELEASE_amd = "7"
 
 MULTILIBS ?= ""
 require conf/multilib.conf
