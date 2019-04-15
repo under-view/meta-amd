@@ -194,7 +194,11 @@
 9874,	87,	AMD Radeon R5 Graphics
 9874,	85,	AMD Radeon R6 Graphics
 9874,	84,	AMD Radeon R7 Graphics
-15DD,   C0,     AMD Radeon (TM) Vega Graphics
-15DD,   C1,     AMD Radeon (TM) Vega Graphics
-15DD,	81,	AMD Radeon(TM) Vega 11 Graphics
-15DD,	82,	AMD Radeon(TM) Vega 8 Graphics
+15DD,	81,	AMD Radeon(TM) RX Vega 11 Graphics
+15DD,	82,	AMD Radeon(TM) RX Vega 8 Graphics
+15DD,	83,	AMD Radeon(TM) RX Vega 8 Graphics
+15DD,	84,	AMD Radeon(TM) RX Vega 6 Graphics
+15DD,	85,	AMD Radeon(TM) RX Vega 3 Graphics
+15DD,	86,	AMD Radeon(TM) RX Vega 11 Graphics
+15DD,	88,	AMD Radeon(TM) RX Vega 8 Graphics
+15DD,	C1,	AMD Radeon(TM) RX Vega 11 Graphics

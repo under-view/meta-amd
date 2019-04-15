@@ -1,0 +1,168 @@
+From bc6af3b77cbfa06a76d0d04d668c9883494fe8dd Mon Sep 17 00:00:00 2001
+From: Awais Belal <awais_belal@mentor.com>
+Date: Fri, 11 Jan 2019 12:04:02 +0500
+Subject: [PATCH 1/7] init-install-efi: manage partitioning scheme as per MEL
+ SWUpdate
+
+The partitioning scheme is updated in order to support SWUpdate
+in a dual-copy approach with additional partitions for persistent
+and data storage. This is a hardcoded scheme for now so it can
+only support devices with at least a minimum size of 8GB which
+yields a data partition of around 600MB considering a few factors.
+
+Signed-off-by: Awais Belal <awais_belal@mentor.com>
+---
+ init-install-efi.sh | 76 ++++++++++++++++++++++++++++++++++++++++++-----------
+ 1 file changed, 61 insertions(+), 15 deletions(-)
+
+diff --git a/init-install-efi.sh b/init-install-efi.sh
+index 82b0aa8..5fb2ae4 100644
+--- a/init-install-efi.sh
++++ b/init-install-efi.sh
+@@ -21,6 +21,8 @@ fi
+ # add 10M to provide some extra space for users and account
+ # for rounding in the above subtractions
+ boot_size=$(( boot_size + 10 ))
++# MEL - SWUpdate - we'll be keeping two kernel binaries so simply take twice the size
++boot_size=$(( boot_size * 2 ))
+ 
+ # 5% for swap
+ swap_ratio=5
+@@ -147,12 +149,32 @@ fi
+ 
+ disk_size=$(parted ${device} unit mb print | grep '^Disk .*: .*MB' | cut -d" " -f 3 | sed -e "s/MB//")
+ 
++# MEL - SWUpdate - dual-copy approach
++# Here's the partitioning scheme
++# Partition   Size                                     Mode
++# boot        Calculated from the installation device  RW
++# root(1)     3G                                       R
++# root(2)     3G                                       R
++# persistent  1G                                       RW
++# userdata    Whatever's left from all other parts     RW
++# swap        5% of disk size                          swap
++rootfs_size=3072
++rootfs1_start=$((boot_size))
++rootfs1_end=$((rootfs1_start+rootfs_size))
++rootfs2_start=$rootfs1_end
++rootfs2_end=$((rootfs2_start+rootfs_size))
++
++persistent_size=1024
++persistent_start=$rootfs2_end
++persistent_end=$((persistent_start+persistent_size))
++
+ swap_size=$((disk_size*swap_ratio/100))
+-rootfs_size=$((disk_size-boot_size-swap_size))
+ 
+-rootfs_start=$((boot_size))
+-rootfs_end=$((rootfs_start+rootfs_size))
+-swap_start=$((rootfs_end))
++userdata_size=$((disk_size-boot_size-rootfs_size*2-persistent_size-swap_size))
++userdata_start=$persistent_end
++userdata_end=$((userdata_start+userdata_size))
++
++swap_start=$((userdata_end))
+ 
+ # MMC devices are special in a couple of ways
+ # 1) they use a partition prefix character 'p'
+@@ -171,12 +193,17 @@ if [ -n `readlink /dev/disk/by-id/usb* | grep $TARGET_DEVICE_NAME` ]; then
+ fi
+ 
+ bootfs=${device}${part_prefix}1
+-rootfs=${device}${part_prefix}2
+-swap=${device}${part_prefix}3
++rootfs1=${device}${part_prefix}2
++rootfs2=${device}${part_prefix}3
++persistent=${device}${part_prefix}4
++userdata=${device}${part_prefix}5
++swap=${device}${part_prefix}6
+ 
+ echo "*****************"
+ echo "Boot partition size:   $boot_size MB ($bootfs)"
+-echo "Rootfs partition size: $rootfs_size MB ($rootfs)"
++echo "Per rootfs partition size: $rootfs_size MB ($rootfs)"
++echo "Persistent partition size: $persistent_size MB ($rootfs)"
++echo "User data partition size: $userdata_size MB ($rootfs)"
+ echo "Swap partition size:   $swap_size MB ($swap)"
+ echo "*****************"
+ echo "Deleting partition table on ${device} ..."
+@@ -189,8 +216,17 @@ echo "Creating boot partition on $bootfs"
+ parted ${device} mkpart boot fat32 0% $boot_size
+ parted ${device} set 1 boot on
+ 
+-echo "Creating rootfs partition on $rootfs"
+-parted ${device} mkpart root ext4 $rootfs_start $rootfs_end
++echo "Creating rootfs partition 1 on $rootfs1"
++parted ${device} mkpart platform ext4 $rootfs1_start $rootfs1_end
++
++echo "Creating rootfs partition 2 on $rootfs2"
++parted ${device} mkpart platform ext4 $rootfs2_start $rootfs2_end
++
++echo "Creating persistent partition on $persistent"
++parted ${device} mkpart persistent ext4 $persistent_start $persistent_end
++
++echo "Creating user data partition on $userdata"
++parted ${device} mkpart data ext4 $userdata_start $userdata_end
+ 
+ echo "Creating swap partition on $swap"
+ parted ${device} mkpart swap linux-swap $swap_start 100%
+@@ -199,7 +235,7 @@ parted ${device} print
+ 
+ echo "Waiting for device nodes..."
+ C=0
+-while [ $C -ne 3 ] && [ ! -e $bootfs  -o ! -e $rootfs -o ! -e $swap ]; do
++while [ $C -ne 3 ] && [ ! -e $bootfs  -o ! -e $rootfs1 -o ! -e $rootfs2 -o ! -e $persistent -o ! -e $userdata -o ! -e $swap ]; do
+     C=$(( C + 1 ))
+     sleep 1
+ done
+@@ -207,8 +243,17 @@ done
+ echo "Formatting $bootfs to vfat..."
+ mkfs.vfat $bootfs
+ 
+-echo "Formatting $rootfs to ext4..."
+-mkfs.ext4 $rootfs
++echo "Formatting $rootfs1 to ext4..."
++mkfs.ext4 $rootfs1
++
++echo "Formatting $rootfs2 to ext4..."
++mkfs.ext4 $rootfs2
++
++echo "Formatting $persistent to ext4..."
++mkfs.ext4 $persistent
++
++echo "Formatting $userdata to ext4..."
++mkfs.ext4 $userdata
+ 
+ echo "Formatting swap partition...($swap)"
+ mkswap $swap
+@@ -218,7 +263,8 @@ mkdir /src_root
+ mkdir -p /boot
+ 
+ # Handling of the target root partition
+-mount $rootfs /tgt_root
++# MEL - SWUpdate - simply install to rootfs1 for now
++mount $rootfs1 /tgt_root
+ mount -o rw,loop,noatime,nodiratime /run/media/$1/$2 /src_root
+ echo "Copying rootfs files..."
+ cp -a /src_root/* /tgt_root
+@@ -245,7 +291,7 @@ mkdir -p $EFIDIR
+ cp /run/media/$1/EFI/BOOT/*.efi $EFIDIR
+ 
+ if [ -f /run/media/$1/EFI/BOOT/grub.cfg ]; then
+-    root_part_uuid=$(blkid -o value -s PARTUUID ${rootfs})
++    root_part_uuid=$(blkid -o value -s PARTUUID ${rootfs1})
+     GRUBCFG="$EFIDIR/grub.cfg"
+     cp /run/media/$1/EFI/BOOT/grub.cfg $GRUBCFG
+     # Update grub config for the installed image
+@@ -261,7 +307,7 @@ if [ -f /run/media/$1/EFI/BOOT/grub.cfg ]; then
+ fi
+ 
+ if [ -d /run/media/$1/loader ]; then
+-    rootuuid=$(blkid -o value -s PARTUUID ${rootfs})
++    rootuuid=$(blkid -o value -s PARTUUID ${rootfs1})
+     SYSTEMDBOOT_CFGS="/boot/loader/entries/*.conf"
+     # copy config files for systemd-boot
+     cp -dr /run/media/$1/loader /boot
+-- 
+2.11.1
+

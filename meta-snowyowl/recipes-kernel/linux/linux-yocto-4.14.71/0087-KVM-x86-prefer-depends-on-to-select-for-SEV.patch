@@ -1,0 +1,36 @@
+From e4a578de658c458c98efe088f7bb763923d6de88 Mon Sep 17 00:00:00 2001
+From: Paolo Bonzini <pbonzini@redhat.com>
+Date: Thu, 11 Jan 2018 13:10:38 +0100
+Subject: [PATCH 87/95] KVM: x86: prefer "depends on" to "select" for SEV
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+Avoid reverse dependencies.  Instead, SEV will only be enabled if
+the PSP driver is available.
+
+Signed-off-by: Paolo Bonzini <pbonzini@redhat.com>
+Signed-off-by: Radim Krčmář <rkrcmar@redhat.com>
+Signed-off-by: Sudheesh Mavila <sudheesh.mavila@amd.com>
+---
+ arch/x86/kvm/Kconfig | 4 +---
+ 1 file changed, 1 insertion(+), 3 deletions(-)
+
+diff --git a/arch/x86/kvm/Kconfig b/arch/x86/kvm/Kconfig
+index 148ea32..92fd433 100644
+--- a/arch/x86/kvm/Kconfig
++++ b/arch/x86/kvm/Kconfig
+@@ -85,9 +85,7 @@ config KVM_AMD_SEV
+ 	def_bool y
+ 	bool "AMD Secure Encrypted Virtualization (SEV) support"
+ 	depends on KVM_AMD && X86_64
+-	select CRYPTO_DEV_CCP
+-	select CRYPTO_DEV_CCP_DD
+-	select CRYPTO_DEV_SP_PSP
++	depends on CRYPTO_DEV_CCP && CRYPTO_DEV_CCP_DD && CRYPTO_DEV_SP_PSP
+ 	---help---
+ 	Provides support for launching Encrypted VMs on AMD processors.
+ 
+-- 
+2.7.4
+

@@ -1,0 +1,30 @@
+From cbc0b0be1854cd3f49ccdc438a9d6e51b6c576cf Mon Sep 17 00:00:00 2001
+From: Pravin Shedge <pravin.shedge4linux@gmail.com>
+Date: Tue, 5 Dec 2017 07:27:22 +0530
+Subject: [PATCH 32/95] crypto: drivers - remove duplicate includes
+
+These duplicate includes have been found with scripts/checkincludes.pl but
+they have been removed manually to avoid removing false positives.
+
+Signed-off-by: Pravin Shedge <pravin.shedge4linux@gmail.com>
+Signed-off-by: Herbert Xu <herbert@gondor.apana.org.au>
+Signed-off-by: Sudheesh Mavila <sudheesh.mavila@amd.com>
+---
+ drivers/crypto/ccp/ccp-crypto-aes-galois.c | 1 -
+ 1 file changed, 1 deletion(-)
+
+diff --git a/drivers/crypto/ccp/ccp-crypto-aes-galois.c b/drivers/crypto/ccp/ccp-crypto-aes-galois.c
+index ff02b71..ca1f0d7 100644
+--- a/drivers/crypto/ccp/ccp-crypto-aes-galois.c
++++ b/drivers/crypto/ccp/ccp-crypto-aes-galois.c
+@@ -21,7 +21,6 @@
+ #include <crypto/ctr.h>
+ #include <crypto/gcm.h>
+ #include <crypto/scatterwalk.h>
+-#include <linux/delay.h>
+ 
+ #include "ccp-crypto.h"
+ 
+-- 
+2.7.4
+

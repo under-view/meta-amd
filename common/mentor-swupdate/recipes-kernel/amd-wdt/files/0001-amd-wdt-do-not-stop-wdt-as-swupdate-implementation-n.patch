@@ -1,0 +1,31 @@
+From c4024f793cdd2d39e078e1c28ae5744a5808495d Mon Sep 17 00:00:00 2001
+From: "Arsalan H. Awan" <Arsalan_Awan@mentor.com>
+Date: Thu, 14 Feb 2019 11:44:30 +0500
+Subject: [PATCH] amd-wdt: do not stop wdt as swupdate implementation needs it
+
+Mentor SWUpdate as a part of its failsafe update mechanism
+implementation requires the WDT to keep running. So lets not
+disable it.
+
+Signed-off-by: Arsalan H. Awan <Arsalan_Awan@mentor.com>
+---
+ amd_wdt.c | 3 ---
+ 1 file changed, 3 deletions(-)
+
+diff --git a/amd_wdt.c b/amd_wdt.c
+index 94c3f57..f3bbd90 100755
+--- a/amd_wdt.c
++++ b/amd_wdt.c
+@@ -325,9 +325,6 @@ static int amd_wdt_init(struct platform_device *dev)
+ 	amd_wdt_dev.max_timeout = AMD_WDT_MAX_TIMEOUT;
+ 	watchdog_set_nowayout(&amd_wdt_dev, nowayout);
+ 
+-	/* Make sure watchdog is not running */
+-	amd_wdt_stop(&amd_wdt_dev);
+-
+ 	/* Set Watchdog timeout */
+ 	amd_wdt_set_timeout(&amd_wdt_dev, heartbeat);
+ 
+-- 
+2.11.1
+
