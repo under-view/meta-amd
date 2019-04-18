@@ -1,0 +1,111 @@
+From 13dfbee9fe761b68fbcee7546723a171892f09c1 Mon Sep 17 00:00:00 2001
+From: Sudheesh Mavila <sudheesh.mavila@amd.com>
+Date: Mon, 22 Oct 2018 14:09:53 +0530
+Subject: [PATCH 64/95] KVM: Introduce KVM_MEMORY_ENCRYPT_OP ioctl
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+From  5acc5c063196b4a531a761a954023c1848ec832b
+
+If the hardware supports memory encryption then the
+KVM_MEMORY_ENCRYPT_OP ioctl can be used by qemu to issue a platform
+specific memory encryption commands.
+
+Cc: Thomas Gleixner <tglx@linutronix.de>
+Cc: Ingo Molnar <mingo@redhat.com>
+Cc: "H. Peter Anvin" <hpa@zytor.com>
+Cc: Paolo Bonzini <pbonzini@redhat.com>
+Cc: "Radim Krčmář" <rkrcmar@redhat.com>
+Cc: Joerg Roedel <joro@8bytes.org>
+Cc: Borislav Petkov <bp@suse.de>
+Cc: Tom Lendacky <thomas.lendacky@amd.com>
+Cc: x86@kernel.org
+Cc: kvm@vger.kernel.org
+Cc: linux-kernel@vger.kernel.org
+Signed-off-by: Brijesh Singh <brijesh.singh@amd.com>
+Reviewed-by: Paolo Bonzini <pbonzini@redhat.com>
+Reviewed-by: Borislav Petkov <bp@suse.de>
+Signed-off-by: Sudheesh Mavila <sudheesh.mavila@amd.com>
+---
+ Documentation/virtual/kvm/api.txt | 16 ++++++++++++++++
+ arch/x86/include/asm/kvm_host.h   |  1 +
+ arch/x86/kvm/x86.c                |  6 ++++++
+ include/uapi/linux/kvm.h          |  2 ++
+ 4 files changed, 25 insertions(+)
+ mode change 100644 => 100755 arch/x86/include/asm/kvm_host.h
+
+diff --git a/Documentation/virtual/kvm/api.txt b/Documentation/virtual/kvm/api.txt
+index 5d12166..8e11bb6 100644
+--- a/Documentation/virtual/kvm/api.txt
++++ b/Documentation/virtual/kvm/api.txt
+@@ -3414,6 +3414,22 @@ invalid, if invalid pages are written to (e.g. after the end of memory)
+ or if no page table is present for the addresses (e.g. when using
+ hugepages).
+ 
++4.109 KVM_MEMORY_ENCRYPT_OP
++
++Capability: basic
++Architectures: x86
++Type: system
++Parameters: an opaque platform specific structure (in/out)
++Returns: 0 on success; -1 on error
++
++If the platform supports creating encrypted VMs then this ioctl can be used
++for issuing platform-specific memory encryption commands to manage those
++encrypted VMs.
++
++Currently, this ioctl is used for issuing Secure Encrypted Virtualization
++(SEV) commands on AMD Processors. The SEV commands are defined in
++Documentation/virtual/kvm/amd-memory-encryption.txt.
++
+ 5. The kvm_run structure
+ ------------------------
+ 
+diff --git a/arch/x86/include/asm/kvm_host.h b/arch/x86/include/asm/kvm_host.h
+old mode 100644
+new mode 100755
+index 4015b88..7595643
+--- a/arch/x86/include/asm/kvm_host.h
++++ b/arch/x86/include/asm/kvm_host.h
+@@ -1067,6 +1067,7 @@ struct kvm_x86_ops {
+ 	void (*cancel_hv_timer)(struct kvm_vcpu *vcpu);
+ 
+ 	void (*setup_mce)(struct kvm_vcpu *vcpu);
++	int (*mem_enc_op)(struct kvm *kvm, void __user *argp);
+ 
+ 	int (*get_msr_feature)(struct kvm_msr_entry *entry);
+ };
+diff --git a/arch/x86/kvm/x86.c b/arch/x86/kvm/x86.c
+index 3856828..5243482 100644
+--- a/arch/x86/kvm/x86.c
++++ b/arch/x86/kvm/x86.c
+@@ -4384,6 +4384,12 @@ long kvm_arch_vm_ioctl(struct file *filp,
+ 		r = kvm_vm_ioctl_enable_cap(kvm, &cap);
+ 		break;
+ 	}
++	case KVM_MEMORY_ENCRYPT_OP: {
++		r = -ENOTTY;
++		if (kvm_x86_ops->mem_enc_op)
++			r = kvm_x86_ops->mem_enc_op(kvm, argp);
++		break;
++	}
+ 	default:
+ 		r = -ENOTTY;
+ 	}
+diff --git a/include/uapi/linux/kvm.h b/include/uapi/linux/kvm.h
+index 27c62ab..409f266 100644
+--- a/include/uapi/linux/kvm.h
++++ b/include/uapi/linux/kvm.h
+@@ -1360,6 +1360,8 @@ struct kvm_s390_ucas_mapping {
+ /* Available with KVM_CAP_S390_CMMA_MIGRATION */
+ #define KVM_S390_GET_CMMA_BITS      _IOWR(KVMIO, 0xb8, struct kvm_s390_cmma_log)
+ #define KVM_S390_SET_CMMA_BITS      _IOW(KVMIO, 0xb9, struct kvm_s390_cmma_log)
++/* Memory Encryption Commands */
++#define KVM_MEMORY_ENCRYPT_OP      _IOWR(KVMIO, 0xba, unsigned long)
+ 
+ #define KVM_DEV_ASSIGN_ENABLE_IOMMU	(1 << 0)
+ #define KVM_DEV_ASSIGN_PCI_2_3		(1 << 1)
+-- 
+2.7.4
+

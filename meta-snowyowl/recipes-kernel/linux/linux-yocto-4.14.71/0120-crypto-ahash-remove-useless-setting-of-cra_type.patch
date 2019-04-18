@@ -1,0 +1,50 @@
+From d57a98634e755d7dcee23732946cf1592dde2981 Mon Sep 17 00:00:00 2001
+From: Eric Biggers <ebiggers@google.com>
+Date: Sat, 30 Jun 2018 15:16:13 -0700
+Subject: [PATCH 120/131] crypto: ahash - remove useless setting of cra_type
+
+Some ahash algorithms set .cra_type = &crypto_ahash_type.  But this is
+redundant with the C structure type ('struct ahash_alg'), and
+crypto_register_ahash() already sets the .cra_type automatically.
+Apparently the useless assignment has just been copy+pasted around.
+
+So, remove the useless assignment from all the ahash algorithms.
+
+This patch shouldn't change any actual behavior.
+
+Signed-off-by: Eric Biggers <ebiggers@google.com>
+Acked-by: Gilad Ben-Yossef <gilad@benyossef.com>
+Signed-off-by: Herbert Xu <herbert@gondor.apana.org.au>
+Signed-off-by: Sudheesh Mavila <sudheesh.mavila@amd.com>
+---
+ drivers/crypto/ccp/ccp-crypto-aes-cmac.c | 1 -
+ drivers/crypto/ccp/ccp-crypto-sha.c      | 1 -
+ 2 files changed, 2 deletions(-)
+
+diff --git a/drivers/crypto/ccp/ccp-crypto-aes-cmac.c b/drivers/crypto/ccp/ccp-crypto-aes-cmac.c
+index bdc2715..3c6fe57 100644
+--- a/drivers/crypto/ccp/ccp-crypto-aes-cmac.c
++++ b/drivers/crypto/ccp/ccp-crypto-aes-cmac.c
+@@ -405,7 +405,6 @@ int ccp_register_aes_cmac_algs(struct list_head *head)
+ 	base->cra_blocksize = AES_BLOCK_SIZE;
+ 	base->cra_ctxsize = sizeof(struct ccp_ctx);
+ 	base->cra_priority = CCP_CRA_PRIORITY;
+-	base->cra_type = &crypto_ahash_type;
+ 	base->cra_init = ccp_aes_cmac_cra_init;
+ 	base->cra_exit = ccp_aes_cmac_cra_exit;
+ 	base->cra_module = THIS_MODULE;
+diff --git a/drivers/crypto/ccp/ccp-crypto-sha.c b/drivers/crypto/ccp/ccp-crypto-sha.c
+index 366d3e91..2ca64bb 100644
+--- a/drivers/crypto/ccp/ccp-crypto-sha.c
++++ b/drivers/crypto/ccp/ccp-crypto-sha.c
+@@ -503,7 +503,6 @@ static int ccp_register_sha_alg(struct list_head *head,
+ 	base->cra_blocksize = def->block_size;
+ 	base->cra_ctxsize = sizeof(struct ccp_ctx);
+ 	base->cra_priority = CCP_CRA_PRIORITY;
+-	base->cra_type = &crypto_ahash_type;
+ 	base->cra_init = ccp_sha_cra_init;
+ 	base->cra_exit = ccp_sha_cra_exit;
+ 	base->cra_module = THIS_MODULE;
+-- 
+2.7.4
+

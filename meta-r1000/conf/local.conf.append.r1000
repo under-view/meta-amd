@@ -1,0 +1,12 @@
+# MEL supports various components that can be enabled by setting the corresponding
+# INCLUDE_<component> to "yes".
+# Following is a list of <components> that can be enabled if you want them to be
+# installed/available on your image.
+# Please change the required INCLUDE_<component> to "yes" before building an image, or
+# generating an ADE that can be used to develop apps for these components (if applicable):
+#
+# - OPENCL - The Open Computing Language.
+#   Framework for writing programs that execute across heterogeneous platforms consisting
+#   of CPUs, GPUs, DSPs, FPGAs and other processors or hardware accelerators.
+#
+INCLUDE_OPENCL ??= "no"

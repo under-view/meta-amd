@@ -1,0 +1,40 @@
+From 723470df51c6314d166e80636e393316339700a1 Mon Sep 17 00:00:00 2001
+From: Awais Belal <awais_belal@mentor.com>
+Date: Wed, 16 Jan 2019 16:12:19 +0500
+Subject: [PATCH 5/7] init-install-efi: create fallback entry
+
+In case of an update failure we need to switch
+our bootparams and fallback to the fallback (FB_)
+vars which are a known good configuration.
+
+Signed-off-by: Awais Belal <awais_belal@mentor.com>
+---
+ init-install-efi.sh | 12 ++++++++++++
+ 1 file changed, 12 insertions(+)
+
+diff --git a/init-install-efi.sh b/init-install-efi.sh
+index ae7e32b..cdab4d6 100644
+--- a/init-install-efi.sh
++++ b/init-install-efi.sh
+@@ -306,6 +306,18 @@ if [ -f /run/media/$1/EFI/BOOT/grub.cfg ]; then
+     # Replace root= and add additional standard boot options
+     # We use root as a sentinel value, as vmlinuz is no longer guaranteed
+     sed -i "s/ root=[^ ]*/ root=\$RFS rw $rootwait quiet /g" $GRUBCFG
++    # Mentor - SWUpdate - create our fallback menuentry
++    sed -i "1ifallback=1" $GRUBCFG
++    cmd=$(grep "linux " $GRUBCFG)
++    cat >> $GRUBCFG <<FALL_BACK
++menuentry 'fallback'{
++set KERNEL=\$FB_KERNEL
++set RFS=\$FB_RFS
++save_env --file ${GRUBENV#\/boot} KERNEL
++save_env --file ${GRUBENV#\/boot} RFS
++$cmd
++}
++FALL_BACK
+ fi
+ 
+ if [ -d /run/media/$1/loader ]; then
+-- 
+2.11.1
+
