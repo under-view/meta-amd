@@ -1,3 +1,0 @@
-patch 5761-net-phy-marvell10g-remove-XGMII-as-an-option-for-88x.patch
-patch 5762-net-phy-marvell10g-update-header-comments.patch
-patch 5763-amd-xgbe-Sometimes-driver-report-incorrect-link-stat.patch
