@@ -1,3 +1,0 @@
-patch 5760-Revert-drm-amdgpu-interim-disable-RV2-GFX-CG-flag-fo.patch
-patch 5764-Revert-drm-amdgpu-enable-gfxoff-in-non-sriov-and-stu.patch
-patch 5765-drm-amd-powerplay-enable-UMDPSTATE-support-on-raven2.patch
