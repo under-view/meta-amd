@@ -19,3 +19,4 @@ patch 0115-net-amd-fix-return-type-of-ndo_start_xmit-function.patch
 patch 0116-net-phy-Add-helper-for-advertise-to-lcl-value.patch
 patch 0117-drivers-net-remove-net-busy_poll.h-inclusion-when-no.patch
 patch 0118-net-ethernet-xgbe-expand-PHY_GBIT_FEAUTRES.patch
+patch 0132-amd-xgbe-Sometimes-driver-report-incorrect-link-stat.patch
