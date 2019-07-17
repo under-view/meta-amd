@@ -17,7 +17,6 @@ MULTILIBS ?= ""
 require conf/multilib.conf
 
 MACHINE_FEATURES += "wifi efi alsa"
-MACHINE_FEATURES += "${@'swupdate' if 'mentor-swupdate' in '${BBFILE_COLLECTIONS}'.split() else '' }"
 
 # QEMU does not support some of the enhanced instructions available
 # on the AMD chips which causes some build time failures.
@@ -63,19 +62,13 @@ NOHDD = "1"
 WKS_FILES ?= "amd-usbimage.wks"
 
 # Contents of IMAGE_BOOT_FILES are deployed into "amd-usbimage.wks" wic image
-MACHINE_BOOT_FILES = " \
+IMAGE_BOOT_FILES = " \
         ${EFIIMGDIR}${EFIDIR}/*;EFI/BOOT/ \
         ${EFIIMGDIR}/startup.nsh;startup.nsh \
         ${KERNEL_IMAGETYPE} \
         ${INITRD_IMAGE_LIVE}-${MACHINE}.cpio.gz;initrd \
         ${ROOTFS};rootfs.img \
 "
-IMAGE_BOOT_FILES = "${MACHINE_BOOT_FILES}"
-
-# Force our swupdate implementation to not pick up boot files while creating
-# the .swu otherwise we run into a circular dependency
-# This can still be overridden from local.conf
-SWDESC_INCLUDE_BOOT_FILES ?= "0"
 
 # This makes sure that boot files are deployed before do_image_wic starts execution
 do_image_wic[depends] += "${IMAGE_BASENAME}:do_bootimg"
