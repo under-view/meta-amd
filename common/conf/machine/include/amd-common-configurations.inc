@@ -77,8 +77,3 @@ IMAGE_OVERHEAD_FACTOR = "1.1"
 
 # Add common feartures to be supported for all machines here
 EXTRA_IMAGE_FEATURES += "amd-misc-pkgs"
-
-# Workaround for a MEL related issue
-# revert as soon as the fixes are merged
-# in the main layer.
-dm-initramfs_mel ?= ""
