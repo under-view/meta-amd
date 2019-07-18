@@ -16,8 +16,8 @@ inherit autotools pkgconfig
 
 SRC_URI = "https://github.com/intel/${BPN}/releases/download/libva/libva-${PV}.tar.bz2"
 
-SRC_URI[md5sum] = "9d6e4f1d36c407566343e9dde5a972b8"
-SRC_URI[sha256sum] = "f3fa953a11d3210c3a4ee79031abdbe0863d5ce13d9b3f93f315f1eec60a4b0f"
+SRC_URI[md5sum] = "cfc69c2a5f526dd1858e098fb8eebfa6"
+SRC_URI[sha256sum] = "99263056c21593a26f2ece812aee6fe60142b49e6cd46cb33c8dddf18fc19391"
 
 S = "${WORKDIR}/libva-${PV}"
 
