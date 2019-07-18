@@ -75,11 +75,6 @@ do_image_wic[depends] += "${IMAGE_BASENAME}:do_bootimg"
 
 IMAGE_OVERHEAD_FACTOR = "1.1"
 
-IOT_PACKAGES_mel ?= "packagegroup-xmpp \
-                     packagegroup-mqtt \
-                     packagegroup-ble \
-                     packagegroup-http-restful"
-
 # Add common feartures to be supported for all machines here
 EXTRA_IMAGE_FEATURES += "amd-misc-pkgs"
 
