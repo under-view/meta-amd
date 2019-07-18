@@ -26,7 +26,6 @@ MACHINE_EXTRA_RRECOMMENDS += "kernel-modules alsa-utils"
 MACHINE_EXTRA_RRECOMMENDS += "${@bb.utils.contains("IMAGE_FEATURES", "x11-base", "vdpauinfo", "", d)} grub parted util-linux-blkid"
 MACHINE_EXTRA_RRECOMMENDS += "rtc-test watchdog-test spi-test smbus-test gpio-test"
 MACHINE_EXTRA_RRECOMMENDS += "amd-wdt amd-spi"
-MACHINE_EXTRA_RRECOMMENDS += "${@bb.utils.contains_any("DISTRO", "mel mel-lite", "firmware-wireless", "", d)}"
 
 # Add serial consoles to kernel commandline, these should occur before the tty0
 KERNEL_SERIAL_CONSOLE ??= ""
