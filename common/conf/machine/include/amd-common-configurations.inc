@@ -23,7 +23,7 @@ MACHINE_FEATURES += "wifi efi alsa"
 MACHINE_FEATURES_remove = "qemu-usermode"
 
 MACHINE_EXTRA_RRECOMMENDS += "kernel-modules alsa-utils"
-MACHINE_EXTRA_RRECOMMENDS += "${@bb.utils.contains("EXTRA_IMAGE_FEATURES", "graphics", "vdpauinfo", "", d)} grub parted util-linux-blkid"
+MACHINE_EXTRA_RRECOMMENDS += "${@bb.utils.contains("IMAGE_FEATURES", "x11-base", "vdpauinfo", "", d)} grub parted util-linux-blkid"
 MACHINE_EXTRA_RRECOMMENDS += "rtc-test watchdog-test spi-test smbus-test gpio-test"
 MACHINE_EXTRA_RRECOMMENDS += "amd-wdt amd-spi"
 MACHINE_EXTRA_RRECOMMENDS += "${@bb.utils.contains_any("DISTRO", "mel mel-lite", "firmware-wireless", "", d)}"
@@ -80,17 +80,8 @@ IOT_PACKAGES_mel ?= "packagegroup-xmpp \
                      packagegroup-ble \
                      packagegroup-http-restful"
 
-MACHINE_FEATURES_append_amdgpu := " ${@bb.utils.contains("EXTRA_IMAGE_FEATURES", "graphics", "x11", "", d)}"
-MACHINE_FEATURES_append_radeon := " ${@bb.utils.contains("EXTRA_IMAGE_FEATURES", "graphics", "x11", "", d)}"
-
 # Add common feartures to be supported for all machines here
 EXTRA_IMAGE_FEATURES += "amd-misc-pkgs"
-
-# Add the basic features we know these overrides support
-EXTRA_IMAGE_FEATURES_append_amdgpu := " ${@bb.utils.contains("EXTRA_IMAGE_FEATURES", "multimedia", "amd-feature-multimedia", "", d)} \
-                                        ${@bb.utils.contains_any("EXTRA_IMAGE_FEATURES", "graphics", "amd-feature-graphics", "", d)}"
-EXTRA_IMAGE_FEATURES_append_radeon := " ${@bb.utils.contains("EXTRA_IMAGE_FEATURES", "multimedia", "amd-feature-multimedia", "", d)} \
-                                        ${@bb.utils.contains_any("EXTRA_IMAGE_FEATURES", "graphics", "amd-feature-graphics", "", d)}"
 
 # Workaround for a MEL related issue
 # revert as soon as the fixes are merged
