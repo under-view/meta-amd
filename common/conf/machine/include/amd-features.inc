@@ -54,7 +54,7 @@ FEATURE_PACKAGES_amd-misc-pkgs = "\
 "
 
 FEATURE_PACKAGES_amd-feature-multimedia = "\
-    ${@bb.utils.contains("DISTRO", "mel", "${GSTREAMER_PKGS}", "", d)} \
+    ${GSTREAMER_PKGS} \
     ${AMD_FEATURE_MULTIMEDIA_PKGS} \
 "
 
@@ -66,7 +66,8 @@ FEATURE_PACKAGES_amd-feature-graphics_append_amdgpu = " ${@bb.utils.contains("IM
 FEATURE_PACKAGES_amd-feature-graphics_append_radeon = " ${@bb.utils.contains("IMAGE_FEATURES", "x11-base", "mesa-demos", "", d)}"
 
 FEATURE_PACKAGES_amd-feature-networking = "\
-    ${@bb.utils.contains("DISTRO", "mel", "${DPDK_PKGS} strongswan", "", d)} \
+    ${DPDK_PKGS} \
+    strongswan \
     ${AMD_FEATURE_NETWORKING_PKGS} \
 "
 
