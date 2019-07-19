@@ -1,14 +1,3 @@
-require recipes-graphics/mesa/${BPN}.inc
-
-S = "${WORKDIR}/git"
-
-DEPENDS_append = " python-mako-native"
-inherit pythonnative
-
-SRCREV_amd = "d2c170eb355a912586cb982858faac2fc85c4783"
-LIC_FILES_CHKSUM_amd = "file://docs/license.html;md5=725f991a1cc322aa7a0cd3a2016621c4"
-PV_amd = "19.0.0+git${SRCPV}"
-
 DEPENDS_append_amd = " libvdpau libomxil"
 
 PACKAGECONFIG[va] = "--enable-va,--disable-va,libva"
@@ -23,11 +12,6 @@ LIBVA_PLATFORMS  = "libva"
 LIBVA_PLATFORMS .= "${@bb.utils.contains('DISTRO_FEATURES', 'x11', ' libva-x11', '', d)}"
 LIBVA_PLATFORMS .= "${@bb.utils.contains('DISTRO_FEATURES', 'wayland', ' libva-wayland', '', d)}"
 RDEPENDS_mesa-megadriver += "${@bb.utils.contains('PACKAGECONFIG', 'va', '${LIBVA_PLATFORMS}', '', d)}"
-
-SRC_URI_amd = "git://anongit.freedesktop.org/mesa/mesa;branch=master \
-               file://0001-configure.ac-obey-llvm_prefix-if-available.patch \
-               file://0001-configure.ac-adjust-usage-of-LLVM-flags.patch \
-               file://0001-vl-dri3-remove-the-wait-before-getting-back-buffer.patch"
 
 EXTRA_OECONF_append_amd = " \
 		 --enable-vdpau \
@@ -67,12 +51,3 @@ python () {
     d.setVar("DRIDRIVERS", "swrast,radeon")
     d.setVar("GALLIUMDRIVERS", "swrast,r300,r600,radeonsi")
 }
-
-#because we cannot rely on the fact that all apps will use pkgconfig,
-#make eglplatform.h independent of MESA_EGL_NO_X11_HEADER
-do_install_append() {
-    if ${@bb.utils.contains('PACKAGECONFIG', 'egl', 'true', 'false', d)}; then
-        sed -i -e 's/^#if defined(MESA_EGL_NO_X11_HEADERS)$/#if defined(MESA_EGL_NO_X11_HEADERS) || ${@bb.utils.contains('PACKAGECONFIG', 'x11', '0', '1', d)}/' ${D}${includedir}/EGL/eglplatform.h
-    fi
-}
-
