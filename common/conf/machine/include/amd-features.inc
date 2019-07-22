@@ -9,8 +9,8 @@
 # > Feature components can be dependent on DISTRO, EXTRA_IMAGE_FEATURES, or any
 #   variable in general other than a particular image's related variable so most
 #   things should be based on global configs rather than image configs.
-#   e.g.: Components of "amd-feature-graphics" may be dependent on "graphics" as
-#   an EXTRA_IMAGE_FEATURE. Some packages may only be included for a specific
+#   e.g.: Components of "amd-feature-graphics" may be dependent on "x11-base" as
+#   an IMAGE_FEATURE. Some packages may only be included for a specific
 #   DISTRO. Some packages may only be installed if user allows them in local.conf etc.
 # > Each machine must add the requested features to EXTRA_IMAGE_FEATURES in its
 #   own machine config file regardless of the image being built, if that particular
@@ -29,12 +29,12 @@
 # * <add more features here>	: <feature summary>
 
 GSTREAMER_PKGS ?= " \
-    ${@bb.utils.contains("EXTRA_IMAGE_FEATURES", "graphics", "gstreamer1.0-meta-x11-base", "", d)} \
-    ${@bb.utils.contains("MACHINE_FEATURES", "alsa", "gstreamer1.0-meta-audio", "", d)} \
+    ${@bb.utils.contains("IMAGE_FEATURES", "x11-base", "gstreamer1.0-meta-x11-base", "", d)} \
+    ${@bb.utils.contains("COMBINED_FEATURES", "alsa", "gstreamer1.0-meta-audio", "", d)} \
     gstreamer1.0-meta-debug \
     gstreamer1.0-meta-video \
-    ${@bb.utils.contains("EXTRA_IMAGE_FEATURES", "graphics", "gstreamer1.0-omx", "", d)} \
-    ${@bb.utils.contains("EXTRA_IMAGE_FEATURES", "graphics", "gstreamer1.0-vaapi", "", d)} \
+    ${@bb.utils.contains("IMAGE_FEATURES", "x11-base", "gstreamer1.0-omx", "", d)} \
+    ${@bb.utils.contains("IMAGE_FEATURES", "x11-base", "gstreamer1.0-vaapi", "", d)} \
 "
 VULKAN_PKGS ?= ""
 CODEXL_PKGS ?= ""
@@ -54,7 +54,7 @@ FEATURE_PACKAGES_amd-misc-pkgs = "\
 "
 
 FEATURE_PACKAGES_amd-feature-multimedia = "\
-    ${@bb.utils.contains("DISTRO", "mel", "${GSTREAMER_PKGS}", "", d)} \
+    ${GSTREAMER_PKGS} \
     ${AMD_FEATURE_MULTIMEDIA_PKGS} \
 "
 
@@ -62,11 +62,12 @@ FEATURE_PACKAGES_amd-feature-graphics = "\
     ${@bb.utils.contains("INCLUDE_VULKAN", "yes", "${VULKAN_PKGS}", "", d)} \
     ${AMD_FEATURE_GRAPHICS_PKGS} \
 "
-FEATURE_PACKAGES_amd-feature-graphics_append_amdgpu = " ${@bb.utils.contains("EXTRA_IMAGE_FEATURES", "graphics", "mesa-demos", "", d)}"
-FEATURE_PACKAGES_amd-feature-graphics_append_radeon = " ${@bb.utils.contains("EXTRA_IMAGE_FEATURES", "graphics", "mesa-demos", "", d)}"
+FEATURE_PACKAGES_amd-feature-graphics_append_amdgpu = " ${@bb.utils.contains("IMAGE_FEATURES", "x11-base", "mesa-demos", "", d)}"
+FEATURE_PACKAGES_amd-feature-graphics_append_radeon = " ${@bb.utils.contains("IMAGE_FEATURES", "x11-base", "mesa-demos", "", d)}"
 
 FEATURE_PACKAGES_amd-feature-networking = "\
-    ${@bb.utils.contains("DISTRO", "mel", "${DPDK_PKGS} strongswan", "", d)} \
+    ${DPDK_PKGS} \
+    strongswan \
     ${AMD_FEATURE_NETWORKING_PKGS} \
 "
 

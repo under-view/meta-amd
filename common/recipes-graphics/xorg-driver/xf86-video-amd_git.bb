@@ -9,8 +9,8 @@ require recipes-graphics/xorg-driver/xorg-driver-video.inc
 
 LIC_FILES_CHKSUM = "file://COPYING;md5=aabff1606551f9461ccf567739af63dc"
 
-DEPENDS += "virtual/libx11 drm dri2proto glproto \
-	    virtual/libgl xineramaproto libpciaccess \
+DEPENDS += "virtual/libx11 drm xorgproto \
+	    virtual/libgl libpciaccess \
 "
 
 PACKAGECONFIG[udev] = "--enable-udev,--disable-udev,udev"
