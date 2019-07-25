@@ -54,7 +54,7 @@ EXTRA_OECONF_append_pn-matchbox-panel-2 = " --with-battery=acpi"
 # Also, "iso" doesn't get built even if specified explicitly
 # because NOISO = "1" by default (See c787dcd in oe-core).
 # Therefore, we do as follows:
-IMAGE_FSTYPES += "wic iso"
+IMAGE_FSTYPES += "wic wic.bmap iso"
 NOISO = "0"
 NOHDD = "1"
 
