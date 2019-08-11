@@ -22,8 +22,8 @@ PV_radeon = "radeon-7.8.0"
 PACKAGECONFIG_append_radeon = " udev glamor"
 
 SRC_URI_amdgpu = "git://anongit.freedesktop.org/xorg/driver/xf86-video-amdgpu"
-SRCREV_amdgpu = "9f37a44473ded8c669897379acbc750362c15ec6"
-PV_amdgpu = "amdgpu-18.0.1"
+SRCREV_amdgpu = "98f172eb2d2353e19edd8167f22215ce596811f8"
+PV_amdgpu = "amdgpu-19.0.1"
 PACKAGECONFIG_append_amdgpu = " udev glamor"
 
 PV = "git${SRCPV}"
