@@ -1,13 +1,14 @@
 require ${BPN}.inc
 
-SRC_URI = "https://mesa.freedesktop.org/archive/mesa-${PV}.tar.xz \
+S = "${WORKDIR}/git"
+
+SRCREV = "e9cf8c1d3010e9eada5a7921239ad7895f249b5c"
+SRC_URI = "git://gitlab.freedesktop.org/mesa/mesa.git;branch=master;protocol=https \
            file://0001-meson.build-check-for-all-linux-host_os-combinations.patch \
            file://0002-meson.build-make-TLS-GLX-optional-again.patch \
            file://0003-Allow-enable-DRI-without-DRI-drivers.patch \
+           file://0001-radeonsi-disabling-the-displayable-DCC-on-Raven-Ridg.patch \
           "
-
-SRC_URI[md5sum] = "9772ebf9ac40289a62a02c046904c8af"
-SRC_URI[sha256sum] = "845460b2225d15c15d4a9743dec798ff0b7396b533011d43e774e67f7825b7e0"
 
 #because we cannot rely on the fact that all apps will use pkgconfig,
 #make eglplatform.h independent of MESA_EGL_NO_X11_HEADER
