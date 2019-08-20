@@ -1,0 +1,45 @@
+From dcf9df01c9bf2827c44c377783ada16fc8a2c589 Mon Sep 17 00:00:00 2001
+From: Colin Ian King <colin.king@canonical.com>
+Date: Thu, 4 Jul 2019 15:23:29 +0100
+Subject: [PATCH 2678/2940] drm/amdgpu/psp: fix incorrect logic when checking
+ asic_type
+
+Currently the check of the asic_type is always returning true because
+of the use of ||.  Fix this by using && instead.  Also break overly
+wide line.
+
+Addresses-Coverity: ("Constant expression result")
+Fixes: dab70ff24db6 ("drm/amdgpu/psp: add psp support for navi14")
+Signed-off-by: Colin Ian King <colin.king@canonical.com>
+Signed-off-by: Alex Deucher <alexander.deucher@amd.com>
+---
+ drivers/gpu/drm/amd/amdgpu/psp_v11_0.c | 6 ++++--
+ 1 file changed, 4 insertions(+), 2 deletions(-)
+
+diff --git a/drivers/gpu/drm/amd/amdgpu/psp_v11_0.c b/drivers/gpu/drm/amd/amdgpu/psp_v11_0.c
+index 5076d635d7d9..fa1697617ae3 100644
+--- a/drivers/gpu/drm/amd/amdgpu/psp_v11_0.c
++++ b/drivers/gpu/drm/amd/amdgpu/psp_v11_0.c
+@@ -548,7 +548,8 @@ psp_v11_0_sram_map(struct amdgpu_device *adev,
+ 
+ 	case AMDGPU_UCODE_ID_RLC_G:
+ 		*sram_offset = 0x2000;
+-		if (adev->asic_type != CHIP_NAVI10 || adev->asic_type != CHIP_NAVI14) {
++		if (adev->asic_type != CHIP_NAVI10 &&
++		    adev->asic_type != CHIP_NAVI14) {
+ 			*sram_addr_reg_offset = SOC15_REG_OFFSET(GC, 0, mmRLC_GPM_UCODE_ADDR);
+ 			*sram_data_reg_offset = SOC15_REG_OFFSET(GC, 0, mmRLC_GPM_UCODE_DATA);
+ 		}
+@@ -560,7 +561,8 @@ psp_v11_0_sram_map(struct amdgpu_device *adev,
+ 
+ 	case AMDGPU_UCODE_ID_SDMA0:
+ 		*sram_offset = 0x0;
+-		if (adev->asic_type != CHIP_NAVI10 || adev->asic_type != CHIP_NAVI14) {
++		if (adev->asic_type != CHIP_NAVI10 &&
++		    adev->asic_type != CHIP_NAVI14) {
+ 			*sram_addr_reg_offset = SOC15_REG_OFFSET(SDMA0, 0, mmSDMA0_UCODE_ADDR);
+ 			*sram_data_reg_offset = SOC15_REG_OFFSET(SDMA0, 0, mmSDMA0_UCODE_DATA);
+ 		}
+-- 
+2.17.1
+

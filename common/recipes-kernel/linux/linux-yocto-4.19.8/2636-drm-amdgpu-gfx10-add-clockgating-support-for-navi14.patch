@@ -1,0 +1,31 @@
+From 493c82b9a2f679767d7997bf9c2edcd210d12fb0 Mon Sep 17 00:00:00 2001
+From: Xiaojie Yuan <xiaojie.yuan@amd.com>
+Date: Mon, 17 Dec 2018 18:22:16 +0800
+Subject: [PATCH 2636/2940] drm/amdgpu/gfx10: add clockgating support for
+ navi14
+
+Same as navi10.
+
+Signed-off-by: Xiaojie Yuan <xiaojie.yuan@amd.com>
+Reviewed-by: Alex Deucher <alexander.deucher@amd.com>
+Reviewed-by: Jack Xiao <Jack.Xiao@amd.com>
+Signed-off-by: Alex Deucher <alexander.deucher@amd.com>
+---
+ drivers/gpu/drm/amd/amdgpu/gfx_v10_0.c | 1 +
+ 1 file changed, 1 insertion(+)
+
+diff --git a/drivers/gpu/drm/amd/amdgpu/gfx_v10_0.c b/drivers/gpu/drm/amd/amdgpu/gfx_v10_0.c
+index 6b8598dd7abd..d56c2f9b0e7e 100644
+--- a/drivers/gpu/drm/amd/amdgpu/gfx_v10_0.c
++++ b/drivers/gpu/drm/amd/amdgpu/gfx_v10_0.c
+@@ -4078,6 +4078,7 @@ static int gfx_v10_0_set_clockgating_state(void *handle,
+ 
+ 	switch (adev->asic_type) {
+ 	case CHIP_NAVI10:
++	case CHIP_NAVI14:
+ 		gfx_v10_0_update_gfx_clock_gating(adev,
+ 						 state == AMD_CG_STATE_GATE ? true : false);
+ 		break;
+-- 
+2.17.1
+

@@ -1,0 +1,1913 @@
+From d83e93daab4b1c4594765bd9caac62f6d3727651 Mon Sep 17 00:00:00 2001
+From: Harry Wentland <harry.wentland@amd.com>
+Date: Tue, 7 May 2019 14:58:48 -0500
+Subject: [PATCH 2441/2940] drm/amd/display: Add DCN2 HUBP and HUBBUB
+
+Add support to program the DCN2 HUBP (Display to data fabric interface
+pipe) and HUBBUB (DCN memory HUB interface)
+
+HW Blocks:
+
+ +--------++------+
+ | HUBBUB || HUBP |
+ +--------++------+
+        |
+        v
+    +--------+
+    |  DPP   |
+    +--------+
+        |
+        v
+    +--------+
+    |  MPC   |
+    +--------+
+        |
+        v
+    +-------+
+    |  OPP  |
+    +-------+
+        |
+        v
+    +--------+
+    |  OPTC  |
+    +--------+
+        |
+        v
+    +--------+       +--------+
+    |  DIO   |       |  DCCG  |
+    +--------+       +--------+
+
+Signed-off-by: Harry Wentland <harry.wentland@amd.com>
+Signed-off-by: Alex Deucher <alexander.deucher@amd.com>
+---
+ .../drm/amd/display/dc/dcn10/dcn10_hubbub.c   |  45 +-
+ .../gpu/drm/amd/display/dc/dcn10/dcn10_hubp.c |  27 +
+ .../gpu/drm/amd/display/dc/dcn10/dcn10_hubp.h |   8 +
+ .../drm/amd/display/dc/dcn20/dcn20_hubbub.c   | 523 +++++++++++++
+ .../drm/amd/display/dc/dcn20/dcn20_hubbub.h   | 108 +++
+ .../gpu/drm/amd/display/dc/dcn20/dcn20_hubp.c | 699 ++++++++++++++++++
+ .../gpu/drm/amd/display/dc/dcn20/dcn20_hubp.h | 244 ++++++
+ .../gpu/drm/amd/display/dc/inc/hw/dchubbub.h  |  62 ++
+ drivers/gpu/drm/amd/display/dc/inc/hw/hubp.h  |  25 +
+ 9 files changed, 1739 insertions(+), 2 deletions(-)
+ create mode 100644 drivers/gpu/drm/amd/display/dc/dcn20/dcn20_hubbub.c
+ create mode 100644 drivers/gpu/drm/amd/display/dc/dcn20/dcn20_hubbub.h
+ create mode 100644 drivers/gpu/drm/amd/display/dc/dcn20/dcn20_hubp.c
+ create mode 100644 drivers/gpu/drm/amd/display/dc/dcn20/dcn20_hubp.h
+
+diff --git a/drivers/gpu/drm/amd/display/dc/dcn10/dcn10_hubbub.c b/drivers/gpu/drm/amd/display/dc/dcn10/dcn10_hubbub.c
+index bf978831bb0e..daa229b97fcf 100644
+--- a/drivers/gpu/drm/amd/display/dc/dcn10/dcn10_hubbub.c
++++ b/drivers/gpu/drm/amd/display/dc/dcn10/dcn10_hubbub.c
+@@ -145,6 +145,7 @@ bool hubbub1_verify_allow_pstate_change_high(
+ 		forced_pstate_allow = false;
+ 	}
+ 
++#ifdef CONFIG_DRM_AMD_DC_DCN1_01
+ 	/* RV2:
+ 	 * dchubbubdebugind, at: 0xB
+ 	 * description
+@@ -180,8 +181,46 @@ bool hubbub1_verify_allow_pstate_change_high(
+ 	 * 29:    WB1 Allow Pstate Change
+ 	 * 30:    Arbiter's allow_pstate_change
+ 	 * 31:    SOC pstate change request"
+-	 *
+-	 * RV1:
++	 */
++#else
++#ifdef CONFIG_DRM_AMD_DC_DCN2_0
++	/*DCN2.x:
++	HUBBUB:DCHUBBUB_TEST_ARB_DEBUG10 DCHUBBUBDEBUGIND:0xB
++	0: Pipe0 Plane0 Allow P-state Change
++	1: Pipe0 Plane1 Allow P-state Change
++	2: Pipe0 Cursor0 Allow P-state Change
++	3: Pipe0 Cursor1 Allow P-state Change
++	4: Pipe1 Plane0 Allow P-state Change
++	5: Pipe1 Plane1 Allow P-state Change
++	6: Pipe1 Cursor0 Allow P-state Change
++	7: Pipe1 Cursor1 Allow P-state Change
++	8: Pipe2 Plane0 Allow P-state Change
++	9: Pipe2 Plane1 Allow P-state Change
++	10: Pipe2 Cursor0 Allow P-state Change
++	11: Pipe2 Cursor1 Allow P-state Change
++	12: Pipe3 Plane0 Allow P-state Change
++	13: Pipe3 Plane1 Allow P-state Change
++	14: Pipe3 Cursor0 Allow P-state Change
++	15: Pipe3 Cursor1 Allow P-state Change
++	16: Pipe4 Plane0 Allow P-state Change
++	17: Pipe4 Plane1 Allow P-state Change
++	18: Pipe4 Cursor0 Allow P-state Change
++	19: Pipe4 Cursor1 Allow P-state Change
++	20: Pipe5 Plane0 Allow P-state Change
++	21: Pipe5 Plane1 Allow P-state Change
++	22: Pipe5 Cursor0 Allow P-state Change
++	23: Pipe5 Cursor1 Allow P-state Change
++	24: Pipe6 Plane0 Allow P-state Change
++	25: Pipe6 Plane1 Allow P-state Change
++	26: Pipe6 Cursor0 Allow P-state Change
++	27: Pipe6 Cursor1 Allow P-state Change
++	28: WB0 Allow P-state Change
++	29: WB1 Allow P-state Change
++	30: Arbiter`s Allow P-state Change
++	31: SOC P-state Change request
++	*/
++#else
++	/* RV1:
+ 	 * dchubbubdebugind, at: 0x7
+ 	 * description "3-0:   Pipe0 cursor0 QOS
+ 	 * 7-4:   Pipe1 cursor0 QOS
+@@ -204,6 +243,8 @@ bool hubbub1_verify_allow_pstate_change_high(
+ 	 * 30:    Arbiter's allow_pstate_change
+ 	 * 31:    SOC pstate change request
+ 	 */
++#endif
++#endif
+ 
+ 	REG_WRITE(DCHUBBUB_TEST_DEBUG_INDEX, hubbub1->debug_test_index_pstate);
+ 
+diff --git a/drivers/gpu/drm/amd/display/dc/dcn10/dcn10_hubp.c b/drivers/gpu/drm/amd/display/dc/dcn10/dcn10_hubp.c
+index 54b219a710d8..3f9ad09769b1 100644
+--- a/drivers/gpu/drm/amd/display/dc/dcn10/dcn10_hubp.c
++++ b/drivers/gpu/drm/amd/display/dc/dcn10/dcn10_hubp.c
+@@ -306,6 +306,28 @@ void hubp1_program_pixel_format(
+ 		REG_UPDATE(DCSURF_SURFACE_CONFIG,
+ 				SURFACE_PIXEL_FORMAT, 12);
+ 		break;
++#if defined(CONFIG_DRM_AMD_DC_DCN2_0)
++	case SURFACE_PIXEL_FORMAT_GRPH_RGB111110_FIX:
++		REG_UPDATE(DCSURF_SURFACE_CONFIG,
++				SURFACE_PIXEL_FORMAT, 112);
++		break;
++	case SURFACE_PIXEL_FORMAT_GRPH_BGR101111_FIX:
++		REG_UPDATE(DCSURF_SURFACE_CONFIG,
++				SURFACE_PIXEL_FORMAT, 113);
++		break;
++	case SURFACE_PIXEL_FORMAT_VIDEO_ACrYCb2101010:
++		REG_UPDATE(DCSURF_SURFACE_CONFIG,
++				SURFACE_PIXEL_FORMAT, 114);
++		break;
++	case SURFACE_PIXEL_FORMAT_GRPH_RGB111110_FLOAT:
++		REG_UPDATE(DCSURF_SURFACE_CONFIG,
++				SURFACE_PIXEL_FORMAT, 118);
++		break;
++	case SURFACE_PIXEL_FORMAT_GRPH_BGR101111_FLOAT:
++		REG_UPDATE(DCSURF_SURFACE_CONFIG,
++				SURFACE_PIXEL_FORMAT, 119);
++		break;
++#endif
+ 	default:
+ 		BREAK_TO_DEBUGGER();
+ 		break;
+@@ -1206,6 +1228,11 @@ static const struct hubp_funcs dcn10_hubp_funcs = {
+ 	.hubp_disable_control =  hubp1_disable_control,
+ 	.hubp_get_underflow_status = hubp1_get_underflow_status,
+ 	.hubp_init = hubp1_init,
++
++#if defined(CONFIG_DRM_AMD_DC_DCN2_0)
++	.dmdata_set_attributes = NULL,
++	.dmdata_load = NULL,
++#endif
+ };
+ 
+ /*****************************************/
+diff --git a/drivers/gpu/drm/amd/display/dc/dcn10/dcn10_hubp.h b/drivers/gpu/drm/amd/display/dc/dcn10/dcn10_hubp.h
+index 99d2b7e2a578..b8a4bfcdbeb2 100644
+--- a/drivers/gpu/drm/amd/display/dc/dcn10/dcn10_hubp.h
++++ b/drivers/gpu/drm/amd/display/dc/dcn10/dcn10_hubp.h
+@@ -715,6 +715,14 @@ void hubp1_dcc_control(struct hubp *hubp,
+ 		bool enable,
+ 		bool independent_64b_blks);
+ 
++#ifdef CONFIG_DRM_AMD_DC_DCN2_0
++bool hubp1_program_surface_flip_and_addr(
++	struct hubp *hubp,
++	const struct dc_plane_address *address,
++	bool flip_immediate,
++	uint8_t vmid);
++
++#endif
+ bool hubp1_is_flip_pending(struct hubp *hubp);
+ 
+ void hubp1_cursor_set_attributes(
+diff --git a/drivers/gpu/drm/amd/display/dc/dcn20/dcn20_hubbub.c b/drivers/gpu/drm/amd/display/dc/dcn20/dcn20_hubbub.c
+new file mode 100644
+index 000000000000..09e8d10a7a01
+--- /dev/null
++++ b/drivers/gpu/drm/amd/display/dc/dcn20/dcn20_hubbub.c
+@@ -0,0 +1,523 @@
++/*
++ * Copyright 2016 Advanced Micro Devices, Inc.
++ *
++ * Permission is hereby granted, free of charge, to any person obtaining a
++ * copy of this software and associated documentation files (the "Software"),
++ * to deal in the Software without restriction, including without limitation
++ * the rights to use, copy, modify, merge, publish, distribute, sublicense,
++ * and/or sell copies of the Software, and to permit persons to whom the
++ * Software is furnished to do so, subject to the following conditions:
++ *
++ * The above copyright notice and this permission notice shall be included in
++ * all copies or substantial portions of the Software.
++ *
++ * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
++ * IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
++ * FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.  IN NO EVENT SHALL
++ * THE COPYRIGHT HOLDER(S) OR AUTHOR(S) BE LIABLE FOR ANY CLAIM, DAMAGES OR
++ * OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE,
++ * ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR
++ * OTHER DEALINGS IN THE SOFTWARE.
++ *
++ * Authors: AMD
++ *
++ */
++
++
++#include "dcn20_hubbub.h"
++#include "reg_helper.h"
++
++#define REG(reg)\
++	hubbub1->regs->reg
++
++#define CTX \
++	hubbub1->base.ctx
++
++#undef FN
++#define FN(reg_name, field_name) \
++	hubbub1->shifts->field_name, hubbub1->masks->field_name
++
++#define REG(reg)\
++	hubbub1->regs->reg
++
++#define CTX \
++	hubbub1->base.ctx
++
++#undef FN
++#define FN(reg_name, field_name) \
++	hubbub1->shifts->field_name, hubbub1->masks->field_name
++
++bool hubbub2_dcc_support_swizzle(
++		enum swizzle_mode_values swizzle,
++		unsigned int bytes_per_element,
++		enum segment_order *segment_order_horz,
++		enum segment_order *segment_order_vert)
++{
++	bool standard_swizzle = false;
++	bool display_swizzle = false;
++	bool render_swizzle = false;
++
++	switch (swizzle) {
++	case DC_SW_4KB_S:
++	case DC_SW_64KB_S:
++	case DC_SW_VAR_S:
++	case DC_SW_4KB_S_X:
++	case DC_SW_64KB_S_X:
++	case DC_SW_VAR_S_X:
++		standard_swizzle = true;
++		break;
++	case DC_SW_64KB_R_X:
++		render_swizzle = true;
++		break;
++	case DC_SW_4KB_D:
++	case DC_SW_64KB_D:
++	case DC_SW_VAR_D:
++	case DC_SW_4KB_D_X:
++	case DC_SW_64KB_D_X:
++	case DC_SW_VAR_D_X:
++		display_swizzle = true;
++		break;
++	default:
++		break;
++	}
++
++	if (standard_swizzle) {
++		if (bytes_per_element == 1) {
++			*segment_order_horz = segment_order__contiguous;
++			*segment_order_vert = segment_order__na;
++			return true;
++		}
++		if (bytes_per_element == 2) {
++			*segment_order_horz = segment_order__non_contiguous;
++			*segment_order_vert = segment_order__contiguous;
++			return true;
++		}
++		if (bytes_per_element == 4) {
++			*segment_order_horz = segment_order__non_contiguous;
++			*segment_order_vert = segment_order__contiguous;
++			return true;
++		}
++		if (bytes_per_element == 8) {
++			*segment_order_horz = segment_order__na;
++			*segment_order_vert = segment_order__contiguous;
++			return true;
++		}
++	}
++	if (render_swizzle) {
++		if (bytes_per_element == 2) {
++			*segment_order_horz = segment_order__contiguous;
++			*segment_order_vert = segment_order__contiguous;
++			return true;
++		}
++		if (bytes_per_element == 4) {
++			*segment_order_horz = segment_order__non_contiguous;
++			*segment_order_vert = segment_order__contiguous;
++			return true;
++		}
++		if (bytes_per_element == 8) {
++			*segment_order_horz = segment_order__contiguous;
++			*segment_order_vert = segment_order__non_contiguous;
++			return true;
++		}
++	}
++	if (display_swizzle && bytes_per_element == 8) {
++		*segment_order_horz = segment_order__contiguous;
++		*segment_order_vert = segment_order__non_contiguous;
++		return true;
++	}
++
++	return false;
++}
++
++bool hubbub2_dcc_support_pixel_format(
++		enum surface_pixel_format format,
++		unsigned int *bytes_per_element)
++{
++	/* DML: get_bytes_per_element */
++	switch (format) {
++	case SURFACE_PIXEL_FORMAT_GRPH_ARGB1555:
++	case SURFACE_PIXEL_FORMAT_GRPH_RGB565:
++		*bytes_per_element = 2;
++		return true;
++	case SURFACE_PIXEL_FORMAT_GRPH_ARGB8888:
++	case SURFACE_PIXEL_FORMAT_GRPH_ABGR8888:
++	case SURFACE_PIXEL_FORMAT_GRPH_ARGB2101010:
++	case SURFACE_PIXEL_FORMAT_GRPH_ABGR2101010:
++	case SURFACE_PIXEL_FORMAT_GRPH_RGB111110_FIX:
++	case SURFACE_PIXEL_FORMAT_GRPH_BGR101111_FIX:
++	case SURFACE_PIXEL_FORMAT_GRPH_RGB111110_FLOAT:
++	case SURFACE_PIXEL_FORMAT_GRPH_BGR101111_FLOAT:
++		*bytes_per_element = 4;
++		return true;
++	case SURFACE_PIXEL_FORMAT_GRPH_ARGB16161616:
++	case SURFACE_PIXEL_FORMAT_GRPH_ARGB16161616F:
++	case SURFACE_PIXEL_FORMAT_GRPH_ABGR16161616F:
++		*bytes_per_element = 8;
++		return true;
++	default:
++		return false;
++	}
++}
++
++static void hubbub2_get_blk256_size(unsigned int *blk256_width, unsigned int *blk256_height,
++		unsigned int bytes_per_element)
++{
++	/* copied from DML.  might want to refactor DML to leverage from DML */
++	/* DML : get_blk256_size */
++	if (bytes_per_element == 1) {
++		*blk256_width = 16;
++		*blk256_height = 16;
++	} else if (bytes_per_element == 2) {
++		*blk256_width = 16;
++		*blk256_height = 8;
++	} else if (bytes_per_element == 4) {
++		*blk256_width = 8;
++		*blk256_height = 8;
++	} else if (bytes_per_element == 8) {
++		*blk256_width = 8;
++		*blk256_height = 4;
++	}
++}
++
++static void hubbub2_det_request_size(
++		unsigned int height,
++		unsigned int width,
++		unsigned int bpe,
++		bool *req128_horz_wc,
++		bool *req128_vert_wc)
++{
++	unsigned int detile_buf_size = 164 * 1024;  /* 164KB for DCN1.0 */
++
++	unsigned int blk256_height = 0;
++	unsigned int blk256_width = 0;
++	unsigned int swath_bytes_horz_wc, swath_bytes_vert_wc;
++
++	hubbub2_get_blk256_size(&blk256_width, &blk256_height, bpe);
++
++	swath_bytes_horz_wc = height * blk256_height * bpe;
++	swath_bytes_vert_wc = width * blk256_width * bpe;
++
++	*req128_horz_wc = (2 * swath_bytes_horz_wc <= detile_buf_size) ?
++			false : /* full 256B request */
++			true; /* half 128b request */
++
++	*req128_vert_wc = (2 * swath_bytes_vert_wc <= detile_buf_size) ?
++			false : /* full 256B request */
++			true; /* half 128b request */
++}
++
++bool hubbub2_get_dcc_compression_cap(struct hubbub *hubbub,
++		const struct dc_dcc_surface_param *input,
++		struct dc_surface_dcc_cap *output)
++{
++	struct dc *dc = hubbub->ctx->dc;
++	/* implement section 1.6.2.1 of DCN1_Programming_Guide.docx */
++	enum dcc_control dcc_control;
++	unsigned int bpe;
++	enum segment_order segment_order_horz, segment_order_vert;
++	bool req128_horz_wc, req128_vert_wc;
++
++	memset(output, 0, sizeof(*output));
++
++	if (dc->debug.disable_dcc == DCC_DISABLE)
++		return false;
++
++	if (!hubbub->funcs->dcc_support_pixel_format(input->format,
++			&bpe))
++		return false;
++
++	if (!hubbub->funcs->dcc_support_swizzle(input->swizzle_mode, bpe,
++			&segment_order_horz, &segment_order_vert))
++		return false;
++
++	hubbub2_det_request_size(input->surface_size.height,  input->surface_size.width,
++			bpe, &req128_horz_wc, &req128_vert_wc);
++
++	if (!req128_horz_wc && !req128_vert_wc) {
++		dcc_control = dcc_control__256_256_xxx;
++	} else if (input->scan == SCAN_DIRECTION_HORIZONTAL) {
++		if (!req128_horz_wc)
++			dcc_control = dcc_control__256_256_xxx;
++		else if (segment_order_horz == segment_order__contiguous)
++			dcc_control = dcc_control__128_128_xxx;
++		else
++			dcc_control = dcc_control__256_64_64;
++	} else if (input->scan == SCAN_DIRECTION_VERTICAL) {
++		if (!req128_vert_wc)
++			dcc_control = dcc_control__256_256_xxx;
++		else if (segment_order_vert == segment_order__contiguous)
++			dcc_control = dcc_control__128_128_xxx;
++		else
++			dcc_control = dcc_control__256_64_64;
++	} else {
++		if ((req128_horz_wc &&
++			segment_order_horz == segment_order__non_contiguous) ||
++			(req128_vert_wc &&
++			segment_order_vert == segment_order__non_contiguous))
++			/* access_dir not known, must use most constraining */
++			dcc_control = dcc_control__256_64_64;
++		else
++			/* reg128 is true for either horz and vert
++			 * but segment_order is contiguous
++			 */
++			dcc_control = dcc_control__128_128_xxx;
++	}
++
++	/* Exception for 64KB_R_X */
++	if ((bpe == 2) && (input->swizzle_mode == DC_SW_64KB_R_X))
++		dcc_control = dcc_control__128_128_xxx;
++
++	if (dc->debug.disable_dcc == DCC_HALF_REQ_DISALBE &&
++		dcc_control != dcc_control__256_256_xxx)
++		return false;
++
++	switch (dcc_control) {
++	case dcc_control__256_256_xxx:
++		output->grph.rgb.max_uncompressed_blk_size = 256;
++		output->grph.rgb.max_compressed_blk_size = 256;
++		output->grph.rgb.independent_64b_blks = false;
++		break;
++	case dcc_control__128_128_xxx:
++		output->grph.rgb.max_uncompressed_blk_size = 128;
++		output->grph.rgb.max_compressed_blk_size = 128;
++		output->grph.rgb.independent_64b_blks = false;
++		break;
++	case dcc_control__256_64_64:
++		output->grph.rgb.max_uncompressed_blk_size = 256;
++		output->grph.rgb.max_compressed_blk_size = 64;
++		output->grph.rgb.independent_64b_blks = true;
++		break;
++	}
++	output->capable = true;
++	output->const_color_support = true;
++
++	return true;
++}
++
++static void hubbub2_setup_vmid_ptb(struct hubbub *hubbub,
++		uint64_t ptb,
++		uint8_t vmid)
++{
++	struct dcn20_hubbub *hubbub1 = TO_DCN20_HUBBUB(hubbub);
++
++	dcn20_vmid_set_ptb(&hubbub1->vmid[vmid], ptb);
++}
++
++
++void hubbub2_init_dchub(struct hubbub *hubbub,
++		struct hubbub_addr_config *config)
++{
++	int i;
++	struct dcn20_hubbub *hubbub1 = TO_DCN20_HUBBUB(hubbub);
++	struct dcn_vmid_page_table_config phys_config;
++	struct dcn_vmid_page_table_config virt_config;
++
++	phys_config.depth = 0; // Depth 1
++	phys_config.block_size = 0; // Block size 4KB
++	phys_config.page_table_start_addr = config->pa_config.gart_config.page_table_start_addr;
++	phys_config.page_table_end_addr = config->pa_config.gart_config.page_table_end_addr;
++
++	REG_SET(DCN_VM_FB_LOCATION_BASE, 0,
++			FB_BASE, config->pa_config.system_aperture.fb_base);
++	REG_SET(DCN_VM_FB_LOCATION_TOP, 0,
++			FB_TOP, config->pa_config.system_aperture.fb_top);
++	REG_SET(DCN_VM_FB_OFFSET, 0,
++			FB_OFFSET, config->pa_config.system_aperture.fb_offset);
++	REG_SET(DCN_VM_AGP_BOT, 0,
++			AGP_BOT, config->pa_config.system_aperture.agp_bot);
++	REG_SET(DCN_VM_AGP_TOP, 0,
++			AGP_TOP, config->pa_config.system_aperture.agp_top);
++	REG_SET(DCN_VM_AGP_BASE, 0,
++			AGP_BASE, config->pa_config.system_aperture.agp_base);
++
++	// Init VMID 0 based on PA config
++	dcn20_vmid_setup(&hubbub1->vmid[0], &phys_config);
++	dcn20_vmid_set_ptb(&hubbub1->vmid[0], config->pa_config.gart_config.page_table_base_addr);
++
++	// Init VMID 1-15 based on VA config
++	for (i = 1; i < 16; i++) {
++		virt_config.page_table_start_addr = config->va_config.page_table_start_addr;
++		virt_config.page_table_end_addr = config->va_config.page_table_end_addr;
++		virt_config.depth = config->va_config.page_table_depth;
++		virt_config.block_size = config->va_config.page_table_block_size;
++
++		dcn20_vmid_setup(&hubbub1->vmid[i], &virt_config);
++	}
++}
++
++void hubbub2_update_dchub(struct hubbub *hubbub,
++		struct dchub_init_data *dh_data)
++{
++	struct dcn20_hubbub *hubbub1 = TO_DCN20_HUBBUB(hubbub);
++
++	if (REG(DCHUBBUB_SDPIF_FB_TOP) == 0) {
++		ASSERT(false);
++		/*should not come here*/
++		return;
++	}
++	/* TODO: port code from dal2 */
++	switch (dh_data->fb_mode) {
++	case FRAME_BUFFER_MODE_ZFB_ONLY:
++		/*For ZFB case need to put DCHUB FB BASE and TOP upside down to indicate ZFB mode*/
++		REG_UPDATE(DCHUBBUB_SDPIF_FB_TOP,
++				SDPIF_FB_TOP, 0);
++
++		REG_UPDATE(DCHUBBUB_SDPIF_FB_BASE,
++				SDPIF_FB_BASE, 0x0FFFF);
++
++		REG_UPDATE(DCHUBBUB_SDPIF_AGP_BASE,
++				SDPIF_AGP_BASE, dh_data->zfb_phys_addr_base >> 22);
++
++		REG_UPDATE(DCHUBBUB_SDPIF_AGP_BOT,
++				SDPIF_AGP_BOT, dh_data->zfb_mc_base_addr >> 22);
++
++		REG_UPDATE(DCHUBBUB_SDPIF_AGP_TOP,
++				SDPIF_AGP_TOP, (dh_data->zfb_mc_base_addr +
++						dh_data->zfb_size_in_byte - 1) >> 22);
++		break;
++	case FRAME_BUFFER_MODE_MIXED_ZFB_AND_LOCAL:
++		/*Should not touch FB LOCATION (done by VBIOS on AsicInit table)*/
++
++		REG_UPDATE(DCHUBBUB_SDPIF_AGP_BASE,
++				SDPIF_AGP_BASE, dh_data->zfb_phys_addr_base >> 22);
++
++		REG_UPDATE(DCHUBBUB_SDPIF_AGP_BOT,
++				SDPIF_AGP_BOT, dh_data->zfb_mc_base_addr >> 22);
++
++		REG_UPDATE(DCHUBBUB_SDPIF_AGP_TOP,
++				SDPIF_AGP_TOP, (dh_data->zfb_mc_base_addr +
++						dh_data->zfb_size_in_byte - 1) >> 22);
++		break;
++	case FRAME_BUFFER_MODE_LOCAL_ONLY:
++		/*Should not touch FB LOCATION (done by VBIOS on AsicInit table)*/
++		REG_UPDATE(DCHUBBUB_SDPIF_AGP_BASE,
++				SDPIF_AGP_BASE, 0);
++
++		REG_UPDATE(DCHUBBUB_SDPIF_AGP_BOT,
++				SDPIF_AGP_BOT, 0X03FFFF);
++
++		REG_UPDATE(DCHUBBUB_SDPIF_AGP_TOP,
++				SDPIF_AGP_TOP, 0);
++		break;
++	default:
++		break;
++	}
++
++	dh_data->dchub_initialzied = true;
++	dh_data->dchub_info_valid = false;
++}
++
++void hubbub2_wm_read_state(struct hubbub *hubbub,
++		struct dcn_hubbub_wm *wm)
++{
++	struct dcn20_hubbub *hubbub1 = TO_DCN20_HUBBUB(hubbub);
++
++	struct dcn_hubbub_wm_set *s;
++
++	memset(wm, 0, sizeof(struct dcn_hubbub_wm));
++
++	s = &wm->sets[0];
++	s->wm_set = 0;
++	s->data_urgent = REG_READ(DCHUBBUB_ARB_DATA_URGENCY_WATERMARK_A);
++	if (REG(DCHUBBUB_ARB_PTE_META_URGENCY_WATERMARK_A))
++		s->pte_meta_urgent = REG_READ(DCHUBBUB_ARB_PTE_META_URGENCY_WATERMARK_A);
++	if (REG(DCHUBBUB_ARB_ALLOW_SR_ENTER_WATERMARK_A)) {
++		s->sr_enter = REG_READ(DCHUBBUB_ARB_ALLOW_SR_ENTER_WATERMARK_A);
++		s->sr_exit = REG_READ(DCHUBBUB_ARB_ALLOW_SR_EXIT_WATERMARK_A);
++	}
++	s->dram_clk_chanage = REG_READ(DCHUBBUB_ARB_ALLOW_DRAM_CLK_CHANGE_WATERMARK_A);
++
++	s = &wm->sets[1];
++	s->wm_set = 1;
++	s->data_urgent = REG_READ(DCHUBBUB_ARB_DATA_URGENCY_WATERMARK_B);
++	if (REG(DCHUBBUB_ARB_PTE_META_URGENCY_WATERMARK_B))
++		s->pte_meta_urgent = REG_READ(DCHUBBUB_ARB_PTE_META_URGENCY_WATERMARK_B);
++	if (REG(DCHUBBUB_ARB_ALLOW_SR_ENTER_WATERMARK_B)) {
++		s->sr_enter = REG_READ(DCHUBBUB_ARB_ALLOW_SR_ENTER_WATERMARK_B);
++		s->sr_exit = REG_READ(DCHUBBUB_ARB_ALLOW_SR_EXIT_WATERMARK_B);
++	}
++	s->dram_clk_chanage = REG_READ(DCHUBBUB_ARB_ALLOW_DRAM_CLK_CHANGE_WATERMARK_B);
++
++	s = &wm->sets[2];
++	s->wm_set = 2;
++	s->data_urgent = REG_READ(DCHUBBUB_ARB_DATA_URGENCY_WATERMARK_C);
++	if (REG(DCHUBBUB_ARB_PTE_META_URGENCY_WATERMARK_C))
++		s->pte_meta_urgent = REG_READ(DCHUBBUB_ARB_PTE_META_URGENCY_WATERMARK_C);
++	if (REG(DCHUBBUB_ARB_ALLOW_SR_ENTER_WATERMARK_C)) {
++		s->sr_enter = REG_READ(DCHUBBUB_ARB_ALLOW_SR_ENTER_WATERMARK_C);
++		s->sr_exit = REG_READ(DCHUBBUB_ARB_ALLOW_SR_EXIT_WATERMARK_C);
++	}
++	s->dram_clk_chanage = REG_READ(DCHUBBUB_ARB_ALLOW_DRAM_CLK_CHANGE_WATERMARK_C);
++
++	s = &wm->sets[3];
++	s->wm_set = 3;
++	s->data_urgent = REG_READ(DCHUBBUB_ARB_DATA_URGENCY_WATERMARK_D);
++	if (REG(DCHUBBUB_ARB_PTE_META_URGENCY_WATERMARK_D))
++		s->pte_meta_urgent = REG_READ(DCHUBBUB_ARB_PTE_META_URGENCY_WATERMARK_D);
++	if (REG(DCHUBBUB_ARB_ALLOW_SR_ENTER_WATERMARK_D)) {
++		s->sr_enter = REG_READ(DCHUBBUB_ARB_ALLOW_SR_ENTER_WATERMARK_D);
++		s->sr_exit = REG_READ(DCHUBBUB_ARB_ALLOW_SR_EXIT_WATERMARK_D);
++	}
++	s->dram_clk_chanage = REG_READ(DCHUBBUB_ARB_ALLOW_DRAM_CLK_CHANGE_WATERMARK_D);
++}
++
++void hubbub2_get_dchub_ref_freq(struct hubbub *hubbub,
++		unsigned int dccg_ref_freq_inKhz,
++		unsigned int *dchub_ref_freq_inKhz)
++{
++	struct dcn20_hubbub *hubbub1 = TO_DCN20_HUBBUB(hubbub);
++	uint32_t ref_div = 0;
++	uint32_t ref_en = 0;
++
++	REG_GET_2(DCHUBBUB_GLOBAL_TIMER_CNTL, DCHUBBUB_GLOBAL_TIMER_REFDIV, &ref_div,
++			DCHUBBUB_GLOBAL_TIMER_ENABLE, &ref_en);
++
++	if (ref_en) {
++		if (ref_div == 2)
++			*dchub_ref_freq_inKhz = dccg_ref_freq_inKhz / 2;
++		else
++			*dchub_ref_freq_inKhz = dccg_ref_freq_inKhz;
++
++		// DC hub reference frequency must be around 50Mhz, otherwise there may be
++		// overflow/underflow issues when doing HUBBUB programming
++		if (*dchub_ref_freq_inKhz < 40000 || *dchub_ref_freq_inKhz > 60000)
++			ASSERT_CRITICAL(false);
++
++		return;
++	} else {
++		*dchub_ref_freq_inKhz = dccg_ref_freq_inKhz;
++
++		// HUBBUB global timer must be enabled.
++		ASSERT_CRITICAL(false);
++		return;
++	}
++}
++
++static const struct hubbub_funcs hubbub2_funcs = {
++	.update_dchub = hubbub2_update_dchub,
++	.init_dchub = hubbub2_init_dchub,
++	.setup_vmid_ptb = hubbub2_setup_vmid_ptb,
++	.dcc_support_swizzle = hubbub2_dcc_support_swizzle,
++	.dcc_support_pixel_format = hubbub2_dcc_support_pixel_format,
++	.get_dcc_compression_cap = hubbub2_get_dcc_compression_cap,
++	.wm_read_state = hubbub2_wm_read_state,
++	.get_dchub_ref_freq = hubbub2_get_dchub_ref_freq,
++	.program_watermarks = hubbub1_program_watermarks,
++};
++
++void hubbub2_construct(struct dcn20_hubbub *hubbub,
++	struct dc_context *ctx,
++	const struct dcn_hubbub_registers *hubbub_regs,
++	const struct dcn_hubbub_shift *hubbub_shift,
++	const struct dcn_hubbub_mask *hubbub_mask)
++{
++	hubbub->base.ctx = ctx;
++
++	hubbub->base.funcs = &hubbub2_funcs;
++
++	hubbub->regs = hubbub_regs;
++	hubbub->shifts = hubbub_shift;
++	hubbub->masks = hubbub_mask;
++
++	hubbub->debug_test_index_pstate = 0xB;
++}
+diff --git a/drivers/gpu/drm/amd/display/dc/dcn20/dcn20_hubbub.h b/drivers/gpu/drm/amd/display/dc/dcn20/dcn20_hubbub.h
+new file mode 100644
+index 000000000000..63d51ab57103
+--- /dev/null
++++ b/drivers/gpu/drm/amd/display/dc/dcn20/dcn20_hubbub.h
+@@ -0,0 +1,108 @@
++/*
++ * Copyright 2016 Advanced Micro Devices, Inc.
++ *
++ * Permission is hereby granted, free of charge, to any person obtaining a
++ * copy of this software and associated documentation files (the "Software"),
++ * to deal in the Software without restriction, including without limitation
++ * the rights to use, copy, modify, merge, publish, distribute, sublicense,
++ * and/or sell copies of the Software, and to permit persons to whom the
++ * Software is furnished to do so, subject to the following conditions:
++ *
++ * The above copyright notice and this permission notice shall be included in
++ * all copies or substantial portions of the Software.
++ *
++ * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
++ * IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
++ * FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.  IN NO EVENT SHALL
++ * THE COPYRIGHT HOLDER(S) OR AUTHOR(S) BE LIABLE FOR ANY CLAIM, DAMAGES OR
++ * OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE,
++ * ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR
++ * OTHER DEALINGS IN THE SOFTWARE.
++ *
++ * Authors: AMD
++ *
++ */
++
++#ifndef __DC_HUBBUB_DCN20_H__
++#define __DC_HUBBUB_DCN20_H__
++
++#include "dcn10/dcn10_hubbub.h"
++#include "dcn20_vmid.h"
++
++#define TO_DCN20_HUBBUB(hubbub)\
++	container_of(hubbub, struct dcn20_hubbub, base)
++
++#define TO_DCN20_HUBBUB(hubbub)\
++	container_of(hubbub, struct dcn20_hubbub, base)
++
++#define HUBBUB_REG_LIST_DCN20(id)\
++	HUBBUB_REG_LIST_DCN_COMMON(), \
++	HUBBUB_VM_REG_LIST(), \
++	HUBBUB_SR_WATERMARK_REG_LIST(), \
++	SR(DCHUBBUB_CRC_CTRL), \
++	SR(DCN_VM_FB_LOCATION_BASE),\
++	SR(DCN_VM_FB_LOCATION_TOP),\
++	SR(DCN_VM_FB_OFFSET),\
++	SR(DCN_VM_AGP_BOT),\
++	SR(DCN_VM_AGP_TOP),\
++	SR(DCN_VM_AGP_BASE)
++
++#define HUBBUB_MASK_SH_LIST_DCN20(mask_sh)\
++	HUBBUB_MASK_SH_LIST_DCN_COMMON(mask_sh), \
++	HUBBUB_MASK_SH_LIST_STUTTER(mask_sh), \
++	HUBBUB_SF(DCHUBBUB_GLOBAL_TIMER_CNTL, DCHUBBUB_GLOBAL_TIMER_REFDIV, mask_sh), \
++	HUBBUB_SF(DCN_VM_FB_LOCATION_BASE, FB_BASE, mask_sh), \
++	HUBBUB_SF(DCN_VM_FB_LOCATION_TOP, FB_TOP, mask_sh), \
++	HUBBUB_SF(DCN_VM_FB_OFFSET, FB_OFFSET, mask_sh), \
++	HUBBUB_SF(DCN_VM_AGP_BOT, AGP_BOT, mask_sh), \
++	HUBBUB_SF(DCN_VM_AGP_TOP, AGP_TOP, mask_sh), \
++	HUBBUB_SF(DCN_VM_AGP_BASE, AGP_BASE, mask_sh)
++
++struct dcn20_hubbub {
++	struct hubbub base;
++	const struct dcn_hubbub_registers *regs;
++	const struct dcn_hubbub_shift *shifts;
++	const struct dcn_hubbub_mask *masks;
++	unsigned int debug_test_index_pstate;
++	struct dcn_watermark_set watermarks;
++	struct dcn20_vmid vmid[16];
++};
++
++void hubbub2_construct(struct dcn20_hubbub *hubbub,
++	struct dc_context *ctx,
++	const struct dcn_hubbub_registers *hubbub_regs,
++	const struct dcn_hubbub_shift *hubbub_shift,
++	const struct dcn_hubbub_mask *hubbub_mask);
++
++bool hubbub2_dcc_support_swizzle(
++		enum swizzle_mode_values swizzle,
++		unsigned int bytes_per_element,
++		enum segment_order *segment_order_horz,
++		enum segment_order *segment_order_vert);
++
++bool hubbub2_dcc_support_pixel_format(
++		enum surface_pixel_format format,
++		unsigned int *bytes_per_element);
++
++bool hubbub2_get_dcc_compression_cap(struct hubbub *hubbub,
++		const struct dc_dcc_surface_param *input,
++		struct dc_surface_dcc_cap *output);
++
++bool hubbub2_initialize_vmids(struct hubbub *hubbub,
++		const struct dc_dcc_surface_param *input,
++		struct dc_surface_dcc_cap *output);
++
++void hubbub2_init_dchub(struct hubbub *hubbub,
++		struct hubbub_addr_config *config);
++
++void hubbub2_update_dchub(struct hubbub *hubbub,
++		struct dchub_init_data *dh_data);
++
++void hubbub2_get_dchub_ref_freq(struct hubbub *hubbub,
++		unsigned int dccg_ref_freq_inKhz,
++		unsigned int *dchub_ref_freq_inKhz);
++
++void hubbub2_wm_read_state(struct hubbub *hubbub,
++		struct dcn_hubbub_wm *wm);
++
++#endif
+diff --git a/drivers/gpu/drm/amd/display/dc/dcn20/dcn20_hubp.c b/drivers/gpu/drm/amd/display/dc/dcn20/dcn20_hubp.c
+new file mode 100644
+index 000000000000..cabd070bc659
+--- /dev/null
++++ b/drivers/gpu/drm/amd/display/dc/dcn20/dcn20_hubp.c
+@@ -0,0 +1,699 @@
++/*
++ * Copyright 2012-17 Advanced Micro Devices, Inc.
++ *
++ * Permission is hereby granted, free of charge, to any person obtaining a
++ * copy of this software and associated documentation files (the "Software"),
++ * to deal in the Software without restriction, including without limitation
++ * the rights to use, copy, modify, merge, publish, distribute, sublicense,
++ * and/or sell copies of the Software, and to permit persons to whom the
++ * Software is furnished to do so, subject to the following conditions:
++ *
++ * The above copyright notice and this permission notice shall be included in
++ * all copies or substantial portions of the Software.
++ *
++ * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
++ * IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
++ * FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.  IN NO EVENT SHALL
++ * THE COPYRIGHT HOLDER(S) OR AUTHOR(S) BE LIABLE FOR ANY CLAIM, DAMAGES OR
++ * OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE,
++ * ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR
++ * OTHER DEALINGS IN THE SOFTWARE.
++ *
++ * Authors: AMD
++ *
++ */
++
++#include "dcn20_hubp.h"
++
++#include "dm_services.h"
++#include "dce_calcs.h"
++#include "reg_helper.h"
++#include "basics/conversion.h"
++
++#define REG(reg)\
++	hubp2->hubp_regs->reg
++
++#define CTX \
++	hubp2->base.ctx
++
++#undef FN
++#define FN(reg_name, field_name) \
++	hubp2->hubp_shift->field_name, hubp2->hubp_mask->field_name
++
++void hubp2_update_dchub(
++	struct hubp *hubp,
++	struct dchub_init_data *dh_data)
++{
++	struct dcn20_hubp *hubp2 = TO_DCN20_HUBP(hubp);
++	if (REG(DCN_VM_FB_LOCATION_TOP) == 0)
++		return;
++
++	switch (dh_data->fb_mode) {
++	case FRAME_BUFFER_MODE_ZFB_ONLY:
++		/*For ZFB case need to put DCHUB FB BASE and TOP upside down to indicate ZFB mode*/
++		REG_UPDATE(DCN_VM_FB_LOCATION_TOP,
++				FB_TOP, 0);
++
++		REG_UPDATE(DCN_VM_FB_LOCATION_BASE,
++				FB_BASE, 0xFFFFFF);
++
++		/*This field defines the 24 MSBs, bits [47:24] of the 48 bit AGP Base*/
++		REG_UPDATE(DCN_VM_AGP_BASE,
++				AGP_BASE, dh_data->zfb_phys_addr_base >> 24);
++
++		/*This field defines the bottom range of the AGP aperture and represents the 24*/
++		/*MSBs, bits [47:24] of the 48 address bits*/
++		REG_UPDATE(DCN_VM_AGP_BOT,
++				AGP_BOT, dh_data->zfb_mc_base_addr >> 24);
++
++		/*This field defines the top range of the AGP aperture and represents the 24*/
++		/*MSBs, bits [47:24] of the 48 address bits*/
++		REG_UPDATE(DCN_VM_AGP_TOP,
++				AGP_TOP, (dh_data->zfb_mc_base_addr +
++						dh_data->zfb_size_in_byte - 1) >> 24);
++		break;
++	case FRAME_BUFFER_MODE_MIXED_ZFB_AND_LOCAL:
++		/*Should not touch FB LOCATION (done by VBIOS on AsicInit table)*/
++
++		/*This field defines the 24 MSBs, bits [47:24] of the 48 bit AGP Base*/
++		REG_UPDATE(DCN_VM_AGP_BASE,
++				AGP_BASE, dh_data->zfb_phys_addr_base >> 24);
++
++		/*This field defines the bottom range of the AGP aperture and represents the 24*/
++		/*MSBs, bits [47:24] of the 48 address bits*/
++		REG_UPDATE(DCN_VM_AGP_BOT,
++				AGP_BOT, dh_data->zfb_mc_base_addr >> 24);
++
++		/*This field defines the top range of the AGP aperture and represents the 24*/
++		/*MSBs, bits [47:24] of the 48 address bits*/
++		REG_UPDATE(DCN_VM_AGP_TOP,
++				AGP_TOP, (dh_data->zfb_mc_base_addr +
++						dh_data->zfb_size_in_byte - 1) >> 24);
++		break;
++	case FRAME_BUFFER_MODE_LOCAL_ONLY:
++		/*Should not touch FB LOCATION (should be done by VBIOS)*/
++
++		/*This field defines the 24 MSBs, bits [47:24] of the 48 bit AGP Base*/
++		REG_UPDATE(DCN_VM_AGP_BASE,
++				AGP_BASE, 0);
++
++		/*This field defines the bottom range of the AGP aperture and represents the 24*/
++		/*MSBs, bits [47:24] of the 48 address bits*/
++		REG_UPDATE(DCN_VM_AGP_BOT,
++				AGP_BOT, 0xFFFFFF);
++
++		/*This field defines the top range of the AGP aperture and represents the 24*/
++		/*MSBs, bits [47:24] of the 48 address bits*/
++		REG_UPDATE(DCN_VM_AGP_TOP,
++				AGP_TOP, 0);
++		break;
++	default:
++		break;
++	}
++
++	dh_data->dchub_initialzied = true;
++	dh_data->dchub_info_valid = false;
++}
++
++void hubp2_set_vm_system_aperture_settings(struct hubp *hubp,
++		struct vm_system_aperture_param *apt)
++{
++	struct dcn20_hubp *hubp2 = TO_DCN20_HUBP(hubp);
++
++	PHYSICAL_ADDRESS_LOC mc_vm_apt_default;
++	PHYSICAL_ADDRESS_LOC mc_vm_apt_low;
++	PHYSICAL_ADDRESS_LOC mc_vm_apt_high;
++
++	// The format of default addr is 48:12 of the 48 bit addr
++	mc_vm_apt_default.quad_part = apt->sys_default.quad_part >> 12;
++
++	// The format of high/low are 48:18 of the 48 bit addr
++	mc_vm_apt_low.quad_part = apt->sys_low.quad_part >> 18;
++	mc_vm_apt_high.quad_part = apt->sys_high.quad_part >> 18;
++
++	REG_UPDATE_2(DCN_VM_SYSTEM_APERTURE_DEFAULT_ADDR_MSB,
++		DCN_VM_SYSTEM_APERTURE_DEFAULT_SYSTEM, 1, /* 1 = system physical memory */
++		DCN_VM_SYSTEM_APERTURE_DEFAULT_ADDR_MSB, mc_vm_apt_default.high_part);
++
++	REG_SET(DCN_VM_SYSTEM_APERTURE_DEFAULT_ADDR_LSB, 0,
++			DCN_VM_SYSTEM_APERTURE_DEFAULT_ADDR_LSB, mc_vm_apt_default.low_part);
++
++	REG_SET(DCN_VM_SYSTEM_APERTURE_LOW_ADDR, 0,
++			MC_VM_SYSTEM_APERTURE_LOW_ADDR, mc_vm_apt_low.quad_part);
++
++	REG_SET(DCN_VM_SYSTEM_APERTURE_HIGH_ADDR, 0,
++			MC_VM_SYSTEM_APERTURE_HIGH_ADDR, mc_vm_apt_high.quad_part);
++
++	REG_SET_2(DCN_VM_MX_L1_TLB_CNTL, 0,
++			ENABLE_L1_TLB, 1,
++			SYSTEM_ACCESS_MODE, 0x3);
++}
++
++static void hubp2_program_deadline(
++		struct hubp *hubp,
++		struct _vcs_dpi_display_dlg_regs_st *dlg_attr,
++		struct _vcs_dpi_display_ttu_regs_st *ttu_attr)
++{
++	struct dcn20_hubp *hubp2 = TO_DCN20_HUBP(hubp);
++
++	hubp1_program_deadline(hubp, dlg_attr, ttu_attr);
++
++	REG_SET(FLIP_PARAMETERS_1, 0,
++		REFCYC_PER_PTE_GROUP_FLIP_L, dlg_attr->refcyc_per_pte_group_flip_l);
++}
++
++void hubp2_vready_at_or_After_vsync(struct hubp *hubp,
++		struct _vcs_dpi_display_pipe_dest_params_st *pipe_dest)
++{
++	uint32_t value = 0;
++	struct dcn20_hubp *hubp2 = TO_DCN20_HUBP(hubp);
++	/* disable_dlg_test_mode Set 9th bit to 1 to disable "dv" mode */
++	REG_WRITE(HUBPREQ_DEBUG_DB, 1 << 8);
++	/*
++	if (VSTARTUP_START - (VREADY_OFFSET+VUPDATE_WIDTH+VUPDATE_OFFSET)/htotal)
++	<= OTG_V_BLANK_END
++		Set HUBP_VREADY_AT_OR_AFTER_VSYNC = 1
++	else
++		Set HUBP_VREADY_AT_OR_AFTER_VSYNC = 0
++	*/
++	if ((pipe_dest->vstartup_start - (pipe_dest->vready_offset+pipe_dest->vupdate_width
++		+ pipe_dest->vupdate_offset) / pipe_dest->htotal) <= pipe_dest->vblank_end) {
++		value = 1;
++	} else
++		value = 0;
++	REG_UPDATE(DCHUBP_CNTL, HUBP_VREADY_AT_OR_AFTER_VSYNC, value);
++}
++
++static void hubp2_setup(
++		struct hubp *hubp,
++		struct _vcs_dpi_display_dlg_regs_st *dlg_attr,
++		struct _vcs_dpi_display_ttu_regs_st *ttu_attr,
++		struct _vcs_dpi_display_rq_regs_st *rq_regs,
++		struct _vcs_dpi_display_pipe_dest_params_st *pipe_dest)
++{
++	/* otg is locked when this func is called. Register are double buffered.
++	 * disable the requestors is not needed
++	 */
++
++	hubp2_vready_at_or_After_vsync(hubp, pipe_dest);
++	hubp1_program_requestor(hubp, rq_regs);
++	hubp2_program_deadline(hubp, dlg_attr, ttu_attr);
++
++}
++
++void hubp2_setup_interdependent(
++		struct hubp *hubp,
++		struct _vcs_dpi_display_dlg_regs_st *dlg_attr,
++		struct _vcs_dpi_display_ttu_regs_st *ttu_attr)
++{
++	struct dcn20_hubp *hubp2 = TO_DCN20_HUBP(hubp);
++
++	REG_SET_2(PREFETCH_SETTINGS, 0,
++			DST_Y_PREFETCH, dlg_attr->dst_y_prefetch,
++			VRATIO_PREFETCH, dlg_attr->vratio_prefetch);
++
++	REG_SET(PREFETCH_SETTINGS_C, 0,
++			VRATIO_PREFETCH_C, dlg_attr->vratio_prefetch_c);
++
++	REG_SET_2(VBLANK_PARAMETERS_0, 0,
++		DST_Y_PER_VM_VBLANK, dlg_attr->dst_y_per_vm_vblank,
++		DST_Y_PER_ROW_VBLANK, dlg_attr->dst_y_per_row_vblank);
++
++	REG_SET_2(FLIP_PARAMETERS_0, 0,
++		DST_Y_PER_VM_FLIP, dlg_attr->dst_y_per_vm_flip,
++		DST_Y_PER_ROW_FLIP, dlg_attr->dst_y_per_row_flip);
++
++	REG_SET(VBLANK_PARAMETERS_3, 0,
++		REFCYC_PER_META_CHUNK_VBLANK_L, dlg_attr->refcyc_per_meta_chunk_vblank_l);
++
++	REG_SET(VBLANK_PARAMETERS_4, 0,
++		REFCYC_PER_META_CHUNK_VBLANK_C, dlg_attr->refcyc_per_meta_chunk_vblank_c);
++
++	REG_SET(FLIP_PARAMETERS_2, 0,
++		REFCYC_PER_META_CHUNK_FLIP_L, dlg_attr->refcyc_per_meta_chunk_flip_l);
++
++	REG_SET_2(PER_LINE_DELIVERY_PRE, 0,
++		REFCYC_PER_LINE_DELIVERY_PRE_L, dlg_attr->refcyc_per_line_delivery_pre_l,
++		REFCYC_PER_LINE_DELIVERY_PRE_C, dlg_attr->refcyc_per_line_delivery_pre_c);
++
++	REG_SET(DCN_SURF0_TTU_CNTL1, 0,
++		REFCYC_PER_REQ_DELIVERY_PRE,
++		ttu_attr->refcyc_per_req_delivery_pre_l);
++	REG_SET(DCN_SURF1_TTU_CNTL1, 0,
++		REFCYC_PER_REQ_DELIVERY_PRE,
++		ttu_attr->refcyc_per_req_delivery_pre_c);
++	REG_SET(DCN_CUR0_TTU_CNTL1, 0,
++		REFCYC_PER_REQ_DELIVERY_PRE, ttu_attr->refcyc_per_req_delivery_pre_cur0);
++	REG_SET(DCN_CUR1_TTU_CNTL1, 0,
++		REFCYC_PER_REQ_DELIVERY_PRE, ttu_attr->refcyc_per_req_delivery_pre_cur1);
++
++	REG_SET_2(DCN_GLOBAL_TTU_CNTL, 0,
++		MIN_TTU_VBLANK, ttu_attr->min_ttu_vblank,
++		QoS_LEVEL_FLIP, ttu_attr->qos_level_flip);
++}
++
++/* DCN2 (GFX10), the following GFX fields are deprecated. They can be set but they will not be used:
++ *	NUM_BANKS
++ *	NUM_SE
++ *	NUM_RB_PER_SE
++ *	RB_ALIGNED
++ * Other things can be defaulted, since they never change:
++ *	PIPE_ALIGNED = 0
++ *	META_LINEAR = 0
++ * In GFX10, only these apply:
++ *	PIPE_INTERLEAVE
++ *	NUM_PIPES
++ *	MAX_COMPRESSED_FRAGS
++ *	SW_MODE
++ */
++static void hubp2_program_tiling(
++	struct dcn20_hubp *hubp2,
++	const union dc_tiling_info *info,
++	const enum surface_pixel_format pixel_format)
++{
++	REG_UPDATE_3(DCSURF_ADDR_CONFIG,
++			NUM_PIPES, log_2(info->gfx9.num_pipes),
++			PIPE_INTERLEAVE, info->gfx9.pipe_interleave,
++			MAX_COMPRESSED_FRAGS, log_2(info->gfx9.max_compressed_frags));
++
++	REG_UPDATE_4(DCSURF_TILING_CONFIG,
++			SW_MODE, info->gfx9.swizzle,
++			META_LINEAR, 0,
++			RB_ALIGNED, 0,
++			PIPE_ALIGNED, 0);
++}
++
++void hubp2_program_surface_config(
++	struct hubp *hubp,
++	enum surface_pixel_format format,
++	union dc_tiling_info *tiling_info,
++	union plane_size *plane_size,
++	enum dc_rotation_angle rotation,
++	struct dc_plane_dcc_param *dcc,
++	bool horizontal_mirror,
++	unsigned int compat_level)
++{
++	struct dcn20_hubp *hubp2 = TO_DCN20_HUBP(hubp);
++
++	hubp1_dcc_control(hubp, dcc->enable, dcc->grph.independent_64b_blks);
++	hubp2_program_tiling(hubp2, tiling_info, format);
++	hubp1_program_size(hubp, format, plane_size, dcc);
++	hubp1_program_rotation(hubp, rotation, horizontal_mirror);
++	hubp1_program_pixel_format(hubp, format);
++}
++
++enum cursor_lines_per_chunk hubp2_get_lines_per_chunk(
++	unsigned int cursor_width,
++	enum dc_cursor_color_format cursor_mode)
++{
++	enum cursor_lines_per_chunk line_per_chunk = CURSOR_LINE_PER_CHUNK_16;
++
++	if (cursor_mode == CURSOR_MODE_MONO)
++		line_per_chunk = CURSOR_LINE_PER_CHUNK_16;
++	else if (cursor_mode == CURSOR_MODE_COLOR_1BIT_AND ||
++		 cursor_mode == CURSOR_MODE_COLOR_PRE_MULTIPLIED_ALPHA ||
++		 cursor_mode == CURSOR_MODE_COLOR_UN_PRE_MULTIPLIED_ALPHA) {
++		if (cursor_width >= 1   && cursor_width <= 32)
++			line_per_chunk = CURSOR_LINE_PER_CHUNK_16;
++		else if (cursor_width >= 33  && cursor_width <= 64)
++			line_per_chunk = CURSOR_LINE_PER_CHUNK_8;
++		else if (cursor_width >= 65  && cursor_width <= 128)
++			line_per_chunk = CURSOR_LINE_PER_CHUNK_4;
++		else if (cursor_width >= 129 && cursor_width <= 256)
++			line_per_chunk = CURSOR_LINE_PER_CHUNK_2;
++	} else if (cursor_mode == CURSOR_MODE_COLOR_64BIT_FP_PRE_MULTIPLIED ||
++		   cursor_mode == CURSOR_MODE_COLOR_64BIT_FP_UN_PRE_MULTIPLIED) {
++		if (cursor_width >= 1   && cursor_width <= 16)
++			line_per_chunk = CURSOR_LINE_PER_CHUNK_16;
++		else if (cursor_width >= 17  && cursor_width <= 32)
++			line_per_chunk = CURSOR_LINE_PER_CHUNK_8;
++		else if (cursor_width >= 33  && cursor_width <= 64)
++			line_per_chunk = CURSOR_LINE_PER_CHUNK_4;
++		else if (cursor_width >= 65 && cursor_width <= 128)
++			line_per_chunk = CURSOR_LINE_PER_CHUNK_2;
++		else if (cursor_width >= 129 && cursor_width <= 256)
++			line_per_chunk = CURSOR_LINE_PER_CHUNK_1;
++	}
++
++	return line_per_chunk;
++}
++
++void hubp2_cursor_set_attributes(
++		struct hubp *hubp,
++		const struct dc_cursor_attributes *attr)
++{
++	struct dcn20_hubp *hubp2 = TO_DCN20_HUBP(hubp);
++	enum cursor_pitch hw_pitch = hubp1_get_cursor_pitch(attr->pitch);
++	enum cursor_lines_per_chunk lpc = hubp2_get_lines_per_chunk(
++			attr->width, attr->color_format);
++
++	hubp->curs_attr = *attr;
++
++	REG_UPDATE(CURSOR_SURFACE_ADDRESS_HIGH,
++			CURSOR_SURFACE_ADDRESS_HIGH, attr->address.high_part);
++	REG_UPDATE(CURSOR_SURFACE_ADDRESS,
++			CURSOR_SURFACE_ADDRESS, attr->address.low_part);
++
++	REG_UPDATE_2(CURSOR_SIZE,
++			CURSOR_WIDTH, attr->width,
++			CURSOR_HEIGHT, attr->height);
++
++	REG_UPDATE_4(CURSOR_CONTROL,
++			CURSOR_MODE, attr->color_format,
++			CURSOR_2X_MAGNIFY, attr->attribute_flags.bits.ENABLE_MAGNIFICATION,
++			CURSOR_PITCH, hw_pitch,
++			CURSOR_LINES_PER_CHUNK, lpc);
++
++	REG_SET_2(CURSOR_SETTINGS, 0,
++			/* no shift of the cursor HDL schedule */
++			CURSOR0_DST_Y_OFFSET, 0,
++			 /* used to shift the cursor chunk request deadline */
++			CURSOR0_CHUNK_HDL_ADJUST, 3);
++}
++
++void hubp2_dmdata_set_attributes(
++		struct hubp *hubp,
++		const struct dc_dmdata_attributes *attr)
++{
++	struct dcn20_hubp *hubp2 = TO_DCN20_HUBP(hubp);
++
++	if (attr->dmdata_mode == DMDATA_HW_MODE) {
++		/* set to HW mode */
++		REG_UPDATE(DMDATA_CNTL,
++				DMDATA_MODE, 1);
++
++		/* for DMDATA flip, need to use SURFACE_UPDATE_LOCK */
++		REG_UPDATE(DCSURF_FLIP_CONTROL, SURFACE_UPDATE_LOCK, 1);
++
++		/* toggle DMDATA_UPDATED and set repeat and size */
++		REG_UPDATE(DMDATA_CNTL,
++				DMDATA_UPDATED, 0);
++		REG_UPDATE_3(DMDATA_CNTL,
++				DMDATA_UPDATED, 1,
++				DMDATA_REPEAT, attr->dmdata_repeat,
++				DMDATA_SIZE, attr->dmdata_size);
++
++		/* set DMDATA address */
++		REG_WRITE(DMDATA_ADDRESS_LOW, attr->address.low_part);
++		REG_UPDATE(DMDATA_ADDRESS_HIGH,
++				DMDATA_ADDRESS_HIGH, attr->address.high_part);
++
++		REG_UPDATE(DCSURF_FLIP_CONTROL, SURFACE_UPDATE_LOCK, 0);
++
++	} else {
++		/* set to SW mode before loading data */
++		REG_SET(DMDATA_CNTL, 0,
++				DMDATA_MODE, 0);
++		/* toggle DMDATA_SW_UPDATED to start loading sequence */
++		REG_UPDATE(DMDATA_SW_CNTL,
++				DMDATA_SW_UPDATED, 0);
++		REG_UPDATE_3(DMDATA_SW_CNTL,
++				DMDATA_SW_UPDATED, 1,
++				DMDATA_SW_REPEAT, attr->dmdata_repeat,
++				DMDATA_SW_SIZE, attr->dmdata_size);
++		/* load data into hubp dmdata buffer */
++		hubp2_dmdata_load(hubp, attr->dmdata_size, attr->dmdata_sw_data);
++	}
++
++	/* Note that DL_DELTA must be programmed if we want to use TTU mode */
++	REG_SET_3(DMDATA_QOS_CNTL, 0,
++			DMDATA_QOS_MODE, attr->dmdata_qos_mode,
++			DMDATA_QOS_LEVEL, attr->dmdata_qos_level,
++			DMDATA_DL_DELTA, attr->dmdata_dl_delta);
++}
++
++void hubp2_dmdata_load(
++		struct hubp *hubp,
++		uint32_t dmdata_sw_size,
++		const uint32_t *dmdata_sw_data)
++{
++	int i;
++	struct dcn20_hubp *hubp2 = TO_DCN20_HUBP(hubp);
++
++	/* load dmdata into HUBP buffer in SW mode */
++	for (i = 0; i < dmdata_sw_size / 4; i++)
++		REG_WRITE(DMDATA_SW_DATA, dmdata_sw_data[i]);
++}
++
++bool hubp2_dmdata_status_done(struct hubp *hubp)
++{
++	uint32_t status;
++	struct dcn20_hubp *hubp2 = TO_DCN20_HUBP(hubp);
++
++	REG_GET(DMDATA_STATUS, DMDATA_DONE, &status);
++	return (status == 1);
++}
++
++bool hubp2_program_surface_flip_and_addr(
++	struct hubp *hubp,
++	const struct dc_plane_address *address,
++	bool flip_immediate,
++	uint8_t vmid)
++{
++	struct dcn20_hubp *hubp2 = TO_DCN20_HUBP(hubp);
++
++	//program flip type
++	REG_UPDATE(DCSURF_FLIP_CONTROL,
++			SURFACE_FLIP_TYPE, flip_immediate);
++
++	// Program VMID reg
++	REG_UPDATE(VMID_SETTINGS_0,
++			VMID, vmid);
++
++	if (address->type == PLN_ADDR_TYPE_GRPH_STEREO) {
++		REG_UPDATE(DCSURF_FLIP_CONTROL, SURFACE_FLIP_MODE_FOR_STEREOSYNC, 0x1);
++		REG_UPDATE(DCSURF_FLIP_CONTROL, SURFACE_FLIP_IN_STEREOSYNC, 0x1);
++
++	} else {
++		// turn off stereo if not in stereo
++		REG_UPDATE(DCSURF_FLIP_CONTROL, SURFACE_FLIP_MODE_FOR_STEREOSYNC, 0x0);
++		REG_UPDATE(DCSURF_FLIP_CONTROL, SURFACE_FLIP_IN_STEREOSYNC, 0x0);
++	}
++
++
++
++	/* HW automatically latch rest of address register on write to
++	 * DCSURF_PRIMARY_SURFACE_ADDRESS if SURFACE_UPDATE_LOCK is not used
++	 *
++	 * program high first and then the low addr, order matters!
++	 */
++	switch (address->type) {
++	case PLN_ADDR_TYPE_GRAPHICS:
++		/* DCN1.0 does not support const color
++		 * TODO: program DCHUBBUB_RET_PATH_DCC_CFGx_0/1
++		 * base on address->grph.dcc_const_color
++		 * x = 0, 2, 4, 6 for pipe 0, 1, 2, 3 for rgb and luma
++		 * x = 1, 3, 5, 7 for pipe 0, 1, 2, 3 for chroma
++		 */
++
++		if (address->grph.addr.quad_part == 0)
++			break;
++
++		REG_UPDATE_2(DCSURF_SURFACE_CONTROL,
++				PRIMARY_SURFACE_TMZ, address->tmz_surface,
++				PRIMARY_META_SURFACE_TMZ, address->tmz_surface);
++
++		if (address->grph.meta_addr.quad_part != 0) {
++			REG_SET(DCSURF_PRIMARY_META_SURFACE_ADDRESS_HIGH, 0,
++					PRIMARY_META_SURFACE_ADDRESS_HIGH,
++					address->grph.meta_addr.high_part);
++
++			REG_SET(DCSURF_PRIMARY_META_SURFACE_ADDRESS, 0,
++					PRIMARY_META_SURFACE_ADDRESS,
++					address->grph.meta_addr.low_part);
++		}
++
++		REG_SET(DCSURF_PRIMARY_SURFACE_ADDRESS_HIGH, 0,
++				PRIMARY_SURFACE_ADDRESS_HIGH,
++				address->grph.addr.high_part);
++
++		REG_SET(DCSURF_PRIMARY_SURFACE_ADDRESS, 0,
++				PRIMARY_SURFACE_ADDRESS,
++				address->grph.addr.low_part);
++		break;
++	case PLN_ADDR_TYPE_VIDEO_PROGRESSIVE:
++		if (address->video_progressive.luma_addr.quad_part == 0
++				|| address->video_progressive.chroma_addr.quad_part == 0)
++			break;
++
++		REG_UPDATE_4(DCSURF_SURFACE_CONTROL,
++				PRIMARY_SURFACE_TMZ, address->tmz_surface,
++				PRIMARY_SURFACE_TMZ_C, address->tmz_surface,
++				PRIMARY_META_SURFACE_TMZ, address->tmz_surface,
++				PRIMARY_META_SURFACE_TMZ_C, address->tmz_surface);
++
++		if (address->video_progressive.luma_meta_addr.quad_part != 0) {
++			REG_SET(DCSURF_PRIMARY_META_SURFACE_ADDRESS_HIGH_C, 0,
++					PRIMARY_META_SURFACE_ADDRESS_HIGH_C,
++					address->video_progressive.chroma_meta_addr.high_part);
++
++			REG_SET(DCSURF_PRIMARY_META_SURFACE_ADDRESS_C, 0,
++					PRIMARY_META_SURFACE_ADDRESS_C,
++					address->video_progressive.chroma_meta_addr.low_part);
++
++			REG_SET(DCSURF_PRIMARY_META_SURFACE_ADDRESS_HIGH, 0,
++					PRIMARY_META_SURFACE_ADDRESS_HIGH,
++					address->video_progressive.luma_meta_addr.high_part);
++
++			REG_SET(DCSURF_PRIMARY_META_SURFACE_ADDRESS, 0,
++					PRIMARY_META_SURFACE_ADDRESS,
++					address->video_progressive.luma_meta_addr.low_part);
++		}
++
++		REG_SET(DCSURF_PRIMARY_SURFACE_ADDRESS_HIGH_C, 0,
++				PRIMARY_SURFACE_ADDRESS_HIGH_C,
++				address->video_progressive.chroma_addr.high_part);
++
++		REG_SET(DCSURF_PRIMARY_SURFACE_ADDRESS_C, 0,
++				PRIMARY_SURFACE_ADDRESS_C,
++				address->video_progressive.chroma_addr.low_part);
++
++		REG_SET(DCSURF_PRIMARY_SURFACE_ADDRESS_HIGH, 0,
++				PRIMARY_SURFACE_ADDRESS_HIGH,
++				address->video_progressive.luma_addr.high_part);
++
++		REG_SET(DCSURF_PRIMARY_SURFACE_ADDRESS, 0,
++				PRIMARY_SURFACE_ADDRESS,
++				address->video_progressive.luma_addr.low_part);
++		break;
++	case PLN_ADDR_TYPE_GRPH_STEREO:
++		if (address->grph_stereo.left_addr.quad_part == 0)
++			break;
++		if (address->grph_stereo.right_addr.quad_part == 0)
++			break;
++
++		REG_UPDATE_8(DCSURF_SURFACE_CONTROL,
++				PRIMARY_SURFACE_TMZ, address->tmz_surface,
++				PRIMARY_SURFACE_TMZ_C, address->tmz_surface,
++				PRIMARY_META_SURFACE_TMZ, address->tmz_surface,
++				PRIMARY_META_SURFACE_TMZ_C, address->tmz_surface,
++				SECONDARY_SURFACE_TMZ, address->tmz_surface,
++				SECONDARY_SURFACE_TMZ_C, address->tmz_surface,
++				SECONDARY_META_SURFACE_TMZ, address->tmz_surface,
++				SECONDARY_META_SURFACE_TMZ_C, address->tmz_surface);
++
++		if (address->grph_stereo.right_meta_addr.quad_part != 0) {
++
++			REG_SET(DCSURF_SECONDARY_META_SURFACE_ADDRESS_HIGH, 0,
++					SECONDARY_META_SURFACE_ADDRESS_HIGH,
++					address->grph_stereo.right_meta_addr.high_part);
++
++			REG_SET(DCSURF_SECONDARY_META_SURFACE_ADDRESS, 0,
++					SECONDARY_META_SURFACE_ADDRESS,
++					address->grph_stereo.right_meta_addr.low_part);
++		}
++		if (address->grph_stereo.left_meta_addr.quad_part != 0) {
++
++			REG_SET(DCSURF_PRIMARY_META_SURFACE_ADDRESS_HIGH, 0,
++					PRIMARY_META_SURFACE_ADDRESS_HIGH,
++					address->grph_stereo.left_meta_addr.high_part);
++
++			REG_SET(DCSURF_PRIMARY_META_SURFACE_ADDRESS, 0,
++					PRIMARY_META_SURFACE_ADDRESS,
++					address->grph_stereo.left_meta_addr.low_part);
++		}
++
++		REG_SET(DCSURF_SECONDARY_SURFACE_ADDRESS_HIGH, 0,
++				SECONDARY_SURFACE_ADDRESS_HIGH,
++				address->grph_stereo.right_addr.high_part);
++
++		REG_SET(DCSURF_SECONDARY_SURFACE_ADDRESS, 0,
++				SECONDARY_SURFACE_ADDRESS,
++				address->grph_stereo.right_addr.low_part);
++
++		REG_SET(DCSURF_PRIMARY_SURFACE_ADDRESS_HIGH, 0,
++				PRIMARY_SURFACE_ADDRESS_HIGH,
++				address->grph_stereo.left_addr.high_part);
++
++		REG_SET(DCSURF_PRIMARY_SURFACE_ADDRESS, 0,
++				PRIMARY_SURFACE_ADDRESS,
++				address->grph_stereo.left_addr.low_part);
++		break;
++	default:
++		BREAK_TO_DEBUGGER();
++		break;
++	}
++
++	hubp->request_address = *address;
++
++	return true;
++}
++
++void hubp2_enable_triplebuffer(
++	struct hubp *hubp,
++	bool enable)
++{
++	struct dcn20_hubp *hubp2 = TO_DCN20_HUBP(hubp);
++	uint32_t triple_buffer_en = 0;
++	bool tri_buffer_en;
++
++	REG_GET(DCSURF_FLIP_CONTROL2, SURFACE_TRIPLE_BUFFER_ENABLE, &triple_buffer_en);
++	tri_buffer_en = (triple_buffer_en == 1);
++	if (tri_buffer_en != enable) {
++		REG_UPDATE(DCSURF_FLIP_CONTROL2,
++			SURFACE_TRIPLE_BUFFER_ENABLE, enable ? DC_TRIPLEBUFFER_ENABLE : DC_TRIPLEBUFFER_DISABLE);
++	}
++}
++
++bool hubp2_is_triplebuffer_enabled(
++	struct hubp *hubp)
++{
++	struct dcn20_hubp *hubp2 = TO_DCN20_HUBP(hubp);
++	uint32_t triple_buffer_en = 0;
++
++	REG_GET(DCSURF_FLIP_CONTROL2, SURFACE_TRIPLE_BUFFER_ENABLE, &triple_buffer_en);
++
++	return (bool)triple_buffer_en;
++}
++
++void hubp2_set_flip_control_surface_gsl(struct hubp *hubp, bool enable)
++{
++	struct dcn20_hubp *hubp2 = TO_DCN20_HUBP(hubp);
++
++	REG_UPDATE(DCSURF_FLIP_CONTROL2, SURFACE_GSL_ENABLE, enable ? 1 : 0);
++}
++
++static struct hubp_funcs dcn20_hubp_funcs = {
++	.hubp_enable_tripleBuffer = hubp2_enable_triplebuffer,
++	.hubp_is_triplebuffer_enabled = hubp2_is_triplebuffer_enabled,
++	.hubp_program_surface_flip_and_addr = hubp2_program_surface_flip_and_addr,
++	.hubp_program_surface_config = hubp2_program_surface_config,
++	.hubp_is_flip_pending = hubp1_is_flip_pending,
++	.hubp_setup = hubp2_setup,
++	.hubp_setup_interdependent = hubp2_setup_interdependent,
++	.hubp_set_vm_system_aperture_settings = hubp2_set_vm_system_aperture_settings,
++	.set_blank = hubp1_set_blank,
++	.dcc_control = hubp1_dcc_control,
++	.hubp_update_dchub = hubp2_update_dchub,
++	.mem_program_viewport = min_set_viewport,
++	.set_cursor_attributes	= hubp2_cursor_set_attributes,
++	.set_cursor_position	= hubp1_cursor_set_position,
++	.hubp_clk_cntl = hubp1_clk_cntl,
++	.hubp_vtg_sel = hubp1_vtg_sel,
++	.dmdata_set_attributes = hubp2_dmdata_set_attributes,
++	.dmdata_load = hubp2_dmdata_load,
++	.dmdata_status_done = hubp2_dmdata_status_done,
++	.hubp_read_state = hubp1_read_state,
++	.hubp_clear_underflow = hubp1_clear_underflow,
++	.hubp_set_flip_control_surface_gsl = hubp2_set_flip_control_surface_gsl
++};
++
++bool hubp2_construct(
++	struct dcn20_hubp *hubp2,
++	struct dc_context *ctx,
++	uint32_t inst,
++	const struct dcn_hubp2_registers *hubp_regs,
++	const struct dcn_hubp2_shift *hubp_shift,
++	const struct dcn_hubp2_mask *hubp_mask)
++{
++	hubp2->base.funcs = &dcn20_hubp_funcs;
++	hubp2->base.ctx = ctx;
++	hubp2->hubp_regs = hubp_regs;
++	hubp2->hubp_shift = hubp_shift;
++	hubp2->hubp_mask = hubp_mask;
++	hubp2->base.inst = inst;
++	hubp2->base.opp_id = 0xf;
++	hubp2->base.mpcc_id = 0xf;
++
++	return true;
++}
+diff --git a/drivers/gpu/drm/amd/display/dc/dcn20/dcn20_hubp.h b/drivers/gpu/drm/amd/display/dc/dcn20/dcn20_hubp.h
+new file mode 100644
+index 000000000000..ac7ef02450e5
+--- /dev/null
++++ b/drivers/gpu/drm/amd/display/dc/dcn20/dcn20_hubp.h
+@@ -0,0 +1,244 @@
++/*
++ * Copyright 2012-17 Advanced Micro Devices, Inc.
++ *
++ * Permission is hereby granted, free of charge, to any person obtaining a
++ * copy of this software and associated documentation files (the "Software"),
++ * to deal in the Software without restriction, including without limitation
++ * the rights to use, copy, modify, merge, publish, distribute, sublicense,
++ * and/or sell copies of the Software, and to permit persons to whom the
++ * Software is furnished to do so, subject to the following conditions:
++ *
++ * The above copyright notice and this permission notice shall be included in
++ * all copies or substantial portions of the Software.
++ *
++ * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
++ * IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
++ * FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.  IN NO EVENT SHALL
++ * THE COPYRIGHT HOLDER(S) OR AUTHOR(S) BE LIABLE FOR ANY CLAIM, DAMAGES OR
++ * OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE,
++ * ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR
++ * OTHER DEALINGS IN THE SOFTWARE.
++ *
++ * Authors: AMD
++ *
++ */
++
++#ifndef __DC_MEM_INPUT_DCN20_H__
++#define __DC_MEM_INPUT_DCN20_H__
++
++#include "../dcn10/dcn10_hubp.h"
++
++#define TO_DCN20_HUBP(hubp)\
++	container_of(hubp, struct dcn20_hubp, base)
++
++#define HUBP_REG_LIST_DCN20(id)\
++	HUBP_REG_LIST_DCN(id),\
++	HUBP_REG_LIST_DCN_VM(id),\
++	SRI(PREFETCH_SETTINGS, HUBPREQ, id),\
++	SRI(PREFETCH_SETTINGS_C, HUBPREQ, id),\
++	SRI(DCN_VM_SYSTEM_APERTURE_LOW_ADDR, HUBPREQ, id),\
++	SRI(DCN_VM_SYSTEM_APERTURE_HIGH_ADDR, HUBPREQ, id),\
++	SR(DCN_VM_FB_LOCATION_TOP),\
++	SR(DCN_VM_FB_LOCATION_BASE),\
++	SR(DCN_VM_FB_OFFSET),\
++	SR(DCN_VM_AGP_BASE),\
++	SR(DCN_VM_AGP_BOT),\
++	SR(DCN_VM_AGP_TOP),\
++	SRI(CURSOR_SETTINGS, HUBPREQ, id), \
++	SRI(CURSOR_SURFACE_ADDRESS_HIGH, CURSOR0_, id), \
++	SRI(CURSOR_SURFACE_ADDRESS, CURSOR0_, id), \
++	SRI(CURSOR_SIZE, CURSOR0_, id), \
++	SRI(CURSOR_CONTROL, CURSOR0_, id), \
++	SRI(CURSOR_POSITION, CURSOR0_, id), \
++	SRI(CURSOR_HOT_SPOT, CURSOR0_, id), \
++	SRI(CURSOR_DST_OFFSET, CURSOR0_, id), \
++	SRI(DMDATA_ADDRESS_HIGH, CURSOR0_, id), \
++	SRI(DMDATA_ADDRESS_LOW, CURSOR0_, id), \
++	SRI(DMDATA_CNTL, CURSOR0_, id), \
++	SRI(DMDATA_SW_CNTL, CURSOR0_, id), \
++	SRI(DMDATA_QOS_CNTL, CURSOR0_, id), \
++	SRI(DMDATA_SW_DATA, CURSOR0_, id), \
++	SRI(DMDATA_STATUS, CURSOR0_, id),\
++	SRI(FLIP_PARAMETERS_0, HUBPREQ, id),\
++	SRI(FLIP_PARAMETERS_1, HUBPREQ, id),\
++	SRI(FLIP_PARAMETERS_2, HUBPREQ, id),\
++	SRI(DCN_CUR1_TTU_CNTL1, HUBPREQ, id),\
++	SRI(DCSURF_FLIP_CONTROL2, HUBPREQ, id), \
++	SRI(VMID_SETTINGS_0, HUBPREQ, id),\
++	SR(DCN_VM_SYSTEM_APERTURE_DEFAULT_ADDR_MSB),\
++	SR(DCN_VM_SYSTEM_APERTURE_DEFAULT_ADDR_LSB)
++
++#define HUBP_MASK_SH_LIST_DCN20(mask_sh)\
++	HUBP_MASK_SH_LIST_DCN(mask_sh),\
++	HUBP_MASK_SH_LIST_DCN_VM(mask_sh),\
++	HUBP_SF(HUBP0_DCSURF_SURFACE_CONFIG, ROTATION_ANGLE, mask_sh),\
++	HUBP_SF(HUBP0_DCSURF_SURFACE_CONFIG, H_MIRROR_EN, mask_sh),\
++	HUBP_SF(HUBPREQ0_PREFETCH_SETTINGS, DST_Y_PREFETCH, mask_sh),\
++	HUBP_SF(HUBPREQ0_PREFETCH_SETTINGS, VRATIO_PREFETCH, mask_sh),\
++	HUBP_SF(HUBPREQ0_PREFETCH_SETTINGS_C, VRATIO_PREFETCH_C, mask_sh),\
++	HUBP_SF(HUBPREQ0_DCN_VM_SYSTEM_APERTURE_LOW_ADDR, MC_VM_SYSTEM_APERTURE_LOW_ADDR, mask_sh),\
++	HUBP_SF(HUBPREQ0_DCN_VM_SYSTEM_APERTURE_HIGH_ADDR, MC_VM_SYSTEM_APERTURE_HIGH_ADDR, mask_sh),\
++	HUBP_SF(DCN_VM_FB_LOCATION_TOP, FB_TOP, mask_sh),\
++	HUBP_SF(DCN_VM_FB_LOCATION_BASE, FB_BASE, mask_sh),\
++	HUBP_SF(DCN_VM_FB_OFFSET, FB_OFFSET, mask_sh),\
++	HUBP_SF(DCN_VM_AGP_BASE, AGP_BASE, mask_sh),\
++	HUBP_SF(DCN_VM_AGP_BOT, AGP_BOT, mask_sh),\
++	HUBP_SF(DCN_VM_AGP_TOP, AGP_TOP, mask_sh),\
++	HUBP_SF(HUBPREQ0_CURSOR_SETTINGS, CURSOR0_DST_Y_OFFSET, mask_sh), \
++	HUBP_SF(HUBPREQ0_CURSOR_SETTINGS, CURSOR0_CHUNK_HDL_ADJUST, mask_sh), \
++	HUBP_SF(CURSOR0_0_CURSOR_SURFACE_ADDRESS_HIGH, CURSOR_SURFACE_ADDRESS_HIGH, mask_sh), \
++	HUBP_SF(CURSOR0_0_CURSOR_SURFACE_ADDRESS, CURSOR_SURFACE_ADDRESS, mask_sh), \
++	HUBP_SF(CURSOR0_0_CURSOR_SIZE, CURSOR_WIDTH, mask_sh), \
++	HUBP_SF(CURSOR0_0_CURSOR_SIZE, CURSOR_HEIGHT, mask_sh), \
++	HUBP_SF(CURSOR0_0_CURSOR_CONTROL, CURSOR_MODE, mask_sh), \
++	HUBP_SF(CURSOR0_0_CURSOR_CONTROL, CURSOR_2X_MAGNIFY, mask_sh), \
++	HUBP_SF(CURSOR0_0_CURSOR_CONTROL, CURSOR_PITCH, mask_sh), \
++	HUBP_SF(CURSOR0_0_CURSOR_CONTROL, CURSOR_LINES_PER_CHUNK, mask_sh), \
++	HUBP_SF(CURSOR0_0_CURSOR_CONTROL, CURSOR_ENABLE, mask_sh), \
++	HUBP_SF(CURSOR0_0_CURSOR_POSITION, CURSOR_X_POSITION, mask_sh), \
++	HUBP_SF(CURSOR0_0_CURSOR_POSITION, CURSOR_Y_POSITION, mask_sh), \
++	HUBP_SF(CURSOR0_0_CURSOR_HOT_SPOT, CURSOR_HOT_SPOT_X, mask_sh), \
++	HUBP_SF(CURSOR0_0_CURSOR_HOT_SPOT, CURSOR_HOT_SPOT_Y, mask_sh), \
++	HUBP_SF(CURSOR0_0_CURSOR_DST_OFFSET, CURSOR_DST_X_OFFSET, mask_sh), \
++	HUBP_SF(CURSOR0_0_DMDATA_ADDRESS_HIGH, DMDATA_ADDRESS_HIGH, mask_sh), \
++	HUBP_SF(CURSOR0_0_DMDATA_CNTL, DMDATA_MODE, mask_sh), \
++	HUBP_SF(CURSOR0_0_DMDATA_CNTL, DMDATA_UPDATED, mask_sh), \
++	HUBP_SF(CURSOR0_0_DMDATA_CNTL, DMDATA_REPEAT, mask_sh), \
++	HUBP_SF(CURSOR0_0_DMDATA_CNTL, DMDATA_SIZE, mask_sh), \
++	HUBP_SF(CURSOR0_0_DMDATA_SW_CNTL, DMDATA_SW_UPDATED, mask_sh), \
++	HUBP_SF(CURSOR0_0_DMDATA_SW_CNTL, DMDATA_SW_REPEAT, mask_sh), \
++	HUBP_SF(CURSOR0_0_DMDATA_SW_CNTL, DMDATA_SW_SIZE, mask_sh), \
++	HUBP_SF(CURSOR0_0_DMDATA_QOS_CNTL, DMDATA_QOS_MODE, mask_sh), \
++	HUBP_SF(CURSOR0_0_DMDATA_QOS_CNTL, DMDATA_QOS_LEVEL, mask_sh), \
++	HUBP_SF(CURSOR0_0_DMDATA_QOS_CNTL, DMDATA_DL_DELTA, mask_sh), \
++	HUBP_SF(CURSOR0_0_DMDATA_STATUS, DMDATA_DONE, mask_sh),\
++	HUBP_SF(HUBPREQ0_FLIP_PARAMETERS_0, DST_Y_PER_VM_FLIP, mask_sh),\
++	HUBP_SF(HUBPREQ0_FLIP_PARAMETERS_0, DST_Y_PER_ROW_FLIP, mask_sh),\
++	HUBP_SF(HUBPREQ0_FLIP_PARAMETERS_1, REFCYC_PER_PTE_GROUP_FLIP_L, mask_sh),\
++	HUBP_SF(HUBPREQ0_FLIP_PARAMETERS_2, REFCYC_PER_META_CHUNK_FLIP_L, mask_sh),\
++	HUBP_SF(HUBP0_DCHUBP_CNTL, HUBP_VREADY_AT_OR_AFTER_VSYNC, mask_sh),\
++	HUBP_SF(HUBP0_DCHUBP_CNTL, HUBP_DISABLE_STOP_DATA_DURING_VM, mask_sh),\
++	HUBP_SF(HUBPREQ0_DCSURF_FLIP_CONTROL, HUBPREQ_MASTER_UPDATE_LOCK_STATUS, mask_sh),\
++	HUBP_SF(HUBPREQ0_DCSURF_FLIP_CONTROL2, SURFACE_GSL_ENABLE, mask_sh),\
++	HUBP_SF(HUBPREQ0_DCSURF_FLIP_CONTROL2, SURFACE_TRIPLE_BUFFER_ENABLE, mask_sh),\
++	HUBP_SF(HUBPREQ0_VMID_SETTINGS_0, VMID, mask_sh),\
++	HUBP_SF(DCN_VM_SYSTEM_APERTURE_DEFAULT_ADDR_MSB, DCN_VM_SYSTEM_APERTURE_DEFAULT_SYSTEM, mask_sh),\
++	HUBP_SF(DCN_VM_SYSTEM_APERTURE_DEFAULT_ADDR_MSB, DCN_VM_SYSTEM_APERTURE_DEFAULT_ADDR_MSB, mask_sh),\
++	HUBP_SF(DCN_VM_SYSTEM_APERTURE_DEFAULT_ADDR_LSB, DCN_VM_SYSTEM_APERTURE_DEFAULT_ADDR_LSB, mask_sh)
++
++
++#define DCN2_HUBP_REG_COMMON_VARIABLE_LIST \
++	HUBP_COMMON_REG_VARIABLE_LIST; \
++	uint32_t DMDATA_ADDRESS_HIGH; \
++	uint32_t DMDATA_ADDRESS_LOW; \
++	uint32_t DMDATA_CNTL; \
++	uint32_t DMDATA_SW_CNTL; \
++	uint32_t DMDATA_QOS_CNTL; \
++	uint32_t DMDATA_SW_DATA; \
++	uint32_t DMDATA_STATUS;\
++	uint32_t DCSURF_FLIP_CONTROL2;\
++	uint32_t FLIP_PARAMETERS_0;\
++	uint32_t FLIP_PARAMETERS_1;\
++	uint32_t FLIP_PARAMETERS_2;\
++	uint32_t DCN_CUR1_TTU_CNTL1;\
++	uint32_t VMID_SETTINGS_0
++
++#define DCN2_HUBP_REG_FIELD_VARIABLE_LIST(type) \
++	DCN_HUBP_REG_FIELD_LIST(type); \
++	type DMDATA_ADDRESS_HIGH;\
++	type DMDATA_MODE;\
++	type DMDATA_UPDATED;\
++	type DMDATA_REPEAT;\
++	type DMDATA_SIZE;\
++	type DMDATA_SW_UPDATED;\
++	type DMDATA_SW_REPEAT;\
++	type DMDATA_SW_SIZE;\
++	type DMDATA_QOS_MODE;\
++	type DMDATA_QOS_LEVEL;\
++	type DMDATA_DL_DELTA;\
++	type DMDATA_DONE;\
++	type DST_Y_PER_VM_FLIP;\
++	type DST_Y_PER_ROW_FLIP;\
++	type REFCYC_PER_PTE_GROUP_FLIP_L;\
++	type REFCYC_PER_META_CHUNK_FLIP_L;\
++	type HUBP_VREADY_AT_OR_AFTER_VSYNC;\
++	type HUBP_DISABLE_STOP_DATA_DURING_VM;\
++	type HUBPREQ_MASTER_UPDATE_LOCK_STATUS;\
++	type SURFACE_GSL_ENABLE;\
++	type SURFACE_TRIPLE_BUFFER_ENABLE;\
++	type VMID
++
++struct dcn_hubp2_registers {
++	DCN2_HUBP_REG_COMMON_VARIABLE_LIST;
++};
++
++struct dcn_hubp2_shift {
++	DCN2_HUBP_REG_FIELD_VARIABLE_LIST(uint8_t);
++};
++
++struct dcn_hubp2_mask {
++	DCN2_HUBP_REG_FIELD_VARIABLE_LIST(uint32_t);
++};
++
++struct dcn20_hubp {
++	struct hubp base;
++	struct dcn_hubp_state state;
++	const struct dcn_hubp2_registers *hubp_regs;
++	const struct dcn_hubp2_shift *hubp_shift;
++	const struct dcn_hubp2_mask *hubp_mask;
++};
++
++bool hubp2_construct(
++		struct dcn20_hubp *hubp2,
++		struct dc_context *ctx,
++		uint32_t inst,
++		const struct dcn_hubp2_registers *hubp_regs,
++		const struct dcn_hubp2_shift *hubp_shift,
++		const struct dcn_hubp2_mask *hubp_mask);
++
++void hubp2_setup_interdependent(
++		struct hubp *hubp,
++		struct _vcs_dpi_display_dlg_regs_st *dlg_attr,
++		struct _vcs_dpi_display_ttu_regs_st *ttu_attr);
++
++void hubp2_vready_at_or_After_vsync(struct hubp *hubp,
++		struct _vcs_dpi_display_pipe_dest_params_st *pipe_dest);
++
++void hubp2_update_dchub(
++		struct hubp *hubp,
++		struct dchub_init_data *dh_data);
++
++void hubp2_cursor_set_attributes(
++		struct hubp *hubp,
++		const struct dc_cursor_attributes *attr);
++
++void hubp2_set_vm_system_aperture_settings(struct hubp *hubp,
++		struct vm_system_aperture_param *apt);
++
++enum cursor_lines_per_chunk hubp2_get_lines_per_chunk(
++		unsigned int cursor_width,
++		enum dc_cursor_color_format cursor_mode);
++
++void hubp2_dmdata_set_attributes(
++		struct hubp *hubp,
++		const struct dc_dmdata_attributes *attr);
++
++void hubp2_dmdata_load(
++		struct hubp *hubp,
++		uint32_t dmdata_sw_size,
++		const uint32_t *dmdata_sw_data);
++
++bool hubp2_dmdata_status_done(struct hubp *hubp);
++
++void hubp2_enable_triplebuffer(
++		struct hubp *hubp,
++		bool enable);
++
++bool hubp2_is_triplebuffer_enabled(
++		struct hubp *hubp);
++
++void hubp2_set_flip_control_surface_gsl(struct hubp *hubp, bool enable);
++
++#endif /* __DC_MEM_INPUT_DCN20_H__ */
++
++
+diff --git a/drivers/gpu/drm/amd/display/dc/inc/hw/dchubbub.h b/drivers/gpu/drm/amd/display/dc/inc/hw/dchubbub.h
+index 93667e8b23b3..d56fd7d87bbc 100644
+--- a/drivers/gpu/drm/amd/display/dc/inc/hw/dchubbub.h
++++ b/drivers/gpu/drm/amd/display/dc/inc/hw/dchubbub.h
+@@ -52,11 +52,73 @@ struct dcn_hubbub_wm {
+ 	struct dcn_hubbub_wm_set sets[4];
+ };
+ 
++#ifdef CONFIG_DRM_AMD_DC_DCN2_0
++enum dcn_hubbub_page_table_depth {
++	DCN_PAGE_TABLE_DEPTH_1_LEVEL,
++	DCN_PAGE_TABLE_DEPTH_2_LEVEL,
++	DCN_PAGE_TABLE_DEPTH_3_LEVEL,
++	DCN_PAGE_TABLE_DEPTH_4_LEVEL
++};
++
++enum dcn_hubbub_page_table_block_size {
++	DCN_PAGE_TABLE_BLOCK_SIZE_4KB,
++	DCN_PAGE_TABLE_BLOCK_SIZE_64KB
++};
++
++struct dcn_hubbub_phys_addr_config {
++	struct {
++		uint64_t fb_top;
++		uint64_t fb_offset;
++		uint64_t fb_base;
++		uint64_t agp_top;
++		uint64_t agp_bot;
++		uint64_t agp_base;
++	} system_aperture;
++
++	struct {
++		uint64_t page_table_start_addr;
++		uint64_t page_table_end_addr;
++		uint64_t page_table_base_addr;
++	} gart_config;
++};
++
++struct dcn_hubbub_virt_addr_config {
++	uint64_t				page_table_start_addr;
++	uint64_t				page_table_end_addr;
++	enum dcn_hubbub_page_table_block_size	page_table_block_size;
++	enum dcn_hubbub_page_table_depth	page_table_depth;
++};
++
++struct hubbub_addr_config {
++	struct dcn_hubbub_phys_addr_config pa_config;
++	struct dcn_hubbub_virt_addr_config va_config;
++	struct {
++		uint64_t aperture_check_fault;
++		uint64_t generic_fault;
++	} default_addrs;
++};
++
++#endif
+ struct hubbub_funcs {
+ 	void (*update_dchub)(
+ 			struct hubbub *hubbub,
+ 			struct dchub_init_data *dh_data);
+ 
++#ifdef CONFIG_DRM_AMD_DC_DCN2_0
++	void (*init_dchub)(
++			struct hubbub *hubbub,
++			struct hubbub_addr_config *config);
++	void (*setup_vmid_ptb)(
++			struct hubbub *hubbub,
++			uint64_t ptb,
++			uint8_t vmid);
++
++	void (*set_ptb)(
++			struct hubbub *hubbub,
++			uint8_t vmid,
++			uint64_t base_addr);
++
++#endif
+ 	bool (*get_dcc_compression_cap)(struct hubbub *hubbub,
+ 			const struct dc_dcc_surface_param *input,
+ 			struct dc_surface_dcc_cap *output);
+diff --git a/drivers/gpu/drm/amd/display/dc/inc/hw/hubp.h b/drivers/gpu/drm/amd/display/dc/inc/hw/hubp.h
+index 455df4999797..e7a21fc9845b 100644
+--- a/drivers/gpu/drm/amd/display/dc/inc/hw/hubp.h
++++ b/drivers/gpu/drm/amd/display/dc/inc/hw/hubp.h
+@@ -36,6 +36,9 @@ enum cursor_pitch {
+ };
+ 
+ enum cursor_lines_per_chunk {
++#if defined(CONFIG_DRM_AMD_DC_DCN2_0)
++	CURSOR_LINE_PER_CHUNK_1 = 0, /* new for DCN2 */
++#endif
+ 	CURSOR_LINE_PER_CHUNK_2 = 1,
+ 	CURSOR_LINE_PER_CHUNK_4,
+ 	CURSOR_LINE_PER_CHUNK_8,
+@@ -132,6 +135,28 @@ struct hubp_funcs {
+ 	unsigned int (*hubp_get_underflow_status)(struct hubp *hubp);
+ 	void (*hubp_init)(struct hubp *hubp);
+ 
++#if defined(CONFIG_DRM_AMD_DC_DCN2_0)
++	void (*dmdata_set_attributes)(
++			struct hubp *hubp,
++			const struct dc_dmdata_attributes *attr);
++
++	void (*dmdata_load)(
++			struct hubp *hubp,
++			uint32_t dmdata_sw_size,
++			const uint32_t *dmdata_sw_data);
++	bool (*dmdata_status_done)(struct hubp *hubp);
++	void(*hubp_enable_tripleBuffer)(
++		struct hubp *hubp,
++		bool enable);
++
++	bool(*hubp_is_triplebuffer_enabled)(
++		struct hubp *hubp);
++
++	void (*hubp_set_flip_control_surface_gsl)(
++		struct hubp *hubp,
++		bool enable);
++#endif
++
+ };
+ 
+ #endif
+-- 
+2.17.1
+

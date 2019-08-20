@@ -1,0 +1,215 @@
+From c6d1d1e32e49b1fb9fd441b129b0f72d255c7b49 Mon Sep 17 00:00:00 2001
+From: Jun Lei <Jun.Lei@amd.com>
+Date: Fri, 22 Feb 2019 16:50:00 -0500
+Subject: [PATCH 1597/2940] drm/amd/display: fix up reference clock
+ abstractions
+
+[why]
+"reference clock" is a very overloaded variable in DC and causes confusion
+as there are multiple sources of reference clock, which may be different values
+incorrect input values to DML will cause DCHUB to be programmed improperly
+and lead to hard to debug underflow issues
+
+[how]
+instead of using ref clock everywhere, specify WHICH ref clock:
+- xtalin
+- dccg refclk
+- dchub refclk
+
+these are all distinct values which may not be equal
+
+Signed-off-by: Jun Lei <Jun.Lei@amd.com>
+Reviewed-by: Yongqiang Sun <yongqiang.sun@amd.com>
+Acked-by: David Francis <David.Francis@amd.com>
+Acked-by: Leo Li <sunpeng.li@amd.com>
+---
+ .../gpu/drm/amd/display/dc/calcs/dcn_calcs.c  |  2 +-
+ .../gpu/drm/amd/display/dc/core/dc_resource.c | 25 ++++++++++++++++++-
+ .../display/dc/dce110/dce110_hw_sequencer.c   |  2 +-
+ .../amd/display/dc/dcn10/dcn10_hw_sequencer.c |  8 +++---
+ .../dc/dcn10/dcn10_hw_sequencer_debug.c       |  4 +--
+ .../gpu/drm/amd/display/dc/inc/core_types.h   |  6 ++++-
+ drivers/gpu/drm/amd/display/dc/inc/hw/dccg.h  |  3 +++
+ .../gpu/drm/amd/display/dc/inc/hw/dchubbub.h  |  4 +++
+ 8 files changed, 44 insertions(+), 10 deletions(-)
+
+diff --git a/drivers/gpu/drm/amd/display/dc/calcs/dcn_calcs.c b/drivers/gpu/drm/amd/display/dc/calcs/dcn_calcs.c
+index 43344dc85360..66e50bcdcc7c 100644
+--- a/drivers/gpu/drm/amd/display/dc/calcs/dcn_calcs.c
++++ b/drivers/gpu/drm/amd/display/dc/calcs/dcn_calcs.c
+@@ -466,7 +466,7 @@ static void dcn_bw_calc_rq_dlg_ttu(
+ 	input.clks_cfg.dcfclk_mhz = v->dcfclk;
+ 	input.clks_cfg.dispclk_mhz = v->dispclk;
+ 	input.clks_cfg.dppclk_mhz = v->dppclk;
+-	input.clks_cfg.refclk_mhz = dc->res_pool->ref_clock_inKhz / 1000.0;
++	input.clks_cfg.refclk_mhz = dc->res_pool->ref_clocks.dchub_ref_clock_inKhz / 1000.0;
+ 	input.clks_cfg.socclk_mhz = v->socclk;
+ 	input.clks_cfg.voltage = v->voltage_level;
+ //	dc->dml.logger = pool->base.logger;
+diff --git a/drivers/gpu/drm/amd/display/dc/core/dc_resource.c b/drivers/gpu/drm/amd/display/dc/core/dc_resource.c
+index 90c819017806..332d15597aa7 100644
+--- a/drivers/gpu/drm/amd/display/dc/core/dc_resource.c
++++ b/drivers/gpu/drm/amd/display/dc/core/dc_resource.c
+@@ -31,6 +31,8 @@
+ #include "opp.h"
+ #include "timing_generator.h"
+ #include "transform.h"
++#include "dccg.h"
++#include "dchubbub.h"
+ #include "dpp.h"
+ #include "core_types.h"
+ #include "set_mode_types.h"
+@@ -163,7 +165,28 @@ struct resource_pool *dc_create_resource_pool(
+ 
+ 		if (dc->ctx->dc_bios->funcs->get_firmware_info(
+ 				dc->ctx->dc_bios, &fw_info) == BP_RESULT_OK) {
+-				res_pool->ref_clock_inKhz = fw_info.pll_info.crystal_frequency;
++				res_pool->ref_clocks.xtalin_clock_inKhz = fw_info.pll_info.crystal_frequency;
++
++				if (IS_FPGA_MAXIMUS_DC(dc->ctx->dce_environment)) {
++					// On FPGA these dividers are currently not configured by GDB
++					res_pool->ref_clocks.dccg_ref_clock_inKhz = res_pool->ref_clocks.xtalin_clock_inKhz;
++					res_pool->ref_clocks.dchub_ref_clock_inKhz = res_pool->ref_clocks.xtalin_clock_inKhz;
++				} else if (res_pool->dccg && res_pool->hubbub) {
++					// If DCCG reference frequency cannot be determined (usually means not set to xtalin) then this is a critical error
++					// as this value must be known for DCHUB programming
++					(res_pool->dccg->funcs->get_dccg_ref_freq)(res_pool->dccg,
++							fw_info.pll_info.crystal_frequency,
++							&res_pool->ref_clocks.dccg_ref_clock_inKhz);
++
++					// Similarly, if DCHUB reference frequency cannot be determined, then it is also a critical error
++					(res_pool->hubbub->funcs->get_dchub_ref_freq)(res_pool->hubbub,
++							res_pool->ref_clocks.dccg_ref_clock_inKhz,
++							&res_pool->ref_clocks.dchub_ref_clock_inKhz);
++				} else {
++					// Not all ASICs have DCCG sw component
++					res_pool->ref_clocks.dccg_ref_clock_inKhz = res_pool->ref_clocks.xtalin_clock_inKhz;
++					res_pool->ref_clocks.dchub_ref_clock_inKhz = res_pool->ref_clocks.xtalin_clock_inKhz;
++				}
+ 			} else
+ 				ASSERT_CRITICAL(false);
+ 	}
+diff --git a/drivers/gpu/drm/amd/display/dc/dce110/dce110_hw_sequencer.c b/drivers/gpu/drm/amd/display/dc/dce110/dce110_hw_sequencer.c
+index c16376a3b788..f42721482d8c 100644
+--- a/drivers/gpu/drm/amd/display/dc/dce110/dce110_hw_sequencer.c
++++ b/drivers/gpu/drm/amd/display/dc/dce110/dce110_hw_sequencer.c
+@@ -2635,7 +2635,7 @@ void dce110_set_cursor_position(struct pipe_ctx *pipe_ctx)
+ 	struct mem_input *mi = pipe_ctx->plane_res.mi;
+ 	struct dc_cursor_mi_param param = {
+ 		.pixel_clk_khz = pipe_ctx->stream->timing.pix_clk_100hz / 10,
+-		.ref_clk_khz = pipe_ctx->stream->ctx->dc->res_pool->ref_clock_inKhz,
++		.ref_clk_khz = pipe_ctx->stream->ctx->dc->res_pool->ref_clocks.xtalin_clock_inKhz,
+ 		.viewport = pipe_ctx->plane_res.scl_data.viewport,
+ 		.h_scale_ratio = pipe_ctx->plane_res.scl_data.ratios.horz,
+ 		.v_scale_ratio = pipe_ctx->plane_res.scl_data.ratios.vert,
+diff --git a/drivers/gpu/drm/amd/display/dc/dcn10/dcn10_hw_sequencer.c b/drivers/gpu/drm/amd/display/dc/dcn10/dcn10_hw_sequencer.c
+index e51c5041968c..d0014ab16a06 100644
+--- a/drivers/gpu/drm/amd/display/dc/dcn10/dcn10_hw_sequencer.c
++++ b/drivers/gpu/drm/amd/display/dc/dcn10/dcn10_hw_sequencer.c
+@@ -65,7 +65,7 @@ void print_microsec(struct dc_context *dc_ctx,
+ 	struct dc_log_buffer_ctx *log_ctx,
+ 	uint32_t ref_cycle)
+ {
+-	const uint32_t ref_clk_mhz = dc_ctx->dc->res_pool->ref_clock_inKhz / 1000;
++	const uint32_t ref_clk_mhz = dc_ctx->dc->res_pool->ref_clocks.dchub_ref_clock_inKhz / 1000;
+ 	static const unsigned int frac = 1000;
+ 	uint32_t us_x10 = (ref_cycle * frac) / ref_clk_mhz;
+ 
+@@ -2452,7 +2452,7 @@ static void dcn10_prepare_bandwidth(
+ 
+ 	hubbub1_program_watermarks(dc->res_pool->hubbub,
+ 			&context->bw.dcn.watermarks,
+-			dc->res_pool->ref_clock_inKhz / 1000,
++			dc->res_pool->ref_clocks.dchub_ref_clock_inKhz / 1000,
+ 			true);
+ 	dcn10_stereo_hw_frame_pack_wa(dc, context);
+ 
+@@ -2482,7 +2482,7 @@ static void dcn10_optimize_bandwidth(
+ 
+ 	hubbub1_program_watermarks(dc->res_pool->hubbub,
+ 			&context->bw.dcn.watermarks,
+-			dc->res_pool->ref_clock_inKhz / 1000,
++			dc->res_pool->ref_clocks.dchub_ref_clock_inKhz / 1000,
+ 			true);
+ 	dcn10_stereo_hw_frame_pack_wa(dc, context);
+ 
+@@ -2702,7 +2702,7 @@ static void dcn10_set_cursor_position(struct pipe_ctx *pipe_ctx)
+ 	struct dpp *dpp = pipe_ctx->plane_res.dpp;
+ 	struct dc_cursor_mi_param param = {
+ 		.pixel_clk_khz = pipe_ctx->stream->timing.pix_clk_100hz / 10,
+-		.ref_clk_khz = pipe_ctx->stream->ctx->dc->res_pool->ref_clock_inKhz,
++		.ref_clk_khz = pipe_ctx->stream->ctx->dc->res_pool->ref_clocks.dchub_ref_clock_inKhz,
+ 		.viewport = pipe_ctx->plane_res.scl_data.viewport,
+ 		.h_scale_ratio = pipe_ctx->plane_res.scl_data.ratios.horz,
+ 		.v_scale_ratio = pipe_ctx->plane_res.scl_data.ratios.vert,
+diff --git a/drivers/gpu/drm/amd/display/dc/dcn10/dcn10_hw_sequencer_debug.c b/drivers/gpu/drm/amd/display/dc/dcn10/dcn10_hw_sequencer_debug.c
+index 98f41d250978..aa7a5163c40a 100644
+--- a/drivers/gpu/drm/amd/display/dc/dcn10/dcn10_hw_sequencer_debug.c
++++ b/drivers/gpu/drm/amd/display/dc/dcn10/dcn10_hw_sequencer_debug.c
+@@ -77,7 +77,7 @@ static unsigned int dcn10_get_hubbub_state(struct dc *dc, char *pBuf, unsigned i
+ 	unsigned int chars_printed = 0;
+ 	unsigned int remaining_buffer = bufSize;
+ 
+-	const uint32_t ref_clk_mhz = dc_ctx->dc->res_pool->ref_clock_inKhz / 1000;
++	const uint32_t ref_clk_mhz = dc_ctx->dc->res_pool->ref_clocks.dchub_ref_clock_inKhz / 1000;
+ 	static const unsigned int frac = 1000;
+ 
+ 	memset(&wm, 0, sizeof(struct dcn_hubbub_wm));
+@@ -115,7 +115,7 @@ static unsigned int dcn10_get_hubp_states(struct dc *dc, char *pBuf, unsigned in
+ 	unsigned int chars_printed = 0;
+ 	unsigned int remaining_buffer = bufSize;
+ 
+-	const uint32_t ref_clk_mhz = dc_ctx->dc->res_pool->ref_clock_inKhz / 1000;
++	const uint32_t ref_clk_mhz = dc_ctx->dc->res_pool->ref_clocks.dchub_ref_clock_inKhz / 1000;
+ 	static const unsigned int frac = 1000;
+ 
+ 	if (invarOnly)
+diff --git a/drivers/gpu/drm/amd/display/dc/inc/core_types.h b/drivers/gpu/drm/amd/display/dc/inc/core_types.h
+index e86dfb32b99d..e4f78eacd42f 100644
+--- a/drivers/gpu/drm/amd/display/dc/inc/core_types.h
++++ b/drivers/gpu/drm/amd/display/dc/inc/core_types.h
+@@ -155,7 +155,11 @@ struct resource_pool {
+ 	unsigned int underlay_pipe_index;
+ 	unsigned int stream_enc_count;
+ 
+-	unsigned int ref_clock_inKhz;
++	struct {
++		unsigned int xtalin_clock_inKhz;
++		unsigned int dccg_ref_clock_inKhz;
++		unsigned int dchub_ref_clock_inKhz;
++	} ref_clocks;
+ 	unsigned int timing_generator_count;
+ 
+ 	/*
+diff --git a/drivers/gpu/drm/amd/display/dc/inc/hw/dccg.h b/drivers/gpu/drm/amd/display/dc/inc/hw/dccg.h
+index 95a56d012626..0ae6bf60a53c 100644
+--- a/drivers/gpu/drm/amd/display/dc/inc/hw/dccg.h
++++ b/drivers/gpu/drm/amd/display/dc/inc/hw/dccg.h
+@@ -39,6 +39,9 @@ struct dccg_funcs {
+ 	void (*update_dpp_dto)(struct dccg *dccg,
+ 			int dpp_inst,
+ 			int req_dppclk);
++	void (*get_dccg_ref_freq)(struct dccg *dccg,
++			unsigned int xtalin_freq_inKhz,
++			unsigned int *dccg_ref_freq_inKhz);
+ };
+ 
+ #endif //__DAL_DCCG_H__
+diff --git a/drivers/gpu/drm/amd/display/dc/inc/hw/dchubbub.h b/drivers/gpu/drm/amd/display/dc/inc/hw/dchubbub.h
+index 9d2d8e51306c..5e8fead3c09a 100644
+--- a/drivers/gpu/drm/amd/display/dc/inc/hw/dchubbub.h
++++ b/drivers/gpu/drm/amd/display/dc/inc/hw/dchubbub.h
+@@ -73,6 +73,10 @@ struct hubbub_funcs {
+ 
+ 	void (*wm_read_state)(struct hubbub *hubbub,
+ 			struct dcn_hubbub_wm *wm);
++
++	void (*get_dchub_ref_freq)(struct hubbub *hubbub,
++			unsigned int dccg_ref_freq_inKhz,
++			unsigned int *dchub_ref_freq_inKhz);
+ };
+ 
+ struct hubbub {
+-- 
+2.17.1
+

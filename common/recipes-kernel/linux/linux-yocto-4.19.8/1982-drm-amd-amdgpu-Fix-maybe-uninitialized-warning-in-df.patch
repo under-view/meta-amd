@@ -1,0 +1,36 @@
+From 5a5bedf2dfaa554c2e49c6cdae8157581baeb9a6 Mon Sep 17 00:00:00 2001
+From: Bhawanpreet Lakha <Bhawanpreet.Lakha@amd.com>
+Date: Wed, 15 May 2019 16:19:18 -0400
+Subject: [PATCH 1982/2940] drm/amd/amdgpu: Fix maybe-uninitialized warning in
+ df_v3_6_pmc_start
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+This fixes the warning below
+
+error: ‘ret’ may be used uninitialized in this function [-Werror=maybe-uninitialized]
+  int xgmi_tx_link, ret;
+                    ^~~
+Signed-off-by: Bhawanpreet Lakha <Bhawanpreet.Lakha@amd.com>
+Reviewed-by: Alex Deucher <alexander.deucher@amd.com>
+---
+ drivers/gpu/drm/amd/amdgpu/df_v3_6.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/drivers/gpu/drm/amd/amdgpu/df_v3_6.c b/drivers/gpu/drm/amd/amdgpu/df_v3_6.c
+index c419ed9d1a82..76eb46395ab0 100644
+--- a/drivers/gpu/drm/amd/amdgpu/df_v3_6.c
++++ b/drivers/gpu/drm/amd/amdgpu/df_v3_6.c
+@@ -456,7 +456,7 @@ static int df_v3_6_stop_xgmi_link_cntr(struct amdgpu_device *adev,
+ static int df_v3_6_pmc_start(struct amdgpu_device *adev, uint64_t config,
+ 			     int is_enable)
+ {
+-	int xgmi_tx_link, ret;
++	int xgmi_tx_link, ret = 0;
+ 
+ 	switch (adev->asic_type) {
+ 	case CHIP_VEGA20:
+-- 
+2.17.1
+

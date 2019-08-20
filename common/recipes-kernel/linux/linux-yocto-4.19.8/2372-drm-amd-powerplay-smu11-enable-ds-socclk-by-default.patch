@@ -1,0 +1,29 @@
+From 0ad1c402c43710230f4a3bcc24db99ea74f6b816 Mon Sep 17 00:00:00 2001
+From: Tao Zhou <tao.zhou1@amd.com>
+Date: Mon, 13 May 2019 16:56:17 +0800
+Subject: [PATCH 2372/2940] drm/amd/powerplay/smu11: enable ds socclk by
+ default
+
+Signed-off-by: Tao Zhou <tao.zhou1@amd.com>
+Acked-by: Alex Deucher <alexander.deucher@amd.com>
+Reviewed-by: Kevin Wang <kevin1.wang@amd.com>
+Signed-off-by: Alex Deucher <alexander.deucher@amd.com>
+---
+ drivers/gpu/drm/amd/powerplay/navi10_ppt.c | 1 +
+ 1 file changed, 1 insertion(+)
+
+diff --git a/drivers/gpu/drm/amd/powerplay/navi10_ppt.c b/drivers/gpu/drm/amd/powerplay/navi10_ppt.c
+index 5f697ed3796b..f1f920234dbd 100644
+--- a/drivers/gpu/drm/amd/powerplay/navi10_ppt.c
++++ b/drivers/gpu/drm/amd/powerplay/navi10_ppt.c
+@@ -299,6 +299,7 @@ navi10_get_allowed_feature_mask(struct smu_context *smu,
+ 				| FEATURE_MASK(FEATURE_DPM_LINK_BIT)
+ 				| FEATURE_MASK(FEATURE_GFX_ULV_BIT)
+ 				| FEATURE_MASK(FEATURE_RSMU_SMN_CG_BIT)
++				| FEATURE_MASK(FEATURE_DS_SOCCLK_BIT)
+ 				| FEATURE_MASK(FEATURE_PPT_BIT)
+ 				| FEATURE_MASK(FEATURE_TDC_BIT)
+ 				| FEATURE_MASK(FEATURE_GFX_EDC_BIT)
+-- 
+2.17.1
+

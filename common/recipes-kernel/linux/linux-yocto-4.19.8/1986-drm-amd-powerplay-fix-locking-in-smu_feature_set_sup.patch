@@ -1,0 +1,32 @@
+From 7d47377d66ceeb298bc7451b6ea9d41053b4b62f Mon Sep 17 00:00:00 2001
+From: Dan Carpenter <dan.carpenter@oracle.com>
+Date: Wed, 15 May 2019 12:51:30 +0300
+Subject: [PATCH 1986/2940] drm/amd/powerplay: fix locking in
+ smu_feature_set_supported()
+
+There is a typo so the code unlocks twice instead of taking the lock and
+then releasing it.
+
+Fixes: f14a323db5b0 ("drm/amd/powerplay: implement update enabled feature state to smc for smu11")
+Signed-off-by: Dan Carpenter <dan.carpenter@oracle.com>
+Reviewed-by: Huang Rui <ray.huang@amd.com>
+---
+ drivers/gpu/drm/amd/powerplay/amdgpu_smu.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/drivers/gpu/drm/amd/powerplay/amdgpu_smu.c b/drivers/gpu/drm/amd/powerplay/amdgpu_smu.c
+index 3a47130f8150..faccd06f02ae 100644
+--- a/drivers/gpu/drm/amd/powerplay/amdgpu_smu.c
++++ b/drivers/gpu/drm/amd/powerplay/amdgpu_smu.c
+@@ -314,7 +314,7 @@ int smu_feature_set_supported(struct smu_context *smu, int feature_id,
+ 
+ 	WARN_ON(feature_id > feature->feature_num);
+ 
+-	mutex_unlock(&feature->mutex);
++	mutex_lock(&feature->mutex);
+ 	if (enable)
+ 		test_and_set_bit(feature_id, feature->supported);
+ 	else
+-- 
+2.17.1
+

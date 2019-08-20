@@ -1,0 +1,40 @@
+From 9e193e7d505ecab080b9937bd48db1afdc1e96fd Mon Sep 17 00:00:00 2001
+From: Jack Xiao <Jack.Xiao@amd.com>
+Date: Fri, 12 Apr 2019 19:11:18 +0800
+Subject: [PATCH 2327/2940] drm/amdgpu/mes10.1: implement ucode buffers
+ destruction
+
+Free ucode GPU buffers.
+
+Signed-off-by: Jack Xiao <Jack.Xiao@amd.com>
+Reviewed-by: Hawking Zhang <Hawking.Zhang@amd.com>
+Signed-off-by: Alex Deucher <alexander.deucher@amd.com>
+---
+ drivers/gpu/drm/amd/amdgpu/mes_v10_1.c | 11 +++++++++++
+ 1 file changed, 11 insertions(+)
+
+diff --git a/drivers/gpu/drm/amd/amdgpu/mes_v10_1.c b/drivers/gpu/drm/amd/amdgpu/mes_v10_1.c
+index 764967b20c40..edf1fbc1d02d 100644
+--- a/drivers/gpu/drm/amd/amdgpu/mes_v10_1.c
++++ b/drivers/gpu/drm/amd/amdgpu/mes_v10_1.c
+@@ -169,6 +169,17 @@ static int mes_v10_1_allocate_ucode_data_buffer(struct amdgpu_device *adev)
+ 	return 0;
+ }
+ 
++static void mes_v10_1_free_ucode_buffers(struct amdgpu_device *adev)
++{
++	amdgpu_bo_free_kernel(&adev->mes.data_fw_obj,
++			      &adev->mes.data_fw_gpu_addr,
++			      (void **)&adev->mes.data_fw_ptr);
++
++	amdgpu_bo_free_kernel(&adev->mes.ucode_fw_obj,
++			      &adev->mes.ucode_fw_gpu_addr,
++			      (void **)&adev->mes.ucode_fw_ptr);
++}
++
+ static int mes_v10_1_sw_init(void *handle)
+ {
+ 	return 0;
+-- 
+2.17.1
+

@@ -1,0 +1,28 @@
+From 9cad6fb38e2e5b76e216bb2fe12e6ea83c6b3e3b Mon Sep 17 00:00:00 2001
+From: Alex Deucher <alexander.deucher@amd.com>
+Date: Tue, 6 Nov 2018 15:10:37 -0500
+Subject: [PATCH 0771/2940] drm/amdgpu/display/dc: add FBC to dc_config
+
+Add FBC to the list of features that can be enabled from the DM.
+
+Reviewed-by: Harry Wentland <harry.wentland@amd.com>
+Signed-off-by: Alex Deucher <alexander.deucher@amd.com>
+---
+ drivers/gpu/drm/amd/display/dc/dc.h | 1 +
+ 1 file changed, 1 insertion(+)
+
+diff --git a/drivers/gpu/drm/amd/display/dc/dc.h b/drivers/gpu/drm/amd/display/dc/dc.h
+index d3d6b0cc858a..0b9c997fadcf 100644
+--- a/drivers/gpu/drm/amd/display/dc/dc.h
++++ b/drivers/gpu/drm/amd/display/dc/dc.h
+@@ -169,6 +169,7 @@ struct link_training_settings;
+ struct dc_config {
+ 	bool gpu_vm_support;
+ 	bool disable_disp_pll_sharing;
++	bool fbc_support;
+ };
+ 
+ enum visual_confirm {
+-- 
+2.17.1
+

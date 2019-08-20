@@ -1,0 +1,45 @@
+From e0a09dd1166edf8e7f9fee1c480321bce8ddfaf6 Mon Sep 17 00:00:00 2001
+From: Hawking Zhang <Hawking.Zhang@amd.com>
+Date: Thu, 13 Dec 2018 01:23:56 +0800
+Subject: [PATCH 2206/2940] drm/amdgpu/psp: initialize autoload_supported flag
+ in psp_sw_init
+
+RLC autoload is supported since from Navi10
+
+Signed-off-by: Hawking Zhang <Hawking.Zhang@amd.com>
+Acked-by: Alex Deucher <alexander.deucher@amd.com>
+Reviewed-by: Jack Xiao <Jack.Xiao@amd.com>
+Reviewed-by: Le Ma <Le.Ma@amd.com>
+Signed-off-by: Alex Deucher <alexander.deucher@amd.com>
+---
+ drivers/gpu/drm/amd/amdgpu/amdgpu_psp.c | 6 ++++++
+ 1 file changed, 6 insertions(+)
+
+diff --git a/drivers/gpu/drm/amd/amdgpu/amdgpu_psp.c b/drivers/gpu/drm/amd/amdgpu/amdgpu_psp.c
+index a6eee2f94f08..73f44e0fca6a 100644
+--- a/drivers/gpu/drm/amd/amdgpu/amdgpu_psp.c
++++ b/drivers/gpu/drm/amd/amdgpu/amdgpu_psp.c
+@@ -46,14 +46,20 @@ static int psp_early_init(void *handle)
+ 	case CHIP_VEGA10:
+ 	case CHIP_VEGA12:
+ 		psp_v3_1_set_psp_funcs(psp);
++		psp->autoload_supported = false;
+ 		break;
+ 	case CHIP_RAVEN:
+ 	case CHIP_PICASSO:
+ 		psp_v10_0_set_psp_funcs(psp);
++		psp->autoload_supported = false;
+ 		break;
+ 	case CHIP_VEGA20:
++		psp_v11_0_set_psp_funcs(psp);
++		psp->autoload_supported = false;
++		break;
+ 	case CHIP_NAVI10:
+ 		psp_v11_0_set_psp_funcs(psp);
++		psp->autoload_supported = true;
+ 		break;
+ 	default:
+ 		return -EINVAL;
+-- 
+2.17.1
+

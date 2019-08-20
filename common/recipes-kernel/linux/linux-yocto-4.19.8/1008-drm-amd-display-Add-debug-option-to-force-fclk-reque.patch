@@ -1,0 +1,59 @@
+From 393bc9a42fe47f1f03aab0fa6dd2a21425136900 Mon Sep 17 00:00:00 2001
+From: Hugo Hu <hugo.hu@amd.com>
+Date: Wed, 21 Nov 2018 14:34:10 +0800
+Subject: [PATCH 1008/2940] drm/amd/display: Add debug option to force fclk
+ request
+
+[Why]
+So that we can adjust fclk for debugging purposes.
+
+[How]
+Add option to force adjust fclk request to pplib.
+
+Signed-off-by: Hugo Hu <hugo.hu@amd.com>
+Reviewed-by: Tony Cheng <Tony.Cheng@amd.com>
+Acked-by: Leo Li <sunpeng.li@amd.com>
+Signed-off-by: Alex Deucher <alexander.deucher@amd.com>
+Signed-off-by: Chaudhary Amit Kumar <Chaudharyamit.Kumar@amd.com>
+---
+ drivers/gpu/drm/amd/display/dc/dc.h                  | 1 +
+ drivers/gpu/drm/amd/display/dc/dcn10/dcn10_clk_mgr.c | 4 ++++
+ 2 files changed, 5 insertions(+)
+
+diff --git a/drivers/gpu/drm/amd/display/dc/dc.h b/drivers/gpu/drm/amd/display/dc/dc.h
+index d0d67d4429f7..61481e4e5144 100644
+--- a/drivers/gpu/drm/amd/display/dc/dc.h
++++ b/drivers/gpu/drm/amd/display/dc/dc.h
+@@ -255,6 +255,7 @@ struct dc_debug_options {
+ 	bool scl_reset_length10;
+ 	bool hdmi20_disable;
+ 	bool skip_detection_link_training;
++	unsigned int force_fclk_khz;
+ };
+ 
+ struct dc_debug_data {
+diff --git a/drivers/gpu/drm/amd/display/dc/dcn10/dcn10_clk_mgr.c b/drivers/gpu/drm/amd/display/dc/dcn10/dcn10_clk_mgr.c
+index da2703354b8d..d4824a1b327b 100644
+--- a/drivers/gpu/drm/amd/display/dc/dcn10/dcn10_clk_mgr.c
++++ b/drivers/gpu/drm/amd/display/dc/dcn10/dcn10_clk_mgr.c
+@@ -200,6 +200,7 @@ static void dcn1_update_clocks(struct clk_mgr *clk_mgr,
+ 			bool safe_to_lower)
+ {
+ 	struct dc *dc = clk_mgr->ctx->dc;
++	struct dc_debug_options *debug = &dc->debug;
+ 	struct dc_clocks *new_clocks = &context->bw.dcn.clk;
+ 	struct pp_smu_display_requirement_rv *smu_req_cur =
+ 			&dc->res_pool->pp_smu_req;
+@@ -243,6 +244,9 @@ static void dcn1_update_clocks(struct clk_mgr *clk_mgr,
+ 	}
+ 
+ 	// F Clock
++	if (debug->force_fclk_khz != 0)
++		new_clocks->fclk_khz = debug->force_fclk_khz;
++
+ 	if (should_set_clock(safe_to_lower, new_clocks->fclk_khz, clk_mgr->clks.fclk_khz)) {
+ 		clk_mgr->clks.fclk_khz = new_clocks->fclk_khz;
+ 		smu_req.hard_min_fclk_khz = new_clocks->fclk_khz;
+-- 
+2.17.1
+

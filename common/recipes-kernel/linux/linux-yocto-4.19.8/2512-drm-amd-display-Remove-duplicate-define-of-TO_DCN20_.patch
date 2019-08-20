@@ -1,0 +1,32 @@
+From 9f86018318ecc8354e36230b450a63e6133bced4 Mon Sep 17 00:00:00 2001
+From: Yongqiang Sun <yongqiang.sun@amd.com>
+Date: Thu, 4 Apr 2019 16:10:20 -0400
+Subject: [PATCH 2512/2940] drm/amd/display: Remove duplicate define of
+ TO_DCN20_HUBBUB
+
+Signed-off-by: Yongqiang Sun <yongqiang.sun@amd.com>
+Reviewed-by: Tony Cheng <Tony.Cheng@amd.com>
+Acked-by: Leo Li <sunpeng.li@amd.com>
+Acked-by: Hawking Zhang <Hawking.Zhang@amd.com>
+Signed-off-by: Alex Deucher <alexander.deucher@amd.com>
+---
+ drivers/gpu/drm/amd/display/dc/dcn20/dcn20_hubbub.h | 3 ---
+ 1 file changed, 3 deletions(-)
+
+diff --git a/drivers/gpu/drm/amd/display/dc/dcn20/dcn20_hubbub.h b/drivers/gpu/drm/amd/display/dc/dcn20/dcn20_hubbub.h
+index 63d51ab57103..cdd19f5887d7 100644
+--- a/drivers/gpu/drm/amd/display/dc/dcn20/dcn20_hubbub.h
++++ b/drivers/gpu/drm/amd/display/dc/dcn20/dcn20_hubbub.h
+@@ -29,9 +29,6 @@
+ #include "dcn10/dcn10_hubbub.h"
+ #include "dcn20_vmid.h"
+ 
+-#define TO_DCN20_HUBBUB(hubbub)\
+-	container_of(hubbub, struct dcn20_hubbub, base)
+-
+ #define TO_DCN20_HUBBUB(hubbub)\
+ 	container_of(hubbub, struct dcn20_hubbub, base)
+ 
+-- 
+2.17.1
+

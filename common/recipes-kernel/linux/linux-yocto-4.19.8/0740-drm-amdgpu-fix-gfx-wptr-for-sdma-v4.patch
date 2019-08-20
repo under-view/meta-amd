@@ -1,0 +1,46 @@
+From 59189d534fb52a6b786d71130e39bf5648c8d37d Mon Sep 17 00:00:00 2001
+From: Junwei Zhang <Jerry.Zhang@amd.com>
+Date: Wed, 31 Oct 2018 10:36:34 +0800
+Subject: [PATCH 0740/2940] drm/amdgpu: fix gfx wptr for sdma v4
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+The wptr value will be shitfed when function returns.
+Remove the redundant shift and clean up.
+
+Signed-off-by: Junwei Zhang <Jerry.Zhang@amd.com>
+Reviewed-by: Christian König <christian.koenig@amd.com>
+Signed-off-by: Alex Deucher <alexander.deucher@amd.com>
+---
+ drivers/gpu/drm/amd/amdgpu/sdma_v4_0.c | 13 ++++---------
+ 1 file changed, 4 insertions(+), 9 deletions(-)
+
+diff --git a/drivers/gpu/drm/amd/amdgpu/sdma_v4_0.c b/drivers/gpu/drm/amd/amdgpu/sdma_v4_0.c
+index ec1b2f3ec01e..7f9a501c919d 100644
+--- a/drivers/gpu/drm/amd/amdgpu/sdma_v4_0.c
++++ b/drivers/gpu/drm/amd/amdgpu/sdma_v4_0.c
+@@ -372,16 +372,11 @@ static uint64_t sdma_v4_0_ring_get_wptr(struct amdgpu_ring *ring)
+ 		wptr = READ_ONCE(*((u64 *)&adev->wb.wb[ring->wptr_offs]));
+ 		DRM_DEBUG("wptr/doorbell before shift == 0x%016llx\n", wptr);
+ 	} else {
+-		u32 lowbit, highbit;
+-
+-		lowbit = RREG32_SDMA(ring->me, mmSDMA0_GFX_RB_WPTR) >> 2;
+-		highbit = RREG32_SDMA(ring->me, mmSDMA0_GFX_RB_WPTR_HI) >> 2;
+-
+-		DRM_DEBUG("wptr [%i]high== 0x%08x low==0x%08x\n",
+-				ring->me, highbit, lowbit);
+-		wptr = highbit;
++		wptr = RREG32_SDMA(ring->me, mmSDMA0_GFX_RB_WPTR_HI);
+ 		wptr = wptr << 32;
+-		wptr |= lowbit;
++		wptr |= RREG32_SDMA(ring->me, mmSDMA0_GFX_RB_WPTR);
++		DRM_DEBUG("wptr before shift [%i] wptr == 0x%016llx\n",
++				ring->me, wptr);
+ 	}
+ 
+ 	return wptr >> 2;
+-- 
+2.17.1
+

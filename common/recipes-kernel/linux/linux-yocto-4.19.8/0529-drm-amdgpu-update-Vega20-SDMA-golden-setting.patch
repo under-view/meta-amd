@@ -1,0 +1,37 @@
+From f8f933b9387a4caaf6d9f4da95b2d0766ee992e1 Mon Sep 17 00:00:00 2001
+From: Evan Quan <evan.quan@amd.com>
+Date: Fri, 12 Oct 2018 09:37:29 +0800
+Subject: [PATCH 0529/2940] drm/amdgpu: update Vega20 SDMA golden setting
+
+Update SDMA golden settings.
+
+Change-Id: Icffa86e1a2c057466e1280fb195070c769d51eab
+Signed-off-by: Evan Quan <evan.quan@amd.com>
+Reviewed-by: Feifei Xu <Feifei.Xu@amd.com>
+---
+ drivers/gpu/drm/amd/amdgpu/sdma_v4_0.c | 2 ++
+ 1 file changed, 2 insertions(+)
+
+diff --git a/drivers/gpu/drm/amd/amdgpu/sdma_v4_0.c b/drivers/gpu/drm/amd/amdgpu/sdma_v4_0.c
+index c20d413f277c..04fa3d972636 100644
+--- a/drivers/gpu/drm/amd/amdgpu/sdma_v4_0.c
++++ b/drivers/gpu/drm/amd/amdgpu/sdma_v4_0.c
+@@ -148,6 +148,7 @@ static const struct soc15_reg_golden golden_settings_sdma0_4_2[] =
+ 	SOC15_REG_GOLDEN_VALUE(SDMA0, 0, mmSDMA0_RLC7_RB_RPTR_ADDR_LO, 0xfffffffd, 0x00000001),
+ 	SOC15_REG_GOLDEN_VALUE(SDMA0, 0, mmSDMA0_RLC7_RB_WPTR_POLL_CNTL, 0xfffffff7, 0x00403000),
+ 	SOC15_REG_GOLDEN_VALUE(SDMA0, 0, mmSDMA0_UTCL1_PAGE, 0x000003ff, 0x000003c0),
++	SOC15_REG_GOLDEN_VALUE(SDMA0, 0, mmSDMA0_UTCL1_WATERMK, 0xFE000000, 0x00000000),
+ };
+ 
+ static const struct soc15_reg_golden golden_settings_sdma1_4_2[] = {
+@@ -177,6 +178,7 @@ static const struct soc15_reg_golden golden_settings_sdma1_4_2[] = {
+ 	SOC15_REG_GOLDEN_VALUE(SDMA1, 0, mmSDMA1_RLC7_RB_RPTR_ADDR_LO, 0xfffffffd, 0x00000001),
+ 	SOC15_REG_GOLDEN_VALUE(SDMA1, 0, mmSDMA1_RLC7_RB_WPTR_POLL_CNTL, 0xfffffff7, 0x00403000),
+ 	SOC15_REG_GOLDEN_VALUE(SDMA1, 0, mmSDMA1_UTCL1_PAGE, 0x000003ff, 0x000003c0),
++	SOC15_REG_GOLDEN_VALUE(SDMA1, 0, mmSDMA1_UTCL1_WATERMK, 0xFE000000, 0x00000000),
+ };
+ 
+ static const struct soc15_reg_golden golden_settings_sdma_rv1[] =
+-- 
+2.17.1
+

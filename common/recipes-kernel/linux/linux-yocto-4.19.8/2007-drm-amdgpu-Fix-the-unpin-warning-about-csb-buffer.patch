@@ -1,0 +1,36 @@
+From d94cad351578738b7be72ad951425cc228545718 Mon Sep 17 00:00:00 2001
+From: Emily Deng <Emily.Deng@amd.com>
+Date: Wed, 29 May 2019 16:15:52 +0800
+Subject: [PATCH 2007/2940] drm/amdgpu:Fix the unpin warning about csb buffer
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+As it will destroy clear_state_obj, and also will unpin it in the
+gfx_v9_0_sw_fini, so don't need to
+call amdgpu_bo_free_kernel in gfx_v9_0_sw_fini, or it will have unpin warning.
+
+Signed-off-by: Emily Deng <Emily.Deng@amd.com>
+Reviewed-by: Christian König <christian.koenig@amd.com>
+---
+ drivers/gpu/drm/amd/amdgpu/gfx_v9_0.c | 4 +---
+ 1 file changed, 1 insertion(+), 3 deletions(-)
+
+diff --git a/drivers/gpu/drm/amd/amdgpu/gfx_v9_0.c b/drivers/gpu/drm/amd/amdgpu/gfx_v9_0.c
+index ab201dc67aa5..19adde732c25 100644
+--- a/drivers/gpu/drm/amd/amdgpu/gfx_v9_0.c
++++ b/drivers/gpu/drm/amd/amdgpu/gfx_v9_0.c
+@@ -1794,9 +1794,7 @@ static int gfx_v9_0_sw_fini(void *handle)
+ 
+ 	gfx_v9_0_mec_fini(adev);
+ 	gfx_v9_0_ngg_fini(adev);
+-	amdgpu_bo_free_kernel(&adev->gfx.rlc.clear_state_obj,
+-				&adev->gfx.rlc.clear_state_gpu_addr,
+-				(void **)&adev->gfx.rlc.cs_ptr);
++	amdgpu_bo_unref(&adev->gfx.rlc.clear_state_obj);
+ 	if (adev->asic_type == CHIP_RAVEN) {
+ 		amdgpu_bo_free_kernel(&adev->gfx.rlc.cp_table_obj,
+ 				&adev->gfx.rlc.cp_table_gpu_addr,
+-- 
+2.17.1
+

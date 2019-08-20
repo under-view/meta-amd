@@ -1,0 +1,86 @@
+From 40b928d7b6a1623d9685bcbde297dbb98036ba30 Mon Sep 17 00:00:00 2001
+From: Nicholas Kazlauskas <nicholas.kazlauskas@amd.com>
+Date: Wed, 13 Mar 2019 12:35:20 -0400
+Subject: [PATCH 1628/2940] drm/amd/display: Respect DRM framebuffer info for
+ video surfaces
+
+[Why]
+Incorrect hardcoded assumptions are made regarding luma and chroma
+alignment. The actual values set for the DRM framebuffer should be used
+when programming the address.
+
+[How]
+Respect the given pitch for both luma and chroma planes - it's not like
+we can force the alignment to anything else at this point anyway.
+
+Use the FB offset for the chroma planes directly. DRM already
+provides this to us so there's no need to calculate it manually.
+
+While we don't actually use the chroma surface size parameters on Raven,
+these should have technically been fb->width / 2 and fb->height / 2
+since the chroma plane is half size of the luma plane for NV12.
+
+Leave a TODO indicating that those should be set based on the actual
+surface format instead since this is only correct for YUV420 formats.
+
+Signed-off-by: Nicholas Kazlauskas <nicholas.kazlauskas@amd.com>
+Reviewed-by: Harry Wentland <harry.wentland@amd.com>
+---
+ .../gpu/drm/amd/display/amdgpu_dm/amdgpu_dm.c | 21 +++++++++----------
+ 1 file changed, 10 insertions(+), 11 deletions(-)
+
+diff --git a/drivers/gpu/drm/amd/display/amdgpu_dm/amdgpu_dm.c b/drivers/gpu/drm/amd/display/amdgpu_dm/amdgpu_dm.c
+index 5922eedc7a98..b071b41fdc8a 100644
+--- a/drivers/gpu/drm/amd/display/amdgpu_dm/amdgpu_dm.c
++++ b/drivers/gpu/drm/amd/display/amdgpu_dm/amdgpu_dm.c
+@@ -2484,8 +2484,7 @@ fill_plane_tiling_attributes(struct amdgpu_device *adev,
+ 		address->grph.addr.high_part = upper_32_bits(afb->address);
+ 	} else {
+ 		const struct drm_framebuffer *fb = &afb->base;
+-		uint64_t awidth = ALIGN(fb->width, 64);
+-		uint64_t chroma_addr = afb->address + awidth * fb->height;
++		uint64_t chroma_addr = afb->address + fb->offsets[1];
+ 
+ 		address->type = PLN_ADDR_TYPE_VIDEO_PROGRESSIVE;
+ 		address->video_progressive.luma_addr.low_part =
+@@ -2561,7 +2560,6 @@ static int fill_plane_attributes_from_fb(struct amdgpu_device *adev,
+ 					 const struct amdgpu_framebuffer *amdgpu_fb)
+ {
+ 	uint64_t tiling_flags;
+-	unsigned int awidth;
+ 	const struct drm_framebuffer *fb = &amdgpu_fb->base;
+ 	int ret = 0;
+ 	struct drm_format_name_buf format_name;
+@@ -2621,20 +2619,21 @@ static int fill_plane_attributes_from_fb(struct amdgpu_device *adev,
+ 		plane_state->color_space = COLOR_SPACE_SRGB;
+ 
+ 	} else {
+-		awidth = ALIGN(fb->width, 64);
+-
+ 		plane_state->plane_size.video.luma_size.x = 0;
+ 		plane_state->plane_size.video.luma_size.y = 0;
+-		plane_state->plane_size.video.luma_size.width = awidth;
++		plane_state->plane_size.video.luma_size.width = fb->width;
+ 		plane_state->plane_size.video.luma_size.height = fb->height;
+-		/* TODO: unhardcode */
+-		plane_state->plane_size.video.luma_pitch = awidth;
++		plane_state->plane_size.video.luma_pitch =
++			fb->pitches[0] / fb->format->cpp[0];
+ 
+ 		plane_state->plane_size.video.chroma_size.x = 0;
+ 		plane_state->plane_size.video.chroma_size.y = 0;
+-		plane_state->plane_size.video.chroma_size.width = awidth;
+-		plane_state->plane_size.video.chroma_size.height = fb->height;
+-		plane_state->plane_size.video.chroma_pitch = awidth / 2;
++		/* TODO: set these based on surface format */
++		plane_state->plane_size.video.chroma_size.width = fb->width / 2;
++		plane_state->plane_size.video.chroma_size.height = fb->height / 2;
++
++		plane_state->plane_size.video.chroma_pitch =
++			fb->pitches[1] / fb->format->cpp[1];
+ 
+ 		/* TODO: unhardcode */
+ 		plane_state->color_space = COLOR_SPACE_YCBCR709;
+-- 
+2.17.1
+

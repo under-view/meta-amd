@@ -1,0 +1,51 @@
+From 6d3757536dfe5706f09c29c289b5c33062a77fa3 Mon Sep 17 00:00:00 2001
+From: Hawking Zhang <Hawking.Zhang@amd.com>
+Date: Mon, 4 Sep 2017 17:14:47 +0800
+Subject: [PATCH 2161/2940] drm/amdgpu/gfx10: new approach to load ce fw (v4)
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+gfx10 allows to only upload ce jumptable while save the whole
+ce image at gtt memory.
+
+v2: program CP_CE_IC_BASE_CNTL to default value
+v3: switch to use amdgpu_bo_create_reserved to create ce fw bo
+v4: split common code from gfx10 code
+
+Signed-off-by: Hawking Zhang <Hawking.Zhang@amd.com>
+Reviewed-by: Alex Deucher <alexander.deucher@amd.com>
+Acked-by: Huang Rui <ray.huang@amd.com>
+Reviewed-by: Evan Quan <evan.quan@amd.com>
+Acked-by: Christian König <christian.koenig@amd.com>
+Signed-off-by: Alex Deucher <alexander.deucher@amd.com>
+---
+ drivers/gpu/drm/amd/amdgpu/amdgpu_gfx.h | 7 +++++++
+ 1 file changed, 7 insertions(+)
+
+diff --git a/drivers/gpu/drm/amd/amdgpu/amdgpu_gfx.h b/drivers/gpu/drm/amd/amdgpu/amdgpu_gfx.h
+index 574550e9e9e8..85cb0e0755bb 100644
+--- a/drivers/gpu/drm/amd/amdgpu/amdgpu_gfx.h
++++ b/drivers/gpu/drm/amd/amdgpu/amdgpu_gfx.h
+@@ -201,11 +201,18 @@ struct amdgpu_pfp {
+ 	uint32_t			*pfp_fw_ptr;
+ };
+ 
++struct amdgpu_ce {
++	struct amdgpu_bo		*ce_fw_obj;
++	uint64_t			ce_fw_gpu_addr;
++	uint32_t			*ce_fw_ptr;
++};
++
+ struct amdgpu_gfx {
+ 	struct mutex			gpu_clock_mutex;
+ 	struct amdgpu_gfx_config	config;
+ 	struct amdgpu_rlc		rlc;
+ 	struct amdgpu_pfp		pfp;
++	struct amdgpu_ce		ce;
+ 	struct amdgpu_mec		mec;
+ 	struct amdgpu_kiq		kiq;
+ 	struct amdgpu_scratch		scratch;
+-- 
+2.17.1
+

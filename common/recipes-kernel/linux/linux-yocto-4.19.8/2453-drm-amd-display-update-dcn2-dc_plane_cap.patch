@@ -1,0 +1,48 @@
+From 56df3ad1e76afd4c0b2b3e0411e84ef3f5679007 Mon Sep 17 00:00:00 2001
+From: Alex Deucher <alexander.deucher@amd.com>
+Date: Mon, 22 Apr 2019 16:49:04 -0500
+Subject: [PATCH 2453/2940] drm/amd/display: update dcn2 dc_plane_cap
+
+To deal with rebasing the code.
+
+Signed-off-by: Alex Deucher <alexander.deucher@amd.com>
+---
+ .../drm/amd/display/dc/dcn20/dcn20_resource.c | 21 ++++++++++++++++---
+ 1 file changed, 18 insertions(+), 3 deletions(-)
+
+diff --git a/drivers/gpu/drm/amd/display/dc/dcn20/dcn20_resource.c b/drivers/gpu/drm/amd/display/dc/dcn20/dcn20_resource.c
+index 16be22a2091d..af4e2447a5da 100644
+--- a/drivers/gpu/drm/amd/display/dc/dcn20/dcn20_resource.c
++++ b/drivers/gpu/drm/amd/display/dc/dcn20/dcn20_resource.c
+@@ -601,10 +601,25 @@ static const struct dc_plane_cap plane_cap = {
+ 	.type = DC_PLANE_TYPE_DCN_UNIVERSAL,
+ 	.blends_with_above = true,
+ 	.blends_with_below = true,
+-	.supports_argb8888 = true,
+ 	.per_pixel_alpha = true,
+-	.supports_argb8888 = true,
+-	.supports_nv12 = true
++
++	.pixel_format_support = {
++			.argb8888 = true,
++			.nv12 = true,
++			.fp16 = true
++	},
++
++	.max_upscale_factor = {
++			.argb8888 = 16000,
++			.nv12 = 16000,
++			.fp16 = 1
++	},
++
++	.max_downscale_factor = {
++			.argb8888 = 250,
++			.nv12 = 250,
++			.fp16 = 1
++	}
+ };
+ 
+ static const struct dc_debug_options debug_defaults_drv = {
+-- 
+2.17.1
+

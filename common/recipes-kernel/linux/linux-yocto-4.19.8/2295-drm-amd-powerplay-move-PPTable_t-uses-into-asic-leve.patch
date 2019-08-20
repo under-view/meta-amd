@@ -1,0 +1,172 @@
+From 5c8dedaab935eac5b1f913badb8b2317d9fc9b32 Mon Sep 17 00:00:00 2001
+From: Huang Rui <ray.huang@amd.com>
+Date: Sun, 31 Mar 2019 13:25:04 +0800
+Subject: [PATCH 2295/2940] drm/amd/powerplay: move PPTable_t uses into asic
+ level
+
+This patch moves the rest of PPTable_t uses into asic level. It's to avoid the
+conflicts with different asic.
+
+Signed-off-by: Huang Rui <ray.huang@amd.com>
+Reviewed-by: Kevin Wang <kevin1.wang@amd.com>
+Reviewed-by: Alex Deucher <alexander.deucher@amd.com>
+Reviewed-by: Hawking Zhang <Hawking.Zhang@amd.com>
+Signed-off-by: Alex Deucher <alexander.deucher@amd.com>
+---
+ .../gpu/drm/amd/powerplay/inc/amdgpu_smu.h    |  7 +++--
+ drivers/gpu/drm/amd/powerplay/smu_v11_0.c     | 31 +------------------
+ drivers/gpu/drm/amd/powerplay/vega20_ppt.c    | 29 +++++++++++++++++
+ 3 files changed, 35 insertions(+), 32 deletions(-)
+
+diff --git a/drivers/gpu/drm/amd/powerplay/inc/amdgpu_smu.h b/drivers/gpu/drm/amd/powerplay/inc/amdgpu_smu.h
+index 9be3e759e332..856846b6fd27 100644
+--- a/drivers/gpu/drm/amd/powerplay/inc/amdgpu_smu.h
++++ b/drivers/gpu/drm/amd/powerplay/inc/amdgpu_smu.h
+@@ -569,6 +569,8 @@ struct pptable_funcs {
+ 	int (*get_ppfeature_status)(struct smu_context *smu, char *buf);
+ 	bool (*is_dpm_running)(struct smu_context *smu);
+ 	void (*tables_init)(struct smu_context *smu, struct smu_table *tables);
++	int (*set_thermal_fan_table)(struct smu_context *smu);
++	int (*get_fan_speed_percent)(struct smu_context *smu, uint32_t *speed);
+ };
+ 
+ struct smu_funcs
+@@ -643,7 +645,6 @@ struct smu_funcs
+ 	int (*get_current_rpm)(struct smu_context *smu, uint32_t *speed);
+ 	uint32_t (*get_fan_control_mode)(struct smu_context *smu);
+ 	int (*set_fan_control_mode)(struct smu_context *smu, uint32_t mode);
+-	int (*get_fan_speed_percent)(struct smu_context *smu, uint32_t *speed);
+ 	int (*set_fan_speed_percent)(struct smu_context *smu, uint32_t speed);
+ 	int (*set_fan_speed_rpm)(struct smu_context *smu, uint32_t speed);
+ 	int (*set_xgmi_pstate)(struct smu_context *smu, uint32_t pstate);
+@@ -757,6 +758,8 @@ struct smu_funcs
+ 	((smu)->ppt_funcs->od_edit_dpm_table ? (smu)->ppt_funcs->od_edit_dpm_table((smu), (type), (input), (size)) : 0)
+ #define smu_tables_init(smu, tab) \
+ 	((smu)->ppt_funcs->tables_init ? (smu)->ppt_funcs->tables_init((smu), (tab)) : 0)
++#define smu_set_thermal_fan_table(smu) \
++	((smu)->ppt_funcs->set_thermal_fan_table ? (smu)->ppt_funcs->set_thermal_fan_table((smu)) : 0)
+ #define smu_start_thermal_control(smu) \
+ 	((smu)->funcs->start_thermal_control? (smu)->funcs->start_thermal_control((smu)) : 0)
+ #define smu_read_sensor(smu, sensor, data, size) \
+@@ -794,7 +797,7 @@ struct smu_funcs
+ #define smu_set_fan_control_mode(smu, value) \
+ 	((smu)->funcs->set_fan_control_mode ? (smu)->funcs->set_fan_control_mode((smu), (value)) : 0)
+ #define smu_get_fan_speed_percent(smu, speed) \
+-	((smu)->funcs->get_fan_speed_percent ? (smu)->funcs->get_fan_speed_percent((smu), (speed)) : 0)
++	((smu)->ppt_funcs->get_fan_speed_percent ? (smu)->ppt_funcs->get_fan_speed_percent((smu), (speed)) : 0)
+ #define smu_set_fan_speed_percent(smu, speed) \
+ 	((smu)->funcs->set_fan_speed_percent ? (smu)->funcs->set_fan_speed_percent((smu), (speed)) : 0)
+ 
+diff --git a/drivers/gpu/drm/amd/powerplay/smu_v11_0.c b/drivers/gpu/drm/amd/powerplay/smu_v11_0.c
+index e193f63879ac..1d5fdf9e4a86 100644
+--- a/drivers/gpu/drm/amd/powerplay/smu_v11_0.c
++++ b/drivers/gpu/drm/amd/powerplay/smu_v11_0.c
+@@ -1166,18 +1166,6 @@ static int smu_v11_0_enable_thermal_alert(struct smu_context *smu)
+ 	return 0;
+ }
+ 
+-static int smu_v11_0_set_thermal_fan_table(struct smu_context *smu)
+-{
+-	int ret;
+-	struct smu_table_context *table_context = &smu->smu_table;
+-	PPTable_t *pptable = table_context->driver_pptable;
+-
+-	ret = smu_send_smc_msg_with_param(smu, SMU_MSG_SetFanTemperatureTarget,
+-			(uint32_t)pptable->FanTargetTemperature);
+-
+-	return ret;
+-}
+-
+ static int smu_v11_0_start_thermal_control(struct smu_context *smu)
+ {
+ 	int ret = 0;
+@@ -1205,7 +1193,7 @@ static int smu_v11_0_start_thermal_control(struct smu_context *smu)
+ 		ret = smu_v11_0_enable_thermal_alert(smu);
+ 		if (ret)
+ 			return ret;
+-		ret = smu_v11_0_set_thermal_fan_table(smu);
++		ret = smu_set_thermal_fan_table(smu);
+ 		if (ret)
+ 			return ret;
+ 	}
+@@ -1741,22 +1729,6 @@ smu_v11_0_get_fan_control_mode(struct smu_context *smu)
+ 		return AMD_FAN_CTRL_AUTO;
+ }
+ 
+-static int
+-smu_v11_0_get_fan_speed_percent(struct smu_context *smu,
+-					   uint32_t *speed)
+-{
+-	int ret = 0;
+-	uint32_t percent = 0;
+-	uint32_t current_rpm;
+-	PPTable_t *pptable = smu->smu_table.driver_pptable;
+-
+-	ret = smu_v11_0_get_current_rpm(smu, &current_rpm);
+-	percent = current_rpm * 100 / pptable->FanMaximumRpm;
+-	*speed = percent > 100 ? 100 : percent;
+-
+-	return ret;
+-}
+-
+ static int
+ smu_v11_0_smc_fan_control(struct smu_context *smu, bool start)
+ {
+@@ -1935,7 +1907,6 @@ static const struct smu_funcs smu_v11_0_funcs = {
+ 	.get_current_rpm = smu_v11_0_get_current_rpm,
+ 	.get_fan_control_mode = smu_v11_0_get_fan_control_mode,
+ 	.set_fan_control_mode = smu_v11_0_set_fan_control_mode,
+-	.get_fan_speed_percent = smu_v11_0_get_fan_speed_percent,
+ 	.set_fan_speed_percent = smu_v11_0_set_fan_speed_percent,
+ 	.set_fan_speed_rpm = smu_v11_0_set_fan_speed_rpm,
+ 	.set_xgmi_pstate = smu_v11_0_set_xgmi_pstate,
+diff --git a/drivers/gpu/drm/amd/powerplay/vega20_ppt.c b/drivers/gpu/drm/amd/powerplay/vega20_ppt.c
+index d71b682002bd..2367bcc45468 100644
+--- a/drivers/gpu/drm/amd/powerplay/vega20_ppt.c
++++ b/drivers/gpu/drm/amd/powerplay/vega20_ppt.c
+@@ -2960,6 +2960,33 @@ static bool vega20_is_dpm_running(struct smu_context *smu)
+ 	return !!(feature_enabled & SMC_DPM_FEATURE);
+ }
+ 
++static int vega20_set_thermal_fan_table(struct smu_context *smu)
++{
++	int ret;
++	struct smu_table_context *table_context = &smu->smu_table;
++	PPTable_t *pptable = table_context->driver_pptable;
++
++	ret = smu_send_smc_msg_with_param(smu, SMU_MSG_SetFanTemperatureTarget,
++			(uint32_t)pptable->FanTargetTemperature);
++
++	return ret;
++}
++
++static int vega20_get_fan_speed_percent(struct smu_context *smu,
++					uint32_t *speed)
++{
++	int ret = 0;
++	uint32_t percent = 0;
++	uint32_t current_rpm;
++	PPTable_t *pptable = smu->smu_table.driver_pptable;
++
++	ret = smu_get_current_rpm(smu, &current_rpm);
++	percent = current_rpm * 100 / pptable->FanMaximumRpm;
++	*speed = percent > 100 ? 100 : percent;
++
++	return ret;
++}
++
+ static const struct pptable_funcs vega20_ppt_funcs = {
+ 	.tables_init = vega20_tables_init,
+ 	.alloc_dpm_context = vega20_allocate_dpm_context,
+@@ -3003,6 +3030,8 @@ static const struct pptable_funcs vega20_ppt_funcs = {
+ 	.set_ppfeature_status = vega20_set_ppfeature_status,
+ 	.get_ppfeature_status = vega20_get_ppfeature_status,
+ 	.is_dpm_running = vega20_is_dpm_running,
++	.set_thermal_fan_table = vega20_set_thermal_fan_table,
++	.get_fan_speed_percent = vega20_get_fan_speed_percent,
+ };
+ 
+ void vega20_set_ppt_funcs(struct smu_context *smu)
+-- 
+2.17.1
+

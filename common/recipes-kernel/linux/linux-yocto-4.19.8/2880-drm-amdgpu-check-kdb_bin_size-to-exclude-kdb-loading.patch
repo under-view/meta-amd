@@ -1,0 +1,32 @@
+From dac12a685726c3f0310bf5675e574293a97f8f76 Mon Sep 17 00:00:00 2001
+From: Hawking Zhang <Hawking.Zhang@amd.com>
+Date: Tue, 16 Jul 2019 13:48:19 +0800
+Subject: [PATCH 2880/2940] drm/amdgpu: check kdb_bin_size to exclude kdb
+ loading sequence
+
+The legacy navi10 sos binary will not carry on kdb image. the kdb_start_addr
+is actually the start address of sys_drv image and shouldn't be sent to psp
+bootloader.
+
+Signed-off-by: Hawking Zhang <Hawking.Zhang@amd.com>
+Reviewed-by: John Clements <john.clements@amd.com>
+---
+ drivers/gpu/drm/amd/amdgpu/amdgpu_psp.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/drivers/gpu/drm/amd/amdgpu/amdgpu_psp.c b/drivers/gpu/drm/amd/amdgpu/amdgpu_psp.c
+index 44446b178085..f54fa7b6c3bf 100644
+--- a/drivers/gpu/drm/amd/amdgpu/amdgpu_psp.c
++++ b/drivers/gpu/drm/amd/amdgpu/amdgpu_psp.c
+@@ -773,7 +773,7 @@ static int psp_hw_start(struct psp_context *psp)
+ 	int ret;
+ 
+ 	if (!amdgpu_sriov_vf(adev) || !adev->in_gpu_reset) {
+-		if (psp->kdb_start_addr &&
++		if (psp->kdb_bin_size &&
+ 		    (psp->funcs->bootloader_load_kdb != NULL)) {
+ 			ret = psp_bootloader_load_kdb(psp);
+ 			if (ret) {
+-- 
+2.17.1
+

@@ -1,0 +1,125 @@
+From 9cbcc85ef60294b872a2085c011ad46ee9e2c233 Mon Sep 17 00:00:00 2001
+From: Leo Li <sunpeng.li@amd.com>
+Date: Tue, 13 Nov 2018 15:24:20 -0500
+Subject: [PATCH 1020/2940] drm/amd/display: Use local variable instead of
+ caching global
+
+[Why]
+context->bw.dce.dispclk_khz is being cached into unpatched_clock, then
+restored at end of function call. This is needlessly complex
+
+[How]
+Instead, use a local patched_clock variable. Leave
+context->bw.dce.dispclk_khz alone.
+
+No functional change is intended.
+
+Signed-off-by: David Francis <david.francis@amd.com>
+Signed-off-by: Leo Li <sunpeng.li@amd.com>
+Reviewed-by: Harry Wentland <Harry.Wentland@amd.com>
+Signed-off-by: Alex Deucher <alexander.deucher@amd.com>
+Signed-off-by: Chaudhary Amit Kumar <Chaudharyamit.Kumar@amd.com>
+---
+ .../gpu/drm/amd/display/dc/dce/dce_clk_mgr.c  | 37 ++++++++-----------
+ 1 file changed, 15 insertions(+), 22 deletions(-)
+
+diff --git a/drivers/gpu/drm/amd/display/dc/dce/dce_clk_mgr.c b/drivers/gpu/drm/amd/display/dc/dce/dce_clk_mgr.c
+index 9a10fd8d1a52..2579478ae622 100644
+--- a/drivers/gpu/drm/amd/display/dc/dce/dce_clk_mgr.c
++++ b/drivers/gpu/drm/amd/display/dc/dce/dce_clk_mgr.c
+@@ -622,11 +622,11 @@ static void dce_update_clocks(struct clk_mgr *clk_mgr,
+ {
+ 	struct dce_clk_mgr *clk_mgr_dce = TO_DCE_CLK_MGR(clk_mgr);
+ 	struct dm_pp_power_level_change_request level_change_req;
+-	int unpatched_disp_clk = context->bw.dce.dispclk_khz;
++	int patched_disp_clk = context->bw.dce.dispclk_khz;
+ 
+ 	/*TODO: W/A for dal3 linux, investigate why this works */
+ 	if (!clk_mgr_dce->dfs_bypass_active)
+-		context->bw.dce.dispclk_khz = context->bw.dce.dispclk_khz * 115 / 100;
++		patched_disp_clk = patched_disp_clk * 115 / 100;
+ 
+ 	level_change_req.power_level = dce_get_required_clocks_state(clk_mgr, context);
+ 	/* get max clock state from PPLIB */
+@@ -636,13 +636,11 @@ static void dce_update_clocks(struct clk_mgr *clk_mgr,
+ 			clk_mgr_dce->cur_min_clks_state = level_change_req.power_level;
+ 	}
+ 
+-	if (should_set_clock(safe_to_lower, context->bw.dce.dispclk_khz, clk_mgr->clks.dispclk_khz)) {
+-		context->bw.dce.dispclk_khz = dce_set_clock(clk_mgr, context->bw.dce.dispclk_khz);
+-		clk_mgr->clks.dispclk_khz = context->bw.dce.dispclk_khz; 
++	if (should_set_clock(safe_to_lower, patched_disp_clk, clk_mgr->clks.dispclk_khz)) {
++		patched_disp_clk = dce_set_clock(clk_mgr, patched_disp_clk);
++		clk_mgr->clks.dispclk_khz = patched_disp_clk;
+ 	}
+ 	dce_pplib_apply_display_requirements(clk_mgr->ctx->dc, context);
+-
+-	context->bw.dce.dispclk_khz = unpatched_disp_clk;
+ }
+ 
+ static void dce11_update_clocks(struct clk_mgr *clk_mgr,
+@@ -679,10 +677,10 @@ static void dce112_update_clocks(struct clk_mgr *clk_mgr,
+ {
+ 	struct dce_clk_mgr *clk_mgr_dce = TO_DCE_CLK_MGR(clk_mgr);
+ 	struct dm_pp_power_level_change_request level_change_req;
+-	int unpatched_disp_clk = context->bw.dce.dispclk_khz;
++	int patched_disp_clk = context->bw.dce.dispclk_khz;
+ 
+ 	if (!clk_mgr_dce->dfs_bypass_active)
+-		context->bw.dce.dispclk_khz = context->bw.dce.dispclk_khz * 115 / 100;
++		patched_disp_clk = patched_disp_clk * 115 / 100;
+ 
+ 	level_change_req.power_level = dce_get_required_clocks_state(clk_mgr, context);
+ 	/* get max clock state from PPLIB */
+@@ -692,13 +690,11 @@ static void dce112_update_clocks(struct clk_mgr *clk_mgr,
+ 			clk_mgr_dce->cur_min_clks_state = level_change_req.power_level;
+ 	}
+ 
+-	if (should_set_clock(safe_to_lower, context->bw.dce.dispclk_khz, clk_mgr->clks.dispclk_khz)) {
+-		context->bw.dce.dispclk_khz = dce112_set_clock(clk_mgr, context->bw.dce.dispclk_khz);
+-		clk_mgr->clks.dispclk_khz = context->bw.dce.dispclk_khz;
++	if (should_set_clock(safe_to_lower, patched_disp_clk, clk_mgr->clks.dispclk_khz)) {
++		patched_disp_clk = dce112_set_clock(clk_mgr, patched_disp_clk);
++		clk_mgr->clks.dispclk_khz = patched_disp_clk;
+ 	}
+ 	dce11_pplib_apply_display_requirements(clk_mgr->ctx->dc, context);
+-
+-	context->bw.dce.dispclk_khz = unpatched_disp_clk;
+ }
+ 
+ static void dce12_update_clocks(struct clk_mgr *clk_mgr,
+@@ -708,17 +704,16 @@ static void dce12_update_clocks(struct clk_mgr *clk_mgr,
+ 	struct dce_clk_mgr *clk_mgr_dce = TO_DCE_CLK_MGR(clk_mgr);
+ 	struct dm_pp_clock_for_voltage_req clock_voltage_req = {0};
+ 	int max_pix_clk = get_max_pixel_clock_for_all_paths(context);
+-	int unpatched_disp_clk = context->bw.dce.dispclk_khz;
++	int patched_disp_clk = context->bw.dce.dispclk_khz;
+ 
+ 	/*TODO: W/A for dal3 linux, investigate why this works */
+ 	if (!clk_mgr_dce->dfs_bypass_active)
+-		context->bw.dce.dispclk_khz = context->bw.dce.dispclk_khz * 115 / 100;
++		patched_disp_clk = patched_disp_clk * 115 / 100;
+ 
+-	if (should_set_clock(safe_to_lower, context->bw.dce.dispclk_khz, clk_mgr->clks.dispclk_khz)) {
++	if (should_set_clock(safe_to_lower, patched_disp_clk, clk_mgr->clks.dispclk_khz)) {
+ 		clock_voltage_req.clk_type = DM_PP_CLOCK_TYPE_DISPLAY_CLK;
+-		clock_voltage_req.clocks_in_khz = context->bw.dce.dispclk_khz;
+-		context->bw.dce.dispclk_khz = dce112_set_clock(clk_mgr, context->bw.dce.dispclk_khz);
+-		clk_mgr->clks.dispclk_khz = context->bw.dce.dispclk_khz;
++		clock_voltage_req.clocks_in_khz = patched_disp_clk;
++		clk_mgr->clks.dispclk_khz = dce112_set_clock(clk_mgr, patched_disp_clk);
+ 
+ 		dm_pp_apply_clock_for_voltage_request(clk_mgr->ctx, &clock_voltage_req);
+ 	}
+@@ -731,8 +726,6 @@ static void dce12_update_clocks(struct clk_mgr *clk_mgr,
+ 		dm_pp_apply_clock_for_voltage_request(clk_mgr->ctx, &clock_voltage_req);
+ 	}
+ 	dce11_pplib_apply_display_requirements(clk_mgr->ctx->dc, context);
+-
+-	context->bw.dce.dispclk_khz = unpatched_disp_clk;
+ }
+ 
+ static const struct clk_mgr_funcs dce120_funcs = {
+-- 
+2.17.1
+

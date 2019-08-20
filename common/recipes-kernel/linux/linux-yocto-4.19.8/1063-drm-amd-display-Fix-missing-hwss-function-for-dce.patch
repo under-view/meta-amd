@@ -1,0 +1,80 @@
+From cb07be33e2525cc8e5bc6f11a30b64d8f6798e2a Mon Sep 17 00:00:00 2001
+From: Joshua Aberback <joshua.aberback@amd.com>
+Date: Mon, 10 Dec 2018 13:46:34 -0500
+Subject: [PATCH 1063/2940] drm/amd/display: Fix missing hwss function for dce
+
+[Why]
+The driver will crash on dce hardware due to a null function pointer.
+
+[How]
+- bring back "program_csc_matrix" functionality as "program_output_csc" for
+dce110
+- dce110 doesn't use the "opp_id" parameter, so use 0 when there's no hubp
+
+Signed-off-by: Joshua Aberback <joshua.aberback@amd.com>
+Reviewed-by: Anthony Koo <Anthony.Koo@amd.com>
+Acked-by: Jun Lei <Jun.Lei@amd.com>
+Acked-by: Leo Li <sunpeng.li@amd.com>
+Signed-off-by: Alex Deucher <alexander.deucher@amd.com>
+---
+ drivers/gpu/drm/amd/display/dc/core/dc.c      |  2 +-
+ .../display/dc/dce110/dce110_hw_sequencer.c   | 23 +++++++++++++++++++
+ 2 files changed, 24 insertions(+), 1 deletion(-)
+
+diff --git a/drivers/gpu/drm/amd/display/dc/core/dc.c b/drivers/gpu/drm/amd/display/dc/core/dc.c
+index 99992c65fed6..dadbc18d7a90 100644
+--- a/drivers/gpu/drm/amd/display/dc/core/dc.c
++++ b/drivers/gpu/drm/amd/display/dc/core/dc.c
+@@ -451,7 +451,7 @@ bool dc_stream_program_csc_matrix(struct dc *dc, struct dc_stream_state *stream)
+ 					pipes,
+ 					stream->output_color_space,
+ 					stream->csc_color_matrix.matrix,
+-					pipes->plane_res.hubp->opp_id);
++					pipes->plane_res.hubp ? pipes->plane_res.hubp->opp_id : 0);
+ 			ret = true;
+ 		}
+ 	}
+diff --git a/drivers/gpu/drm/amd/display/dc/dce110/dce110_hw_sequencer.c b/drivers/gpu/drm/amd/display/dc/dce110/dce110_hw_sequencer.c
+index 783d4b9c828f..c306db5f1d76 100644
+--- a/drivers/gpu/drm/amd/display/dc/dce110/dce110_hw_sequencer.c
++++ b/drivers/gpu/drm/amd/display/dc/dce110/dce110_hw_sequencer.c
+@@ -2616,6 +2616,28 @@ static void dce110_wait_for_mpcc_disconnect(
+ 	/* do nothing*/
+ }
+ 
++static void program_output_csc(struct dc *dc,
++		struct pipe_ctx *pipe_ctx,
++		enum dc_color_space colorspace,
++		uint16_t *matrix,
++		int opp_id)
++{
++	int i;
++	struct out_csc_color_matrix tbl_entry;
++
++	if (pipe_ctx->stream->csc_color_matrix.enable_adjustment == true) {
++		enum dc_color_space color_space = pipe_ctx->stream->output_color_space;
++
++		for (i = 0; i < 12; i++)
++			tbl_entry.regval[i] = pipe_ctx->stream->csc_color_matrix.matrix[i];
++
++		tbl_entry.color_space = color_space;
++
++		pipe_ctx->plane_res.xfm->funcs->opp_set_csc_adjustment(
++				pipe_ctx->plane_res.xfm, &tbl_entry);
++	}
++}
++
+ void dce110_set_cursor_position(struct pipe_ctx *pipe_ctx)
+ {
+ 	struct dc_cursor_position pos_cpy = pipe_ctx->stream->cursor_position;
+@@ -2666,6 +2688,7 @@ void dce110_set_cursor_attribute(struct pipe_ctx *pipe_ctx)
+ 
+ static const struct hw_sequencer_funcs dce110_funcs = {
+ 	.program_gamut_remap = program_gamut_remap,
++	.program_output_csc = program_output_csc,
+ 	.init_hw = init_hw,
+ 	.apply_ctx_to_hw = dce110_apply_ctx_to_hw,
+ 	.apply_ctx_for_surface = dce110_apply_ctx_for_surface,
+-- 
+2.17.1
+

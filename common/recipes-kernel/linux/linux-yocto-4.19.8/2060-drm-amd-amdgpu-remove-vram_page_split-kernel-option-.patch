@@ -1,0 +1,115 @@
+From a4dfc4f1e178727a843e8d194dd6d90ec9018df0 Mon Sep 17 00:00:00 2001
+From: Tom St Denis <tom.stdenis@amd.com>
+Date: Tue, 4 Jun 2019 09:36:57 -0400
+Subject: [PATCH 2060/2940] drm/amd/amdgpu: remove vram_page_split kernel
+ option (v3)
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+This option is no longer needed.  The default code paths
+are now the only option.
+
+v2: Add HPAGE support and a default for non contiguous maps
+v3: Misread 512 pages as MiB ...
+
+Change-Id: I4e200d0da8babdf00594f377c426393d1455c15e
+Signed-off-by: Tom St Denis <tom.stdenis@amd.com>
+Reviewed-by: Christian König <christian.koenig@amd.com>
+Signed-off-by: Chaudhary Amit Kumar <Chaudharyamit.Kumar@amd.com>
+---
+ drivers/gpu/drm/amd/amdgpu/amdgpu.h          |  1 -
+ drivers/gpu/drm/amd/amdgpu/amdgpu_device.c   |  6 ------
+ drivers/gpu/drm/amd/amdgpu/amdgpu_drv.c      |  8 --------
+ drivers/gpu/drm/amd/amdgpu/amdgpu_vram_mgr.c | 14 +++++++++-----
+ 4 files changed, 9 insertions(+), 20 deletions(-)
+
+diff --git a/drivers/gpu/drm/amd/amdgpu/amdgpu.h b/drivers/gpu/drm/amd/amdgpu/amdgpu.h
+index b99fef62357f..7cda01df7f70 100644
+--- a/drivers/gpu/drm/amd/amdgpu/amdgpu.h
++++ b/drivers/gpu/drm/amd/amdgpu/amdgpu.h
+@@ -144,7 +144,6 @@ extern uint amdgpu_sdma_phase_quantum;
+ extern char *amdgpu_disable_cu;
+ extern char *amdgpu_virtual_display;
+ extern uint amdgpu_pp_feature_mask;
+-extern int amdgpu_vram_page_split;
+ extern int amdgpu_ssg_enabled;
+ extern int amdgpu_ngg;
+ extern int amdgpu_prim_buf_per_se;
+diff --git a/drivers/gpu/drm/amd/amdgpu/amdgpu_device.c b/drivers/gpu/drm/amd/amdgpu/amdgpu_device.c
+index 10ff0cce4f27..7b6d600ffc2c 100644
+--- a/drivers/gpu/drm/amd/amdgpu/amdgpu_device.c
++++ b/drivers/gpu/drm/amd/amdgpu/amdgpu_device.c
+@@ -1019,12 +1019,6 @@ static int amdgpu_device_check_arguments(struct amdgpu_device *adev)
+ 
+ 	amdgpu_device_check_block_size(adev);
+ 
+-	if (amdgpu_vram_page_split != -1 && (amdgpu_vram_page_split < 16 ||
+-	    !is_power_of_2(amdgpu_vram_page_split))) {
+-		dev_warn(adev->dev, "invalid VRAM page split (%d)\n",
+-			 amdgpu_vram_page_split);
+-		amdgpu_vram_page_split = 1024;
+-	}
+         ret = amdgpu_device_get_job_timeout_settings(adev);
+         if (ret) {
+                 dev_err(adev->dev, "invalid lockup_timeout parameter syntax\n");
+diff --git a/drivers/gpu/drm/amd/amdgpu/amdgpu_drv.c b/drivers/gpu/drm/amd/amdgpu/amdgpu_drv.c
+index b7788f4580ba..dfa64c5acf16 100644
+--- a/drivers/gpu/drm/amd/amdgpu/amdgpu_drv.c
++++ b/drivers/gpu/drm/amd/amdgpu/amdgpu_drv.c
+@@ -110,7 +110,6 @@ int amdgpu_vm_fragment_size = -1;
+ int amdgpu_vm_block_size = -1;
+ int amdgpu_vm_fault_stop = 0;
+ int amdgpu_vm_debug = 0;
+-int amdgpu_vram_page_split = 512;
+ int amdgpu_vm_update_mode = -1;
+ int amdgpu_exp_hw_support = 0;
+ int amdgpu_dc = -1;
+@@ -347,13 +346,6 @@ module_param_named(vm_debug, amdgpu_vm_debug, int, 0644);
+ MODULE_PARM_DESC(vm_update_mode, "VM update using CPU (0 = never (default except for large BAR(LB)), 1 = Graphics only, 2 = Compute only (default for LB), 3 = Both");
+ module_param_named(vm_update_mode, amdgpu_vm_update_mode, int, 0444);
+ 
+-/**
+- * DOC: vram_page_split (int)
+- * Override the number of pages after we split VRAM allocations (default 512, -1 = disable). The default is 512.
+- */
+-MODULE_PARM_DESC(vram_page_split, "Number of pages after we split VRAM allocations (default 512, -1 = disable)");
+-module_param_named(vram_page_split, amdgpu_vram_page_split, int, 0444);
+-
+ /**
+  * DOC: exp_hw_support (int)
+  * Enable experimental hw support (1 = enable). The default is 0 (disabled).
+diff --git a/drivers/gpu/drm/amd/amdgpu/amdgpu_vram_mgr.c b/drivers/gpu/drm/amd/amdgpu/amdgpu_vram_mgr.c
+index ec9ea3fdbb4a..8aea2f21b202 100644
+--- a/drivers/gpu/drm/amd/amdgpu/amdgpu_vram_mgr.c
++++ b/drivers/gpu/drm/amd/amdgpu/amdgpu_vram_mgr.c
+@@ -284,17 +284,21 @@ static int amdgpu_vram_mgr_new(struct ttm_mem_type_manager *man,
+ 	if (!lpfn)
+ 		lpfn = man->size;
+ 
+-	if (place->flags & TTM_PL_FLAG_CONTIGUOUS ||
+-	    amdgpu_vram_page_split == -1) {
++	if (place->flags & TTM_PL_FLAG_CONTIGUOUS) {
+ 		pages_per_node = ~0ul;
+ 		num_nodes = 1;
+ 	} else {
+-		pages_per_node = max((uint32_t)amdgpu_vram_page_split,
+-				     mem->page_alignment);
++#ifdef CONFIG_TRANSPARENT_HUGEPAGE
++		pages_per_node = HPAGE_PMD_NR;
++#else
++		/* default to 2MB */
++		pages_per_node = (2UL << (20UL - PAGE_SHIFT));
++#endif
++		pages_per_node = max((uint32_t)pages_per_node, mem->page_alignment);
+ 		num_nodes = DIV_ROUND_UP(mem->num_pages, pages_per_node);
+ 	}
+ 
+-	nodes = kvmalloc_array(num_nodes, sizeof(*nodes),
++	nodes = kvmalloc_array((uint32_t)num_nodes, sizeof(*nodes),
+ 			       GFP_KERNEL | __GFP_ZERO);
+ 	if (!nodes)
+ 		return -ENOMEM;
+-- 
+2.17.1
+

@@ -1,0 +1,133 @@
+From 4cad0708ea1368aef2247d9c4f5ae781bf1d3742 Mon Sep 17 00:00:00 2001
+From: Chaudhary Amit Kumar <Chaudharyamit.Kumar@amd.com>
+Date: Mon, 22 Apr 2019 19:44:20 +0530
+Subject: [PATCH 0982/2940] drm/amdgpu: fix build error while backporting
+ kenrel
+
+Backporting amdgpu kernel patch from 5.0 to 4.19 kernel
+---
+ drivers/gpu/drm/amd/amdgpu/amdgpu_mode.h             | 4 +++-
+ drivers/gpu/drm/amd/amdgpu/amdgpu_vm.c               | 2 +-
+ drivers/gpu/drm/amd/amdkfd/Kconfig                   | 5 +++--
+ drivers/gpu/drm/amd/display/amdgpu_dm/amdgpu_dm.c    | 1 -
+ drivers/gpu/drm/amd/display/amdgpu_dm/amdgpu_dm.h    | 1 +
+ drivers/gpu/drm/amd/display/dc/dcn10/dcn10_clk_mgr.c | 1 -
+ include/drm/drm_crtc.h                               | 9 +++++++++
+ include/drm/ttm/ttm_execbuf_util.h                   | 1 +
+ 8 files changed, 18 insertions(+), 6 deletions(-)
+
+diff --git a/drivers/gpu/drm/amd/amdgpu/amdgpu_mode.h b/drivers/gpu/drm/amd/amdgpu/amdgpu_mode.h
+index 8890d373783b..39db58809d9b 100644
+--- a/drivers/gpu/drm/amd/amdgpu/amdgpu_mode.h
++++ b/drivers/gpu/drm/amd/amdgpu/amdgpu_mode.h
+@@ -294,7 +294,9 @@ struct amdgpu_display_funcs {
+ 			      struct amdgpu_hpd *hpd,
+ 			      struct amdgpu_router *router);
+ 
+-
++	/* it is used to enter or exit into free sync mode */
++        int (*notify_freesync)(struct drm_device *dev, void *data,
++                               struct drm_file *filp);
+ };
+ 
+ struct amdgpu_framebuffer {
+diff --git a/drivers/gpu/drm/amd/amdgpu/amdgpu_vm.c b/drivers/gpu/drm/amd/amdgpu/amdgpu_vm.c
+index 98126cc04eeb..12dd9db52da9 100644
+--- a/drivers/gpu/drm/amd/amdgpu/amdgpu_vm.c
++++ b/drivers/gpu/drm/amd/amdgpu/amdgpu_vm.c
+@@ -3036,7 +3036,7 @@ int amdgpu_vm_init(struct amdgpu_device *adev, struct amdgpu_vm *vm,
+ 	if (r)
+ 		goto error_free_root;
+ 
+-	r = reservation_object_reserve_shared(root->tbo.resv, 1);
++	r = reservation_object_reserve_shared(root->tbo.resv);
+ 	if (r)
+ 		goto error_unreserve;
+ 
+diff --git a/drivers/gpu/drm/amd/amdkfd/Kconfig b/drivers/gpu/drm/amd/amdkfd/Kconfig
+index 3858820a0055..94cbfbcbda4f 100644
+--- a/drivers/gpu/drm/amd/amdkfd/Kconfig
++++ b/drivers/gpu/drm/amd/amdkfd/Kconfig
+@@ -3,8 +3,9 @@
+ #
+ 
+ config HSA_AMD
+-	tristate "HSA kernel driver for AMD GPU devices"
+-	depends on DRM_AMDGPU && X86_64
++	bool "HSA kernel driver for AMD GPU devices"
++	depends on (DRM_RADEON || DRM_AMDGPU) && (X86_64 || PPC64 || ARM64)
++	select DRM_AMDGPU_USERPTR
+ 	imply AMD_IOMMU_V2
+ 	select MMU_NOTIFIER
+ 	help
+diff --git a/drivers/gpu/drm/amd/display/amdgpu_dm/amdgpu_dm.c b/drivers/gpu/drm/amd/display/amdgpu_dm/amdgpu_dm.c
+index 2e0eac108e55..17719fbfc695 100644
+--- a/drivers/gpu/drm/amd/display/amdgpu_dm/amdgpu_dm.c
++++ b/drivers/gpu/drm/amd/display/amdgpu_dm/amdgpu_dm.c
+@@ -57,7 +57,6 @@
+ 
+ #include <drm/drmP.h>
+ #include <drm/drm_atomic.h>
+-#include <drm/drm_atomic_uapi.h>
+ #include <drm/drm_atomic_helper.h>
+ #include <drm/drm_dp_mst_helper.h>
+ #include <drm/drm_fb_helper.h>
+diff --git a/drivers/gpu/drm/amd/display/amdgpu_dm/amdgpu_dm.h b/drivers/gpu/drm/amd/display/amdgpu_dm/amdgpu_dm.h
+index ddb0dab4f8d6..4c3bd81323e1 100644
+--- a/drivers/gpu/drm/amd/display/amdgpu_dm/amdgpu_dm.h
++++ b/drivers/gpu/drm/amd/display/amdgpu_dm/amdgpu_dm.h
+@@ -290,6 +290,7 @@ struct dm_connector_state {
+ 	uint8_t max_bpc;
+ 	bool underscan_enable;
+ 	bool freesync_capable;
++	bool freesync_enable;
+ 	uint8_t abm_level;
+ };
+ 
+diff --git a/drivers/gpu/drm/amd/display/dc/dcn10/dcn10_clk_mgr.c b/drivers/gpu/drm/amd/display/dc/dcn10/dcn10_clk_mgr.c
+index 22c5864da21c..da2703354b8d 100644
+--- a/drivers/gpu/drm/amd/display/dc/dcn10/dcn10_clk_mgr.c
++++ b/drivers/gpu/drm/amd/display/dc/dcn10/dcn10_clk_mgr.c
+@@ -247,7 +247,6 @@ static void dcn1_update_clocks(struct clk_mgr *clk_mgr,
+ 		clk_mgr->clks.fclk_khz = new_clocks->fclk_khz;
+ 		smu_req.hard_min_fclk_khz = new_clocks->fclk_khz;
+ 
+-		dm_pp_apply_clock_for_voltage_request(clk_mgr->ctx, &clock_voltage_req);
+ 		send_request_to_lower = true;
+ 	}
+ 
+diff --git a/include/drm/drm_crtc.h b/include/drm/drm_crtc.h
+index 9360f057effd..a92f548502c8 100644
+--- a/include/drm/drm_crtc.h
++++ b/include/drm/drm_crtc.h
+@@ -290,6 +290,15 @@ struct drm_crtc_state {
+ 	 */
+ 	u32 pageflip_flags;
+ 
++        /**
++         * @vrr_enabled:
++         *
++         * Indicates if variable refresh rate should be enabled for the CRTC.
++         * Support for the requested vrr state will depend on driver and
++         * hardware capabiltiy - lacking support is not treated as failure.
++         */
++        bool vrr_enabled;
++
+ 	/**
+ 	 * @event:
+ 	 *
+diff --git a/include/drm/ttm/ttm_execbuf_util.h b/include/drm/ttm/ttm_execbuf_util.h
+index b0fdd1980034..7fab5912ffbe 100644
+--- a/include/drm/ttm/ttm_execbuf_util.h
++++ b/include/drm/ttm/ttm_execbuf_util.h
+@@ -47,6 +47,7 @@ struct ttm_validate_buffer {
+ 	struct list_head head;
+ 	struct ttm_buffer_object *bo;
+ 	bool shared;
++	unsigned int num_shared;
+ };
+ 
+ /**
+-- 
+2.17.1
+

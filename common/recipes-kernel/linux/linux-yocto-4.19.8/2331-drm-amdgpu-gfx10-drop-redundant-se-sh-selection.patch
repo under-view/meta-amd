@@ -1,0 +1,29 @@
+From c1516f6e3c3f4caca350d96967d0d094e91d60e9 Mon Sep 17 00:00:00 2001
+From: Xiaojie Yuan <xiaojie.yuan@amd.com>
+Date: Wed, 17 Apr 2019 12:37:09 +0800
+Subject: [PATCH 2331/2940] drm/amdgpu/gfx10: drop redundant se/sh selection
+
+we already selected se/sh at the beginning of the for loop
+
+Signed-off-by: Xiaojie Yuan <xiaojie.yuan@amd.com>
+Reviewed-by: Jack Xiao <Jack.Xiao@amd.com>
+Signed-off-by: Alex Deucher <alexander.deucher@amd.com>
+---
+ drivers/gpu/drm/amd/amdgpu/gfx_v10_0.c | 1 -
+ 1 file changed, 1 deletion(-)
+
+diff --git a/drivers/gpu/drm/amd/amdgpu/gfx_v10_0.c b/drivers/gpu/drm/amd/amdgpu/gfx_v10_0.c
+index 014697f6bd10..6289d79e8b65 100644
+--- a/drivers/gpu/drm/amd/amdgpu/gfx_v10_0.c
++++ b/drivers/gpu/drm/amd/amdgpu/gfx_v10_0.c
+@@ -1471,7 +1471,6 @@ static void gfx_v10_0_tcp_harvest(struct amdgpu_device *adev)
+ 					}
+ 				}
+ 
+-				gfx_v10_0_select_se_sh(adev, i, j, 0xffffffff);
+ 				tmp = RREG32_SOC15(GC,0, mmUTCL1_UTCL0_INVREQ_DISABLE);
+ 				/* only override TCP & SQC bits */
+ 				tmp &= 0xffffffff << (4 * max_wgp_per_sh);
+-- 
+2.17.1
+

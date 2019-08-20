@@ -1,0 +1,63 @@
+From c444bf8b49f915e4261a9f6dcfdff72c1c33228e Mon Sep 17 00:00:00 2001
+From: Hawking Zhang <Hawking.Zhang@amd.com>
+Date: Fri, 19 Oct 2018 21:46:05 +0800
+Subject: [PATCH 2193/2940] drm/amdgpu: add structure to support build-in toc
+ to psp sos
+
+Table Of Content (TOC) is used by RLC to auto load gc firmwares.
+PSP need to parse the toc to calculate the tmr size needed and
+load gc firmwares to tmr for RLC to auto load them finally
+
+Signed-off-by: Hawking Zhang <Hawking.Zhang@amd.com>
+Reviewed-by: Le Ma <Le.Ma@amd.com>
+Signed-off-by: Alex Deucher <alexander.deucher@amd.com>
+---
+ drivers/gpu/drm/amd/amdgpu/amdgpu_psp.h   | 2 ++
+ drivers/gpu/drm/amd/amdgpu/amdgpu_ucode.h | 9 +++++++++
+ 2 files changed, 11 insertions(+)
+
+diff --git a/drivers/gpu/drm/amd/amdgpu/amdgpu_psp.h b/drivers/gpu/drm/amd/amdgpu/amdgpu_psp.h
+index cf49539b0b07..9cc741800682 100644
+--- a/drivers/gpu/drm/amd/amdgpu/amdgpu_psp.h
++++ b/drivers/gpu/drm/amd/amdgpu/amdgpu_psp.h
+@@ -154,8 +154,10 @@ struct psp_context
+ 	uint32_t			sos_feature_version;
+ 	uint32_t			sys_bin_size;
+ 	uint32_t			sos_bin_size;
++	uint32_t			toc_bin_size;
+ 	uint8_t				*sys_start_addr;
+ 	uint8_t				*sos_start_addr;
++	uint8_t				*toc_start_addr
+ 
+ 	/* tmr buffer */
+ 	struct amdgpu_bo		*tmr_bo;
+diff --git a/drivers/gpu/drm/amd/amdgpu/amdgpu_ucode.h b/drivers/gpu/drm/amd/amdgpu/amdgpu_ucode.h
+index 77ec68787c3e..a31b1bd1f722 100644
+--- a/drivers/gpu/drm/amd/amdgpu/amdgpu_ucode.h
++++ b/drivers/gpu/drm/amd/amdgpu/amdgpu_ucode.h
+@@ -57,6 +57,14 @@ struct psp_firmware_header_v1_0 {
+ 	uint32_t sos_size_bytes;
+ };
+ 
++/* version_major=1, version_minor=1 */
++struct psp_firmware_header_v1_1 {
++	struct psp_firmware_header_v1_0 v1_0;
++	uint32_t toc_header_version;
++	uint32_t toc_offset_bytes;
++	uint32_t toc_size_bytes;
++};
++
+ /* version_major=1, version_minor=0 */
+ struct ta_firmware_header_v1_0 {
+ 	struct common_firmware_header header;
+@@ -187,6 +195,7 @@ union amdgpu_firmware_header {
+ 	struct mc_firmware_header_v1_0 mc;
+ 	struct smc_firmware_header_v1_0 smc;
+ 	struct psp_firmware_header_v1_0 psp;
++	struct psp_firmware_header_v1_1 psp_v1_1;
+ 	struct ta_firmware_header_v1_0 ta;
+ 	struct gfx_firmware_header_v1_0 gfx;
+ 	struct rlc_firmware_header_v1_0 rlc;
+-- 
+2.17.1
+

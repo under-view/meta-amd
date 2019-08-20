@@ -1,0 +1,39 @@
+From f409d214c54aee84d250d5db203e9d6ae1ef24cb Mon Sep 17 00:00:00 2001
+From: James Zhu <James.Zhu@amd.com>
+Date: Tue, 16 Oct 2018 10:06:00 -0400
+Subject: [PATCH 0645/2940] drm/amdgpu/vcn:Fix uninitialized symbol error
+
+ret_code should be initialized with 0. The check of read/write
+ptr should be activate when UVD_POWER_STATUS_TILES is off.
+
+Signed-off-by: James Zhu <James.Zhu@amd.com>
+Acked-by: Alex Deucher <alexander.deucher@amd.com>
+Signed-off-by: Alex Deucher <alexander.deucher@amd.com>
+---
+ drivers/gpu/drm/amd/amdgpu/vcn_v1_0.c | 4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
+
+diff --git a/drivers/gpu/drm/amd/amdgpu/vcn_v1_0.c b/drivers/gpu/drm/amd/amdgpu/vcn_v1_0.c
+index bc6470668057..eae90922fdbe 100644
+--- a/drivers/gpu/drm/amd/amdgpu/vcn_v1_0.c
++++ b/drivers/gpu/drm/amd/amdgpu/vcn_v1_0.c
+@@ -1165,14 +1165,14 @@ static int vcn_v1_0_stop_spg_mode(struct amdgpu_device *adev)
+ 
+ static int vcn_v1_0_stop_dpg_mode(struct amdgpu_device *adev)
+ {
+-	int ret_code;
++	int ret_code = 0;
+ 
+ 	/* Wait for power status to be UVD_POWER_STATUS__UVD_POWER_STATUS_TILES_OFF */
+ 	SOC15_WAIT_ON_RREG(UVD, 0, mmUVD_POWER_STATUS,
+ 			UVD_POWER_STATUS__UVD_POWER_STATUS_TILES_OFF,
+ 			UVD_POWER_STATUS__UVD_POWER_STATUS_MASK, ret_code);
+ 
+-	if (ret_code) {
++	if (!ret_code) {
+ 		int tmp = RREG32_SOC15(UVD, 0, mmUVD_RBC_RB_WPTR) & 0x7FFFFFFF;
+ 		/* wait for read ptr to be equal to write ptr */
+ 		SOC15_WAIT_ON_RREG(UVD, 0, mmUVD_RBC_RB_RPTR, tmp, 0xFFFFFFFF, ret_code);
+-- 
+2.17.1
+

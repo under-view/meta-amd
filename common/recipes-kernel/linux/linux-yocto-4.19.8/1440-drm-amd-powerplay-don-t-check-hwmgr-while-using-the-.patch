@@ -1,0 +1,32 @@
+From f04b6d3a98cf71ea3f754fbe42410073e38339d4 Mon Sep 17 00:00:00 2001
+From: Huang Rui <ray.huang@amd.com>
+Date: Wed, 23 Jan 2019 19:09:08 +0800
+Subject: [PATCH 1440/2940] drm/amd/powerplay: don't check hwmgr while using
+ the sw smu
+
+While using the sw smu path, driver won't init hwmgr structure.
+
+Signed-off-by: Huang Rui <ray.huang@amd.com>
+Reviewed-by: Kevin Wang <kevin1.wang@amd.com>
+Reviewed-by: Likun Gao <Likun.Gao@amd.com>
+Acked-by: Alex Deucher <alexander.deucher@amd.com>
+---
+ drivers/gpu/drm/amd/amdgpu/amdgpu_pm.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/drivers/gpu/drm/amd/amdgpu/amdgpu_pm.c b/drivers/gpu/drm/amd/amdgpu/amdgpu_pm.c
+index 5b5a563169d6..7fe0330ca319 100644
+--- a/drivers/gpu/drm/amd/amdgpu/amdgpu_pm.c
++++ b/drivers/gpu/drm/amd/amdgpu/amdgpu_pm.c
+@@ -2443,7 +2443,7 @@ int amdgpu_pm_sysfs_init(struct amdgpu_device *adev)
+ 				"pp_power_profile_mode\n");
+ 		return ret;
+ 	}
+-	if (hwmgr->od_enabled) {
++	if (is_support_sw_smu(adev) || hwmgr->od_enabled) {
+ 		ret = device_create_file(adev->dev,
+ 				&dev_attr_pp_od_clk_voltage);
+ 		if (ret) {
+-- 
+2.17.1
+

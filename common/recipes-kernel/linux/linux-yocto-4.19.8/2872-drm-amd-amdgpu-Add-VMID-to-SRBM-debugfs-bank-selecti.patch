@@ -1,0 +1,149 @@
+From 1b65f37b4ca0dd96059cb30ee13cb182569dd59c Mon Sep 17 00:00:00 2001
+From: Tom St Denis <tom.stdenis@amd.com>
+Date: Fri, 12 Jul 2019 09:27:06 -0400
+Subject: [PATCH 2872/2940] drm/amd/amdgpu: Add VMID to SRBM debugfs bank
+ selection
+
+Add 5 bits to the offset for SRBM selection to handle VMIDs.  Also
+update the select_me_pipe_q() callback to also select VMID.
+
+Signed-off-by: Tom St Denis <tom.stdenis@amd.com>
+Reviewed-by: Alex Deucher <alexander.deucher@amd.com>
+---
+ drivers/gpu/drm/amd/amdgpu/amdgpu_debugfs.c | 9 +++++----
+ drivers/gpu/drm/amd/amdgpu/amdgpu_gfx.h     | 4 ++--
+ drivers/gpu/drm/amd/amdgpu/gfx_v6_0.c       | 2 +-
+ drivers/gpu/drm/amd/amdgpu/gfx_v7_0.c       | 4 ++--
+ drivers/gpu/drm/amd/amdgpu/gfx_v8_0.c       | 4 ++--
+ drivers/gpu/drm/amd/amdgpu/gfx_v9_0.c       | 4 ++--
+ 6 files changed, 14 insertions(+), 13 deletions(-)
+
+diff --git a/drivers/gpu/drm/amd/amdgpu/amdgpu_debugfs.c b/drivers/gpu/drm/amd/amdgpu/amdgpu_debugfs.c
+index 4997efa09ce7..87b32873046f 100644
+--- a/drivers/gpu/drm/amd/amdgpu/amdgpu_debugfs.c
++++ b/drivers/gpu/drm/amd/amdgpu/amdgpu_debugfs.c
+@@ -103,10 +103,10 @@ static int  amdgpu_debugfs_process_reg_op(bool read, struct file *f,
+ 	ssize_t result = 0;
+ 	int r;
+ 	bool pm_pg_lock, use_bank, use_ring;
+-	unsigned instance_bank, sh_bank, se_bank, me, pipe, queue;
++	unsigned instance_bank, sh_bank, se_bank, me, pipe, queue, vmid;
+ 
+ 	pm_pg_lock = use_bank = use_ring = false;
+-	instance_bank = sh_bank = se_bank = me = pipe = queue = 0;
++	instance_bank = sh_bank = se_bank = me = pipe = queue = vmid = 0;
+ 
+ 	if (size & 0x3 || *pos & 0x3 ||
+ 			((*pos & (1ULL << 62)) && (*pos & (1ULL << 61))))
+@@ -132,6 +132,7 @@ static int  amdgpu_debugfs_process_reg_op(bool read, struct file *f,
+ 		me = (*pos & GENMASK_ULL(33, 24)) >> 24;
+ 		pipe = (*pos & GENMASK_ULL(43, 34)) >> 34;
+ 		queue = (*pos & GENMASK_ULL(53, 44)) >> 44;
++		vmid = (*pos & GENMASK_ULL(48, 45)) >> 54;
+ 
+ 		use_ring = 1;
+ 	} else {
+@@ -149,7 +150,7 @@ static int  amdgpu_debugfs_process_reg_op(bool read, struct file *f,
+ 					sh_bank, instance_bank);
+ 	} else if (use_ring) {
+ 		mutex_lock(&adev->srbm_mutex);
+-		amdgpu_gfx_select_me_pipe_q(adev, me, pipe, queue);
++		amdgpu_gfx_select_me_pipe_q(adev, me, pipe, queue, vmid);
+ 	}
+ 
+ 	if (pm_pg_lock)
+@@ -182,7 +183,7 @@ static int  amdgpu_debugfs_process_reg_op(bool read, struct file *f,
+ 		amdgpu_gfx_select_se_sh(adev, 0xffffffff, 0xffffffff, 0xffffffff);
+ 		mutex_unlock(&adev->grbm_idx_mutex);
+ 	} else if (use_ring) {
+-		amdgpu_gfx_select_me_pipe_q(adev, 0, 0, 0);
++		amdgpu_gfx_select_me_pipe_q(adev, 0, 0, 0, 0);
+ 		mutex_unlock(&adev->srbm_mutex);
+ 	}
+ 
+diff --git a/drivers/gpu/drm/amd/amdgpu/amdgpu_gfx.h b/drivers/gpu/drm/amd/amdgpu/amdgpu_gfx.h
+index f96407ba9770..1199b5828b90 100644
+--- a/drivers/gpu/drm/amd/amdgpu/amdgpu_gfx.h
++++ b/drivers/gpu/drm/amd/amdgpu/amdgpu_gfx.h
+@@ -195,7 +195,7 @@ struct amdgpu_gfx_funcs {
+ 				uint32_t wave, uint32_t start, uint32_t size,
+ 				uint32_t *dst);
+ 	void (*select_me_pipe_q)(struct amdgpu_device *adev, u32 me, u32 pipe,
+-				 u32 queue);
++				 u32 queue, u32 vmid);
+ };
+ 
+ struct amdgpu_ngg_buf {
+@@ -327,7 +327,7 @@ struct amdgpu_gfx {
+ 
+ #define amdgpu_gfx_get_gpu_clock_counter(adev) (adev)->gfx.funcs->get_gpu_clock_counter((adev))
+ #define amdgpu_gfx_select_se_sh(adev, se, sh, instance) (adev)->gfx.funcs->select_se_sh((adev), (se), (sh), (instance))
+-#define amdgpu_gfx_select_me_pipe_q(adev, me, pipe, q) (adev)->gfx.funcs->select_me_pipe_q((adev), (me), (pipe), (q))
++#define amdgpu_gfx_select_me_pipe_q(adev, me, pipe, q, vmid) (adev)->gfx.funcs->select_me_pipe_q((adev), (me), (pipe), (q), (vmid))
+ 
+ /**
+  * amdgpu_gfx_create_bitmask - create a bitmask
+diff --git a/drivers/gpu/drm/amd/amdgpu/gfx_v6_0.c b/drivers/gpu/drm/amd/amdgpu/gfx_v6_0.c
+index 0745370493f3..8c27c305e692 100644
+--- a/drivers/gpu/drm/amd/amdgpu/gfx_v6_0.c
++++ b/drivers/gpu/drm/amd/amdgpu/gfx_v6_0.c
+@@ -3041,7 +3041,7 @@ static void gfx_v6_0_read_wave_sgprs(struct amdgpu_device *adev, uint32_t simd,
+ }
+ 
+ static void gfx_v6_0_select_me_pipe_q(struct amdgpu_device *adev,
+-				  u32 me, u32 pipe, u32 q)
++				  u32 me, u32 pipe, u32 q, u32 vm)
+ {
+ 	DRM_INFO("Not implemented\n");
+ }
+diff --git a/drivers/gpu/drm/amd/amdgpu/gfx_v7_0.c b/drivers/gpu/drm/amd/amdgpu/gfx_v7_0.c
+index bc5ff82565d2..e1e2a44ee13c 100644
+--- a/drivers/gpu/drm/amd/amdgpu/gfx_v7_0.c
++++ b/drivers/gpu/drm/amd/amdgpu/gfx_v7_0.c
+@@ -4167,9 +4167,9 @@ static void gfx_v7_0_read_wave_sgprs(struct amdgpu_device *adev, uint32_t simd,
+ }
+ 
+ static void gfx_v7_0_select_me_pipe_q(struct amdgpu_device *adev,
+-				  u32 me, u32 pipe, u32 q)
++				  u32 me, u32 pipe, u32 q, u32 vm)
+ {
+-	cik_srbm_select(adev, me, pipe, q, 0);
++	cik_srbm_select(adev, me, pipe, q, vm);
+ }
+ 
+ static const struct amdgpu_gfx_funcs gfx_v7_0_gfx_funcs = {
+diff --git a/drivers/gpu/drm/amd/amdgpu/gfx_v8_0.c b/drivers/gpu/drm/amd/amdgpu/gfx_v8_0.c
+index f84366f20dff..e16800839172 100644
+--- a/drivers/gpu/drm/amd/amdgpu/gfx_v8_0.c
++++ b/drivers/gpu/drm/amd/amdgpu/gfx_v8_0.c
+@@ -3432,9 +3432,9 @@ static void gfx_v8_0_select_se_sh(struct amdgpu_device *adev,
+ }
+ 
+ static void gfx_v8_0_select_me_pipe_q(struct amdgpu_device *adev,
+-				  u32 me, u32 pipe, u32 q)
++				  u32 me, u32 pipe, u32 q, u32 vm)
+ {
+-	vi_srbm_select(adev, me, pipe, q, 0);
++	vi_srbm_select(adev, me, pipe, q, vm);
+ }
+ 
+ static u32 gfx_v8_0_get_rb_active_bitmap(struct amdgpu_device *adev)
+diff --git a/drivers/gpu/drm/amd/amdgpu/gfx_v9_0.c b/drivers/gpu/drm/amd/amdgpu/gfx_v9_0.c
+index af0160a2fc2e..e6fc6286498c 100644
+--- a/drivers/gpu/drm/amd/amdgpu/gfx_v9_0.c
++++ b/drivers/gpu/drm/amd/amdgpu/gfx_v9_0.c
+@@ -1309,9 +1309,9 @@ static void gfx_v9_0_read_wave_vgprs(struct amdgpu_device *adev, uint32_t simd,
+ }
+ 
+ static void gfx_v9_0_select_me_pipe_q(struct amdgpu_device *adev,
+-				  u32 me, u32 pipe, u32 q)
++				  u32 me, u32 pipe, u32 q, u32 vm)
+ {
+-	soc15_grbm_select(adev, me, pipe, q, 0);
++	soc15_grbm_select(adev, me, pipe, q, vm);
+ }
+ 
+ static const struct amdgpu_gfx_funcs gfx_v9_0_gfx_funcs = {
+-- 
+2.17.1
+

@@ -1,0 +1,33 @@
+From b134924246a159f606b9215668674f09fd40b1c8 Mon Sep 17 00:00:00 2001
+From: Dan Carpenter <dan.carpenter@oracle.com>
+Date: Thu, 21 Mar 2019 09:27:07 +0300
+Subject: [PATCH 1671/2940] drm/amd/powerplay: delete some dead code
+
+The "size" variable is unsigned.  We never pass invalid sizes to this
+function and we already used it as an array offset earlier so it's
+too late to check here.
+
+Reviewed-by: Huang Rui <ray.huang@amd.com>
+Signed-off-by: Dan Carpenter <dan.carpenter@oracle.com>
+Signed-off-by: Alex Deucher <alexander.deucher@amd.com>
+---
+ drivers/gpu/drm/amd/powerplay/smu_v11_0.c | 3 ---
+ 1 file changed, 3 deletions(-)
+
+diff --git a/drivers/gpu/drm/amd/powerplay/smu_v11_0.c b/drivers/gpu/drm/amd/powerplay/smu_v11_0.c
+index 026bebe6fb45..9d75911ce674 100644
+--- a/drivers/gpu/drm/amd/powerplay/smu_v11_0.c
++++ b/drivers/gpu/drm/amd/powerplay/smu_v11_0.c
+@@ -1668,9 +1668,6 @@ static int smu_v11_0_set_power_profile_mode(struct smu_context *smu, long *input
+ 	}
+ 
+ 	if (smu->power_profile_mode == PP_SMC_POWER_PROFILE_CUSTOM) {
+-		if (size < 0)
+-			return -EINVAL;
+-
+ 		ret = smu_v11_0_get_activity_monitor_coeff(smu,
+ 							   (uint8_t *)(&activity_monitor),
+ 							   WORKLOAD_PPLIB_CUSTOM_BIT);
+-- 
+2.17.1
+

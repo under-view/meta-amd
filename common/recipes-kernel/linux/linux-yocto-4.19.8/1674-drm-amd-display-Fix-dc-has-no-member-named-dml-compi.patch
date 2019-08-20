@@ -1,0 +1,40 @@
+From a607218530a59986018740197bd0d6c0ddde110b Mon Sep 17 00:00:00 2001
+From: Leo Li <sunpeng.li@amd.com>
+Date: Thu, 21 Mar 2019 10:36:07 -0400
+Subject: [PATCH 1674/2940] drm/amd/display: Fix "dc has no member named dml"
+ compile error
+
+For DCN disabled builds, dc->dml is stripped out. Therefore, guard usage
+in dc_create_state() with CONFIG_DRM_AMD_DC_DCN1_0.
+
+It fixes the following error:
+
+drivers/gpu/drm/amd/amdgpu/../display/dc/core/dc.c: In function 'dc_create_state':
+>> drivers/gpu/drm/amd/amdgpu/../display/dc/core/dc.c:1237:34: error: 'struct dc' has no member named 'dml'
+     memcpy(&context->bw_ctx.dml, &dc->dml, sizeof(struct display_mode_lib));
+                                     ^~
+
+Signed-off-by: Leo Li <sunpeng.li@amd.com>
+Acked-by: Alex Deucher <alexander.deucher@amd.com>
+Reviewed-by: Nicholas Kazlauskas <nicholas.kazlauskas@amd.com>
+---
+ drivers/gpu/drm/amd/display/dc/core/dc.c | 2 ++
+ 1 file changed, 2 insertions(+)
+
+diff --git a/drivers/gpu/drm/amd/display/dc/core/dc.c b/drivers/gpu/drm/amd/display/dc/core/dc.c
+index 9a9cdb7f91a2..fa83781dbd5d 100644
+--- a/drivers/gpu/drm/amd/display/dc/core/dc.c
++++ b/drivers/gpu/drm/amd/display/dc/core/dc.c
+@@ -1242,7 +1242,9 @@ struct dc_state *dc_create_state(struct dc *dc)
+ 	 * initialize and obtain IP and SOC the base DML instance from DC is
+ 	 * initially copied into every context
+ 	 */
++#ifdef CONFIG_DRM_AMD_DC_DCN1_0
+ 	memcpy(&context->bw_ctx.dml, &dc->dml, sizeof(struct display_mode_lib));
++#endif
+ 
+ 	kref_init(&context->refcount);
+ 
+-- 
+2.17.1
+

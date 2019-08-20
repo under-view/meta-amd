@@ -1,0 +1,73 @@
+From 0dbd7c108352655912dfaca3f9ef04f18dc39110 Mon Sep 17 00:00:00 2001
+From: Alex Deucher <alexander.deucher@amd.com>
+Date: Thu, 1 Nov 2018 00:00:57 -0500
+Subject: [PATCH 1058/2940] drm/amdgpu/soc15: add need_reset_on_init asic
+ callback for SOC15 (v2)
+
+SOC15 chips require a reset if the driver was previously loaded
+because the PSP can only be loaded once between each reset.
+
+v2: rebase, handle multiple asic funcs
+
+Reviewed-by: Evan Quan <evan.quan@amd.com>
+Reviewed-by: Felix Kuehling <Felix.Kuehling@amd.com>
+Signed-off-by: Alex Deucher <alexander.deucher@amd.com>
+---
+ drivers/gpu/drm/amd/amdgpu/soc15.c | 20 ++++++++++++++++++++
+ 1 file changed, 20 insertions(+)
+
+diff --git a/drivers/gpu/drm/amd/amdgpu/soc15.c b/drivers/gpu/drm/amd/amdgpu/soc15.c
+index 1db5ed12d450..4e560593859f 100644
+--- a/drivers/gpu/drm/amd/amdgpu/soc15.c
++++ b/drivers/gpu/drm/amd/amdgpu/soc15.c
+@@ -46,6 +46,7 @@
+ #include "nbio/nbio_7_0_default.h"
+ #include "nbio/nbio_7_0_sh_mask.h"
+ #include "nbio/nbio_7_0_smn.h"
++#include "mp/mp_9_0_offset.h"
+ 
+ #include "soc15.h"
+ #include "soc15_common.h"
+@@ -650,6 +651,23 @@ static void soc15_get_pcie_usage(struct amdgpu_device *adev, uint64_t *count0,
+ 	*count1 = RREG32_PCIE(smnPCIE_PERF_COUNT1_TXCLK) | (cnt1_of << 32);
+ }
+ 
++static bool soc15_need_reset_on_init(struct amdgpu_device *adev)
++{
++	u32 sol_reg;
++
++	if (adev->flags & AMD_IS_APU)
++		return false;
++
++	/* Check sOS sign of life register to confirm sys driver and sOS
++	 * are already been loaded.
++	 */
++	sol_reg = RREG32_SOC15(MP0, 0, mmMP0_SMN_C2PMSG_81);
++	if (sol_reg)
++		return true;
++
++	return false;
++}
++
+ static const struct amdgpu_asic_funcs soc15_asic_funcs =
+ {
+ 	.read_disabled_bios = &soc15_read_disabled_bios,
+@@ -666,6 +684,7 @@ static const struct amdgpu_asic_funcs soc15_asic_funcs =
+ 	.need_full_reset = &soc15_need_full_reset,
+ 	.init_doorbell_index = &vega10_doorbell_index_init,
+ 	.get_pcie_usage = &soc15_get_pcie_usage,
++	.need_reset_on_init = &soc15_need_reset_on_init,
+ };
+ 
+ static const struct amdgpu_asic_funcs vega20_asic_funcs =
+@@ -684,6 +703,7 @@ static const struct amdgpu_asic_funcs vega20_asic_funcs =
+ 	.need_full_reset = &soc15_need_full_reset,
+ 	.init_doorbell_index = &vega20_doorbell_index_init,
+ 	.get_pcie_usage = &soc15_get_pcie_usage,
++	.need_reset_on_init = &soc15_need_reset_on_init,
+ };
+ 
+ static int soc15_common_early_init(void *handle)
+-- 
+2.17.1
+

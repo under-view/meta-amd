@@ -1,0 +1,36 @@
+From 555379799b48809fcc95bf96f6f6f96647779d12 Mon Sep 17 00:00:00 2001
+From: Rex Zhu <Rex.Zhu@amd.com>
+Date: Mon, 8 Oct 2018 14:55:42 +0800
+Subject: [PATCH 2214/2940] drm/amdgpu: Add helper function
+ amdgpu_ring_set_preempt_cond_exec
+
+can preempt the ring by setting cond_exec to false
+
+Acked-by: Hawking Zhang <Hawking.Zhang@amd.com>
+Signed-off-by: Rex Zhu <Rex.Zhu@amd.com>
+Signed-off-by: Jack Xiao <Jack.Xiao@amd.com>
+Signed-off-by: Alex Deucher <alexander.deucher@amd.com>
+---
+ drivers/gpu/drm/amd/amdgpu/amdgpu_ring.h | 6 ++++++
+ 1 file changed, 6 insertions(+)
+
+diff --git a/drivers/gpu/drm/amd/amdgpu/amdgpu_ring.h b/drivers/gpu/drm/amd/amdgpu/amdgpu_ring.h
+index cdddce938bf5..764bf851c1df 100644
+--- a/drivers/gpu/drm/amd/amdgpu/amdgpu_ring.h
++++ b/drivers/gpu/drm/amd/amdgpu/amdgpu_ring.h
+@@ -266,6 +266,12 @@ void amdgpu_ring_emit_reg_write_reg_wait_helper(struct amdgpu_ring *ring,
+ bool amdgpu_ring_soft_recovery(struct amdgpu_ring *ring, unsigned int vmid,
+ 			       struct dma_fence *fence);
+ 
++static inline void amdgpu_ring_set_preempt_cond_exec(struct amdgpu_ring *ring,
++							bool cond_exec)
++{
++	*ring->cond_exe_cpu_addr = cond_exec;
++}
++
+ static inline void amdgpu_ring_clear_ring(struct amdgpu_ring *ring)
+ {
+ 	int i = 0;
+-- 
+2.17.1
+

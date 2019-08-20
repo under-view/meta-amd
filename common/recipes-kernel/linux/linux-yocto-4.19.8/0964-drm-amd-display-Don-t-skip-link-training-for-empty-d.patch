@@ -1,0 +1,60 @@
+From 6c4a258ac11941ee18354cb8b2b8b923803f061e Mon Sep 17 00:00:00 2001
+From: Eric Yang <Eric.Yang2@amd.com>
+Date: Fri, 23 Nov 2018 05:55:20 -0500
+Subject: [PATCH 0964/2940] drm/amd/display: Don't skip link training for empty
+ dongle
+
+[Why]
+Skipping initial link training will result in no verified link cap for
+mode enumeration. Some versions of the BIOS seem to have PHY programming
+sequence issue as well if initial link training is skipped, resulting in
+a softlock in BIOS command table.
+
+[How]
+Identify the empty dongle hotplug case, and still do initial link
+training.
+
+Signed-off-by: Eric Yang <Eric.Yang2@amd.com>
+Reviewed-by: Tony Cheng <Tony.Cheng@amd.com>
+Acked-by: Leo Li <sunpeng.li@amd.com>
+Signed-off-by: Alex Deucher <alexander.deucher@amd.com>
+---
+ drivers/gpu/drm/amd/display/dc/core/dc_link.c | 18 ++++++++++++++++--
+ 1 file changed, 16 insertions(+), 2 deletions(-)
+
+diff --git a/drivers/gpu/drm/amd/display/dc/core/dc_link.c b/drivers/gpu/drm/amd/display/dc/core/dc_link.c
+index 1bebb60ac629..30ab9b7a161c 100644
+--- a/drivers/gpu/drm/amd/display/dc/core/dc_link.c
++++ b/drivers/gpu/drm/amd/display/dc/core/dc_link.c
+@@ -706,12 +706,26 @@ bool dc_link_detect(struct dc_link *link, enum dc_detect_reason reason)
+ 				if (memcmp(&link->dpcd_caps, &prev_dpcd_caps, sizeof(struct dpcd_caps)))
+ 					same_dpcd = false;
+ 			}
+-			/* Active dongle downstream unplug */
++			/* Active dongle plug in without display or downstream unplug*/
+ 			if (link->type == dc_connection_active_dongle
+ 					&& link->dpcd_caps.sink_count.
+ 					bits.SINK_COUNT == 0) {
+-				if (prev_sink != NULL)
++				if (prev_sink != NULL) {
++					/* Downstream unplug */
+ 					dc_sink_release(prev_sink);
++				} else {
++					/* Empty dongle plug in */
++					for (i = 0; i < LINK_TRAINING_MAX_VERIFY_RETRY; i++) {
++						int fail_count = 0;
++
++						dp_verify_link_cap(link,
++								  &link->reported_link_cap,
++								  &fail_count);
++
++						if (fail_count == 0)
++							break;
++					}
++				}
+ 				return true;
+ 			}
+ 
+-- 
+2.17.1
+

@@ -1,0 +1,107 @@
+From b7e4d7f3cdb3f754d4609a4a698a0747492bb352 Mon Sep 17 00:00:00 2001
+From: David Francis <David.Francis@amd.com>
+Date: Tue, 20 Nov 2018 09:42:58 -0500
+Subject: [PATCH 1011/2940] drm/amd/display: Detach backlight from stream
+
+[Why]
+Backlight is conceptually a property of links, not streams.
+All backlight programming is done on links, but there is a
+stream property bl_pwm_level that is used to restore backlight
+on dpms on and s3 resume.  This is unnecessary, as backlight
+is already restored by hardware with no driver intervention.
+
+[How]
+Remove bl_pwm_level, and the stream argument to set_backlight
+
+Signed-off-by: David Francis <David.Francis@amd.com>
+Reviewed-by: Harry Wentland <Harry.Wentland@amd.com>
+Acked-by: Anthony Koo <Anthony.Koo@amd.com>
+Acked-by: Leo Li <sunpeng.li@amd.com>
+Signed-off-by: Alex Deucher <alexander.deucher@amd.com>
+Signed-off-by: Chaudhary Amit Kumar <Chaudharyamit.Kumar@amd.com>
+---
+ drivers/gpu/drm/amd/display/amdgpu_dm/amdgpu_dm.c |  2 +-
+ drivers/gpu/drm/amd/display/dc/core/dc_link.c     | 12 +-----------
+ drivers/gpu/drm/amd/display/dc/dc_link.h          |  3 +--
+ drivers/gpu/drm/amd/display/dc/dc_stream.h        |  1 -
+ 4 files changed, 3 insertions(+), 15 deletions(-)
+
+diff --git a/drivers/gpu/drm/amd/display/amdgpu_dm/amdgpu_dm.c b/drivers/gpu/drm/amd/display/amdgpu_dm/amdgpu_dm.c
+index c42c1a746540..99bee5f136b7 100644
+--- a/drivers/gpu/drm/amd/display/amdgpu_dm/amdgpu_dm.c
++++ b/drivers/gpu/drm/amd/display/amdgpu_dm/amdgpu_dm.c
+@@ -1759,7 +1759,7 @@ static int amdgpu_dm_backlight_update_status(struct backlight_device *bd)
+                 + caps.min_input_signal * 0x101;
+ 
+ 	if (dc_link_set_backlight_level(dm->backlight_link,
+-			brightness, 0, 0))
++			brightness, 0))
+ 		return 0;
+ 	else
+ 		return 1;
+diff --git a/drivers/gpu/drm/amd/display/dc/core/dc_link.c b/drivers/gpu/drm/amd/display/dc/core/dc_link.c
+index ff08e9bdea04..14bd422d8b86 100644
+--- a/drivers/gpu/drm/amd/display/dc/core/dc_link.c
++++ b/drivers/gpu/drm/amd/display/dc/core/dc_link.c
+@@ -2186,8 +2186,7 @@ int dc_link_get_backlight_level(const struct dc_link *link)
+ 
+ bool dc_link_set_backlight_level(const struct dc_link *link,
+ 		uint32_t backlight_pwm_u16_16,
+-		uint32_t frame_ramp,
+-		const struct dc_stream_state *stream)
++		uint32_t frame_ramp)
+ {
+ 	struct dc  *core_dc = link->ctx->dc;
+ 	struct abm *abm = core_dc->res_pool->abm;
+@@ -2202,10 +2201,6 @@ bool dc_link_set_backlight_level(const struct dc_link *link,
+ 		(abm->funcs->set_backlight_level_pwm == NULL))
+ 		return false;
+ 
+-	if (stream)
+-		((struct dc_stream_state *)stream)->bl_pwm_level =
+-				backlight_pwm_u16_16;
+-
+ 	use_smooth_brightness = dmcu->funcs->is_dmcu_initialized(dmcu);
+ 
+ 	DC_LOG_BACKLIGHT("New Backlight level: %d (0x%X)\n",
+@@ -2633,11 +2628,6 @@ void core_link_enable_stream(
+ 
+ 		if (dc_is_dp_signal(pipe_ctx->stream->signal))
+ 			enable_stream_features(pipe_ctx);
+-
+-		dc_link_set_backlight_level(pipe_ctx->stream->link,
+-				pipe_ctx->stream->bl_pwm_level,
+-				0,
+-				pipe_ctx->stream);
+ 	}
+ 
+ }
+diff --git a/drivers/gpu/drm/amd/display/dc/dc_link.h b/drivers/gpu/drm/amd/display/dc/dc_link.h
+index 8a0e57620345..f249ff9be2a7 100644
+--- a/drivers/gpu/drm/amd/display/dc/dc_link.h
++++ b/drivers/gpu/drm/amd/display/dc/dc_link.h
+@@ -147,8 +147,7 @@ static inline struct dc_link *dc_get_link_at_index(struct dc *dc, uint32_t link_
+  */
+ bool dc_link_set_backlight_level(const struct dc_link *dc_link,
+ 		uint32_t backlight_pwm_u16_16,
+-		uint32_t frame_ramp,
+-		const struct dc_stream_state *stream);
++		uint32_t frame_ramp);
+ 
+ int dc_link_get_backlight_level(const struct dc_link *dc_link);
+ 
+diff --git a/drivers/gpu/drm/amd/display/dc/dc_stream.h b/drivers/gpu/drm/amd/display/dc/dc_stream.h
+index 39b3016f7d2e..8a778dd5f69e 100644
+--- a/drivers/gpu/drm/amd/display/dc/dc_stream.h
++++ b/drivers/gpu/drm/amd/display/dc/dc_stream.h
+@@ -100,7 +100,6 @@ struct dc_stream_state {
+ 
+ 	/* DMCU info */
+ 	unsigned int abm_level;
+-	unsigned int bl_pwm_level;
+ 
+ 	/* from core_stream struct */
+ 	struct dc_context *ctx;
+-- 
+2.17.1
+

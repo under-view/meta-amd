@@ -1,0 +1,47 @@
+From 0e69229555f4628d38d89eed32e3d5e0fe93c45e Mon Sep 17 00:00:00 2001
+From: hersen wu <hersenxs.wu@amd.com>
+Date: Wed, 10 Apr 2019 15:17:40 -0400
+Subject: [PATCH 2505/2940] drm/amd/display: Add vupdate interrupt sources to
+ NV10
+
+[WHY] linux upstream already has interrupt vupdate for freesync
+in dcn10. dcn20 interrupt shares the same source code as dcn10.
+but dcn20 interrupt translator does not add vupdate interrupt.
+this cause index of vupdate aarray be negative which causes
+crash.
+
+[HOW] add vupdate into dc interrupt transltor
+
+Signed-off-by: hersen wu <hersenxs.wu@amd.com>
+Reviewed-by: Leo Li <sunpeng.li@amd.com>
+Signed-off-by: Alex Deucher <alexander.deucher@amd.com>
+---
+ .../drm/amd/display/dc/irq/dcn20/irq_service_dcn20.c | 12 ++++++++++++
+ 1 file changed, 12 insertions(+)
+
+diff --git a/drivers/gpu/drm/amd/display/dc/irq/dcn20/irq_service_dcn20.c b/drivers/gpu/drm/amd/display/dc/irq/dcn20/irq_service_dcn20.c
+index da70cc7b24b5..65866d620759 100644
+--- a/drivers/gpu/drm/amd/display/dc/irq/dcn20/irq_service_dcn20.c
++++ b/drivers/gpu/drm/amd/display/dc/irq/dcn20/irq_service_dcn20.c
+@@ -68,6 +68,18 @@ enum dc_irq_source to_dal_irq_source_dcn20(
+ 		return DC_IRQ_SOURCE_PFLIP5;
+ 	case DCN_1_0__SRCID__HUBP5_FLIP_INTERRUPT:
+ 		return DC_IRQ_SOURCE_PFLIP6;
++	case DCN_1_0__SRCID__OTG0_IHC_V_UPDATE_NO_LOCK_INTERRUPT:
++		return DC_IRQ_SOURCE_VUPDATE1;
++	case DCN_1_0__SRCID__OTG1_IHC_V_UPDATE_NO_LOCK_INTERRUPT:
++		return DC_IRQ_SOURCE_VUPDATE2;
++	case DCN_1_0__SRCID__OTG2_IHC_V_UPDATE_NO_LOCK_INTERRUPT:
++		return DC_IRQ_SOURCE_VUPDATE3;
++	case DCN_1_0__SRCID__OTG3_IHC_V_UPDATE_NO_LOCK_INTERRUPT:
++		return DC_IRQ_SOURCE_VUPDATE4;
++	case DCN_1_0__SRCID__OTG4_IHC_V_UPDATE_NO_LOCK_INTERRUPT:
++		return DC_IRQ_SOURCE_VUPDATE5;
++	case DCN_1_0__SRCID__OTG5_IHC_V_UPDATE_NO_LOCK_INTERRUPT:
++		return DC_IRQ_SOURCE_VUPDATE6;
+ 
+ 	case DCN_1_0__SRCID__DC_HPD1_INT:
+ 		/* generic src_id for all HPD and HPDRX interrupts */
+-- 
+2.17.1
+

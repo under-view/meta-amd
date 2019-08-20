@@ -1,0 +1,531 @@
+From 57d97aab95a2c9fc47b65007adf057ca73160f38 Mon Sep 17 00:00:00 2001
+From: Leo Li <sunpeng.li@amd.com>
+Date: Fri, 14 Sep 2018 11:20:08 -0400
+Subject: [PATCH 0728/2940] drm/amd/display: Initial documentation for AMDgpu
+ DC
+
+[Why]
+Documentation is helpful for the community to understand our code.
+This change does some high-level documentation of some DM interfaces
+with DRM, and the amdgpu base driver.
+
+[How]
+An entry for AMDgpu DC has been added to Documentation/gpu/drivers.rst
+TOC. amdgpu-dc.rst is created to pull in inline doc-strings, which:
+- Provides an overview for "What is DM?"
+- Documents AMDgpu DM lifecyle
+- Documents IRQ management
+- Documents atomic_check and commit_tail interfaces
+
+Signed-off-by: Leo Li <sunpeng.li@amd.com>
+Reviewed-by: David Francis <David.Francis@amd.com>
+Acked-by: Leo Li <sunpeng.li@amd.com>
+Signed-off-by: Alex Deucher <alexander.deucher@amd.com>
+---
+ .../gpu/drm/amd/display/amdgpu_dm/amdgpu_dm.c | 101 ++++++++++++---
+ .../gpu/drm/amd/display/amdgpu_dm/amdgpu_dm.h |  76 +++++++++---
+ .../drm/amd/display/amdgpu_dm/amdgpu_dm_irq.c | 115 ++++++++++++++++--
+ 3 files changed, 249 insertions(+), 43 deletions(-)
+
+diff --git a/drivers/gpu/drm/amd/display/amdgpu_dm/amdgpu_dm.c b/drivers/gpu/drm/amd/display/amdgpu_dm/amdgpu_dm.c
+index 6992f79bdefc..b275445e0e47 100644
+--- a/drivers/gpu/drm/amd/display/amdgpu_dm/amdgpu_dm.c
++++ b/drivers/gpu/drm/amd/display/amdgpu_dm/amdgpu_dm.c
+@@ -76,6 +76,16 @@
+ #define FIRMWARE_RAVEN_DMCU		"amdgpu/raven_dmcu.bin"
+ MODULE_FIRMWARE(FIRMWARE_RAVEN_DMCU);
+ 
++/**
++ * DOC: overview
++ *
++ * The AMDgpu display manager, **amdgpu_dm** (or even simpler,
++ * **dm**) sits between DRM and DC. It acts as a liason, converting DRM
++ * requests into DC requests, and DC responses into DRM responses.
++ *
++ * The root control structure is &struct amdgpu_display_manager.
++ */
++
+ /* basic init/fini API */
+ static int amdgpu_dm_init(struct amdgpu_device *adev);
+ static void amdgpu_dm_fini(struct amdgpu_device *adev);
+@@ -379,11 +389,6 @@ static void amdgpu_dm_fbc_init(struct drm_connector *connector)
+ 
+ }
+ 
+-/*
+- * Init display KMS
+- *
+- * Returns 0 on success
+- */
+ static int amdgpu_dm_init(struct amdgpu_device *adev)
+ {
+ 	struct dc_init_data init_data;
+@@ -660,6 +665,26 @@ static void s3_handle_mst(struct drm_device *dev, bool suspend)
+ 	drm_modeset_unlock(&dev->mode_config.connection_mutex);
+ }
+ 
++/**
++ * dm_hw_init() - Initialize DC device
++ * @handle: The base driver device containing the amdpgu_dm device.
++ *
++ * Initialize the &struct amdgpu_display_manager device. This involves calling
++ * the initializers of each DM component, then populating the struct with them.
++ *
++ * Although the function implies hardware initialization, both hardware and
++ * software are initialized here. Splitting them out to their relevant init
++ * hooks is a future TODO item.
++ *
++ * Some notable things that are initialized here:
++ *
++ * - Display Core, both software and hardware
++ * - DC modules that we need (freesync and color management)
++ * - DRM software states
++ * - Interrupt sources and handlers
++ * - Vblank support
++ * - Debug FS entries, if enabled
++ */
+ static int dm_hw_init(void *handle)
+ {
+ 	struct amdgpu_device *adev = (struct amdgpu_device *)handle;
+@@ -670,6 +695,14 @@ static int dm_hw_init(void *handle)
+ 	return 0;
+ }
+ 
++/**
++ * dm_hw_fini() - Teardown DC device
++ * @handle: The base driver device containing the amdpgu_dm device.
++ *
++ * Teardown components within &struct amdgpu_display_manager that require
++ * cleanup. This involves cleaning up the DRM device, DC, and any modules that
++ * were loaded. Also flush IRQ workqueues and disable them.
++ */
+ static int dm_hw_fini(void *handle)
+ {
+ 	struct amdgpu_device *adev = (struct amdgpu_device *)handle;
+@@ -895,6 +928,16 @@ static int dm_resume(void *handle)
+ 	return ret;
+ }
+ 
++/**
++ * DOC: DM Lifecycle
++ *
++ * DM (and consequently DC) is registered in the amdgpu base driver as a IP
++ * block. When CONFIG_DRM_AMD_DC is enabled, the DM device IP block is added to
++ * the base driver's device list to be initialized and torn down accordingly.
++ *
++ * The functions to do so are provided as hooks in &struct amd_ip_funcs.
++ */
++
+ static const struct amd_ip_funcs amdgpu_dm_funcs = {
+ 	.name = "dm",
+ 	.early_init = dm_early_init,
+@@ -962,6 +1005,12 @@ dm_atomic_state_alloc_free(struct drm_atomic_state *state)
+ 	kfree(dm_state);
+ }
+ 
++/**
++ * DOC: atomic
++ *
++ * *WIP*
++ */
++
+ static const struct drm_mode_config_funcs amdgpu_dm_mode_funcs = {
+ 	.fb_create = amdgpu_display_user_framebuffer_create,
+ 	.output_poll_changed = drm_fb_helper_output_poll_changed,
+@@ -4579,6 +4628,14 @@ static int amdgpu_dm_atomic_commit(struct drm_device *dev,
+ 	/*TODO Handle EINTR, reenable IRQ*/
+ }
+ 
++/**
++ * amdgpu_dm_atomic_commit_tail() - AMDgpu DM's commit tail implementation.
++ * @state: The atomic state to commit
++ *
++ * This will tell DC to commit the constructed DC state from atomic_check,
++ * programming the hardware. Any failures here implies a hardware failure, since
++ * atomic check should have filtered anything non-kosher.
++ */
+ static void amdgpu_dm_atomic_commit_tail(struct drm_atomic_state *state)
+ {
+ 	struct drm_device *dev = state->dev;
+@@ -5428,6 +5485,31 @@ enum surface_update_type dm_determine_update_type_for_commit(struct dc *dc, stru
+ 	return update_type;
+ }
+ 
++/**
++ * amdgpu_dm_atomic_check() - Atomic check implementation for AMDgpu DM.
++ * @dev: The DRM device
++ * @state: The atomic state to commit
++ *
++ * Validate that the given atomic state is programmable by DC into hardware.
++ * This involves constructing a &struct dc_state reflecting the new hardware
++ * state we wish to commit, then querying DC to see if it is programmable. It's
++ * important not to modify the existing DC state. Otherwise, atomic_check
++ * may unexpectedly commit hardware changes.
++ *
++ * When validating the DC state, it's important that the right locks are
++ * acquired. For full updates case which removes/adds/updates streams on one
++ * CRTC while flipping on another CRTC, acquiring global lock will guarantee
++ * that any such full update commit will wait for completion of any outstanding
++ * flip using DRMs synchronization events. See
++ * dm_determine_update_type_for_commit()
++ *
++ * Note that DM adds the affected connectors for all CRTCs in state, when that
++ * might not seem necessary. This is because DC stream creation requires the
++ * DC sink, which is tied to the DRM connector state. Cleaning this up should
++ * be possible but non-trivial - a possible TODO item.
++ *
++ * Return: -Error code if validation failed.
++ */
+ static int amdgpu_dm_atomic_check(struct drm_device *dev,
+ 				  struct drm_atomic_state *state)
+ {
+@@ -5530,15 +5612,6 @@ static int amdgpu_dm_atomic_check(struct drm_device *dev,
+ 		lock_and_validation_needed = true;
+ 	}
+ 
+-	/*
+-	 * For full updates case when
+-	 * removing/adding/updating streams on once CRTC while flipping
+-	 * on another CRTC,
+-	 * acquiring global lock  will guarantee that any such full
+-	 * update commit
+-	 * will wait for completion of any outstanding flip using DRMs
+-	 * synchronization events.
+-	 */
+ 	update_type = dm_determine_update_type_for_commit(dc, state);
+ 
+ 	if (overall_update_type < update_type)
+diff --git a/drivers/gpu/drm/amd/display/amdgpu_dm/amdgpu_dm.h b/drivers/gpu/drm/amd/display/amdgpu_dm/amdgpu_dm.h
+index 570159e704cf..0c80d6fd1f17 100644
+--- a/drivers/gpu/drm/amd/display/amdgpu_dm/amdgpu_dm.h
++++ b/drivers/gpu/drm/amd/display/amdgpu_dm/amdgpu_dm.h
+@@ -59,50 +59,97 @@ struct common_irq_params {
+ 	enum dc_irq_source irq_src;
+ };
+ 
++/**
++ * struct irq_list_head - Linked-list for low context IRQ handlers.
++ *
++ * @head: The list_head within &struct handler_data
++ * @work: A work_struct containing the deferred handler work
++ */
+ struct irq_list_head {
+ 	struct list_head head;
+ 	/* In case this interrupt needs post-processing, 'work' will be queued*/
+ 	struct work_struct work;
+ };
+ 
++/**
++ * struct dm_compressor_info - Buffer info used by frame buffer compression
++ * @cpu_addr: MMIO cpu addr
++ * @bo_ptr: Pointer to the buffer object
++ * @gpu_addr: MMIO gpu addr
++ */
+ struct dm_comressor_info {
+ 	void *cpu_addr;
+ 	struct amdgpu_bo *bo_ptr;
+ 	uint64_t gpu_addr;
+ };
+ 
+-
++/**
++ * struct amdgpu_display_manager - Central amdgpu display manager device
++ *
++ * @dc: Display Core control structure
++ * @adev: AMDGPU base driver structure
++ * @ddev: DRM base driver structure
++ * @display_indexes_num: Max number of display streams supported
++ * @irq_handler_list_table_lock: Synchronizes access to IRQ tables
++ * @backlight_dev: Backlight control device
++ * @cached_state: Caches device atomic state for suspend/resume
++ * @compressor: Frame buffer compression buffer. See &struct dm_comressor_info
++ */
+ struct amdgpu_display_manager {
++
+ 	struct dc *dc;
++        /**
++         * @cgs_device:
++         *
++         * The Common Graphics Services device. It provides an interface for
++         * accessing registers.
++         */
+ 	struct cgs_device *cgs_device;
+-
+-	struct amdgpu_device *adev;	/*AMD base driver*/
+-	struct drm_device *ddev;	/*DRM base driver*/
++        struct amdgpu_device *adev;
++        struct drm_device *ddev;
+ 	u16 display_indexes_num;
+ 
+-	/*
+-	 * 'irq_source_handler_table' holds a list of handlers
+-	 * per (DAL) IRQ source.
++	/**
++	 *@irq_handler_list_low_tab:
+ 	 *
+-	 * Each IRQ source may need to be handled at different contexts.
+-	 * By 'context' we mean, for example:
+-	 * - The ISR context, which is the direct interrupt handler.
+-	 * - The 'deferred' context - this is the post-processing of the
+-	 *	interrupt, but at a lower priority.
++	 * Low priority IRQ handler table.
++	 *
++	 * It is a n*m table consisting of n IRQ sources, and m handlers per IRQ
++	 * source. Low priority IRQ handlers are deferred to a workqueue to be
++	 * processed. Hence, they can sleep.
+ 	 *
+ 	 * Note that handlers are called in the same order as they were
+ 	 * registered (FIFO).
+ 	 */
+ 	struct irq_list_head irq_handler_list_low_tab[DAL_IRQ_SOURCES_NUMBER];
++        /**
++         * @irq_handler_list_high_tab:
++         *
++         * High priority IRQ handler table.
++          *
++         * It is a n*m table, same as &irq_handler_list_low_tab. However,
++         * handlers in this table are not deferred and are called immediately.
++         */
+ 	struct list_head irq_handler_list_high_tab[DAL_IRQ_SOURCES_NUMBER];
+ 
++        /**
++         * @pflip_params:
++         *
++         * Page flip IRQ parameters, passed to registered handlers when
++         * triggered.
++         */
+ 	struct common_irq_params
+ 	pflip_params[DC_IRQ_SOURCE_PFLIP_LAST - DC_IRQ_SOURCE_PFLIP_FIRST + 1];
+ 
++        /**
++         * @vblank_params:
++         *
++         * Vertical blanking IRQ parameters, passed to registered handlers when
++         * triggered.
++         */
+ 	struct common_irq_params
+ 	vblank_params[DC_IRQ_SOURCE_VBLANK6 - DC_IRQ_SOURCE_VBLANK1 + 1];
+ 
+-	/* this spin lock synchronizes access to 'irq_handler_list_table' */
+ 	spinlock_t irq_handler_list_table_lock;
+ 
+ 	struct backlight_device *backlight_dev;
+@@ -111,9 +158,6 @@ struct amdgpu_display_manager {
+ 
+ 	struct mod_freesync *freesync_module;
+ 
+-	/**
+-	 * Caches device atomic state for suspend/resume
+-	 */
+ 	struct drm_atomic_state *cached_state;
+ 
+ 	struct dm_comressor_info compressor;
+diff --git a/drivers/gpu/drm/amd/display/amdgpu_dm/amdgpu_dm_irq.c b/drivers/gpu/drm/amd/display/amdgpu_dm/amdgpu_dm_irq.c
+index a212178f2edc..cd10f77cdeb0 100644
+--- a/drivers/gpu/drm/amd/display/amdgpu_dm/amdgpu_dm_irq.c
++++ b/drivers/gpu/drm/amd/display/amdgpu_dm/amdgpu_dm_irq.c
+@@ -32,16 +32,55 @@
+ #include "amdgpu_dm.h"
+ #include "amdgpu_dm_irq.h"
+ 
++/**
++ * DOC: overview
++ *
++ * DM provides another layer of IRQ management on top of what the base driver
++ * already provides. This is something that could be cleaned up, and is a
++ * future TODO item.
++ *
++ * The base driver provides IRQ source registration with DRM, handler
++ * registration into the base driver's IRQ table, and a handler callback
++ * amdgpu_irq_handler(), with which DRM calls on interrupts. This generic
++ * handler looks up the IRQ table, and calls the respective
++ * &amdgpu_irq_src_funcs.process hookups.
++ *
++ * What DM provides on top are two IRQ tables specifically for top-half and
++ * bottom-half IRQ handling, with the bottom-half implementing workqueues:
++ *
++ * - &amdgpu_display_manager.irq_handler_list_high_tab
++ * - &amdgpu_display_manager.irq_handler_list_low_tab
++ *
++ * They override the base driver's IRQ table, and the effect can be seen
++ * in the hooks that DM provides for &amdgpu_irq_src_funcs.process. They
++ * are all set to the DM generic handler amdgpu_dm_irq_handler(), which looks up
++ * DM's IRQ tables. However, in order for base driver to recognize this hook, DM
++ * still needs to register the IRQ with the base driver. See
++ * dce110_register_irq_handlers() and dcn10_register_irq_handlers().
++ *
++ * To expose DC's hardware interrupt toggle to the base driver, DM implements
++ * &amdgpu_irq_src_funcs.set hooks. Base driver calls it through
++ * amdgpu_irq_update() to enable or disable the interrupt.
++ */
++
+ /******************************************************************************
+  * Private declarations.
+  *****************************************************************************/
+ 
++/**
++ * struct amdgpu_dm_irq_handler_data - Data for DM interrupt handlers.
++ *
++ * @list: Linked list entry referencing the next/previous handler
++ * @handler: Handler function
++ * @handler_arg: Argument passed to the handler when triggered
++ * @dm: DM which this handler belongs to
++ * @irq_source: DC interrupt source that this handler is registered for
++ */
+ struct amdgpu_dm_irq_handler_data {
+ 	struct list_head list;
+ 	interrupt_handler handler;
+ 	void *handler_arg;
+ 
+-	/* DM which this handler belongs to */
+ 	struct amdgpu_display_manager *dm;
+ 	/* DAL irq source which registered for this interrupt. */
+ 	enum dc_irq_source irq_source;
+@@ -68,7 +107,7 @@ static void init_handler_common_data(struct amdgpu_dm_irq_handler_data *hcd,
+ }
+ 
+ /**
+- * dm_irq_work_func - Handle an IRQ outside of the interrupt handler proper.
++ * dm_irq_work_func() - Handle an IRQ outside of the interrupt handler proper.
+  *
+  * @work: work struct
+  */
+@@ -99,8 +138,8 @@ static void dm_irq_work_func(struct work_struct *work)
+ 	 * (The most common use is HPD interrupt) */
+ }
+ 
+-/**
+- * Remove a handler and return a pointer to hander list from which the
++/*
++ * Remove a handler and return a pointer to handler list from which the
+  * handler was removed.
+  */
+ static struct list_head *remove_irq_handler(struct amdgpu_device *adev,
+@@ -203,6 +242,24 @@ static bool validate_irq_unregistration_params(enum dc_irq_source irq_source,
+  * Note: caller is responsible for input validation.
+  *****************************************************************************/
+ 
++/**
++ * amdgpu_dm_irq_register_interrupt() - Register a handler within DM.
++ * @adev: The base driver device containing the DM device.
++ * @int_params: Interrupt parameters containing the source, and handler context
++ * @ih: Function pointer to the interrupt handler to register
++ * @handler_args: Arguments passed to the handler when the interrupt occurs
++ *
++ * Register an interrupt handler for the given IRQ source, under the given
++ * context. The context can either be high or low. High context handlers are
++ * executed directly within ISR context, while low context is executed within a
++ * workqueue, thereby allowing operations that sleep.
++ *
++ * Registered handlers are called in a FIFO manner, i.e. the most recently
++ * registered handler will be called first.
++ *
++ * Return: Handler data &struct amdgpu_dm_irq_handler_data containing the IRQ
++ *         source, handler function, and args
++ */
+ void *amdgpu_dm_irq_register_interrupt(struct amdgpu_device *adev,
+ 				       struct dc_interrupt_params *int_params,
+ 				       void (*ih)(void *),
+@@ -261,6 +318,15 @@ void *amdgpu_dm_irq_register_interrupt(struct amdgpu_device *adev,
+ 	return handler_data;
+ }
+ 
++/**
++ * amdgpu_dm_irq_unregister_interrupt() - Remove a handler from the DM IRQ table
++ * @adev: The base driver device containing the DM device
++ * @irq_source: IRQ source to remove the given handler from
++ * @ih: Function pointer to the interrupt handler to unregister
++ *
++ * Go through both low and high context IRQ tables, and find the given handler
++ * for the given irq source. If found, remove it. Otherwise, do nothing.
++ */
+ void amdgpu_dm_irq_unregister_interrupt(struct amdgpu_device *adev,
+ 					enum dc_irq_source irq_source,
+ 					void *ih)
+@@ -295,6 +361,20 @@ void amdgpu_dm_irq_unregister_interrupt(struct amdgpu_device *adev,
+ 	}
+ }
+ 
++/**
++ * amdgpu_dm_irq_init() - Initialize DM IRQ management
++ * @adev:  The base driver device containing the DM device
++ *
++ * Initialize DM's high and low context IRQ tables.
++ *
++ * The N by M table contains N IRQ sources, with M
++ * &struct amdgpu_dm_irq_handler_data hooked together in a linked list. The
++ * list_heads are initialized here. When an interrupt n is triggered, all m
++ * handlers are called in sequence, FIFO according to registration order.
++ *
++ * The low context table requires special steps to initialize, since handlers
++ * will be deferred to a workqueue. See &struct irq_list_head.
++ */
+ int amdgpu_dm_irq_init(struct amdgpu_device *adev)
+ {
+ 	int src;
+@@ -317,7 +397,12 @@ int amdgpu_dm_irq_init(struct amdgpu_device *adev)
+ 	return 0;
+ }
+ 
+-/* DM IRQ and timer resource release */
++/**
++ * amdgpu_dm_irq_fini() - Tear down DM IRQ management
++ * @adev: The base driver device containing the DM device
++ *
++ * Flush all work within the low context IRQ table.
++ */
+ void amdgpu_dm_irq_fini(struct amdgpu_device *adev)
+ {
+ 	int src;
+@@ -414,7 +499,7 @@ int amdgpu_dm_irq_resume_late(struct amdgpu_device *adev)
+ 	return 0;
+ }
+ 
+-/**
++/*
+  * amdgpu_dm_irq_schedule_work - schedule all work items registered for the
+  * "irq_source".
+  */
+@@ -439,8 +524,9 @@ static void amdgpu_dm_irq_schedule_work(struct amdgpu_device *adev,
+ 
+ }
+ 
+-/** amdgpu_dm_irq_immediate_work
+- *  Callback high irq work immediately, don't send to work queue
++/*
++ * amdgpu_dm_irq_immediate_work
++ * Callback high irq work immediately, don't send to work queue
+  */
+ static void amdgpu_dm_irq_immediate_work(struct amdgpu_device *adev,
+ 					 enum dc_irq_source irq_source)
+@@ -467,11 +553,14 @@ static void amdgpu_dm_irq_immediate_work(struct amdgpu_device *adev,
+ 	DM_IRQ_TABLE_UNLOCK(adev, irq_table_flags);
+ }
+ 
+-/*
+- * amdgpu_dm_irq_handler
++/**
++ * amdgpu_dm_irq_handler - Generic DM IRQ handler
++ * @adev: amdgpu base driver device containing the DM device
++ * @source: Unused
++ * @entry: Data about the triggered interrupt
+  *
+- * Generic IRQ handler, calls all registered high irq work immediately, and
+- * schedules work for low irq
++ * Calls all registered high irq work immediately, and schedules work for low
++ * irq. The DM IRQ table is used to find the corresponding handlers.
+  */
+ static int amdgpu_dm_irq_handler(struct amdgpu_device *adev,
+ 				 struct amdgpu_irq_src *source,
+@@ -613,7 +702,7 @@ void amdgpu_dm_set_irq_funcs(struct amdgpu_device *adev)
+ 	adev->hpd_irq.funcs = &dm_hpd_irq_funcs;
+ }
+ 
+-/*
++/**
+  * amdgpu_dm_hpd_init - hpd setup callback.
+  *
+  * @adev: amdgpu_device pointer
+-- 
+2.17.1
+

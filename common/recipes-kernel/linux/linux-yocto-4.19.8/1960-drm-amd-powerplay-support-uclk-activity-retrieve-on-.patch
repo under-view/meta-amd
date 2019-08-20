@@ -1,0 +1,59 @@
+From 8bc02ef241900ba1df89c5b031b1baedc5401e9a Mon Sep 17 00:00:00 2001
+From: Evan Quan <evan.quan@amd.com>
+Date: Tue, 14 May 2019 10:38:42 +0800
+Subject: [PATCH 1960/2940] drm/amd/powerplay: support uclk activity retrieve
+ on sw smu routine
+
+Support realtime uclk activity report.
+
+Change-Id: I89cf7c95233060ee106e9fcef3b8e6707cd60466
+Signed-off-by: Evan Quan <evan.quan@amd.com>
+Reviewed-by: Alex Deucher <alexander.deucher@amd.com>
+---
+ drivers/gpu/drm/amd/powerplay/smu_v11_0.c | 15 ++++++++++++++-
+ 1 file changed, 14 insertions(+), 1 deletion(-)
+
+diff --git a/drivers/gpu/drm/amd/powerplay/smu_v11_0.c b/drivers/gpu/drm/amd/powerplay/smu_v11_0.c
+index c139f5f75464..93ad3997becc 100644
+--- a/drivers/gpu/drm/amd/powerplay/smu_v11_0.c
++++ b/drivers/gpu/drm/amd/powerplay/smu_v11_0.c
+@@ -1123,6 +1123,7 @@ static int smu_v11_0_get_metrics_table(struct smu_context *smu,
+ }
+ 
+ static int smu_v11_0_get_current_activity_percent(struct smu_context *smu,
++						  enum amd_pp_sensors sensor,
+ 						  uint32_t *value)
+ {
+ 	int ret = 0;
+@@ -1135,7 +1136,17 @@ static int smu_v11_0_get_current_activity_percent(struct smu_context *smu,
+ 	if (ret)
+ 		return ret;
+ 
+-	*value = metrics.AverageGfxActivity;
++	switch (sensor) {
++	case AMDGPU_PP_SENSOR_GPU_LOAD:
++		*value = metrics.AverageGfxActivity;
++		break;
++	case AMDGPU_PP_SENSOR_MEM_LOAD:
++		*value = metrics.AverageUclkActivity;
++		break;
++	default:
++		pr_err("Invalid sensor for retrieving clock activity\n");
++		return -EINVAL;
++	}
+ 
+ 	return 0;
+ }
+@@ -1210,7 +1221,9 @@ static int smu_v11_0_read_sensor(struct smu_context *smu,
+ 	int ret = 0;
+ 	switch (sensor) {
+ 	case AMDGPU_PP_SENSOR_GPU_LOAD:
++	case AMDGPU_PP_SENSOR_MEM_LOAD:
+ 		ret = smu_v11_0_get_current_activity_percent(smu,
++							     sensor,
+ 							     (uint32_t *)data);
+ 		*size = 4;
+ 		break;
+-- 
+2.17.1
+

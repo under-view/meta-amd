@@ -1,0 +1,142 @@
+From 21150d2b0bacbd24081b6b428a5c6a5f912a0446 Mon Sep 17 00:00:00 2001
+From: "Hook, Gary" <Gary.Hook@amd.com>
+Date: Tue, 18 Dec 2018 15:48:29 +0000
+Subject: [PATCH 1840/2940] crypto: ccp - Update copyright notices and dates
+
+Correct copyright dates for files that have had code added
+to them in 2018.
+
+Signed-off-by: Gary R Hook <gary.hook@amd.com>
+Signed-off-by: Herbert Xu <herbert@gondor.apana.org.au>
+---
+ drivers/crypto/ccp/ccp-crypto-aes-cmac.c | 2 +-
+ drivers/crypto/ccp/ccp-crypto-sha.c      | 2 +-
+ drivers/crypto/ccp/ccp-ops.c             | 2 +-
+ drivers/crypto/ccp/psp-dev.c             | 2 +-
+ drivers/crypto/ccp/psp-dev.h             | 2 +-
+ drivers/crypto/ccp/sp-dev.c              | 2 +-
+ drivers/crypto/ccp/sp-dev.h              | 2 +-
+ drivers/crypto/ccp/sp-pci.c              | 2 +-
+ drivers/crypto/ccp/sp-platform.c         | 2 +-
+ 9 files changed, 9 insertions(+), 9 deletions(-)
+
+diff --git a/drivers/crypto/ccp/ccp-crypto-aes-cmac.c b/drivers/crypto/ccp/ccp-crypto-aes-cmac.c
+index 3c6fe57f91f8..5d784a15809c 100644
+--- a/drivers/crypto/ccp/ccp-crypto-aes-cmac.c
++++ b/drivers/crypto/ccp/ccp-crypto-aes-cmac.c
+@@ -1,7 +1,7 @@
+ /*
+  * AMD Cryptographic Coprocessor (CCP) AES CMAC crypto API support
+  *
+- * Copyright (C) 2013 Advanced Micro Devices, Inc.
++ * Copyright (C) 2013,2018 Advanced Micro Devices, Inc.
+  *
+  * Author: Tom Lendacky <thomas.lendacky@amd.com>
+  *
+diff --git a/drivers/crypto/ccp/ccp-crypto-sha.c b/drivers/crypto/ccp/ccp-crypto-sha.c
+index 2ca64bb57d2e..10a61cd54fce 100644
+--- a/drivers/crypto/ccp/ccp-crypto-sha.c
++++ b/drivers/crypto/ccp/ccp-crypto-sha.c
+@@ -1,7 +1,7 @@
+ /*
+  * AMD Cryptographic Coprocessor (CCP) SHA crypto API support
+  *
+- * Copyright (C) 2013,2017 Advanced Micro Devices, Inc.
++ * Copyright (C) 2013,2018 Advanced Micro Devices, Inc.
+  *
+  * Author: Tom Lendacky <thomas.lendacky@amd.com>
+  * Author: Gary R Hook <gary.hook@amd.com>
+diff --git a/drivers/crypto/ccp/ccp-ops.c b/drivers/crypto/ccp/ccp-ops.c
+index 0ea43cdeb05f..267a367bd076 100644
+--- a/drivers/crypto/ccp/ccp-ops.c
++++ b/drivers/crypto/ccp/ccp-ops.c
+@@ -1,7 +1,7 @@
+ /*
+  * AMD Cryptographic Coprocessor (CCP) driver
+  *
+- * Copyright (C) 2013,2017 Advanced Micro Devices, Inc.
++ * Copyright (C) 2013,2018 Advanced Micro Devices, Inc.
+  *
+  * Author: Tom Lendacky <thomas.lendacky@amd.com>
+  * Author: Gary R Hook <gary.hook@amd.com>
+diff --git a/drivers/crypto/ccp/psp-dev.c b/drivers/crypto/ccp/psp-dev.c
+index 34b2dc6fc992..d79147177394 100644
+--- a/drivers/crypto/ccp/psp-dev.c
++++ b/drivers/crypto/ccp/psp-dev.c
+@@ -1,7 +1,7 @@
+ /*
+  * AMD Platform Security Processor (PSP) interface
+  *
+- * Copyright (C) 2016-2017 Advanced Micro Devices, Inc.
++ * Copyright (C) 2016,2018 Advanced Micro Devices, Inc.
+  *
+  * Author: Brijesh Singh <brijesh.singh@amd.com>
+  *
+diff --git a/drivers/crypto/ccp/psp-dev.h b/drivers/crypto/ccp/psp-dev.h
+index 8b53a9674ecb..f5afeccf42a1 100644
+--- a/drivers/crypto/ccp/psp-dev.h
++++ b/drivers/crypto/ccp/psp-dev.h
+@@ -1,7 +1,7 @@
+ /*
+  * AMD Platform Security Processor (PSP) interface driver
+  *
+- * Copyright (C) 2017 Advanced Micro Devices, Inc.
++ * Copyright (C) 2017-2018 Advanced Micro Devices, Inc.
+  *
+  * Author: Brijesh Singh <brijesh.singh@amd.com>
+  *
+diff --git a/drivers/crypto/ccp/sp-dev.c b/drivers/crypto/ccp/sp-dev.c
+index e0459002eb71..b2879767fc98 100644
+--- a/drivers/crypto/ccp/sp-dev.c
++++ b/drivers/crypto/ccp/sp-dev.c
+@@ -1,7 +1,7 @@
+ /*
+  * AMD Secure Processor driver
+  *
+- * Copyright (C) 2017 Advanced Micro Devices, Inc.
++ * Copyright (C) 2017-2018 Advanced Micro Devices, Inc.
+  *
+  * Author: Tom Lendacky <thomas.lendacky@amd.com>
+  * Author: Gary R Hook <gary.hook@amd.com>
+diff --git a/drivers/crypto/ccp/sp-dev.h b/drivers/crypto/ccp/sp-dev.h
+index 14398cad1625..5b0790025db3 100644
+--- a/drivers/crypto/ccp/sp-dev.h
++++ b/drivers/crypto/ccp/sp-dev.h
+@@ -1,7 +1,7 @@
+ /*
+  * AMD Secure Processor driver
+  *
+- * Copyright (C) 2017 Advanced Micro Devices, Inc.
++ * Copyright (C) 2017-2018 Advanced Micro Devices, Inc.
+  *
+  * Author: Tom Lendacky <thomas.lendacky@amd.com>
+  * Author: Gary R Hook <gary.hook@amd.com>
+diff --git a/drivers/crypto/ccp/sp-pci.c b/drivers/crypto/ccp/sp-pci.c
+index 7da93e9bebed..6d730d3e3f6f 100644
+--- a/drivers/crypto/ccp/sp-pci.c
++++ b/drivers/crypto/ccp/sp-pci.c
+@@ -1,7 +1,7 @@
+ /*
+  * AMD Secure Processor device driver
+  *
+- * Copyright (C) 2013,2016 Advanced Micro Devices, Inc.
++ * Copyright (C) 2013,2018 Advanced Micro Devices, Inc.
+  *
+  * Author: Tom Lendacky <thomas.lendacky@amd.com>
+  * Author: Gary R Hook <gary.hook@amd.com>
+diff --git a/drivers/crypto/ccp/sp-platform.c b/drivers/crypto/ccp/sp-platform.c
+index b75dc7db2d4a..d24228efbaaa 100644
+--- a/drivers/crypto/ccp/sp-platform.c
++++ b/drivers/crypto/ccp/sp-platform.c
+@@ -1,7 +1,7 @@
+ /*
+  * AMD Secure Processor device driver
+  *
+- * Copyright (C) 2014,2016 Advanced Micro Devices, Inc.
++ * Copyright (C) 2014,2018 Advanced Micro Devices, Inc.
+  *
+  * Author: Tom Lendacky <thomas.lendacky@amd.com>
+  *
+-- 
+2.17.1
+

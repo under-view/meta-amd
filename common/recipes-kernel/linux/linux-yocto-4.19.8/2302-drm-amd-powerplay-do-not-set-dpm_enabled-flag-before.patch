@@ -1,0 +1,33 @@
+From 109a943763bd26dc577e1cf9e738811863368819 Mon Sep 17 00:00:00 2001
+From: Huang Rui <ray.huang@amd.com>
+Date: Wed, 29 May 2019 23:15:54 -0500
+Subject: [PATCH 2302/2940] drm/amd/powerplay: do not set dpm_enabled flag
+ before VCN/DCN DPM is workable
+
+This dpm_enabled flag will be recognized as the VCN DPM enabled as well. In fact
+VCN/DCN DPM on Navi10 is not good so far, so we cannot enable it for now.
+
+Signed-off-by: Huang Rui <ray.huang@amd.com>
+Acked-by: Hawking Zhang <Hawking.Zhang@amd.com>
+Signed-off-by: Alex Deucher <alexander.deucher@amd.com>
+---
+ drivers/gpu/drm/amd/powerplay/amdgpu_smu.c | 3 +++
+ 1 file changed, 3 insertions(+)
+
+diff --git a/drivers/gpu/drm/amd/powerplay/amdgpu_smu.c b/drivers/gpu/drm/amd/powerplay/amdgpu_smu.c
+index 858ce5db687f..06f5e5ce9db1 100644
+--- a/drivers/gpu/drm/amd/powerplay/amdgpu_smu.c
++++ b/drivers/gpu/drm/amd/powerplay/amdgpu_smu.c
+@@ -866,6 +866,9 @@ static int smu_hw_init(void *handle)
+ 		adev->pm.dpm_enabled = false;
+ 	else
+ 		adev->pm.dpm_enabled = true;
++	/* TODO: will set dpm_enabled flag while VCN and DAL DPM is workable */
++	if (adev->asic_type != CHIP_NAVI10)
++		adev->pm.dpm_enabled = true;
+ 
+ 	pr_info("SMU is initialized successfully!\n");
+ 
+-- 
+2.17.1
+

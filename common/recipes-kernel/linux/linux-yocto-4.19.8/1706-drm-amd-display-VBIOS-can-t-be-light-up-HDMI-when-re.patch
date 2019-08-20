@@ -1,0 +1,49 @@
+From 086cb7520d173618bb738424b7eaf46e90b99594 Mon Sep 17 00:00:00 2001
+From: Paul Hsieh <paul.hsieh@amd.com>
+Date: Mon, 18 Mar 2019 18:04:05 +0800
+Subject: [PATCH 1706/2940] drm/amd/display: VBIOS can't be light up HDMI when
+ restart system
+
+[Why]
+VBIOS will not post pixel rate > 340MHz.
+If driver set pixel rate > 340MHz and do restart bottom, VBIOS can't
+post HDMI monitor due to monitor is stay in HDMI2.0 state.
+
+[How]
+Program Scrambling_Enable and TMDS_Bit_Clock_Ratio when disable stream.
+
+Change-Id: I8ec15874e3382a6ae9b6d38915ba05a4df3e5bde
+Signed-off-by: Paul Hsieh <paul.hsieh@amd.com>
+Reviewed-by: Charlene Liu <Charlene.Liu@amd.com>
+Acked-by: Bhawanpreet Lakha <Bhawanpreet.Lakha@amd.com>
+Acked-by: Harry Wentland <Harry.Wentland@amd.com>
+---
+ drivers/gpu/drm/amd/display/dc/core/dc_link.c | 6 ++++++
+ 1 file changed, 6 insertions(+)
+
+diff --git a/drivers/gpu/drm/amd/display/dc/core/dc_link.c b/drivers/gpu/drm/amd/display/dc/core/dc_link.c
+index 42bcd27a2dd4..dd6e5f0fdf5e 100644
+--- a/drivers/gpu/drm/amd/display/dc/core/dc_link.c
++++ b/drivers/gpu/drm/amd/display/dc/core/dc_link.c
+@@ -2666,12 +2666,18 @@ void core_link_enable_stream(
+ void core_link_disable_stream(struct pipe_ctx *pipe_ctx, int option)
+ {
+ 	struct dc  *core_dc = pipe_ctx->stream->ctx->dc;
++	struct dc_stream_state *stream = pipe_ctx->stream;
+ 
+ 	core_dc->hwss.blank_stream(pipe_ctx);
+ 
+ 	if (pipe_ctx->stream->signal == SIGNAL_TYPE_DISPLAY_PORT_MST)
+ 		deallocate_mst_payload(pipe_ctx);
+ 
++	if (dc_is_hdmi_signal(pipe_ctx->stream->signal))
++		dal_ddc_service_write_scdc_data(
++			stream->link->ddc, 0,
++			stream->timing.flags.LTE_340MCSC_SCRAMBLE);
++
+ 	core_dc->hwss.disable_stream(pipe_ctx, option);
+ 
+ 	disable_link(pipe_ctx->stream->link, pipe_ctx->stream->signal);
+-- 
+2.17.1
+

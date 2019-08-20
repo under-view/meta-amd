@@ -1,0 +1,41 @@
+From 8ccf3c7dedb5bc357ddf115e1fde3d4ec8d73700 Mon Sep 17 00:00:00 2001
+From: Nicholas Kazlauskas <nicholas.kazlauskas@amd.com>
+Date: Thu, 10 Jan 2019 10:33:53 -0500
+Subject: [PATCH 1201/2940] drm/amd/display: Remove FreeSync timing changed
+ debug output
+
+[Why]
+This provides little debug value and creates a lot of dmesg noise.
+
+[How]
+Remove it.
+
+Change-Id: I1cbb8446ab706055cfb771232b6141156bdbe4b6
+Signed-off-by: Nicholas Kazlauskas <nicholas.kazlauskas@amd.com>
+Reviewed-by: David Francis <David.Francis@amd.com>
+Acked-by: Bhawanpreet Lakha <Bhawanpreet.Lakha@amd.com>
+Signed-off-by: Chaudhary Amit Kumar <Chaudharyamit.Kumar@amd.com>
+---
+ drivers/gpu/drm/amd/display/amdgpu_dm/amdgpu_dm.c | 6 ------
+ 1 file changed, 6 deletions(-)
+
+diff --git a/drivers/gpu/drm/amd/display/amdgpu_dm/amdgpu_dm.c b/drivers/gpu/drm/amd/display/amdgpu_dm/amdgpu_dm.c
+index fb6fe2b8ba7e..e0e5453d9b69 100644
+--- a/drivers/gpu/drm/amd/display/amdgpu_dm/amdgpu_dm.c
++++ b/drivers/gpu/drm/amd/display/amdgpu_dm/amdgpu_dm.c
+@@ -4744,12 +4744,6 @@ static void update_freesync_state_on_stream(
+                               new_crtc_state->base.crtc->base.id,
+                               (int)new_crtc_state->base.vrr_enabled,
+ 			      (int)vrr_params.state);
+-			
+-        if (new_crtc_state->freesync_timing_changed)
+-                DRM_DEBUG_KMS("VRR timing update: crtc=%u min=%u max=%u\n",
+-                              new_crtc_state->base.crtc->base.id,
+-                                  vrr_params.adjust.v_total_min,
+-                                  vrr_params.adjust.v_total_max);
+ }
+ 
+ static void amdgpu_dm_commit_planes(struct drm_atomic_state *state,
+-- 
+2.17.1
+

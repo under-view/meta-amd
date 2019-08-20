@@ -1,0 +1,155 @@
+From 4fb5e6baa2f09706b3c2c7a01f85ec291269bf13 Mon Sep 17 00:00:00 2001
+From: Kevin Wang <Kevin1.Wang@amd.com>
+Date: Tue, 11 Dec 2018 17:16:10 +0800
+Subject: [PATCH 1354/2940] drm/amd/powerplay: implement smu send message
+ functions for smu11 (v3)
+
+Add function of smu send message for smu11
+
+v2: fix the missing ) in define of smu_send_smc_msg_with_param
+v3: Use adev usec timeout for smu as well, the origin time 10 us is not enough. (Ray)
+
+Signed-off-by: Huang Rui <ray.huang@amd.com>
+Signed-off-by: Likun Gao <Likun.Gao@amd.com>
+Signed-off-by: Kevin Wang <Kevin1.Wang@amd.com>
+Reviewed-by: Huang Rui <ray.huang@amd.com>
+Acked-by: Alex Deucher <alexander.deucher@amd.com>
+---
+ .../gpu/drm/amd/powerplay/inc/amdgpu_smu.h    |  8 +-
+ drivers/gpu/drm/amd/powerplay/smu_v11_0.c     | 84 +++++++++++++++++++
+ 2 files changed, 91 insertions(+), 1 deletion(-)
+
+diff --git a/drivers/gpu/drm/amd/powerplay/inc/amdgpu_smu.h b/drivers/gpu/drm/amd/powerplay/inc/amdgpu_smu.h
+index b08c0c918491..9e467d32aa85 100644
+--- a/drivers/gpu/drm/amd/powerplay/inc/amdgpu_smu.h
++++ b/drivers/gpu/drm/amd/powerplay/inc/amdgpu_smu.h
+@@ -52,6 +52,9 @@ struct smu_funcs
+ 	int (*write_watermarks_table)(struct smu_context *smu);
+ 	int (*set_last_dcef_min_deep_sleep_clk)(struct smu_context *smu);
+ 	int (*system_features_control)(struct smu_context *smu, bool en);
++	int (*send_smc_msg)(struct smu_context *smu, uint16_t msg);
++	int (*send_smc_msg_with_param)(struct smu_context *smu, uint16_t msg, uint32_t param);
++
+ };
+ 
+ #define smu_init_microcode(smu) \
+@@ -90,7 +93,10 @@ struct smu_funcs
+ 	((smu)->funcs->set_last_dcef_min_deep_sleep_clk ? (smu)->funcs->set_last_dcef_min_deep_sleep_clk((smu)) : 0)
+ #define smu_system_features_control(smu, en) \
+ 	((smu)->funcs->system_features_control ? (smu)->funcs->system_features_control((smu), (en)) : 0)
+-
++#define smu_send_smc_msg(smu, msg) \
++	((smu)->funcs->send_smc_msg? (smu)->funcs->send_smc_msg((smu), (msg)) : 0)
++#define smu_send_smc_msg_with_param(smu, msg, param) \
++	((smu)->funcs->send_smc_msg_with_param? (smu)->funcs->send_smc_msg_with_param((smu), (msg), (param)) : 0)
+ 
+ extern const struct amd_ip_funcs smu_ip_funcs;
+ 
+diff --git a/drivers/gpu/drm/amd/powerplay/smu_v11_0.c b/drivers/gpu/drm/amd/powerplay/smu_v11_0.c
+index 761bfb109108..feee3e8329fc 100644
+--- a/drivers/gpu/drm/amd/powerplay/smu_v11_0.c
++++ b/drivers/gpu/drm/amd/powerplay/smu_v11_0.c
+@@ -26,9 +26,91 @@
+ #include "amdgpu_smu.h"
+ #include "smu_v11_0.h"
+ #include "smu_v11_0_ppsmc.h"
++#include "soc15_common.h"
++
++#include "asic_reg/thm/thm_11_0_2_offset.h"
++#include "asic_reg/thm/thm_11_0_2_sh_mask.h"
++#include "asic_reg/mp/mp_9_0_offset.h"
++#include "asic_reg/mp/mp_9_0_sh_mask.h"
++#include "asic_reg/nbio/nbio_7_4_offset.h"
+ 
+ MODULE_FIRMWARE("amdgpu/vega20_smc.bin");
+ 
++static int smu_v11_0_send_msg_without_waiting(struct smu_context *smu,
++					      uint16_t msg)
++{
++	struct amdgpu_device *adev = smu->adev;
++	WREG32_SOC15(MP1, 0, mmMP1_SMN_C2PMSG_66, msg);
++	return 0;
++}
++
++static int smu_v11_0_wait_for_response(struct smu_context *smu)
++{
++	struct amdgpu_device *adev = smu->adev;
++	uint32_t cur_value, i;
++
++	for (i = 0; i < adev->usec_timeout; i++) {
++		cur_value = RREG32_SOC15(MP1, 0, mmMP1_SMN_C2PMSG_90);
++		if ((cur_value & MP1_C2PMSG_90__CONTENT_MASK) != 0)
++			break;
++		udelay(1);
++	}
++
++	/* timeout means wrong logic */
++	if (i == adev->usec_timeout)
++		return -ETIME;
++
++	return RREG32_SOC15(MP1, 0, mmMP1_SMN_C2PMSG_90) ==  PPSMC_Result_OK ? 0:-EIO;
++}
++
++static int smu_v11_0_send_msg(struct smu_context *smu, uint16_t msg)
++{
++	struct amdgpu_device *adev = smu->adev;
++	int ret = 0;
++
++	smu_v11_0_wait_for_response(smu);
++
++	WREG32_SOC15(MP1, 0, mmMP1_SMN_C2PMSG_90, 0);
++
++	smu_v11_0_send_msg_without_waiting(smu, msg);
++
++	ret = smu_v11_0_wait_for_response(smu);
++
++	if (ret)
++		pr_err("Failed to send message 0x%x, response 0x%x\n", msg,
++		       ret);
++
++	return ret;
++
++}
++
++static int
++smu_v11_0_send_msg_with_param(struct smu_context *smu, uint16_t msg,
++			      uint32_t param)
++{
++
++	struct amdgpu_device *adev = smu->adev;
++	int ret = 0;
++
++	ret = smu_v11_0_wait_for_response(smu);
++	if (ret)
++		pr_err("Failed to send message 0x%x, response 0x%x\n", msg,
++		       ret);
++
++	WREG32_SOC15(MP1, 0, mmMP1_SMN_C2PMSG_90, 0);
++
++	WREG32_SOC15(MP1, 0, mmMP1_SMN_C2PMSG_82, param);
++
++	smu_v11_0_send_msg_without_waiting(smu, msg);
++
++	ret = smu_v11_0_wait_for_response(smu);
++	if (ret)
++		pr_err("Failed to send message 0x%x, response 0x%x\n", msg,
++		       ret);
++
++	return ret;
++}
++
+ static int smu_v11_0_init_microcode(struct smu_context *smu)
+ {
+ 	struct amdgpu_device *adev = smu->adev;
+@@ -93,6 +175,8 @@ static const struct smu_funcs smu_v11_0_funcs = {
+ 	.init_microcode = smu_v11_0_init_microcode,
+ 	.load_microcode = smu_v11_0_load_microcode,
+ 	.check_fw_status = smu_v11_0_check_fw_status,
++	.send_smc_msg = smu_v11_0_send_msg,
++	.send_smc_msg_with_param = smu_v11_0_send_msg_with_param,
+ };
+ 
+ void smu_v11_0_set_smu_funcs(struct smu_context *smu)
+-- 
+2.17.1
+

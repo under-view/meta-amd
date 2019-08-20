@@ -1,0 +1,38 @@
+From d771c43bb3f5de3cb5c36fce6b782c71927974d4 Mon Sep 17 00:00:00 2001
+From: Anthony Koo <Anthony.Koo@amd.com>
+Date: Wed, 3 Apr 2019 16:59:56 -0400
+Subject: [PATCH 1808/2940] drm/amd/display: Allow system to enter stutter on
+ init
+
+[Why]
+Workaround was missing in one HW disable path,
+meaning when all pipes are power gated, stutter was
+not working
+
+[How]
+Add workaround for init_hw path for stutter
+workaround
+
+Signed-off-by: Anthony Koo <Anthony.Koo@amd.com>
+Reviewed-by: Aric Cyr <Aric.Cyr@amd.com>
+Acked-by: Leo Li <sunpeng.li@amd.com>
+---
+ drivers/gpu/drm/amd/display/dc/dcn10/dcn10_hw_sequencer.c | 2 ++
+ 1 file changed, 2 insertions(+)
+
+diff --git a/drivers/gpu/drm/amd/display/dc/dcn10/dcn10_hw_sequencer.c b/drivers/gpu/drm/amd/display/dc/dcn10/dcn10_hw_sequencer.c
+index dcb133433b17..65b8c134e8af 100644
+--- a/drivers/gpu/drm/amd/display/dc/dcn10/dcn10_hw_sequencer.c
++++ b/drivers/gpu/drm/amd/display/dc/dcn10/dcn10_hw_sequencer.c
+@@ -1126,6 +1126,8 @@ static void dcn10_init_hw(struct dc *dc)
+ 			dc->res_pool->opps[i]->mpc_tree_params.opp_id = dc->res_pool->opps[i]->inst;
+ 			plane_atomic_power_down(dc, dpp, hubp);
+ 		}
++
++		apply_DEGVIDCN10_253_wa(dc);
+ 	}
+ 
+ 	for (i = 0; i < dc->res_pool->audio_count; i++) {
+-- 
+2.17.1
+

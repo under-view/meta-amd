@@ -1,0 +1,38 @@
+From 4e99f0e94871abbe926a1c1a137abdaf20264d50 Mon Sep 17 00:00:00 2001
+From: Roman Li <Roman.Li@amd.com>
+Date: Thu, 25 Apr 2019 11:02:30 -0400
+Subject: [PATCH 1901/2940] drm/amd/display: Fill plane attrs only for valid
+ pxl format
+
+[Why]
+In fill_plane_buffer_attributes() we calculate chroma/luma
+assuming that the surface_pixel_format is always valid.
+If it's not the case, there's a risk of divide by zero error.
+
+[How]
+Check if format valid before calculating pixel format attributes
+
+Change-Id: I6bbc31b03ef35a3b8f8469ab2a633895f2590cef
+Signed-off-by: Roman Li <Roman.Li@amd.com>
+Reviewed-by: David Francis <David.Francis@amd.com>
+Acked-by: Bhawanpreet Lakha <Bhawanpreet Lakha@amd.com>
+---
+ drivers/gpu/drm/amd/display/amdgpu_dm/amdgpu_dm.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/drivers/gpu/drm/amd/display/amdgpu_dm/amdgpu_dm.c b/drivers/gpu/drm/amd/display/amdgpu_dm/amdgpu_dm.c
+index b1197f55a35d..834adb729c6d 100644
+--- a/drivers/gpu/drm/amd/display/amdgpu_dm/amdgpu_dm.c
++++ b/drivers/gpu/drm/amd/display/amdgpu_dm/amdgpu_dm.c
+@@ -2672,7 +2672,7 @@ fill_plane_buffer_attributes(struct amdgpu_device *adev,
+ 		address->type = PLN_ADDR_TYPE_GRAPHICS;
+ 		address->grph.addr.low_part = lower_32_bits(afb->address);
+ 		address->grph.addr.high_part = upper_32_bits(afb->address);
+-	} else {
++	} else if (format < SURFACE_PIXEL_FORMAT_INVALID) {
+ 		uint64_t chroma_addr = afb->address + fb->offsets[1];
+ 
+ 		plane_size->video.luma_size.x = 0;
+-- 
+2.17.1
+

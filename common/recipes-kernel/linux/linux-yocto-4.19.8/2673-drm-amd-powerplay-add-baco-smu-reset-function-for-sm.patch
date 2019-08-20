@@ -1,0 +1,340 @@
+From e7cf887805cc626bb72e554059fdb9b1e4efc451 Mon Sep 17 00:00:00 2001
+From: Kevin Wang <kevin1.wang@amd.com>
+Date: Thu, 20 Jun 2019 17:47:02 +0800
+Subject: [PATCH 2673/2940] drm/amd/powerplay: add baco smu reset function for
+ smu11
+
+add baco reset support for smu11.
+it can help gpu do asic reset when gpu recovery.
+
+Change-Id: Ia24354fba243f28f0b668068d38d67d7f0aaa7c3
+Signed-off-by: Kevin Wang <kevin1.wang@amd.com>
+Reviewed-by: Hawking Zhang <Hawking.Zhang@amd.com>
+---
+ drivers/gpu/drm/amd/amdgpu/gmc_v10_0.c        |  6 +-
+ drivers/gpu/drm/amd/amdgpu/nv.c               |  9 +-
+ drivers/gpu/drm/amd/powerplay/amdgpu_smu.c    | 14 +++
+ .../gpu/drm/amd/powerplay/inc/amdgpu_smu.h    | 26 ++++++
+ drivers/gpu/drm/amd/powerplay/inc/smu_v11_0.h |  8 ++
+ drivers/gpu/drm/amd/powerplay/navi10_ppt.c    |  8 ++
+ drivers/gpu/drm/amd/powerplay/smu_v11_0.c     | 91 +++++++++++++++++++
+ 7 files changed, 159 insertions(+), 3 deletions(-)
+
+diff --git a/drivers/gpu/drm/amd/amdgpu/gmc_v10_0.c b/drivers/gpu/drm/amd/amdgpu/gmc_v10_0.c
+index 8fec1fd724ed..c377dc22e68c 100644
+--- a/drivers/gpu/drm/amd/amdgpu/gmc_v10_0.c
++++ b/drivers/gpu/drm/amd/amdgpu/gmc_v10_0.c
+@@ -244,8 +244,10 @@ static void gmc_v10_0_flush_gpu_tlb(struct amdgpu_device *adev,
+ 	mutex_lock(&adev->mman.gtt_window_lock);
+ 
+ 	gmc_v10_0_flush_vm_hub(adev, vmid, AMDGPU_MMHUB, 0);
+-	if (!adev->mman.buffer_funcs_enabled || !adev->ib_pool_ready ||
+-	    adev->asic_type > CHIP_NAVI14) {
++	if (!adev->mman.buffer_funcs_enabled ||
++	    !adev->ib_pool_ready ||
++	    adev->asic_type > CHIP_NAVI14 ||
++	    adev->in_gpu_reset) {
+ 		gmc_v10_0_flush_vm_hub(adev, vmid, AMDGPU_GFXHUB, 0);
+ 		mutex_unlock(&adev->mman.gtt_window_lock);
+ 		return;
+diff --git a/drivers/gpu/drm/amd/amdgpu/nv.c b/drivers/gpu/drm/amd/amdgpu/nv.c
+index 476080e389fc..f6f152e6ade4 100644
+--- a/drivers/gpu/drm/amd/amdgpu/nv.c
++++ b/drivers/gpu/drm/amd/amdgpu/nv.c
+@@ -31,6 +31,7 @@
+ #include "amdgpu_vce.h"
+ #include "amdgpu_ucode.h"
+ #include "amdgpu_psp.h"
++#include "amdgpu_smu.h"
+ #include "atom.h"
+ #include "amd_pcie.h"
+ 
+@@ -266,8 +267,14 @@ static int nv_asic_reset(struct amdgpu_device *adev)
+ 
+ 	amdgpu_atombios_scratch_regs_engine_hung(adev, false);
+ #endif
++	int ret = 0;
++	struct smu_context *smu = &adev->smu;
+ 
+-	return 0;
++	if (smu_baco_is_support(smu)) {
++		ret = smu_baco_reset(smu);
++	}
++
++	return ret;
+ }
+ 
+ static int nv_set_uvd_clocks(struct amdgpu_device *adev, u32 vclk, u32 dclk)
+diff --git a/drivers/gpu/drm/amd/powerplay/amdgpu_smu.c b/drivers/gpu/drm/amd/powerplay/amdgpu_smu.c
+index a6c2027cb27f..1c15f02101fe 100644
+--- a/drivers/gpu/drm/amd/powerplay/amdgpu_smu.c
++++ b/drivers/gpu/drm/amd/powerplay/amdgpu_smu.c
+@@ -635,6 +635,11 @@ static int smu_sw_init(void *handle)
+ 	bitmap_zero(smu->smu_feature.supported, SMU_FEATURE_MAX);
+ 	bitmap_zero(smu->smu_feature.enabled, SMU_FEATURE_MAX);
+ 	bitmap_zero(smu->smu_feature.allowed, SMU_FEATURE_MAX);
++
++	mutex_init(&smu->smu_baco.mutex);
++	smu->smu_baco.state = SMU_BACO_STATE_EXIT;
++	smu->smu_baco.platform_support = false;
++
+ 	smu->watermarks_bitmap = 0;
+ 	smu->power_profile_mode = PP_SMC_POWER_PROFILE_BOOTUP_DEFAULT;
+ 	smu->default_power_profile_mode = PP_SMC_POWER_PROFILE_BOOTUP_DEFAULT;
+@@ -1104,11 +1109,20 @@ static int smu_suspend(void *handle)
+ 	int ret;
+ 	struct amdgpu_device *adev = (struct amdgpu_device *)handle;
+ 	struct smu_context *smu = &adev->smu;
++	bool baco_feature_is_enabled = smu_feature_is_enabled(smu, SMU_FEATURE_BACO_BIT);
+ 
+ 	ret = smu_system_features_control(smu, false);
+ 	if (ret)
+ 		return ret;
+ 
++	if (adev->in_gpu_reset && baco_feature_is_enabled) {
++		ret = smu_feature_set_enabled(smu, SMU_FEATURE_BACO_BIT, true);
++		if (ret) {
++			pr_warn("set BACO feature enabled failed, return %d\n", ret);
++			return ret;
++		}
++	}
++
+ 	smu->watermarks_bitmap &= ~(WATERMARKS_LOADED);
+ 
+ 	if (adev->asic_type >= CHIP_NAVI10 &&
+diff --git a/drivers/gpu/drm/amd/powerplay/inc/amdgpu_smu.h b/drivers/gpu/drm/amd/powerplay/inc/amdgpu_smu.h
+index 2818df46481c..c97324ef7db2 100644
+--- a/drivers/gpu/drm/amd/powerplay/inc/amdgpu_smu.h
++++ b/drivers/gpu/drm/amd/powerplay/inc/amdgpu_smu.h
+@@ -241,6 +241,7 @@ enum smu_message_type
+ 	SMU_MSG_PowerUpJpeg,
+ 	SMU_MSG_PowerDownJpeg,
+ 	SMU_MSG_BacoAudioD3PME,
++	SMU_MSG_ArmD3,
+ 	SMU_MSG_MAX_COUNT,
+ };
+ 
+@@ -489,6 +490,19 @@ struct mclock_latency_table {
+ 	struct mclk_latency_entries  entries[MAX_REGULAR_DPM_NUM];
+ };
+ 
++enum smu_baco_state
++{
++	SMU_BACO_STATE_ENTER = 0,
++	SMU_BACO_STATE_EXIT,
++};
++
++struct smu_baco_context
++{
++	struct mutex mutex;
++	uint32_t state;
++	bool platform_support;
++};
++
+ #define WORKLOAD_POLICY_MAX 7
+ struct smu_context
+ {
+@@ -505,6 +519,7 @@ struct smu_context
+ 	struct smu_power_context	smu_power;
+ 	struct smu_feature		smu_feature;
+ 	struct amd_pp_display_configuration  *display_config;
++	struct smu_baco_context		smu_baco;
+ 	void *od_settings;
+ 
+ 	uint32_t pstate_sclk;
+@@ -680,6 +695,11 @@ struct smu_funcs
+ 	int (*register_irq_handler)(struct smu_context *smu);
+ 	int (*set_azalia_d3_pme)(struct smu_context *smu);
+ 	int (*get_max_sustainable_clocks_by_dc)(struct smu_context *smu, struct pp_smu_nv_clock_table *max_clocks);
++	bool (*baco_is_support)(struct smu_context *smu);
++	enum smu_baco_state (*baco_get_state)(struct smu_context *smu);
++	int (*baco_set_state)(struct smu_context *smu, enum smu_baco_state state);
++	int (*baco_reset)(struct smu_context *smu);
++
+ };
+ 
+ #define smu_init_microcode(smu) \
+@@ -892,6 +912,12 @@ struct smu_funcs
+ 	((smu)->funcs->get_max_sustainable_clocks_by_dc ? (smu)->funcs->get_max_sustainable_clocks_by_dc((smu), (max_clocks)) : 0)
+ #define smu_get_uclk_dpm_states(smu, clocks_in_khz, num_states) \
+ 	((smu)->ppt_funcs->get_uclk_dpm_states ? (smu)->ppt_funcs->get_uclk_dpm_states((smu), (clocks_in_khz), (num_states)) : 0)
++#define smu_baco_is_support(smu) \
++	((smu)->funcs->baco_is_support? (smu)->funcs->baco_is_support((smu)) : false)
++#define smu_baco_get_state(smu, state) \
++	((smu)->funcs->baco_get_state? (smu)->funcs->baco_get_state((smu), (state)) : 0)
++#define smu_baco_reset(smu) \
++	((smu)->funcs->baco_reset? (smu)->funcs->baco_reset((smu)) : 0)
+ 
+ extern int smu_get_atom_data_table(struct smu_context *smu, uint32_t table,
+ 				   uint16_t *size, uint8_t *frev, uint8_t *crev,
+diff --git a/drivers/gpu/drm/amd/powerplay/inc/smu_v11_0.h b/drivers/gpu/drm/amd/powerplay/inc/smu_v11_0.h
+index d93cd76269b4..2fff4b16cb4e 100644
+--- a/drivers/gpu/drm/amd/powerplay/inc/smu_v11_0.h
++++ b/drivers/gpu/drm/amd/powerplay/inc/smu_v11_0.h
+@@ -105,6 +105,14 @@ struct smu_11_0_power_context {
+ 	enum smu_11_0_power_state power_state;
+ };
+ 
++enum smu_v11_0_baco_seq {
++	BACO_SEQ_BACO = 0,
++	BACO_SEQ_MSR,
++	BACO_SEQ_BAMACO,
++	BACO_SEQ_ULPS,
++	BACO_SEQ_COUNT,
++};
++
+ void smu_v11_0_set_smu_funcs(struct smu_context *smu);
+ 
+ #endif
+diff --git a/drivers/gpu/drm/amd/powerplay/navi10_ppt.c b/drivers/gpu/drm/amd/powerplay/navi10_ppt.c
+index 373aeba44f16..7574a02350c6 100644
+--- a/drivers/gpu/drm/amd/powerplay/navi10_ppt.c
++++ b/drivers/gpu/drm/amd/powerplay/navi10_ppt.c
+@@ -115,6 +115,7 @@ static int navi10_message_map[SMU_MSG_MAX_COUNT] = {
+ 	MSG_MAP(PowerUpJpeg,		PPSMC_MSG_PowerUpJpeg),
+ 	MSG_MAP(PowerDownJpeg,		PPSMC_MSG_PowerDownJpeg),
+ 	MSG_MAP(BacoAudioD3PME,		PPSMC_MSG_BacoAudioD3PME),
++	MSG_MAP(ArmD3,			PPSMC_MSG_ArmD3),
+ };
+ 
+ static int navi10_clk_map[SMU_CLK_COUNT] = {
+@@ -478,6 +479,7 @@ static int navi10_store_powerplay_table(struct smu_context *smu)
+ {
+ 	struct smu_11_0_powerplay_table *powerplay_table = NULL;
+ 	struct smu_table_context *table_context = &smu->smu_table;
++	struct smu_baco_context *smu_baco = &smu->smu_baco;
+ 
+ 	if (!table_context->power_play_table)
+ 		return -EINVAL;
+@@ -489,6 +491,12 @@ static int navi10_store_powerplay_table(struct smu_context *smu)
+ 
+ 	table_context->thermal_controller_type = powerplay_table->thermal_controller_type;
+ 
++	mutex_lock(&smu_baco->mutex);
++	if (powerplay_table->platform_caps & SMU_11_0_PP_PLATFORM_CAP_BACO ||
++	    powerplay_table->platform_caps & SMU_11_0_PP_PLATFORM_CAP_MACO)
++		smu_baco->platform_support = true;
++	mutex_unlock(&smu_baco->mutex);
++
+ 	return 0;
+ }
+ 
+diff --git a/drivers/gpu/drm/amd/powerplay/smu_v11_0.c b/drivers/gpu/drm/amd/powerplay/smu_v11_0.c
+index 9b72055e8139..e03088c693ec 100644
+--- a/drivers/gpu/drm/amd/powerplay/smu_v11_0.c
++++ b/drivers/gpu/drm/amd/powerplay/smu_v11_0.c
+@@ -37,6 +37,7 @@
+ #include "asic_reg/mp/mp_11_0_offset.h"
+ #include "asic_reg/mp/mp_11_0_sh_mask.h"
+ #include "asic_reg/nbio/nbio_7_4_offset.h"
++#include "asic_reg/nbio/nbio_7_4_sh_mask.h"
+ #include "asic_reg/smuio/smuio_11_0_0_offset.h"
+ #include "asic_reg/smuio/smuio_11_0_0_sh_mask.h"
+ 
+@@ -1643,6 +1644,92 @@ static int smu_v11_0_set_azalia_d3_pme(struct smu_context *smu)
+ 	return ret;
+ }
+ 
++static int smu_v11_0_baco_set_armd3_sequence(struct smu_context *smu, enum smu_v11_0_baco_seq baco_seq)
++{
++	return smu_send_smc_msg_with_param(smu, SMU_MSG_ArmD3, baco_seq);
++}
++
++static bool smu_v11_0_baco_is_support(struct smu_context *smu)
++{
++	struct amdgpu_device *adev = smu->adev;
++	struct smu_baco_context *smu_baco = &smu->smu_baco;
++	uint32_t val;
++	bool baco_support;
++
++	mutex_lock(&smu_baco->mutex);
++	baco_support = smu_baco->platform_support;
++	mutex_unlock(&smu_baco->mutex);
++
++	if (!baco_support)
++		return false;
++
++	if (!smu_feature_is_enabled(smu, SMU_FEATURE_BACO_BIT))
++		return false;
++
++	val = RREG32_SOC15(NBIO, 0, mmRCC_BIF_STRAP0);
++	if (val & RCC_BIF_STRAP0__STRAP_PX_CAPABLE_MASK)
++		return true;
++
++	return false;
++}
++
++static enum smu_baco_state smu_v11_0_baco_get_state(struct smu_context *smu)
++{
++	struct smu_baco_context *smu_baco = &smu->smu_baco;
++	enum smu_baco_state baco_state = SMU_BACO_STATE_EXIT;
++
++	mutex_lock(&smu_baco->mutex);
++	baco_state = smu_baco->state;
++	mutex_unlock(&smu_baco->mutex);
++
++	return baco_state;
++}
++
++static int smu_v11_0_baco_set_state(struct smu_context *smu, enum smu_baco_state state)
++{
++
++	struct smu_baco_context *smu_baco = &smu->smu_baco;
++	int ret = 0;
++
++	if (smu_v11_0_baco_get_state(smu) == state)
++		return 0;
++
++	mutex_lock(&smu_baco->mutex);
++
++	if (state == SMU_BACO_STATE_ENTER)
++		ret = smu_send_smc_msg_with_param(smu, SMU_MSG_EnterBaco, BACO_SEQ_BACO);
++	else
++		ret = smu_send_smc_msg(smu, SMU_MSG_ExitBaco);
++	if (ret)
++		goto out;
++
++	smu_baco->state = state;
++out:
++	mutex_unlock(&smu_baco->mutex);
++	return ret;
++}
++
++static int smu_v11_0_baco_reset(struct smu_context *smu)
++{
++	int ret = 0;
++
++	ret = smu_v11_0_baco_set_armd3_sequence(smu, BACO_SEQ_BACO);
++	if (ret)
++		return ret;
++
++	ret = smu_v11_0_baco_set_state(smu, SMU_BACO_STATE_ENTER);
++	if (ret)
++		return ret;
++
++	msleep(10);
++
++	ret = smu_v11_0_baco_set_state(smu, SMU_BACO_STATE_EXIT);
++	if (ret)
++		return ret;
++
++	return ret;
++}
++
+ static const struct smu_funcs smu_v11_0_funcs = {
+ 	.init_microcode = smu_v11_0_init_microcode,
+ 	.load_microcode = smu_v11_0_load_microcode,
+@@ -1691,6 +1778,10 @@ static const struct smu_funcs smu_v11_0_funcs = {
+ 	.register_irq_handler = smu_v11_0_register_irq_handler,
+ 	.set_azalia_d3_pme = smu_v11_0_set_azalia_d3_pme,
+ 	.get_max_sustainable_clocks_by_dc = smu_v11_0_get_max_sustainable_clocks_by_dc,
++	.baco_is_support= smu_v11_0_baco_is_support,
++	.baco_get_state = smu_v11_0_baco_get_state,
++	.baco_set_state = smu_v11_0_baco_set_state,
++	.baco_reset = smu_v11_0_baco_reset,
+ };
+ 
+ void smu_v11_0_set_smu_funcs(struct smu_context *smu)
+-- 
+2.17.1
+

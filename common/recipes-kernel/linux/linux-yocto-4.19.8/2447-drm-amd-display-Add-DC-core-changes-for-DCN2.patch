@@ -1,0 +1,1134 @@
+From 160e1edc8404d7a5f311d42233c1fb32dab71811 Mon Sep 17 00:00:00 2001
+From: Harry Wentland <harry.wentland@amd.com>
+Date: Fri, 22 Feb 2019 16:52:34 -0500
+Subject: [PATCH 2447/2940] drm/amd/display: Add DC core changes for DCN2
+
+Signed-off-by: Harry Wentland <harry.wentland@amd.com>
+Signed-off-by: Alex Deucher <alexander.deucher@amd.com>
+---
+ drivers/gpu/drm/amd/display/dc/Makefile       |   6 +
+ drivers/gpu/drm/amd/display/dc/core/dc.c      | 141 ++++++++++++-
+ drivers/gpu/drm/amd/display/dc/core/dc_link.c |   6 +-
+ .../gpu/drm/amd/display/dc/core/dc_link_dp.c  |  62 ++++++
+ .../gpu/drm/amd/display/dc/core/dc_stream.c   | 185 ++++++++++++++++++
+ .../gpu/drm/amd/display/dc/core/dc_surface.c  |  63 ++++++
+ drivers/gpu/drm/amd/display/dc/dc.h           |  89 ++++++++-
+ drivers/gpu/drm/amd/display/dc/dc_stream.h    |  67 +++++++
+ drivers/gpu/drm/amd/display/dc/dm_pp_smu.h    | 113 ++++++++++-
+ 9 files changed, 728 insertions(+), 4 deletions(-)
+
+diff --git a/drivers/gpu/drm/amd/display/dc/Makefile b/drivers/gpu/drm/amd/display/dc/Makefile
+index 6da4e4f844b2..9c0a755414de 100644
+--- a/drivers/gpu/drm/amd/display/dc/Makefile
++++ b/drivers/gpu/drm/amd/display/dc/Makefile
+@@ -25,6 +25,12 @@
+ 
+ DC_LIBS = basics bios calcs clk_mgr dce gpio irq virtual
+ 
++ifdef CONFIG_DRM_AMD_DC_DCN2_0
++DC_LIBS += dcn20
++endif
++
++
++
+ ifdef CONFIG_DRM_AMD_DC_DCN1_0
+ DC_LIBS += dcn10 dml
+ endif
+diff --git a/drivers/gpu/drm/amd/display/dc/core/dc.c b/drivers/gpu/drm/amd/display/dc/core/dc.c
+index 877565e12f14..7f0eb44b5d67 100644
+--- a/drivers/gpu/drm/amd/display/dc/core/dc.c
++++ b/drivers/gpu/drm/amd/display/dc/core/dc.c
+@@ -58,6 +58,10 @@
+ 
+ #include "dc_link_dp.h"
+ 
++#ifdef CONFIG_DRM_AMD_DC_DCN2_0
++#include "vm_helper.h"
++#endif
++
+ #include "dce/dce_i2c.h"
+ 
+ #define CTX \
+@@ -534,6 +538,11 @@ static void destruct(struct dc *dc)
+ 	kfree(dc->dcn_ip);
+ 	dc->dcn_ip = NULL;
+ 
++#endif
++#ifdef CONFIG_DRM_AMD_DC_DCN2_0
++	kfree(dc->vm_helper);
++	dc->vm_helper = NULL;
++
+ #endif
+ }
+ 
+@@ -551,6 +560,11 @@ static bool construct(struct dc *dc,
+ 	enum dce_version dc_version = DCE_VERSION_UNKNOWN;
+ 	dc->config = init_params->flags;
+ 
++#ifdef CONFIG_DRM_AMD_DC_DCN2_0
++	// Allocate memory for the vm_helper
++	dc->vm_helper = kzalloc(sizeof(struct vm_helper), GFP_KERNEL);
++
++#endif
+ 	memcpy(&dc->bb_overrides, &init_params->bb_overrides, sizeof(dc->bb_overrides));
+ 
+ 	dc_dceip = kzalloc(sizeof(*dc_dceip), GFP_KERNEL);
+@@ -584,6 +598,9 @@ static bool construct(struct dc *dc,
+ 	}
+ 
+ 	dc->dcn_ip = dcn_ip;
++#ifdef CONFIG_DRM_AMD_DC_DCN2_0
++	dc->soc_bounding_box = init_params->soc_bounding_box;
++#endif
+ #endif
+ 
+ 	dc_ctx = kzalloc(sizeof(*dc_ctx), GFP_KERNEL);
+@@ -681,6 +698,21 @@ static bool construct(struct dc *dc,
+ 	return false;
+ }
+ 
++#if defined(CONFIG_DRM_AMD_DC_DCN2_0)
++static bool disable_all_writeback_pipes_for_stream(
++		const struct dc *dc,
++		struct dc_stream_state *stream,
++		struct dc_state *context)
++{
++	int i;
++
++	for (i = 0; i < stream->num_wb_info; i++)
++		stream->writeback_info[i].wb_enabled = false;
++
++	return true;
++}
++#endif
++
+ static void disable_dangling_plane(struct dc *dc, struct dc_state *context)
+ {
+ 	int i, j;
+@@ -705,6 +737,9 @@ static void disable_dangling_plane(struct dc *dc, struct dc_state *context)
+ 		}
+ 		if (should_disable && old_stream) {
+ 			dc_rem_all_planes_for_stream(dc, old_stream, dangling_context);
++#if defined(CONFIG_DRM_AMD_DC_DCN2_0)
++			disable_all_writeback_pipes_for_stream(dc, old_stream, dangling_context);
++#endif
+ 			dc->hwss.apply_ctx_for_surface(dc, old_stream, 0, dangling_context);
+ 		}
+ 	}
+@@ -781,6 +816,26 @@ void dc_destroy(struct dc **dc)
+ 	*dc = NULL;
+ }
+ 
++#ifdef CONFIG_DRM_AMD_DC_DCN2_0
++bool dc_init_memory_hub(struct dc *dc, struct dc_addr_space_config *config)
++{
++	// Memory hub init isn't done as part of dc_create because in windows, dal/dc is
++	// constructed before the vm config is setup in kmd so there's no way
++	// they can give it to us at boot/dc_create
++	bool vmSupported;
++
++	// Call HWSS to setup HUBBUB for address config
++	dc->hwss.init_dchub(dc->hwseq, dc, config);
++
++	// Pre-init system aperture start/end for all HUBP instances (if not gating?)
++	// or cache system aperture if using power gating
++	memcpy(&dc->vm_config, config, sizeof(struct dc_addr_space_config));
++
++	vmSupported = (dc->ctx->asic_id.chip_family == FAMILY_NV) ? true : false;
++	return vmSupported;
++}
++
++#endif
+ static void enable_timing_multisync(
+ 		struct dc *dc,
+ 		struct dc_state *ctx)
+@@ -1610,6 +1665,19 @@ static void copy_surface_update_to_plane(
+ 			sizeof(struct dc_transfer_func_distributed_points));
+ 	}
+ 
++#if defined(CONFIG_DRM_AMD_DC_DCN2_0)
++	if (srf_update->func_shaper &&
++			(surface->in_shaper_func !=
++			srf_update->func_shaper))
++		memcpy(surface->in_shaper_func, srf_update->func_shaper,
++		sizeof(*surface->in_shaper_func));
++
++	if (srf_update->lut3d_func &&
++			(surface->lut3d_func !=
++			srf_update->lut3d_func))
++		memcpy(surface->lut3d_func, srf_update->lut3d_func,
++		sizeof(*surface->lut3d_func));
++#endif
+ 	if (srf_update->input_csc_color_matrix)
+ 		surface->input_csc_color_matrix =
+ 			*srf_update->input_csc_color_matrix;
+@@ -1658,11 +1726,20 @@ static void commit_planes_do_stream_update(struct dc *dc,
+ 				dc_stream_program_csc_matrix(dc, stream);
+ 
+ 			if (stream_update->dither_option) {
++#if defined(CONFIG_DRM_AMD_DC_DCN2_0)
++				struct pipe_ctx *odm_pipe = dc_res_get_odm_bottom_pipe(pipe_ctx);
++#endif
+ 				resource_build_bit_depth_reduction_params(pipe_ctx->stream,
+ 									&pipe_ctx->stream->bit_depth_params);
+ 				pipe_ctx->stream_res.opp->funcs->opp_program_fmt(pipe_ctx->stream_res.opp,
+ 						&stream->bit_depth_params,
+ 						&stream->clamping);
++#if defined(CONFIG_DRM_AMD_DC_DCN2_0)
++				if (odm_pipe)
++					odm_pipe->stream_res.opp->funcs->opp_program_fmt(odm_pipe->stream_res.opp,
++							&stream->bit_depth_params,
++							&stream->clamping);
++#endif
+ 			}
+ 
+ 			/* Full fe update*/
+@@ -1738,6 +1815,30 @@ static void commit_planes_for_stream(struct dc *dc,
+ 		return;
+ 	}
+ 
++#if defined(CONFIG_DRM_AMD_DC_DCN2_0)
++	if (!IS_DIAG_DC(dc->ctx->dce_environment)) {
++		for (i = 0; i < surface_count; i++) {
++			struct dc_plane_state *plane_state = srf_updates[i].surface;
++			/*set logical flag for lock/unlock use*/
++			for (j = 0; j < dc->res_pool->pipe_count; j++) {
++				struct pipe_ctx *pipe_ctx = &context->res_ctx.pipe_ctx[j];
++				if (!pipe_ctx->plane_state)
++					continue;
++				if (pipe_ctx->plane_state != plane_state)
++					continue;
++				plane_state->triplebuffer_flips = false;
++				if (update_type == UPDATE_TYPE_FAST &&
++					dc->hwss.program_triplebuffer != NULL &&
++					!plane_state->flip_immediate &&
++					!dc->debug.disable_tri_buf) {
++						/*triple buffer for VUpdate  only*/
++						plane_state->triplebuffer_flips = true;
++				}
++			}
++		}
++	}
++#endif
++
+ 	// Update Type FULL, Surface updates
+ 	for (j = 0; j < dc->res_pool->pipe_count; j++) {
+ 		struct pipe_ctx *pipe_ctx = &context->res_ctx.pipe_ctx[j];
+@@ -1756,6 +1857,16 @@ static void commit_planes_for_stream(struct dc *dc,
+ 			if (update_type == UPDATE_TYPE_FAST)
+ 				continue;
+ 
++#if defined(CONFIG_DRM_AMD_DC_DCN2_0)
++			ASSERT(!pipe_ctx->plane_state->triplebuffer_flips);
++
++			if (dc->hwss.program_triplebuffer != NULL &&
++				!dc->debug.disable_tri_buf) {
++				/*turn off triple buffer for full update*/
++				dc->hwss.program_triplebuffer(
++					dc, pipe_ctx, pipe_ctx->plane_state->triplebuffer_flips);
++			}
++#endif
+ 			stream_status =
+ 				stream_get_status(context, pipe_ctx->stream);
+ 
+@@ -1772,6 +1883,26 @@ static void commit_planes_for_stream(struct dc *dc,
+ 		 */
+ 		dc->hwss.pipe_control_lock(dc, top_pipe_to_program, true);
+ 
++#if defined(CONFIG_DRM_AMD_DC_DCN2_0)
++		if (dc->hwss.set_flip_control_gsl)
++			for (i = 0; i < surface_count; i++) {
++				struct dc_plane_state *plane_state = srf_updates[i].surface;
++
++				for (j = 0; j < dc->res_pool->pipe_count; j++) {
++					struct pipe_ctx *pipe_ctx = &context->res_ctx.pipe_ctx[j];
++
++					if (pipe_ctx->stream != stream)
++						continue;
++
++					if (pipe_ctx->plane_state != plane_state)
++						continue;
++
++					// GSL has to be used for flip immediate
++					dc->hwss.set_flip_control_gsl(pipe_ctx,
++							plane_state->flip_immediate);
++				}
++			}
++#endif
+ 		/* Perform requested Updates */
+ 		for (i = 0; i < surface_count; i++) {
+ 			struct dc_plane_state *plane_state = srf_updates[i].surface;
+@@ -1784,7 +1915,15 @@ static void commit_planes_for_stream(struct dc *dc,
+ 
+ 				if (pipe_ctx->plane_state != plane_state)
+ 					continue;
+-
++#if defined(CONFIG_DRM_AMD_DC_DCN2_0)
++				/*program triple buffer after lock based on flip type*/
++				if (dc->hwss.program_triplebuffer != NULL &&
++					!dc->debug.disable_tri_buf) {
++					/*only enable triplebuffer for  fast_update*/
++					dc->hwss.program_triplebuffer(
++						dc, pipe_ctx, plane_state->triplebuffer_flips);
++				}
++#endif
+ 				if (srf_updates[i].flip_addr)
+ 					dc->hwss.update_plane_addr(dc, pipe_ctx);
+ 			}
+diff --git a/drivers/gpu/drm/amd/display/dc/core/dc_link.c b/drivers/gpu/drm/amd/display/dc/core/dc_link.c
+index b3b358f791ae..ff1c3abb7a51 100644
+--- a/drivers/gpu/drm/amd/display/dc/core/dc_link.c
++++ b/drivers/gpu/drm/amd/display/dc/core/dc_link.c
+@@ -43,6 +43,10 @@
+ #include "dpcd_defs.h"
+ #include "dmcu.h"
+ #include "hw/clk_mgr.h"
++#if defined(CONFIG_DRM_AMD_DC_DCN2_0)
++#include "resource.h"
++#endif
++#include "hw/clk_mgr.h"
+ 
+ #define DC_LOGGER_INIT(logger)
+ 
+@@ -1504,6 +1508,7 @@ static enum dc_status enable_link_dp(
+ 	if (link_settings.link_rate == LINK_RATE_LOW)
+ 			skip_video_pattern = false;
+ 
++
+ 	if (perform_link_training_with_retries(
+ 			link,
+ 			&link_settings,
+@@ -2739,7 +2744,6 @@ void core_link_enable_stream(
+ 		if (dc_is_dp_signal(pipe_ctx->stream->signal))
+ 			enable_stream_features(pipe_ctx);
+ 	}
+-
+ }
+ 
+ void core_link_disable_stream(struct pipe_ctx *pipe_ctx, int option)
+diff --git a/drivers/gpu/drm/amd/display/dc/core/dc_link_dp.c b/drivers/gpu/drm/amd/display/dc/core/dc_link_dp.c
+index a1187274dbed..4d0c2bb32dc5 100644
+--- a/drivers/gpu/drm/amd/display/dc/core/dc_link_dp.c
++++ b/drivers/gpu/drm/amd/display/dc/core/dc_link_dp.c
+@@ -4,6 +4,9 @@
+ #include "dc_link_dp.h"
+ #include "dm_helpers.h"
+ #include "opp.h"
++#if defined(CONFIG_DRM_AMD_DC_DCN2_0)
++#include "resource.h"
++#endif
+ 
+ #include "inc/core_types.h"
+ #include "link_hwss.h"
+@@ -2547,6 +2550,7 @@ static bool retrieve_link_cap(struct dc_link *link)
+ 		dp_hw_fw_revision.ieee_fw_rev,
+ 		sizeof(dp_hw_fw_revision.ieee_fw_rev));
+ 
++
+ 	/* Connectivity log: detection */
+ 	CONN_DATA_DETECT(link, dpcd_data, sizeof(dpcd_data), "Rx Caps: ");
+ 
+@@ -2674,6 +2678,14 @@ static void set_crtc_test_pattern(struct dc_link *link,
+ 		stream->timing.display_color_depth;
+ 	struct bit_depth_reduction_params params;
+ 	struct output_pixel_processor *opp = pipe_ctx->stream_res.opp;
++#if defined(CONFIG_DRM_AMD_DC_DCN2_0)
++	int width = pipe_ctx->stream->timing.h_addressable +
++		pipe_ctx->stream->timing.h_border_left +
++		pipe_ctx->stream->timing.h_border_right;
++	int height = pipe_ctx->stream->timing.v_addressable +
++		pipe_ctx->stream->timing.v_border_bottom +
++		pipe_ctx->stream->timing.v_border_top;
++#endif
+ 
+ 	memset(&params, 0, sizeof(params));
+ 
+@@ -2717,6 +2729,30 @@ static void set_crtc_test_pattern(struct dc_link *link,
+ 		if (pipe_ctx->stream_res.tg->funcs->set_test_pattern)
+ 			pipe_ctx->stream_res.tg->funcs->set_test_pattern(pipe_ctx->stream_res.tg,
+ 				controller_test_pattern, color_depth);
++#if defined(CONFIG_DRM_AMD_DC_DCN2_0)
++		else if (opp->funcs->opp_set_disp_pattern_generator) {
++			struct pipe_ctx *bot_odm_pipe = dc_res_get_odm_bottom_pipe(pipe_ctx);
++
++			if (bot_odm_pipe) {
++				struct output_pixel_processor *bot_opp = bot_odm_pipe->stream_res.opp;
++
++				bot_opp->funcs->opp_program_bit_depth_reduction(bot_opp, &params);
++				width /= 2;
++				bot_opp->funcs->opp_set_disp_pattern_generator(bot_opp,
++					controller_test_pattern,
++					color_depth,
++					NULL,
++					width,
++					height);
++			}
++			opp->funcs->opp_set_disp_pattern_generator(opp,
++				controller_test_pattern,
++				color_depth,
++				NULL,
++				width,
++				height);
++		}
++#endif
+ 	}
+ 	break;
+ 	case DP_TEST_PATTERN_VIDEO_MODE:
+@@ -2729,6 +2765,30 @@ static void set_crtc_test_pattern(struct dc_link *link,
+ 			pipe_ctx->stream_res.tg->funcs->set_test_pattern(pipe_ctx->stream_res.tg,
+ 				CONTROLLER_DP_TEST_PATTERN_VIDEOMODE,
+ 				color_depth);
++#if defined(CONFIG_DRM_AMD_DC_DCN2_0)
++		else if (opp->funcs->opp_set_disp_pattern_generator) {
++			struct pipe_ctx *bot_odm_pipe = dc_res_get_odm_bottom_pipe(pipe_ctx);
++
++			if (bot_odm_pipe) {
++				struct output_pixel_processor *bot_opp = bot_odm_pipe->stream_res.opp;
++
++				bot_opp->funcs->opp_program_bit_depth_reduction(bot_opp, &params);
++				width /= 2;
++				bot_opp->funcs->opp_set_disp_pattern_generator(bot_opp,
++					CONTROLLER_DP_TEST_PATTERN_VIDEOMODE,
++					color_depth,
++					NULL,
++					width,
++					height);
++			}
++			opp->funcs->opp_set_disp_pattern_generator(opp,
++				CONTROLLER_DP_TEST_PATTERN_VIDEOMODE,
++				color_depth,
++				NULL,
++				width,
++				height);
++		}
++#endif
+ 	}
+ 	break;
+ 
+@@ -2903,3 +2963,5 @@ void dp_enable_mst_on_sink(struct dc_link *link, bool enable)
+ 
+ 	core_link_write_dpcd(link, DP_MSTM_CTRL, &mstmCntl, 1);
+ }
++
++
+diff --git a/drivers/gpu/drm/amd/display/dc/core/dc_stream.c b/drivers/gpu/drm/amd/display/dc/core/dc_stream.c
+index a002e690814f..de50d778e4b0 100644
+--- a/drivers/gpu/drm/amd/display/dc/core/dc_stream.c
++++ b/drivers/gpu/drm/amd/display/dc/core/dc_stream.c
+@@ -105,6 +105,7 @@ static void construct(struct dc_stream_state *stream,
+ 	/* EDID CAP translation for HDMI 2.0 */
+ 	stream->timing.flags.LTE_340MCSC_SCRAMBLE = dc_sink_data->edid_caps.lte_340mcsc_scramble;
+ 
++
+ 	update_stream_signal(stream, dc_sink_data);
+ 
+ 	stream->out_transfer_func = dc_create_transfer_func();
+@@ -355,6 +356,119 @@ bool dc_stream_set_cursor_position(
+ 	return true;
+ }
+ 
++#if defined(CONFIG_DRM_AMD_DC_DCN2_0)
++bool dc_stream_add_writeback(struct dc *dc,
++		struct dc_stream_state *stream,
++		struct dc_writeback_info *wb_info)
++{
++	bool isDrc = false;
++	int i = 0;
++
++	if (stream == NULL) {
++		dm_error("DC: dc_stream is NULL!\n");
++		return false;
++	}
++
++	if (wb_info == NULL) {
++		dm_error("DC: dc_writeback_info is NULL!\n");
++		return false;
++	}
++
++	if (wb_info->dwb_pipe_inst >= MAX_DWB_PIPES) {
++		dm_error("DC: writeback pipe is invalid!\n");
++		return false;
++	}
++
++	wb_info->dwb_params.out_transfer_func = stream->out_transfer_func;
++
++
++
++	/* recalculate and apply DML parameters */
++
++	for (i = 0; i < stream->num_wb_info; i++) {
++		/*dynamic update*/
++		if (stream->writeback_info[i].wb_enabled &&
++			stream->writeback_info[i].dwb_pipe_inst == wb_info->dwb_pipe_inst) {
++			stream->writeback_info[i] = *wb_info;
++			isDrc = true;
++		}
++	}
++
++	if (!isDrc) {
++		stream->writeback_info[stream->num_wb_info++] = *wb_info;
++	}
++
++	if (!dc->hwss.update_bandwidth(dc, dc->current_state)) {
++		dm_error("DC: update_bandwidth failed!\n");
++		return false;
++	}
++
++	/* enable writeback */
++	if (dc->hwss.enable_writeback) {
++		struct dc_stream_status *stream_status = dc_stream_get_status(stream);
++		struct dwbc *dwb = dc->res_pool->dwbc[wb_info->dwb_pipe_inst];
++
++		if (dwb->funcs->is_enabled(dwb)) {
++			/* writeback pipe already enabled, only need to update */
++			dc->hwss.update_writeback(dc, stream_status, wb_info);
++		} else {
++			/* Enable writeback pipe from scratch*/
++			dc->hwss.enable_writeback(dc, stream_status, wb_info);
++		}
++	}
++
++	return true;
++}
++
++bool dc_stream_remove_writeback(struct dc *dc,
++		struct dc_stream_state *stream,
++		uint32_t dwb_pipe_inst)
++{
++	int i = 0, j = 0;
++	if (stream == NULL) {
++		dm_error("DC: dc_stream is NULL!\n");
++		return false;
++	}
++
++	if (dwb_pipe_inst >= MAX_DWB_PIPES) {
++		dm_error("DC: writeback pipe is invalid!\n");
++		return false;
++	}
++
++//	stream->writeback_info[dwb_pipe_inst].wb_enabled = false;
++	for (i = 0; i < stream->num_wb_info; i++) {
++		/*dynamic update*/
++		if (stream->writeback_info[i].wb_enabled &&
++			stream->writeback_info[i].dwb_pipe_inst == dwb_pipe_inst) {
++			stream->writeback_info[i].wb_enabled = false;
++		}
++	}
++
++	/* remove writeback info for disabled writeback pipes from stream */
++	for (i = 0, j = 0; i < stream->num_wb_info; i++) {
++		if (stream->writeback_info[i].wb_enabled) {
++			if (i != j)
++				/* trim the array */
++				stream->writeback_info[j] = stream->writeback_info[i];
++			j++;
++		}
++	}
++	stream->num_wb_info = j;
++
++	/* recalculate and apply DML parameters */
++	if (!dc->hwss.update_bandwidth(dc, dc->current_state)) {
++		dm_error("DC: update_bandwidth failed!\n");
++		return false;
++	}
++
++	/* disable writeback */
++	if (dc->hwss.disable_writeback)
++		dc->hwss.disable_writeback(dc, dwb_pipe_inst);
++
++	return true;
++}
++#endif
++
+ uint32_t dc_stream_get_vblank_counter(const struct dc_stream_state *stream)
+ {
+ 	uint8_t i;
+@@ -439,6 +553,77 @@ bool dc_stream_get_scanoutpos(const struct dc_stream_state *stream,
+ 
+ 	return ret;
+ }
++#if defined(CONFIG_DRM_AMD_DC_DCN2_0)
++bool dc_stream_dmdata_status_done(struct dc *dc, struct dc_stream_state *stream)
++{
++	bool status = true;
++	struct pipe_ctx *pipe = NULL;
++	int i;
++
++	if (!dc->hwss.dmdata_status_done)
++		return false;
++
++	for (i = 0; i < MAX_PIPES; i++) {
++		pipe = &dc->current_state->res_ctx.pipe_ctx[i];
++		if (pipe->stream == stream)
++			break;
++	}
++	/* Stream not found, by default we'll assume HUBP fetched dm data */
++	if (i == MAX_PIPES)
++		return true;
++
++	status = dc->hwss.dmdata_status_done(pipe);
++	return status;
++}
++
++bool dc_stream_set_dynamic_metadata(struct dc *dc,
++		struct dc_stream_state *stream,
++		struct dc_dmdata_attributes *attr)
++{
++	struct pipe_ctx *pipe_ctx = NULL;
++	struct hubp *hubp;
++	int i;
++
++	for (i = 0; i < MAX_PIPES; i++) {
++		pipe_ctx = &dc->current_state->res_ctx.pipe_ctx[i];
++		if (pipe_ctx->stream == stream)
++			break;
++	}
++
++	if (i == MAX_PIPES)
++		return false;
++
++	hubp = pipe_ctx->plane_res.hubp;
++	if (hubp == NULL)
++		return false;
++
++	pipe_ctx->stream->dmdata_address = attr->address;
++
++	if (pipe_ctx->stream_res.stream_enc->funcs->set_dynamic_metadata != NULL) {
++		if (pipe_ctx->stream->dmdata_address.quad_part != 0) {
++			/* if using dynamic meta, don't set up generic infopackets */
++			pipe_ctx->stream_res.encoder_info_frame.hdrsmd.valid = false;
++			pipe_ctx->stream_res.stream_enc->funcs->set_dynamic_metadata(
++					pipe_ctx->stream_res.stream_enc,
++					true, pipe_ctx->plane_res.hubp->inst,
++					dc_is_dp_signal(pipe_ctx->stream->signal) ?
++							dmdata_dp : dmdata_hdmi);
++		} else
++			pipe_ctx->stream_res.stream_enc->funcs->set_dynamic_metadata(
++					pipe_ctx->stream_res.stream_enc,
++					false, pipe_ctx->plane_res.hubp->inst,
++					dc_is_dp_signal(pipe_ctx->stream->signal) ?
++							dmdata_dp : dmdata_hdmi);
++	}
++
++	if (hubp->funcs->dmdata_set_attributes != NULL &&
++			pipe_ctx->stream->dmdata_address.quad_part != 0) {
++		hubp->funcs->dmdata_set_attributes(hubp, attr);
++	}
++
++	return true;
++}
++#endif
+ 
+ void dc_stream_log(const struct dc *dc, const struct dc_stream_state *stream)
+ {
+diff --git a/drivers/gpu/drm/amd/display/dc/core/dc_surface.c b/drivers/gpu/drm/amd/display/dc/core/dc_surface.c
+index a5e86f9b148f..60f20d96f9e0 100644
+--- a/drivers/gpu/drm/amd/display/dc/core/dc_surface.c
++++ b/drivers/gpu/drm/amd/display/dc/core/dc_surface.c
+@@ -48,6 +48,20 @@ static void construct(struct dc_context *ctx, struct dc_plane_state *plane_state
+ 		plane_state->in_transfer_func->type = TF_TYPE_BYPASS;
+ 		plane_state->in_transfer_func->ctx = ctx;
+ 	}
++#if defined(CONFIG_DRM_AMD_DC_DCN2_0)
++	plane_state->in_shaper_func = dc_create_transfer_func();
++	if (plane_state->in_shaper_func != NULL) {
++		plane_state->in_shaper_func->type = TF_TYPE_BYPASS;
++		plane_state->in_shaper_func->ctx = ctx;
++	}
++
++	plane_state->lut3d_func = dc_create_3dlut_func();
++	if (plane_state->lut3d_func != NULL) {
++		plane_state->lut3d_func->ctx = ctx;
++		plane_state->lut3d_func->initialized = false;
++	}
++
++#endif
+ }
+ 
+ static void destruct(struct dc_plane_state *plane_state)
+@@ -60,6 +74,19 @@ static void destruct(struct dc_plane_state *plane_state)
+ 				plane_state->in_transfer_func);
+ 		plane_state->in_transfer_func = NULL;
+ 	}
++#if defined(CONFIG_DRM_AMD_DC_DCN2_0)
++	if (plane_state->in_shaper_func != NULL) {
++		dc_transfer_func_release(
++				plane_state->in_shaper_func);
++		plane_state->in_shaper_func = NULL;
++	}
++	if (plane_state->lut3d_func != NULL) {
++		dc_3dlut_func_release(
++				plane_state->lut3d_func);
++		plane_state->lut3d_func = NULL;
++	}
++
++#endif
+ }
+ 
+ /*******************************************************************************
+@@ -224,4 +251,40 @@ struct dc_transfer_func *dc_create_transfer_func(void)
+ 	return NULL;
+ }
+ 
++#if defined(CONFIG_DRM_AMD_DC_DCN2_0)
++static void dc_3dlut_func_free(struct kref *kref)
++{
++	struct dc_3dlut *lut = container_of(kref, struct dc_3dlut, refcount);
++
++	kvfree(lut);
++}
++
++struct dc_3dlut *dc_create_3dlut_func(void)
++{
++	struct dc_3dlut *lut = kvzalloc(sizeof(*lut), GFP_KERNEL);
++
++	if (lut == NULL)
++		goto alloc_fail;
++
++	kref_init(&lut->refcount);
++	lut->initialized = false;
++
++	return lut;
++
++alloc_fail:
++	return NULL;
++
++}
++
++void dc_3dlut_func_release(struct dc_3dlut *lut)
++{
++	kref_put(&lut->refcount, dc_3dlut_func_free);
++}
++
++void dc_3dlut_func_retain(struct dc_3dlut *lut)
++{
++	kref_get(&lut->refcount);
++}
++#endif
++
+ 
+diff --git a/drivers/gpu/drm/amd/display/dc/dc.h b/drivers/gpu/drm/amd/display/dc/dc.h
+index 77313fc2ee6d..44ecf1ca613a 100644
+--- a/drivers/gpu/drm/amd/display/dc/dc.h
++++ b/drivers/gpu/drm/amd/display/dc/dc.h
+@@ -112,9 +112,19 @@ struct dc_caps {
+ 	bool force_dp_tps4_for_cp2520;
+ 	bool disable_dp_clk_share;
+ 	bool psp_setup_panel_mode;
++#ifdef CONFIG_DRM_AMD_DC_DCN2_0
++	bool hw_3d_lut;
++#endif
+ 	struct dc_plane_cap planes[MAX_PLANES];
+ };
+ 
++#if defined(CONFIG_DRM_AMD_DC_DCN2_0)
++struct dc_bug_wa {
++	bool no_connect_phy_config;
++	bool dedcn20_305_wa;
++};
++#endif
++
+ struct dc_dcc_surface_param {
+ 	struct dc_size surface_size;
+ 	enum surface_pixel_format format;
+@@ -364,6 +374,41 @@ struct dc_debug_data {
+ 	uint32_t auxErrorCount;
+ };
+ 
++#ifdef CONFIG_DRM_AMD_DC_DCN2_0
++struct dc_phy_addr_space_config {
++	struct {
++		uint64_t start_addr;
++		uint64_t end_addr;
++		uint64_t fb_top;
++		uint64_t fb_offset;
++		uint64_t fb_base;
++		uint64_t agp_top;
++		uint64_t agp_bot;
++		uint64_t agp_base;
++	} system_aperture;
++
++	struct {
++		uint64_t page_table_start_addr;
++		uint64_t page_table_end_addr;
++		uint64_t page_table_base_addr;
++	} gart_config;
++};
++
++struct dc_virtual_addr_space_config {
++	uint64_t	page_table_start_addr;
++	uint64_t	page_table_end_addr;
++	uint32_t	page_table_block_size_in_bytes;
++	uint8_t		page_table_depth; // 1 = 1 level, 2 = 2 level, etc.  0 = invalid
++};
++
++struct dc_addr_space_config {
++	struct dc_phy_addr_space_config		pa_config;
++	struct dc_virtual_addr_space_config	va_config;
++	uint32_t	valid:1;
++};
++
++#endif
++
+ struct dc_bounding_box_overrides {
+ 	int sr_exit_time_ns;
+ 	int sr_enter_plus_exit_time_ns;
+@@ -384,7 +429,13 @@ struct dc {
+ 	struct dc_config config;
+ 	struct dc_debug_options debug;
+ 	struct dc_bounding_box_overrides bb_overrides;
++#if defined(CONFIG_DRM_AMD_DC_DCN2_0)
++	struct dc_bug_wa work_arounds;
++#endif
+ 	struct dc_context *ctx;
++#ifdef CONFIG_DRM_AMD_DC_DCN2_0
++	struct dc_addr_space_config vm_config;
++#endif
+ 
+ 	uint8_t link_count;
+ 	struct dc_link *links[MAX_PIPES * 2];
+@@ -422,6 +473,10 @@ struct dc {
+ 	struct dc_debug_data debug_data;
+ 
+ 	const char *build_id;
++#ifdef CONFIG_DRM_AMD_DC_DCN2_0
++	struct vm_helper *vm_helper;
++	const struct gpu_info_soc_bounding_box_v1_0 *soc_bounding_box;
++#endif
+ };
+ 
+ enum frame_buffer_mode {
+@@ -459,7 +514,6 @@ struct dc_init_data {
+ #endif
+ 	struct dc_config flags;
+ 	uint32_t log_mask;
+-
+ #ifdef CONFIG_DRM_AMD_DC_DCN2_0
+ 	/**
+ 	 * gpu_info FW provided soc bounding box struct or 0 if not
+@@ -481,6 +535,9 @@ struct dc_callback_init {
+ };
+ 
+ struct dc *dc_create(const struct dc_init_data *init_params);
++#ifdef CONFIG_DRM_AMD_DC_DCN2_0
++bool dc_init_memory_hub(struct dc *dc, struct dc_addr_space_config *config);
++#endif
+ void dc_init_callbacks(struct dc *dc,
+ 		const struct dc_callback_init *init_params);
+ void dc_destroy(struct dc **dc);
+@@ -552,6 +609,17 @@ struct dc_transfer_func {
+ 	};
+ };
+ 
++#if defined(CONFIG_DRM_AMD_DC_DCN2_0)
++
++
++struct dc_3dlut {
++	struct kref refcount;
++	struct tetrahedral_params lut_3d;
++	uint32_t hdr_multiplier;
++	bool initialized;
++	struct dc_context *ctx;
++};
++#endif
+ /*
+  * This structure is filled in by dc_surface_get_status and contains
+  * the last requested address and the currently active address so the called
+@@ -602,6 +670,9 @@ union surface_update_flags {
+ struct dc_plane_state {
+ 	struct dc_plane_address address;
+ 	struct dc_plane_flip_time time;
++#if defined(CONFIG_DRM_AMD_DC_DCN2_0)
++	bool triplebuffer_flips;
++#endif
+ 	struct scaling_taps scaling_quality;
+ 	struct rect src_rect;
+ 	struct rect dst_rect;
+@@ -624,6 +695,12 @@ struct dc_plane_state {
+ 
+ 	enum dc_color_space color_space;
+ 
++#if defined(CONFIG_DRM_AMD_DC_DCN2_0)
++	struct dc_3dlut *lut3d_func;
++	struct dc_transfer_func *in_shaper_func;
++	struct dc_transfer_func *blend_tf;
++#endif
++
+ 	enum surface_pixel_format format;
+ 	enum dc_rotation_angle rotation;
+ 	enum plane_stereo_format stereo_format;
+@@ -689,6 +766,10 @@ struct dc_surface_update {
+ 
+ 	const struct dc_csc_transform *input_csc_color_matrix;
+ 	const struct fixed31_32 *coeff_reduction_factor;
++#if defined(CONFIG_DRM_AMD_DC_DCN2_0)
++	const struct dc_transfer_func *func_shaper;
++	const struct dc_3dlut *lut3d_func;
++#endif
+ };
+ 
+ /*
+@@ -709,6 +790,11 @@ void dc_transfer_func_retain(struct dc_transfer_func *dc_tf);
+ void dc_transfer_func_release(struct dc_transfer_func *dc_tf);
+ struct dc_transfer_func *dc_create_transfer_func(void);
+ 
++#if defined(CONFIG_DRM_AMD_DC_DCN2_0)
++struct dc_3dlut *dc_create_3dlut_func(void);
++void dc_3dlut_func_release(struct dc_3dlut *lut);
++void dc_3dlut_func_retain(struct dc_3dlut *lut);
++#endif
+ /*
+  * This structure holds a surface address.  There could be multiple addresses
+  * in cases such as Stereo 3D, Planar YUV, etc.  Other per-flip attributes such
+@@ -856,6 +942,7 @@ struct dc_sink {
+ 	struct stereo_3d_features features_3d[TIMING_3D_FORMAT_MAX];
+ 	bool converter_disable_audio;
+ 
++
+ 	/* private to DC core */
+ 	struct dc_link *link;
+ 	struct dc_context *ctx;
+diff --git a/drivers/gpu/drm/amd/display/dc/dc_stream.h b/drivers/gpu/drm/amd/display/dc/dc_stream.h
+index 4da138ded8b7..929f155eaae7 100644
+--- a/drivers/gpu/drm/amd/display/dc/dc_stream.h
++++ b/drivers/gpu/drm/amd/display/dc/dc_stream.h
+@@ -51,6 +51,52 @@ struct freesync_context {
+ 	bool dummy;
+ };
+ 
++#if defined(CONFIG_DRM_AMD_DC_DCN2_0)
++enum hubp_dmdata_mode {
++	DMDATA_SW_MODE,
++	DMDATA_HW_MODE
++};
++
++struct dc_dmdata_attributes {
++	/* Specifies whether dynamic meta data will be updated by software
++	 * or has to be fetched by hardware (DMA mode)
++	 */
++	enum hubp_dmdata_mode dmdata_mode;
++	/* Specifies if current dynamic meta data is to be used only for the current frame */
++	bool dmdata_repeat;
++	/* Specifies the size of Dynamic Metadata surface in byte.  Size of 0 means no Dynamic metadata is fetched */
++	uint32_t dmdata_size;
++	/* Specifies if a new dynamic meta data should be fetched for an upcoming frame */
++	bool dmdata_updated;
++	/* If hardware mode is used, the base address where DMDATA surface is located */
++	PHYSICAL_ADDRESS_LOC address;
++	/* Specifies whether QOS level will be provided by TTU or it will come from DMDATA_QOS_LEVEL */
++	bool dmdata_qos_mode;
++	/* If qos_mode = 1, this is the QOS value to be used: */
++	uint32_t dmdata_qos_level;
++	/* Specifies the value in unit of REFCLK cycles to be added to the
++	 * current time to produce the Amortized deadline for Dynamic Metadata chunk request
++	 */
++	uint32_t dmdata_dl_delta;
++	/* An unbounded array of uint32s, represents software dmdata to be loaded */
++	uint32_t *dmdata_sw_data;
++};
++#endif
++
++#if defined(CONFIG_DRM_AMD_DC_DCN2_0)
++struct dc_writeback_info {
++	bool wb_enabled;
++	int dwb_pipe_inst;
++	struct dc_dwb_params dwb_params;
++	struct mcif_buf_params mcif_buf_params;
++};
++
++struct dc_writeback_update {
++	unsigned int num_wb_info;
++	struct dc_writeback_info writeback_info[MAX_DWB_PIPES];
++};
++#endif
++
+ enum vertical_interrupt_ref_point {
+ 	START_V_UPDATE = 0,
+ 	START_V_SYNC,
+@@ -142,6 +188,11 @@ struct dc_stream_state {
+ 
+ 	struct crtc_trigger_info triggered_crtc_reset;
+ 
++#if defined(CONFIG_DRM_AMD_DC_DCN2_0)
++	/* writeback */
++	unsigned int num_wb_info;
++	struct dc_writeback_info writeback_info[MAX_DWB_PIPES];
++#endif
+ 	/* Computed state bits */
+ 	bool mode_changed : 1;
+ 
+@@ -184,6 +235,9 @@ struct dc_stream_update {
+ 
+ 	struct dc_csc_transform *output_csc_transform;
+ 
++#if defined(CONFIG_DRM_AMD_DC_DCN2_0)
++	struct dc_writeback_update *wb_update;
++#endif
+ };
+ 
+ bool dc_is_stream_unchanged(
+@@ -273,6 +327,19 @@ bool dc_add_all_planes_for_stream(
+ 		int plane_count,
+ 		struct dc_state *context);
+ 
++#if defined(CONFIG_DRM_AMD_DC_DCN2_0)
++bool dc_stream_add_writeback(struct dc *dc,
++		struct dc_stream_state *stream,
++		struct dc_writeback_info *wb_info);
++bool dc_stream_remove_writeback(struct dc *dc,
++		struct dc_stream_state *stream,
++		uint32_t dwb_pipe_inst);
++bool dc_stream_dmdata_status_done(struct dc *dc, struct dc_stream_state *stream);
++bool dc_stream_set_dynamic_metadata(struct dc *dc,
++		struct dc_stream_state *stream,
++		struct dc_dmdata_attributes *dmdata_attr);
++#endif
++
+ enum dc_status dc_validate_stream(struct dc *dc, struct dc_stream_state *stream);
+ 
+ /*
+diff --git a/drivers/gpu/drm/amd/display/dc/dm_pp_smu.h b/drivers/gpu/drm/amd/display/dc/dm_pp_smu.h
+index ae0a005704c6..825e097e4bab 100644
+--- a/drivers/gpu/drm/amd/display/dc/dm_pp_smu.h
++++ b/drivers/gpu/drm/amd/display/dc/dm_pp_smu.h
+@@ -41,6 +41,9 @@ enum pp_smu_ver {
+ 	 */
+ 	PP_SMU_UNSUPPORTED,
+ 	PP_SMU_VER_RV,
++#ifndef CONFIG_TRIM_DRM_AMD_DC_DCN2_0
++	PP_SMU_VER_NV,
++#endif
+ 
+ 	PP_SMU_VER_MAX
+ };
+@@ -64,7 +67,6 @@ enum pp_smu_status {
+ 	PP_SMU_RESULT_UNSUPPORTED
+ };
+ 
+-
+ #define PP_SMU_WM_SET_RANGE_CLK_UNCONSTRAINED_MIN 0x0
+ #define PP_SMU_WM_SET_RANGE_CLK_UNCONSTRAINED_MAX 0xFFFF
+ 
+@@ -132,10 +134,119 @@ struct pp_smu_funcs_rv {
+ 	void (*set_pme_wa_enable)(struct pp_smu *pp);
+ };
+ 
++#ifndef CONFIG_TRIM_DRM_AMD_DC_DCN2_0
++/* Used by pp_smu_funcs_nv.set_voltage_by_freq
++ *
++ */
++enum pp_smu_nv_clock_id {
++	PP_SMU_NV_DISPCLK,
++	PP_SMU_NV_PHYCLK,
++	PP_SMU_NV_PIXELCLK
++};
++
++/*
++ * Used by pp_smu_funcs_nv.get_maximum_sustainable_clocks
++ */
++struct pp_smu_nv_clock_table {
++	// voltage managed SMU, freq set by driver
++	unsigned int    displayClockInKhz;
++	unsigned int	dppClockInKhz;
++	unsigned int    phyClockInKhz;
++	unsigned int    pixelClockInKhz;
++	unsigned int	dscClockInKhz;
++
++	// freq/voltage managed by SMU
++	unsigned int	fabricClockInKhz;
++	unsigned int	socClockInKhz;
++	unsigned int    dcfClockInKhz;
++	unsigned int    uClockInKhz;
++};
++
++struct pp_smu_funcs_nv {
++	struct pp_smu pp_smu;
++
++	/* PPSMC_MSG_SetDisplayCount
++	 * 0 triggers S0i2 optimization
++	 */
++	enum pp_smu_status (*set_display_count)(struct pp_smu *pp, int count);
++
++	/* PPSMC_MSG_SetHardMinDcfclkByFreq
++	 * fixed clock at requested freq, either from FCH bypass or DFS
++	 */
++	enum pp_smu_status (*set_hard_min_dcfclk_by_freq)(struct pp_smu *pp, int Mhz);
++
++	/* PPSMC_MSG_SetMinDeepSleepDcfclk
++	 * when DF is in cstate, dcf clock is further divided down
++	 * to just above given frequency
++	 */
++	enum pp_smu_status (*set_min_deep_sleep_dcfclk)(struct pp_smu *pp, int Mhz);
++
++	/* PPSMC_MSG_SetHardMinUclkByFreq
++	 * UCLK will vary with DPM, but never below requested hard min
++	 */
++	enum pp_smu_status (*set_hard_min_uclk_by_freq)(struct pp_smu *pp, int Mhz);
++
++	/* PPSMC_MSG_SetHardMinSocclkByFreq
++	 * Needed for DWB support
++	 */
++	enum pp_smu_status (*set_hard_min_socclk_by_freq)(struct pp_smu *pp, int Mhz);
++
++	/* PME w/a */
++	enum pp_smu_status (*set_pme_wa_enable)(struct pp_smu *pp);
++
++	/* PPSMC_MSG_SetHardMinByFreq
++	 * Needed to set ASIC voltages for clocks programmed by DAL
++	 */
++	enum pp_smu_status (*set_voltage_by_freq)(struct pp_smu *pp,
++			enum pp_smu_nv_clock_id clock_id, int Mhz);
++
++	/* reader and writer WM's are sent together as part of one table*/
++	/*
++	 * PPSMC_MSG_SetDriverDramAddrHigh
++	 * PPSMC_MSG_SetDriverDramAddrLow
++	 * PPSMC_MSG_TransferTableDram2Smu
++	 *
++	 * on DCN20:
++	 * 	reader fill clk = uclk
++	 * 	reader drain clk = dcfclk
++	 * 	writer fill clk = socclk
++	 * 	writer drain clk = uclk
++	 * */
++	enum pp_smu_status (*set_wm_ranges)(struct pp_smu *pp,
++			struct pp_smu_wm_range_sets *ranges);
++
++	/* Not a single SMU message.  This call should return maximum sustainable limit for all
++	 * clocks that DC depends on.  These will be used as basis for mode enumeration.
++	 */
++	enum pp_smu_status (*get_maximum_sustainable_clocks)(struct pp_smu *pp,
++			struct pp_smu_nv_clock_table *max_clocks);
++
++	/* This call should return the discrete uclk DPM states available
++	 */
++	enum pp_smu_status (*get_uclk_dpm_states)(struct pp_smu *pp,
++			unsigned int *clock_values_in_khz, unsigned int *num_states);
++
++	/* Not a single SMU message.  This call informs PPLIB that display will not be able
++	 * to perform pstate handshaking in its current state.  Typically this handshake
++	 * is used to perform uCLK switching, so disabling pstate disables uCLK switching.
++	 *
++	 * Note that when setting handshake to unsupported, the call is pre-emptive.  That means
++	 * DC will make the call BEFORE setting up the display state which would cause pstate
++	 * request to go un-acked.  Only when the call completes should such a state be applied to
++	 * DC hardware
++	 */
++	enum pp_smu_status (*set_pstate_handshake_support)(struct pp_smu *pp,
++			BOOLEAN pstate_handshake_supported);
++};
++#endif
++
+ struct pp_smu_funcs {
+ 	struct pp_smu ctx;
+ 	union {
+ 		struct pp_smu_funcs_rv rv_funcs;
++#ifndef CONFIG_TRIM_DRM_AMD_DC_DCN2_0
++		struct pp_smu_funcs_nv nv_funcs;
++#endif
+ 
+ 	};
+ };
+-- 
+2.17.1
+

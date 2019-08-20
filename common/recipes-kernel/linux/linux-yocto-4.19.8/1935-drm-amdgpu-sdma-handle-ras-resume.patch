@@ -1,0 +1,50 @@
+From 13cffa0d74dc3257baaf905886bf68f65d6e010e Mon Sep 17 00:00:00 2001
+From: xinhui pan <xinhui.pan@amd.com>
+Date: Thu, 9 May 2019 09:00:14 +0800
+Subject: [PATCH 1935/2940] drm/amdgpu: sdma handle ras resume
+
+During S3/S4 bootloader will re-init ras state behind us.
+Resume might fail or raise a gpu reset.
+
+Signed-off-by: xinhui pan <xinhui.pan@amd.com>
+Reviewed-by: Alex Deucher <alexander.deucher@amd.com>
+Reviewed-by: James Zhu <James.Zhu@amd.com>
+Tested-by: James Zhu <James.Zhu@amd.com>
+---
+ drivers/gpu/drm/amd/amdgpu/sdma_v4_0.c | 19 ++++++++++++++++++-
+ 1 file changed, 18 insertions(+), 1 deletion(-)
+
+diff --git a/drivers/gpu/drm/amd/amdgpu/sdma_v4_0.c b/drivers/gpu/drm/amd/amdgpu/sdma_v4_0.c
+index 9daaa12fdb3e..f38decbbf194 100644
+--- a/drivers/gpu/drm/amd/amdgpu/sdma_v4_0.c
++++ b/drivers/gpu/drm/amd/amdgpu/sdma_v4_0.c
+@@ -1525,8 +1525,25 @@ static int sdma_v4_0_late_init(void *handle)
+ 	}
+ 
+ 	/* handle resume path. */
+-	if (*ras_if)
++	if (*ras_if) {
++		/* resend ras TA enable cmd during resume.
++		 * prepare to handle failure.
++		 */
++		ih_info.head = **ras_if;
++		r = amdgpu_ras_feature_enable_on_boot(adev, *ras_if, 1);
++		if (r) {
++			if (r == -EAGAIN) {
++				/* request a gpu reset. will run again. */
++				amdgpu_ras_request_reset_on_boot(adev,
++						AMDGPU_RAS_BLOCK__SDMA);
++				return 0;
++			}
++			/* fail to enable ras, cleanup all. */
++			goto irq;
++		}
++		/* enable successfully. continue. */
+ 		goto resume;
++	}
+ 
+ 	*ras_if = kmalloc(sizeof(**ras_if), GFP_KERNEL);
+ 	if (!*ras_if)
+-- 
+2.17.1
+

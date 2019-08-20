@@ -1,0 +1,58 @@
+From 3dcceb5743dacdd413e0981b2f20747b30ac9353 Mon Sep 17 00:00:00 2001
+From: Arnd Bergmann <arnd@arndb.de>
+Date: Mon, 8 Jul 2019 15:52:08 +0200
+Subject: [PATCH 2846/2940] drm/amd/display: avoid 64-bit division
+
+On 32-bit architectures, dividing a 64-bit integer in the kernel
+leads to a link error:
+
+ERROR: "__udivdi3" [drivers/gpu/drm/amd/amdgpu/amdgpu.ko] undefined!
+ERROR: "__divdi3" [drivers/gpu/drm/amd/amdgpu/amdgpu.ko] undefined!
+
+Change the two recently introduced instances to a multiply+shift
+operation that is also much cheaper on 32-bit architectures.
+We can do that here, since both of them are really 32-bit numbers
+that change a few percent.
+
+Fixes: bedbbe6af4be ("drm/amd/display: Move link functions from dc to dc_link")
+Fixes: f18bc4e53ad6 ("drm/amd/display: update calculated bounding box logic for NV")
+Acked-by: Slava Abramov <slava.abramov@amd.com>
+Tested-by: Slava Abramov <slava.abramov@amd.com>
+Signed-off-by: Arnd Bergmann <arnd@arndb.de>
+Signed-off-by: Alex Deucher <alexander.deucher@amd.com>
+---
+ drivers/gpu/drm/amd/display/dc/core/dc_link.c         | 4 ++--
+ drivers/gpu/drm/amd/display/dc/dcn20/dcn20_resource.c | 2 +-
+ 2 files changed, 3 insertions(+), 3 deletions(-)
+
+diff --git a/drivers/gpu/drm/amd/display/dc/core/dc_link.c b/drivers/gpu/drm/amd/display/dc/core/dc_link.c
+index e94d65ad0d90..dbc925273512 100644
+--- a/drivers/gpu/drm/amd/display/dc/core/dc_link.c
++++ b/drivers/gpu/drm/amd/display/dc/core/dc_link.c
+@@ -3070,8 +3070,8 @@ uint32_t dc_link_bandwidth_kbps(
+ 		 * but the difference is minimal and is in a safe direction,
+ 		 * which all works well around potential ambiguity of DP 1.4a spec.
+ 		 */
+-		long long fec_link_bw_kbps = link_bw_kbps * 970LL;
+-		link_bw_kbps = (uint32_t)(fec_link_bw_kbps / 1000LL);
++		link_bw_kbps = mul_u64_u32_shr(BIT_ULL(32) * 970LL / 1000,
++					       link_bw_kbps, 32);
+ 	}
+ #endif
+ 
+diff --git a/drivers/gpu/drm/amd/display/dc/dcn20/dcn20_resource.c b/drivers/gpu/drm/amd/display/dc/dcn20/dcn20_resource.c
+index 385a36f51f43..14920c180836 100644
+--- a/drivers/gpu/drm/amd/display/dc/dcn20/dcn20_resource.c
++++ b/drivers/gpu/drm/amd/display/dc/dcn20/dcn20_resource.c
+@@ -2655,7 +2655,7 @@ static void update_bounding_box(struct dc *dc, struct _vcs_dpi_soc_bounding_box_
+ 		calculated_states[i].dram_speed_mts = uclk_states[i] * 16 / 1000;
+ 
+ 		// FCLK:UCLK ratio is 1.08
+-		min_fclk_required_by_uclk = ((unsigned long long)uclk_states[i]) * 1080 / 1000000;
++		min_fclk_required_by_uclk = mul_u64_u32_shr(BIT_ULL(32) * 1080 / 1000000, uclk_states[i], 32);
+ 
+ 		calculated_states[i].fabricclk_mhz = (min_fclk_required_by_uclk < min_dcfclk) ?
+ 				min_dcfclk : min_fclk_required_by_uclk;
+-- 
+2.17.1
+

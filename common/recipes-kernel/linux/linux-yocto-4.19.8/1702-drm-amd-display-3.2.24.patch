@@ -1,0 +1,29 @@
+From 562f688a378bb498fc84519e1dadf6fa9b4a0eed Mon Sep 17 00:00:00 2001
+From: Aric Cyr <aric.cyr@amd.com>
+Date: Sat, 16 Mar 2019 16:06:58 -0400
+Subject: [PATCH 1702/2940] drm/amd/display: 3.2.24
+
+Change-Id: I17892ab59c946d855c262ddbb6711feedbb5a74d
+Signed-off-by: Aric Cyr <aric.cyr@amd.com>
+Reviewed-by: Aric Cyr <Aric.Cyr@amd.com>
+Acked-by: Bhawanpreet Lakha <Bhawanpreet.Lakha@amd.com>
+---
+ drivers/gpu/drm/amd/display/dc/dc.h | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/drivers/gpu/drm/amd/display/dc/dc.h b/drivers/gpu/drm/amd/display/dc/dc.h
+index 2d7fcaf9bce0..d0e85abb1d5a 100644
+--- a/drivers/gpu/drm/amd/display/dc/dc.h
++++ b/drivers/gpu/drm/amd/display/dc/dc.h
+@@ -42,7 +42,7 @@
+ #include "inc/hw/dmcu.h"
+ #include "dml/display_mode_lib.h"
+ 
+-#define DC_VER "3.2.23"
++#define DC_VER "3.2.24"
+ 
+ #define MAX_SURFACES 3
+ #define MAX_PLANES 6
+-- 
+2.17.1
+

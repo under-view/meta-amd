@@ -1,0 +1,42 @@
+From 99e67a615aa02ba6073f88e667099e6a2f5172f5 Mon Sep 17 00:00:00 2001
+From: Nicholas Kazlauskas <nicholas.kazlauskas@amd.com>
+Date: Thu, 8 Nov 2018 16:19:22 -0500
+Subject: [PATCH 0886/2940] drm/amd/display: Copy crc_enabled when duplicating
+ dm_crtc_state
+
+[Why]
+When running igt@kms_plane@pixel-format-pipe-* tests the CRC read will
+time out and the test will fail.
+
+This is because the CRTC is duplicated but the crc_enabled parameter
+isn't copied over to the new dm_crtc_state. CRC reads will time out
+because amdgpu_dm_crtc_handle_crc_irq will no longer call
+drm_crtc_add_crc_entry.
+
+[How]
+Copy crc_enabled when duplicating the state.
+
+Signed-off-by: Nicholas Kazlauskas <nicholas.kazlauskas@amd.com>
+Reviewed-by: David Francis <David.Francis@amd.com>
+Reviewed-by: Sun peng Li <Sunpeng.Li@amd.com>
+Acked-by: Leo Li <sunpeng.li@amd.com>
+Signed-off-by: Alex Deucher <alexander.deucher@amd.com>
+---
+ drivers/gpu/drm/amd/display/amdgpu_dm/amdgpu_dm.c | 1 +
+ 1 file changed, 1 insertion(+)
+
+diff --git a/drivers/gpu/drm/amd/display/amdgpu_dm/amdgpu_dm.c b/drivers/gpu/drm/amd/display/amdgpu_dm/amdgpu_dm.c
+index f699ad17d33e..a2000b40a795 100644
+--- a/drivers/gpu/drm/amd/display/amdgpu_dm/amdgpu_dm.c
++++ b/drivers/gpu/drm/amd/display/amdgpu_dm/amdgpu_dm.c
+@@ -3021,6 +3021,7 @@ dm_crtc_duplicate_state(struct drm_crtc *crtc)
+ 	state->abm_level = cur->abm_level;
+         state->vrr_supported = cur->vrr_supported;
+         state->freesync_config = cur->freesync_config;
++	state->crc_enabled = cur->crc_enabled;
+ 
+ 	/* TODO Duplicate dc_stream after objects are stream object is flattened */
+ 
+-- 
+2.17.1
+

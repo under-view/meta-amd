@@ -1,0 +1,33 @@
+From 87e78d866aac107123bf4ec4ef3f2b4be1da699a Mon Sep 17 00:00:00 2001
+From: Jack Xiao <Jack.Xiao@amd.com>
+Date: Wed, 24 Apr 2019 10:55:20 +0800
+Subject: [PATCH 2319/2940] drm/amdgpu/sdma5: incorrect variable type for gpu
+ address
+
+Incorrect programming with 64bit gpu address assignment for
+32bit variable.
+
+Signed-off-by: Jack Xiao <Jack.Xiao@amd.com>
+Reviewed-by: Xiaojie Yuan <xiaojie.yuan@amd.com>
+Signed-off-by: Alex Deucher <alexander.deucher@amd.com>
+---
+ drivers/gpu/drm/amd/amdgpu/sdma_v5_0.c | 3 ++-
+ 1 file changed, 2 insertions(+), 1 deletion(-)
+
+diff --git a/drivers/gpu/drm/amd/amdgpu/sdma_v5_0.c b/drivers/gpu/drm/amd/amdgpu/sdma_v5_0.c
+index 32b48c9ca051..3747c3f1f0cc 100644
+--- a/drivers/gpu/drm/amd/amdgpu/sdma_v5_0.c
++++ b/drivers/gpu/drm/amd/amdgpu/sdma_v5_0.c
+@@ -565,7 +565,8 @@ static int sdma_v5_0_gfx_resume(struct amdgpu_device *adev)
+ 	u32 doorbell;
+ 	u32 doorbell_offset;
+ 	u32 temp;
+-	u32 wptr_gpu_addr, wptr_poll_cntl;
++	u32 wptr_poll_cntl;
++	u64 wptr_gpu_addr;
+ 	int i, r;
+ 
+ 	for (i = 0; i < adev->sdma.num_instances; i++) {
+-- 
+2.17.1
+

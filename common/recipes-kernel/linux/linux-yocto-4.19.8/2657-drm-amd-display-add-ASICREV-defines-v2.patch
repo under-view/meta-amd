@@ -1,0 +1,36 @@
+From b85e1a6a622f45e1274b1f4bdd9629cb7a831d14 Mon Sep 17 00:00:00 2001
+From: Bhawanpreet Lakha <Bhawanpreet.Lakha@amd.com>
+Date: Tue, 2 Jul 2019 10:43:55 -0500
+Subject: [PATCH 2657/2940] drm/amd/display: add ASICREV defines v2
+
+Add revs for navi10 and 14.
+
+Signed-off-by: Bhawanpreet Lakha <Bhawanpreet.Lakha@amd.com>
+Reviewed-by: Xiaojie Yuan <xiaojie.yuan@amd.com>
+Signed-off-by: Alex Deucher <alexander.deucher@amd.com>
+---
+ drivers/gpu/drm/amd/display/include/dal_asic_id.h | 8 ++++++++
+ 1 file changed, 8 insertions(+)
+
+diff --git a/drivers/gpu/drm/amd/display/include/dal_asic_id.h b/drivers/gpu/drm/amd/display/include/dal_asic_id.h
+index 1c4327476152..54e9246f3f82 100644
+--- a/drivers/gpu/drm/amd/display/include/dal_asic_id.h
++++ b/drivers/gpu/drm/amd/display/include/dal_asic_id.h
+@@ -149,6 +149,14 @@
+ 
+ #define FAMILY_NV 143 /* DCN 2*/
+ 
++enum {
++	NV_NAVI10_P_A0      = 1,
++	NV_NAVI14_M_A0      = 20,
++	NV_UNKNOWN          = 0xFF
++};
++
++#define ASICREV_IS_NAVI10_P(eChipRev)        (eChipRev < NV_NAVI14_M_A0)
++#define ASICREV_IS_NAVI14_M(eChipRev)        ((eChipRev >= NV_NAVI14_M_A0) && (eChipRev < NV_UNKNOWN))
+ #endif
+ 
+ /*
+-- 
+2.17.1
+

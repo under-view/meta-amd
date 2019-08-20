@@ -1,0 +1,74 @@
+From a458e77d3b6a6d22ea96b95ad34d3c2420b224a0 Mon Sep 17 00:00:00 2001
+From: Alex Deucher <alexander.deucher@amd.com>
+Date: Mon, 22 Oct 2018 17:23:09 -0500
+Subject: [PATCH 2713/2940] drm/amdgpu/amdkfd: clean up mmhub and gfxhub
+ includes
+
+Use the appropriate mmhub and gfxhub headers rather than adding
+them to the gmc9 header.
+
+Reviewed-by: Felix Kuehling <Felix.Kuehling@amd.com>
+Signed-off-by: Alex Deucher <alexander.deucher@amd.com>
+---
+ drivers/gpu/drm/amd/amdgpu/amdgpu_amdkfd_gfx_v9.c | 3 ++-
+ drivers/gpu/drm/amd/amdgpu/gfxhub_v1_0.h          | 2 ++
+ drivers/gpu/drm/amd/amdgpu/gmc_v9_0.h             | 6 ------
+ drivers/gpu/drm/amd/amdgpu/mmhub_v1_0.h           | 2 ++
+ 4 files changed, 6 insertions(+), 7 deletions(-)
+
+diff --git a/drivers/gpu/drm/amd/amdgpu/amdgpu_amdkfd_gfx_v9.c b/drivers/gpu/drm/amd/amdgpu/amdgpu_amdkfd_gfx_v9.c
+index 4fed797651b1..a93f6a5fdd16 100644
+--- a/drivers/gpu/drm/amd/amdgpu/amdgpu_amdkfd_gfx_v9.c
++++ b/drivers/gpu/drm/amd/amdgpu/amdgpu_amdkfd_gfx_v9.c
+@@ -47,7 +47,8 @@
+ #include "v9_structs.h"
+ #include "soc15.h"
+ #include "soc15d.h"
+-#include "gmc_v9_0.h"
++#include "mmhub_v1_0.h"
++#include "gfxhub_v1_0.h"
+ 
+ 
+ #define V9_PIPE_PER_MEC		(4)
+diff --git a/drivers/gpu/drm/amd/amdgpu/gfxhub_v1_0.h b/drivers/gpu/drm/amd/amdgpu/gfxhub_v1_0.h
+index 206e29cad753..92d3a70cd9b1 100644
+--- a/drivers/gpu/drm/amd/amdgpu/gfxhub_v1_0.h
++++ b/drivers/gpu/drm/amd/amdgpu/gfxhub_v1_0.h
+@@ -30,5 +30,7 @@ void gfxhub_v1_0_set_fault_enable_default(struct amdgpu_device *adev,
+ 					  bool value);
+ void gfxhub_v1_0_init(struct amdgpu_device *adev);
+ u64 gfxhub_v1_0_get_mc_fb_offset(struct amdgpu_device *adev);
++void gfxhub_v1_0_setup_vm_pt_regs(struct amdgpu_device *adev, uint32_t vmid,
++				uint64_t page_table_base);
+ 
+ #endif
+diff --git a/drivers/gpu/drm/amd/amdgpu/gmc_v9_0.h b/drivers/gpu/drm/amd/amdgpu/gmc_v9_0.h
+index dc9a401fe997..5c8deac65580 100644
+--- a/drivers/gpu/drm/amd/amdgpu/gmc_v9_0.h
++++ b/drivers/gpu/drm/amd/amdgpu/gmc_v9_0.h
+@@ -37,10 +37,4 @@
+ extern const struct amd_ip_funcs gmc_v9_0_ip_funcs;
+ extern const struct amdgpu_ip_block_version gmc_v9_0_ip_block;
+ 
+-/* amdgpu_amdkfd*.c */
+-void gfxhub_v1_0_setup_vm_pt_regs(struct amdgpu_device *adev, uint32_t vmid,
+-				uint64_t page_table_base);
+-void mmhub_v1_0_setup_vm_pt_regs(struct amdgpu_device *adev, uint32_t vmid,
+-				uint64_t page_table_base);
+-
+ #endif
+diff --git a/drivers/gpu/drm/amd/amdgpu/mmhub_v1_0.h b/drivers/gpu/drm/amd/amdgpu/mmhub_v1_0.h
+index bef3d0c0c117..0de0fdf98c00 100644
+--- a/drivers/gpu/drm/amd/amdgpu/mmhub_v1_0.h
++++ b/drivers/gpu/drm/amd/amdgpu/mmhub_v1_0.h
+@@ -34,5 +34,7 @@ int mmhub_v1_0_set_clockgating(struct amdgpu_device *adev,
+ void mmhub_v1_0_get_clockgating(struct amdgpu_device *adev, u32 *flags);
+ void mmhub_v1_0_update_power_gating(struct amdgpu_device *adev,
+                                 bool enable);
++void mmhub_v1_0_setup_vm_pt_regs(struct amdgpu_device *adev, uint32_t vmid,
++				uint64_t page_table_base);
+ 
+ #endif
+-- 
+2.17.1
+

@@ -1,0 +1,66 @@
+From d9381a2024a6a3651eb80ad8cbdea3620048c0c7 Mon Sep 17 00:00:00 2001
+From: Huang Rui <ray.huang@amd.com>
+Date: Wed, 20 Feb 2019 19:43:36 +0800
+Subject: [PATCH 2265/2940] drm/amdgpu: bump smc firmware header version to v2
+ (v2)
+
+This patch bumps smc firmware header version to v2 for storing soft pptable.
+
+v2: fix the typo, and add prints for v2 header
+
+Signed-off-by: Huang Rui <ray.huang@amd.com>
+Reviewed-by: Hawking Zhang <Hawking.Zhang@amd.com>
+Signed-off-by: Alex Deucher <alexander.deucher@amd.com>
+---
+ drivers/gpu/drm/amd/amdgpu/amdgpu_ucode.c | 8 ++++++++
+ drivers/gpu/drm/amd/amdgpu/amdgpu_ucode.h | 8 ++++++++
+ 2 files changed, 16 insertions(+)
+
+diff --git a/drivers/gpu/drm/amd/amdgpu/amdgpu_ucode.c b/drivers/gpu/drm/amd/amdgpu/amdgpu_ucode.c
+index 09f384ce8cd7..7081ad9f93e3 100644
+--- a/drivers/gpu/drm/amd/amdgpu/amdgpu_ucode.c
++++ b/drivers/gpu/drm/amd/amdgpu/amdgpu_ucode.c
+@@ -77,6 +77,14 @@ void amdgpu_ucode_print_smc_hdr(const struct common_firmware_header *hdr)
+ 			container_of(hdr, struct smc_firmware_header_v1_0, header);
+ 
+ 		DRM_DEBUG("ucode_start_addr: %u\n", le32_to_cpu(smc_hdr->ucode_start_addr));
++	} else if (version_major == 2) {
++		const struct smc_firmware_header_v1_0 *v1_hdr =
++			container_of(hdr, struct smc_firmware_header_v1_0, header);
++		const struct smc_firmware_header_v2_0 *v2_hdr =
++			container_of(v1_hdr, struct smc_firmware_header_v2_0, v1_0);
++
++		DRM_INFO("ppt_offset_bytes: %u\n", le32_to_cpu(v2_hdr->ppt_offset_bytes));
++		DRM_INFO("ppt_size_bytes: %u\n", le32_to_cpu(v2_hdr->ppt_size_bytes));
+ 	} else {
+ 		DRM_ERROR("Unknown SMC ucode version: %u.%u\n", version_major, version_minor);
+ 	}
+diff --git a/drivers/gpu/drm/amd/amdgpu/amdgpu_ucode.h b/drivers/gpu/drm/amd/amdgpu/amdgpu_ucode.h
+index 3806a7957c6f..9b096228a02f 100644
+--- a/drivers/gpu/drm/amd/amdgpu/amdgpu_ucode.h
++++ b/drivers/gpu/drm/amd/amdgpu/amdgpu_ucode.h
+@@ -49,6 +49,13 @@ struct smc_firmware_header_v1_0 {
+ 	uint32_t ucode_start_addr;
+ };
+ 
++/* version_major=2, version_minor=0 */
++struct smc_firmware_header_v2_0 {
++	struct smc_firmware_header_v1_0 v1_0;
++	uint32_t ppt_offset_bytes; /* soft pptable offset */
++	uint32_t ppt_size_bytes; /* soft pptable size */
++};
++
+ /* version_major=1, version_minor=0 */
+ struct psp_firmware_header_v1_0 {
+ 	struct common_firmware_header header;
+@@ -194,6 +201,7 @@ union amdgpu_firmware_header {
+ 	struct common_firmware_header common;
+ 	struct mc_firmware_header_v1_0 mc;
+ 	struct smc_firmware_header_v1_0 smc;
++	struct smc_firmware_header_v2_0 smc_v2_0;
+ 	struct psp_firmware_header_v1_0 psp;
+ 	struct psp_firmware_header_v1_1 psp_v1_1;
+ 	struct ta_firmware_header_v1_0 ta;
+-- 
+2.17.1
+

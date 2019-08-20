@@ -1,0 +1,41 @@
+From 4007de219ef6c30adcbcedad3770a8446756a500 Mon Sep 17 00:00:00 2001
+From: Paul Hsieh <paul.hsieh@amd.com>
+Date: Tue, 7 May 2019 17:58:58 +0800
+Subject: [PATCH 2460/2940] drm/amd/display: disable PSR/ABM before destroy
+ DMCU struct
+
+[Why]
+1. DMCU is not running on some platform but driver still send ABM
+   command. It may cause assert due to DMCU is not alive.
+2. To make sure PSR disable when driver disable
+
+[How]
+1. Add dmcu_is_running in ABM struct, driver can check this flag to
+   determine driver should send ABM command or not.
+2. Send PSR disable command when destroy PSR
+
+Signed-off-by: Paul Hsieh <paul.hsieh@amd.com>
+Reviewed-by: Anthony Koo <Anthony.Koo@amd.com>
+Acked-by: Leo Li <sunpeng.li@amd.com>
+Signed-off-by: Alex Deucher <alexander.deucher@amd.com>
+---
+ drivers/gpu/drm/amd/display/dc/dcn20/dcn20_hwseq.c | 3 +++
+ 1 file changed, 3 insertions(+)
+
+diff --git a/drivers/gpu/drm/amd/display/dc/dcn20/dcn20_hwseq.c b/drivers/gpu/drm/amd/display/dc/dcn20/dcn20_hwseq.c
+index 5bed89547410..2a34447112e9 100644
+--- a/drivers/gpu/drm/amd/display/dc/dcn20/dcn20_hwseq.c
++++ b/drivers/gpu/drm/amd/display/dc/dcn20/dcn20_hwseq.c
+@@ -657,6 +657,9 @@ static void dcn20_init_hw(struct dc *dc)
+ 	if (dmcu != NULL)
+ 		dmcu->funcs->dmcu_init(dmcu);
+ 
++	if (abm != NULL && dmcu != NULL)
++		abm->dmcu_is_running = dmcu->funcs->is_dmcu_initialized(dmcu);
++
+ 	/* power AFMT HDMI memory TODO: may move to dis/en output save power*/
+ 	REG_WRITE(DIO_MEM_PWR_CTRL, 0);
+ 
+-- 
+2.17.1
+

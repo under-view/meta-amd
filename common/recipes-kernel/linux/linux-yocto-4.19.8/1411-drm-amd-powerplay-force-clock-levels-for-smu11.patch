@@ -1,0 +1,163 @@
+From b40c291e4ca918dba18ea1493d646d3727c60173 Mon Sep 17 00:00:00 2001
+From: Likun Gao <Likun.Gao@amd.com>
+Date: Mon, 7 Jan 2019 15:59:56 +0800
+Subject: [PATCH 1411/2940] drm/amd/powerplay: force clock levels for smu11
+
+Add function to set sclk or mclk level for smu11.
+
+Signed-off-by: Likun Gao <Likun.Gao@amd.com>
+Reviewed-by: Evan Quan <evan.quan@amd.com>
+Reviewed-by: Huang Rui <ray.huang@amd.com>
+Acked-by: Alex Deucher <alexander.deucher@amd.com>
+---
+ drivers/gpu/drm/amd/amdgpu/amdgpu_pm.c        |  8 +-
+ .../gpu/drm/amd/powerplay/inc/amdgpu_smu.h    |  3 +
+ drivers/gpu/drm/amd/powerplay/vega20_ppt.c    | 78 +++++++++++++++++++
+ 3 files changed, 87 insertions(+), 2 deletions(-)
+
+diff --git a/drivers/gpu/drm/amd/amdgpu/amdgpu_pm.c b/drivers/gpu/drm/amd/amdgpu/amdgpu_pm.c
+index 7a9e658c42ad..53b470c30da4 100644
+--- a/drivers/gpu/drm/amd/amdgpu/amdgpu_pm.c
++++ b/drivers/gpu/drm/amd/amdgpu/amdgpu_pm.c
+@@ -801,7 +801,9 @@ static ssize_t amdgpu_set_pp_dpm_sclk(struct device *dev,
+ 	if (ret)
+ 		return ret;
+ 
+-	if (adev->powerplay.pp_funcs->force_clock_level)
++	if (is_support_sw_smu(adev))
++		ret = smu_force_clk_levels(&adev->smu, PP_SCLK, mask);
++	else if (adev->powerplay.pp_funcs->force_clock_level)
+ 		ret = amdgpu_dpm_force_clock_level(adev, PP_SCLK, mask);
+ 
+ 	if (ret)
+@@ -839,7 +841,9 @@ static ssize_t amdgpu_set_pp_dpm_mclk(struct device *dev,
+ 	if (ret)
+ 		return ret;
+ 
+-	if (adev->powerplay.pp_funcs->force_clock_level)
++	if (is_support_sw_smu(adev))
++		ret = smu_force_clk_levels(&adev->smu, PP_MCLK, mask);
++	else if (adev->powerplay.pp_funcs->force_clock_level)
+ 		ret = amdgpu_dpm_force_clock_level(adev, PP_MCLK, mask);
+ 
+ 	if (ret)
+diff --git a/drivers/gpu/drm/amd/powerplay/inc/amdgpu_smu.h b/drivers/gpu/drm/amd/powerplay/inc/amdgpu_smu.h
+index 11e7797e2fae..99700a045d2f 100644
+--- a/drivers/gpu/drm/amd/powerplay/inc/amdgpu_smu.h
++++ b/drivers/gpu/drm/amd/powerplay/inc/amdgpu_smu.h
+@@ -222,6 +222,7 @@ struct pptable_funcs {
+ 	int (*set_default_dpm_table)(struct smu_context *smu);
+ 	int (*populate_umd_state_clk)(struct smu_context *smu);
+ 	int (*print_clk_levels)(struct smu_context *smu, enum pp_clock_type type, char *buf);
++	int (*force_clk_levels)(struct smu_context *smu, enum pp_clock_type type, uint32_t mask);
+ };
+ 
+ struct smu_funcs
+@@ -344,6 +345,8 @@ struct smu_funcs
+ 	((smu)->funcs->get_current_clk_freq? (smu)->funcs->get_current_clk_freq((smu), (clk_id), (value)) : 0)
+ #define smu_print_clk_levels(smu, type, buf) \
+ 	((smu)->ppt_funcs->print_clk_levels ? (smu)->ppt_funcs->print_clk_levels((smu), (type), (buf)) : 0)
++#define smu_force_clk_levels(smu, type, level) \
++	((smu)->ppt_funcs->force_clk_levels ? (smu)->ppt_funcs->force_clk_levels((smu), (type), (level)) : 0)
+ #define smu_start_thermal_control(smu) \
+ 	((smu)->funcs->start_thermal_control? (smu)->funcs->start_thermal_control((smu)) : 0)
+ #define smu_read_sensor(smu, sensor, data, size) \
+diff --git a/drivers/gpu/drm/amd/powerplay/vega20_ppt.c b/drivers/gpu/drm/amd/powerplay/vega20_ppt.c
+index ff000afd246b..16eb5a14bebc 100644
+--- a/drivers/gpu/drm/amd/powerplay/vega20_ppt.c
++++ b/drivers/gpu/drm/amd/powerplay/vega20_ppt.c
+@@ -705,6 +705,83 @@ static int vega20_upload_dpm_max_level(struct smu_context *smu)
+ 	return ret;
+ }
+ 
++static int vega20_force_clk_levels(struct smu_context *smu,
++			enum pp_clock_type type, uint32_t mask)
++{
++	struct vega20_dpm_table *dpm_table;
++	struct vega20_single_dpm_table *single_dpm_table;
++	uint32_t soft_min_level, soft_max_level;
++	int ret;
++
++	soft_min_level = mask ? (ffs(mask) - 1) : 0;
++	soft_max_level = mask ? (fls(mask) - 1) : 0;
++
++	dpm_table = smu->smu_dpm.dpm_context;
++
++	switch (type) {
++	case PP_SCLK:
++		single_dpm_table = &(dpm_table->gfx_table);
++
++		if (soft_max_level >= single_dpm_table->count) {
++			pr_err("Clock level specified %d is over max allowed %d\n",
++					soft_max_level, single_dpm_table->count - 1);
++			return -EINVAL;
++		}
++
++		single_dpm_table->dpm_state.soft_min_level =
++			single_dpm_table->dpm_levels[soft_min_level].value;
++		single_dpm_table->dpm_state.soft_max_level =
++			single_dpm_table->dpm_levels[soft_max_level].value;
++
++		ret = vega20_upload_dpm_min_level(smu);
++		if (ret) {
++			pr_err("Failed to upload boot level to lowest!\n");
++			return ret;
++		}
++
++		ret = vega20_upload_dpm_max_level(smu);
++		if (ret) {
++			pr_err("Failed to upload dpm max level to highest!\n");
++			return ret;
++		}
++
++		break;
++
++	case PP_MCLK:
++		single_dpm_table = &(dpm_table->mem_table);
++
++		if (soft_max_level >= single_dpm_table->count) {
++			pr_err("Clock level specified %d is over max allowed %d\n",
++					soft_max_level, single_dpm_table->count - 1);
++			return -EINVAL;
++		}
++
++		single_dpm_table->dpm_state.soft_min_level =
++			single_dpm_table->dpm_levels[soft_min_level].value;
++		single_dpm_table->dpm_state.soft_max_level =
++			single_dpm_table->dpm_levels[soft_max_level].value;
++
++		ret = vega20_upload_dpm_min_level(smu);
++		if (ret) {
++			pr_err("Failed to upload boot level to lowest!\n");
++			return ret;
++		}
++
++		ret = vega20_upload_dpm_max_level(smu);
++		if (ret) {
++			pr_err("Failed to upload dpm max level to highest!\n");
++			return ret;
++		}
++
++		break;
++
++	default:
++		break;
++	}
++
++	return 0;
++}
++
+ static const struct pptable_funcs vega20_ppt_funcs = {
+ 	.alloc_dpm_context = vega20_allocate_dpm_context,
+ 	.store_powerplay_table = vega20_store_powerplay_table,
+@@ -716,6 +793,7 @@ static const struct pptable_funcs vega20_ppt_funcs = {
+ 	.set_default_dpm_table = vega20_set_default_dpm_table,
+ 	.populate_umd_state_clk = vega20_populate_umd_state_clk,
+ 	.print_clk_levels = vega20_print_clk_levels,
++	.force_clk_levels = vega20_force_clk_levels,
+ };
+ 
+ void vega20_set_ppt_funcs(struct smu_context *smu)
+-- 
+2.17.1
+

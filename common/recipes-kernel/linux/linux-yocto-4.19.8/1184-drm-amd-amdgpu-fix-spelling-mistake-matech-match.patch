@@ -1,0 +1,30 @@
+From 98de1b1822c738067783ed4e982014978c1fbc45 Mon Sep 17 00:00:00 2001
+From: Colin Ian King <colin.king@canonical.com>
+Date: Fri, 1 Feb 2019 10:41:59 +0000
+Subject: [PATCH 1184/2940] drm/amd/amdgpu: fix spelling mistake "matech" ->
+ "match"
+
+There is a spelling mistake in a dev_err message. Fix it.
+
+Signed-off-by: Colin Ian King <colin.king@canonical.com>
+Signed-off-by: Alex Deucher <alexander.deucher@amd.com>
+---
+ drivers/gpu/drm/amd/amdgpu/amdgpu_xgmi.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/drivers/gpu/drm/amd/amdgpu/amdgpu_xgmi.c b/drivers/gpu/drm/amd/amdgpu/amdgpu_xgmi.c
+index 0d90672d0e58..407dd16cc35c 100644
+--- a/drivers/gpu/drm/amd/amdgpu/amdgpu_xgmi.c
++++ b/drivers/gpu/drm/amd/amdgpu/amdgpu_xgmi.c
+@@ -125,7 +125,7 @@ int amdgpu_xgmi_add_device(struct amdgpu_device *adev)
+ 	if (!hive) {
+ 		ret = -EINVAL;
+ 		dev_err(adev->dev,
+-			"XGMI: node 0x%llx, can not matech hive 0x%llx in the hive list.\n",
++			"XGMI: node 0x%llx, can not match hive 0x%llx in the hive list.\n",
+ 			adev->gmc.xgmi.node_id, adev->gmc.xgmi.hive_id);
+ 		goto exit;
+ 	}
+-- 
+2.17.1
+

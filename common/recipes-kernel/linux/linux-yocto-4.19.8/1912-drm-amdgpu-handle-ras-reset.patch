@@ -1,0 +1,99 @@
+From 551030b390b6087cf625a648262d5442d46f337a Mon Sep 17 00:00:00 2001
+From: xinhui pan <xinhui.pan@amd.com>
+Date: Wed, 8 May 2019 19:12:24 +0800
+Subject: [PATCH 1912/2940] drm/amdgpu: handle ras reset
+
+add another flag to allow IP do a gpu reset after device init.
+
+Signed-off-by: xinhui pan <xinhui.pan@amd.com>
+Reviewed-by: Alex Deucher <alexander.deucher@amd.com>
+---
+ drivers/gpu/drm/amd/amdgpu/amdgpu_ras.c | 36 +++++++++++++++++++++++--
+ drivers/gpu/drm/amd/amdgpu/amdgpu_ras.h |  3 +++
+ 2 files changed, 37 insertions(+), 2 deletions(-)
+
+diff --git a/drivers/gpu/drm/amd/amdgpu/amdgpu_ras.c b/drivers/gpu/drm/amd/amdgpu/amdgpu_ras.c
+index 5f8e1163a75d..37cb3de08494 100644
+--- a/drivers/gpu/drm/amd/amdgpu/amdgpu_ras.c
++++ b/drivers/gpu/drm/amd/amdgpu/amdgpu_ras.c
+@@ -118,7 +118,8 @@ const char *ras_block_string[] = {
+ #define ras_err_str(i) (ras_error_string[ffs(i)])
+ #define ras_block_str(i) (ras_block_string[i])
+ 
+-#define AMDGPU_RAS_FLAG_INIT_BY_VBIOS 1
++#define AMDGPU_RAS_FLAG_INIT_BY_VBIOS		1
++#define AMDGPU_RAS_FLAG_INIT_NEED_RESET		2
+ #define RAS_DEFAULT_FLAGS (AMDGPU_RAS_FLAG_INIT_BY_VBIOS)
+ 
+ static void amdgpu_ras_self_test(struct amdgpu_device *adev)
+@@ -1358,6 +1359,19 @@ static int amdgpu_ras_recovery_fini(struct amdgpu_device *adev)
+ }
+ /* recovery end */
+ 
++/* return 0 if ras will reset gpu and repost.*/
++int amdgpu_ras_request_reset_on_boot(struct amdgpu_device *adev,
++		unsigned int block)
++{
++	struct amdgpu_ras *ras = amdgpu_ras_get_context(adev);
++
++	if (!ras)
++		return -EINVAL;
++
++	ras->flags |= AMDGPU_RAS_FLAG_INIT_NEED_RESET;
++	return 0;
++}
++
+ /*
+  * check hardware's ras ability which will be saved in hw_supported.
+  * if hardware does not support ras, we can skip some ras initializtion and
+@@ -1433,7 +1447,12 @@ int amdgpu_ras_init(struct amdgpu_device *adev)
+ 	return -EINVAL;
+ }
+ 
+-/* do some init work after IP late init as dependence */
++/* do some init work after IP late init as dependence.
++ * TODO
++ * gpu reset will re-enable ras, need fint out one way to run it again.
++ * for now, if a gpu reset happened, unless IP enable its ras, the ras state
++ * will be showed as disabled.
++ */
+ void amdgpu_ras_post_init(struct amdgpu_device *adev)
+ {
+ 	struct amdgpu_ras *con = amdgpu_ras_get_context(adev);
+@@ -1462,6 +1481,19 @@ void amdgpu_ras_post_init(struct amdgpu_device *adev)
+ 			}
+ 		}
+ 	}
++
++	if (con->flags & AMDGPU_RAS_FLAG_INIT_NEED_RESET) {
++		con->flags &= ~AMDGPU_RAS_FLAG_INIT_NEED_RESET;
++		/* setup ras obj state as disabled.
++		 * for init_by_vbios case.
++		 * if we want to enable ras, just enable it in a normal way.
++		 * If we want do disable it, need setup ras obj as enabled,
++		 * then issue another TA disable cmd.
++		 * See feature_enable_on_boot
++		 */
++		amdgpu_ras_disable_all_features(adev, 1);
++		amdgpu_ras_reset_gpu(adev, 0);
++	}
+ }
+ 
+ /* do some fini work before IP fini as dependence */
+diff --git a/drivers/gpu/drm/amd/amdgpu/amdgpu_ras.h b/drivers/gpu/drm/amd/amdgpu/amdgpu_ras.h
+index e60a554656ca..06ef325b61b8 100644
+--- a/drivers/gpu/drm/amd/amdgpu/amdgpu_ras.h
++++ b/drivers/gpu/drm/amd/amdgpu/amdgpu_ras.h
+@@ -175,6 +175,9 @@ static inline int amdgpu_ras_is_supported(struct amdgpu_device *adev,
+ 	return ras && (ras->supported & (1 << block));
+ }
+ 
++int amdgpu_ras_request_reset_on_boot(struct amdgpu_device *adev,
++		unsigned int block);
++
+ int amdgpu_ras_query_error_count(struct amdgpu_device *adev,
+ 		bool is_ce);
+ 
+-- 
+2.17.1
+

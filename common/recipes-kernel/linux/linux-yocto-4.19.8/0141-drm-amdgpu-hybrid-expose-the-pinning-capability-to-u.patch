@@ -1,0 +1,71 @@
+From 6cb1fcf52b6f51e04ae445969fb44c7d4910b7b5 Mon Sep 17 00:00:00 2001
+From: Jammy Zhou <Jammy.Zhou@amd.com>
+Date: Mon, 9 Nov 2015 13:39:37 +0800
+Subject: [PATCH 0141/2940] drm/amdgpu: [hybrid] expose the pinning capability
+ to user space
+
+The module option amdgpu.no_evict is added, and it is disabled
+by default now.
+
+Change-Id: I5fdbfd07e0d3339115d042374ad1f4de24bef58d
+Signed-off-by: Jammy Zhou <Jammy.Zhou@amd.com>
+Reviewed-by: Chunming Zhou <david1.zhou@amd.com>
+Signed-off-by: Junwei Zhang <Jerry.Zhang@amd.com>
+Signed-off-by: Kalyan Alle <kalyan.alle@amd.com>
+---
+ drivers/gpu/drm/amd/amdgpu/amdgpu_gem.c    | 3 ++-
+ drivers/gpu/drm/amd/amdgpu/amdgpu_object.c | 8 ++++++++
+ include/uapi/drm/amdgpu_drm.h              | 4 ++++
+ 3 files changed, 14 insertions(+), 1 deletion(-)
+
+diff --git a/drivers/gpu/drm/amd/amdgpu/amdgpu_gem.c b/drivers/gpu/drm/amd/amdgpu/amdgpu_gem.c
+index 71792d820ae0..57bde9b6b60d 100644
+--- a/drivers/gpu/drm/amd/amdgpu/amdgpu_gem.c
++++ b/drivers/gpu/drm/amd/amdgpu/amdgpu_gem.c
+@@ -225,7 +225,8 @@ int amdgpu_gem_create_ioctl(struct drm_device *dev, void *data,
+ 		      AMDGPU_GEM_CREATE_CPU_GTT_USWC |
+ 		      AMDGPU_GEM_CREATE_VRAM_CLEARED |
+ 		      AMDGPU_GEM_CREATE_VM_ALWAYS_VALID |
+-		      AMDGPU_GEM_CREATE_EXPLICIT_SYNC))
++		      AMDGPU_GEM_CREATE_EXPLICIT_SYNC |
++		      AMDGPU_GEM_CREATE_NO_EVICT))
+ 
+ 		return -EINVAL;
+ 
+diff --git a/drivers/gpu/drm/amd/amdgpu/amdgpu_object.c b/drivers/gpu/drm/amd/amdgpu/amdgpu_object.c
+index b0e14a3d54ef..800ae7ee42c3 100644
+--- a/drivers/gpu/drm/amd/amdgpu/amdgpu_object.c
++++ b/drivers/gpu/drm/amd/amdgpu/amdgpu_object.c
+@@ -531,6 +531,14 @@ static int amdgpu_bo_do_create(struct amdgpu_device *adev,
+ 	if (bp->type == ttm_bo_type_device)
+ 		bo->flags &= ~AMDGPU_GEM_CREATE_CPU_ACCESS_REQUIRED;
+ 
++	if ((bp->flags & AMDGPU_GEM_CREATE_NO_EVICT) && amdgpu_no_evict) {
++		r = amdgpu_bo_reserve(bo, false);
++		if (unlikely(r != 0))
++			return r;
++		r = amdgpu_bo_pin(bo, bp->domain);
++		amdgpu_bo_unreserve(bo);
++	}
++
+ 	return 0;
+ 
+ fail_unreserve:
+diff --git a/include/uapi/drm/amdgpu_drm.h b/include/uapi/drm/amdgpu_drm.h
+index 763874711532..0652038bd75d 100644
+--- a/include/uapi/drm/amdgpu_drm.h
++++ b/include/uapi/drm/amdgpu_drm.h
+@@ -132,6 +132,10 @@ extern "C" {
+  */
+ #define AMDGPU_GEM_CREATE_MQD_GFX9		(1 << 8)
+ 
++/* hybrid specific */
++/* Flag that the memory allocation should be pinned */
++#define AMDGPU_GEM_CREATE_NO_EVICT              (1ULL << 31)
++
+ struct drm_amdgpu_gem_create_in  {
+ 	/** the requested memory size */
+ 	__u64 bo_size;
+-- 
+2.17.1
+

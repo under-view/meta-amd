@@ -1,0 +1,37 @@
+From 2c10021356856b79afe0fbcdfa2d919e2d94b61b Mon Sep 17 00:00:00 2001
+From: Xiaojie Yuan <xiaojie.yuan@amd.com>
+Date: Thu, 21 Feb 2019 17:55:05 +0800
+Subject: [PATCH 2226/2940] drm/amdgpu/discovery: update definitions of
+ table_info and binary_header
+
+Signed-off-by: Xiaojie Yuan <xiaojie.yuan@amd.com>
+Reviewed-by: Jack Xiao <Jack.Xiao@amd.com>
+Signed-off-by: Alex Deucher <alexander.deucher@amd.com>
+---
+ drivers/gpu/drm/amd/include/discovery.h | 4 ++++
+ 1 file changed, 4 insertions(+)
+
+diff --git a/drivers/gpu/drm/amd/include/discovery.h b/drivers/gpu/drm/amd/include/discovery.h
+index 7cc921a28f51..93a8ae0aacda 100644
+--- a/drivers/gpu/drm/amd/include/discovery.h
++++ b/drivers/gpu/drm/amd/include/discovery.h
+@@ -46,12 +46,16 @@ typedef struct table_info
+ {
+ 	uint16_t offset;   /* Byte offset */
+ 	uint16_t checksum; /* Byte sum of the table */
++	uint16_t size;     /* Table size */
++	uint16_t padding;
+ } table_info;
+ 
+ typedef struct binary_header
+ {
+ 	/* psp structure should go at the top of this structure */
+ 	uint32_t binary_signature; /* 0x7, 0x14, 0x21, 0x28 */
++	uint16_t version_major;
++	uint16_t version_minor;
+ 	uint16_t binary_checksum;  /* Byte sum of the binary after this field */
+ 	uint16_t binary_size;      /* Binary Size*/
+ 	table_info table_list[TOTAL_TABLES];
+-- 
+2.17.1
+

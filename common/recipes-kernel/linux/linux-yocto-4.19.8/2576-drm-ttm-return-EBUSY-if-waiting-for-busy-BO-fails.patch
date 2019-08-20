@@ -1,0 +1,35 @@
+From 8244e73c89674f4b4666835f3c29a0edff10a47c Mon Sep 17 00:00:00 2001
+From: Felix Kuehling <Felix.Kuehling@amd.com>
+Date: Wed, 26 Jun 2019 02:32:43 -0400
+Subject: [PATCH 2576/2940] drm/ttm: return -EBUSY if waiting for busy BO fails
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+Returning -EAGAIN prevents ttm_bo_mem_space from trying alternate
+placements and can lead to live-locks in amdgpu_cs, retrying
+indefinitely and never succeeding.
+
+Fixes: cfcc52e477e4 ("drm/ttm: fix busy memory to fail other user v10")
+Signed-off-by: Felix Kuehling <Felix.Kuehling@amd.com>
+Reviewed-by: Christian König <christian.koenig@amd.com>
+---
+ drivers/gpu/drm/ttm/ttm_bo.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/drivers/gpu/drm/ttm/ttm_bo.c b/drivers/gpu/drm/ttm/ttm_bo.c
+index 40b4b1bcd258..5692eb0ce888 100644
+--- a/drivers/gpu/drm/ttm/ttm_bo.c
++++ b/drivers/gpu/drm/ttm/ttm_bo.c
+@@ -834,7 +834,7 @@ static int ttm_mem_evict_wait_busy(struct ttm_buffer_object *busy_bo,
+         if (!r)
+                 reservation_object_unlock(busy_bo->resv);
+ 
+-        return r == -EDEADLK ? -EAGAIN : r;
++        return r == -EDEADLK ? -EBUSY : r;
+ }
+ 
+ 
+-- 
+2.17.1
+

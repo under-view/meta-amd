@@ -1,0 +1,41 @@
+From 75f1edadd2e95532561e8dd2a2f0a0f38103adb4 Mon Sep 17 00:00:00 2001
+From: Likun Gao <Likun.Gao@amd.com>
+Date: Tue, 10 Jul 2018 20:20:16 +0800
+Subject: [PATCH 0637/2940] drm/amdgpu: add picasso support for vm
+
+Add vm support for picasso.
+
+Signed-off-by: Likun Gao <Likun.Gao@amd.com>
+Reviewed-by: Alex Deucher <alexander.deucher@amd.com>
+Reviewed-by: Huang Rui <ray.huang@amd.com>
+Signed-off-by: Alex Deucher <alexander.deucher@amd.com>
+Signed-off-by: Chaudhary Amit Kumar <Chaudharyamit.Kumar@amd.com>
+---
+ drivers/gpu/drm/amd/amdgpu/amdgpu_vm.c | 4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
+
+diff --git a/drivers/gpu/drm/amd/amdgpu/amdgpu_vm.c b/drivers/gpu/drm/amd/amdgpu/amdgpu_vm.c
+index 9c3c549a916f..76d3ca78a1ee 100644
+--- a/drivers/gpu/drm/amd/amdgpu/amdgpu_vm.c
++++ b/drivers/gpu/drm/amd/amdgpu/amdgpu_vm.c
+@@ -3017,7 +3017,7 @@ int amdgpu_vm_init(struct amdgpu_device *adev, struct amdgpu_vm *vm,
+ 		vm->use_cpu_for_update = !!(adev->vm_manager.vm_update_mode &
+ 						AMDGPU_VM_USE_CPU_FOR_COMPUTE);
+ 
+-		if (adev->asic_type == CHIP_RAVEN)
++		if (adev->asic_type == CHIP_RAVEN || adev->asic_type == CHIP_PICASSO)
+ 			vm->pte_support_ats = true;
+ 	} else {
+ 		vm->use_cpu_for_update = !!(adev->vm_manager.vm_update_mode &
+@@ -3110,7 +3110,7 @@ int amdgpu_vm_init(struct amdgpu_device *adev, struct amdgpu_vm *vm,
+  */
+ int amdgpu_vm_make_compute(struct amdgpu_device *adev, struct amdgpu_vm *vm)
+ {
+-	bool pte_support_ats = (adev->asic_type == CHIP_RAVEN);
++	bool pte_support_ats = (adev->asic_type == CHIP_RAVEN || adev->asic_type == CHIP_PICASSO);
+ 	int r;
+ 
+ 	r = amdgpu_bo_reserve(vm->root.base.bo, true);
+-- 
+2.17.1
+

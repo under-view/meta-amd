@@ -1,0 +1,100 @@
+From fdfa4f866d55c8cac513821bdc2ced6149f4575d Mon Sep 17 00:00:00 2001
+From: Nicholas Kazlauskas <nicholas.kazlauskas@amd.com>
+Date: Fri, 15 Mar 2019 10:31:50 -0400
+Subject: [PATCH 1753/2940] drm/amd/display: Set surface color space from DRM
+ plane state
+
+[Why]
+We need DC's color space to match the color encoding and color space
+specified by userspace to correctly render YUV surfaces.
+
+[How]
+Convert the DRM color encoding and color range properties to the
+appropriate DC colorspace option and update the color space when
+performing surface updates.
+
+Signed-off-by: Nicholas Kazlauskas <nicholas.kazlauskas@amd.com>
+Reviewed-by: Leo Li <sunpeng.li@amd.com>
+Signed-off-by: Chaudhary Amit Kumar <Chaudharyamit.Kumar@amd.com>
+---
+ .../gpu/drm/amd/display/amdgpu_dm/amdgpu_dm.c | 49 ++++++++++++++++++-
+ 1 file changed, 47 insertions(+), 2 deletions(-)
+
+diff --git a/drivers/gpu/drm/amd/display/amdgpu_dm/amdgpu_dm.c b/drivers/gpu/drm/amd/display/amdgpu_dm/amdgpu_dm.c
+index 474798eb136c..e578845a98c5 100644
+--- a/drivers/gpu/drm/amd/display/amdgpu_dm/amdgpu_dm.c
++++ b/drivers/gpu/drm/amd/display/amdgpu_dm/amdgpu_dm.c
+@@ -2833,6 +2833,50 @@ fill_blending_from_plane_state(struct drm_plane_state *plane_state,
+ 	}
+ }
+ 
++static int
++fill_plane_color_attributes(const struct drm_plane_state *plane_state,
++			    const struct dc_plane_state *dc_plane_state,
++			    enum dc_color_space *color_space)
++{
++	bool full_range;
++
++	*color_space = COLOR_SPACE_SRGB;
++
++	/* DRM color properties only affect non-RGB formats. */
++	if (dc_plane_state->format < SURFACE_PIXEL_FORMAT_VIDEO_BEGIN)
++		return 0;
++
++	full_range = (plane_state->color_range == DRM_COLOR_YCBCR_FULL_RANGE);
++
++	switch (plane_state->color_encoding) {
++	case DRM_COLOR_YCBCR_BT601:
++		if (full_range)
++			*color_space = COLOR_SPACE_YCBCR601;
++		else
++			*color_space = COLOR_SPACE_YCBCR601_LIMITED;
++		break;
++
++	case DRM_COLOR_YCBCR_BT709:
++		if (full_range)
++			*color_space = COLOR_SPACE_YCBCR709;
++		else
++			*color_space = COLOR_SPACE_YCBCR709_LIMITED;
++		break;
++
++	case DRM_COLOR_YCBCR_BT2020:
++		if (full_range)
++			*color_space = COLOR_SPACE_2020_YCBCR;
++		else
++			return -EINVAL;
++		break;
++
++	default:
++		return -EINVAL;
++	}
++
++	return 0;
++}
++
+ static int fill_plane_attributes(struct amdgpu_device *adev,
+ 				 struct dc_plane_state *dc_plane_state,
+ 				 struct drm_plane_state *plane_state,
+@@ -3346,7 +3390,6 @@ create_stream_for_sink(struct amdgpu_dm_connector *aconnector,
+ 
+ 	if (!dm_state)
+ 		drm_mode_set_crtcinfo(&mode, 0);
+-
+ 	/*
+ 	* If scaling is enabled and refresh rate didn't change
+ 	* we copy the vic and polarities of the old timings
+@@ -5140,8 +5183,10 @@ static void amdgpu_dm_commit_planes(struct drm_atomic_state *state,
+ 		bundle->scaling_infos[planes_count].clip_rect = dc_plane->clip_rect;
+ 		bundle->surface_updates[planes_count].scaling_info = &bundle->scaling_infos[planes_count];
+ 
++		fill_plane_color_attributes(
++			new_plane_state, dc_plane,
++			&bundle->plane_infos[planes_count].color_space);
+ 
+-		bundle->plane_infos[planes_count].color_space = dc_plane->color_space;
+ 		bundle->plane_infos[planes_count].format = dc_plane->format;
+ 		bundle->plane_infos[planes_count].plane_size = dc_plane->plane_size;
+ 		bundle->plane_infos[planes_count].rotation = dc_plane->rotation;
+-- 
+2.17.1
+

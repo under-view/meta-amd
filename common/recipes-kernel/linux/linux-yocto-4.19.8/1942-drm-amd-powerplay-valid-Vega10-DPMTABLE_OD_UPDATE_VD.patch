@@ -1,0 +1,49 @@
+From c129314db43bef00d36f61785dd3bf370984b076 Mon Sep 17 00:00:00 2001
+From: Evan Quan <evan.quan@amd.com>
+Date: Mon, 6 May 2019 16:37:40 +0800
+Subject: [PATCH 1942/2940] drm/amd/powerplay: valid Vega10
+ DPMTABLE_OD_UPDATE_VDDC settings V2
+
+With user specified voltage(DPMTABLE_OD_UPDATE_VDDC), the AVFS
+will be disabled. However, the buggy code makes this actually not
+working as expected.
+
+- V2: clear all OD flags excpet DPMTABLE_OD_UPDATE_VDDC
+
+Change-Id: Ifa83a6255bb3f6fa4bdb4de616521cb7bab6830a
+Signed-off-by: Evan Quan <evan.quan@amd.com>
+Acked-by: Alex Deucher <alexander.deucher@amd.com>
+---
+ drivers/gpu/drm/amd/powerplay/hwmgr/vega10_hwmgr.c | 9 ++++-----
+ 1 file changed, 4 insertions(+), 5 deletions(-)
+
+diff --git a/drivers/gpu/drm/amd/powerplay/hwmgr/vega10_hwmgr.c b/drivers/gpu/drm/amd/powerplay/hwmgr/vega10_hwmgr.c
+index 58a229bdb86c..383d1f503181 100644
+--- a/drivers/gpu/drm/amd/powerplay/hwmgr/vega10_hwmgr.c
++++ b/drivers/gpu/drm/amd/powerplay/hwmgr/vega10_hwmgr.c
+@@ -2466,11 +2466,6 @@ static void vega10_check_dpm_table_updated(struct pp_hwmgr *hwmgr)
+ 			return;
+ 		}
+ 	}
+-
+-	if (data->need_update_dpm_table & DPMTABLE_OD_UPDATE_VDDC) {
+-		data->need_update_dpm_table &= ~DPMTABLE_OD_UPDATE_VDDC;
+-		data->need_update_dpm_table |= DPMTABLE_OD_UPDATE_SCLK | DPMTABLE_OD_UPDATE_MCLK;
+-	}
+ }
+ 
+ /**
+@@ -3683,6 +3678,10 @@ static int vega10_set_power_state_tasks(struct pp_hwmgr *hwmgr,
+ 
+ 	vega10_update_avfs(hwmgr);
+ 
++	/*
++	 * Clear all OD flags except DPMTABLE_OD_UPDATE_VDDC.
++	 * That will help to keep AVFS disabled.
++	 */
+ 	data->need_update_dpm_table &= DPMTABLE_OD_UPDATE_VDDC;
+ 
+ 	return 0;
+-- 
+2.17.1
+

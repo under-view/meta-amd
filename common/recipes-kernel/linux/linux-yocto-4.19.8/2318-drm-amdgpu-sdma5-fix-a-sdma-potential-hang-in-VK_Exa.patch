@@ -1,0 +1,37 @@
+From 613f01eaf6f051aefcbedc34cca022483d1a668d Mon Sep 17 00:00:00 2001
+From: tiancyin <tianci.yin@amd.com>
+Date: Mon, 22 Apr 2019 17:07:06 +0800
+Subject: [PATCH 2318/2940] drm/amdgpu/sdma5: fix a sdma potential hang in
+ VK_Examples test
+
+[why]
+When page fault happens, it could lead to sdma hang is RESP_MODE =
+0 for non-PRT case.
+
+[how]
+Setting  SDMAx_UTCL1_CNTL.RESP_MODE to 0b011 to avoid SDMA halt.
+
+Reviewed-by: Jack Xiao <Jack.Xiao@amd.com>
+Signed-off-by: tiancyin <tianci.yin@amd.com>
+Signed-off-by: Alex Deucher <alexander.deucher@amd.com>
+---
+ drivers/gpu/drm/amd/amdgpu/sdma_v5_0.c | 3 ++-
+ 1 file changed, 2 insertions(+), 1 deletion(-)
+
+diff --git a/drivers/gpu/drm/amd/amdgpu/sdma_v5_0.c b/drivers/gpu/drm/amd/amdgpu/sdma_v5_0.c
+index 083f81611e24..32b48c9ca051 100644
+--- a/drivers/gpu/drm/amd/amdgpu/sdma_v5_0.c
++++ b/drivers/gpu/drm/amd/amdgpu/sdma_v5_0.c
+@@ -658,7 +658,8 @@ static int sdma_v5_0_gfx_resume(struct amdgpu_device *adev)
+ 
+ 		/* Set up RESP_MODE to non-copy addresses */
+ 		temp = RREG32(sdma_v5_0_get_reg_offset(adev, i, mmSDMA0_UTCL1_CNTL));
+-		temp = REG_SET_FIELD(temp, SDMA0_UTCL1_CNTL, RESP_MODE, 2);
++		temp = REG_SET_FIELD(temp, SDMA0_UTCL1_CNTL, RESP_MODE, 3);
++		temp = REG_SET_FIELD(temp, SDMA0_UTCL1_CNTL, REDO_DELAY, 9);
+ 		WREG32(sdma_v5_0_get_reg_offset(adev, i, mmSDMA0_UTCL1_CNTL), temp);
+ 
+ 		/* program default cache read and write policy */
+-- 
+2.17.1
+

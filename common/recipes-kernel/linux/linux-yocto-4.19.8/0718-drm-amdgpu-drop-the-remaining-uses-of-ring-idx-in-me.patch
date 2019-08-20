@@ -1,0 +1,71 @@
+From 7e73fe5c7c9b14d97e3d1f462a94d7fa65833e0a Mon Sep 17 00:00:00 2001
+From: =?UTF-8?q?Christian=20K=C3=B6nig?= <christian.koenig@amd.com>
+Date: Tue, 30 Oct 2018 13:16:28 +0100
+Subject: [PATCH 0718/2940] drm/amdgpu: drop the remaining uses of ring idx in
+ messages
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+Consistently use the ring name instead.
+
+Signed-off-by: Christian König <christian.koenig@amd.com>
+Reviewed-by: Alex Deucher <alexander.deucher@amd.com>
+Signed-off-by: Alex Deucher <alexander.deucher@amd.com>
+---
+ drivers/gpu/drm/amd/amdgpu/amdgpu_fence.c | 6 +++---
+ drivers/gpu/drm/amd/amdgpu/gfx_v9_0.c     | 4 ++--
+ drivers/gpu/drm/amd/amdgpu/gmc_v9_0.c     | 5 ++---
+ 3 files changed, 7 insertions(+), 8 deletions(-)
+
+diff --git a/drivers/gpu/drm/amd/amdgpu/amdgpu_fence.c b/drivers/gpu/drm/amd/amdgpu/amdgpu_fence.c
+index 1fb95a983129..43a98d13df1a 100644
+--- a/drivers/gpu/drm/amd/amdgpu/amdgpu_fence.c
++++ b/drivers/gpu/drm/amd/amdgpu/amdgpu_fence.c
+@@ -398,9 +398,9 @@ int amdgpu_fence_driver_start_ring(struct amdgpu_ring *ring,
+ 	ring->fence_drv.irq_type = irq_type;
+ 	ring->fence_drv.initialized = true;
+ 
+-	dev_dbg(adev->dev, "fence driver on ring %d use gpu addr 0x%016llx, "
+-		"cpu addr 0x%p\n", ring->idx,
+-		ring->fence_drv.gpu_addr, ring->fence_drv.cpu_addr);
++	DRM_DEV_DEBUG(adev->dev, "fence driver on ring %s use gpu addr "
++		      "0x%016llx, cpu addr 0x%p\n", ring->name,
++		      ring->fence_drv.gpu_addr, ring->fence_drv.cpu_addr);
+ 	return 0;
+ }
+ 
+diff --git a/drivers/gpu/drm/amd/amdgpu/gfx_v9_0.c b/drivers/gpu/drm/amd/amdgpu/gfx_v9_0.c
+index 70c23ee4de27..7db2ec9eee15 100644
+--- a/drivers/gpu/drm/amd/amdgpu/gfx_v9_0.c
++++ b/drivers/gpu/drm/amd/amdgpu/gfx_v9_0.c
+@@ -1634,8 +1634,8 @@ static int gfx_v9_0_ngg_en(struct amdgpu_device *adev)
+ 	/* Clear GDS reserved memory */
+ 	r = amdgpu_ring_alloc(ring, 17);
+ 	if (r) {
+-		DRM_ERROR("amdgpu: NGG failed to lock ring %d (%d).\n",
+-			  ring->idx, r);
++		DRM_ERROR("amdgpu: NGG failed to lock ring %s (%d).\n",
++			  ring->name, r);
+ 		return r;
+ 	}
+ 
+diff --git a/drivers/gpu/drm/amd/amdgpu/gmc_v9_0.c b/drivers/gpu/drm/amd/amdgpu/gmc_v9_0.c
+index 56fd3d4ba8dd..fe1eec6c349c 100644
+--- a/drivers/gpu/drm/amd/amdgpu/gmc_v9_0.c
++++ b/drivers/gpu/drm/amd/amdgpu/gmc_v9_0.c
+@@ -739,9 +739,8 @@ static int gmc_v9_0_late_init(void *handle)
+ 		unsigned vmhub = ring->funcs->vmhub;
+ 
+ 		ring->vm_inv_eng = vm_inv_eng[vmhub]++;
+-		dev_info(adev->dev, "ring %u(%s) uses VM inv eng %u on hub %u\n",
+-			 ring->idx, ring->name, ring->vm_inv_eng,
+-			 ring->funcs->vmhub);
++		dev_info(adev->dev, "ring %s uses VM inv eng %u on hub %u\n",
++			 ring->name, ring->vm_inv_eng, ring->funcs->vmhub);
+ 	}
+ 
+ 	/* Engine 16 is used for KFD and 17 for GART flushes */
+-- 
+2.17.1
+

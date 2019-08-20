@@ -1,0 +1,65 @@
+From 4b30c2a14d5f9be04d29ca8019c4e365a5e40106 Mon Sep 17 00:00:00 2001
+From: Ilya Bakoulin <Ilya.Bakoulin@amd.com>
+Date: Fri, 12 Apr 2019 16:47:08 -0400
+Subject: [PATCH 2466/2940] drm/amd/display: Add writeback_config to VBA vars
+
+Adding writeback_config enum to vba_vars_st, replacing old flag.
+Initialize to dm_normal.
+
+Signed-off-by: Ilya Bakoulin <Ilya.Bakoulin@amd.com>
+Reviewed-by: Charlene Liu <Charlene.Liu@amd.com>
+Acked-by: Leo Li <sunpeng.li@amd.com>
+Signed-off-by: Alex Deucher <alexander.deucher@amd.com>
+---
+ drivers/gpu/drm/amd/display/dc/dml/display_mode_structs.h | 1 +
+ drivers/gpu/drm/amd/display/dc/dml/display_mode_vba.c     | 2 +-
+ drivers/gpu/drm/amd/display/dc/dml/display_mode_vba.h     | 1 +
+ 3 files changed, 3 insertions(+), 1 deletion(-)
+
+diff --git a/drivers/gpu/drm/amd/display/dc/dml/display_mode_structs.h b/drivers/gpu/drm/amd/display/dc/dml/display_mode_structs.h
+index 139a8740c070..5678472546ab 100644
+--- a/drivers/gpu/drm/amd/display/dc/dml/display_mode_structs.h
++++ b/drivers/gpu/drm/amd/display/dc/dml/display_mode_structs.h
+@@ -152,6 +152,7 @@ struct _vcs_dpi_ip_params_st {
+ 	unsigned int writeback_line_buffer_luma_buffer_size;
+ 	unsigned int writeback_line_buffer_chroma_buffer_size;
+ #endif
++
+ 	unsigned int max_page_table_levels;
+ 	unsigned int max_num_dpp;
+ 	unsigned int max_num_otg;
+diff --git a/drivers/gpu/drm/amd/display/dc/dml/display_mode_vba.c b/drivers/gpu/drm/amd/display/dc/dml/display_mode_vba.c
+index e5e4c4ba9011..3560319a5c6f 100644
+--- a/drivers/gpu/drm/amd/display/dc/dml/display_mode_vba.c
++++ b/drivers/gpu/drm/amd/display/dc/dml/display_mode_vba.c
+@@ -306,7 +306,6 @@ static void fetch_ip_params(struct display_mode_lib *mode_lib)
+ 
+ 	mode_lib->vba.WritebackInterfaceBufferSize = ip->writeback_interface_buffer_size_kbytes;
+ 	mode_lib->vba.WritebackLineBufferSize = ip->writeback_line_buffer_buffer_size;
+-	mode_lib->vba.WritebackSupportInterleaveAndUsingWholeBufferForASingleStream = false;
+ 	mode_lib->vba.MinVoltageLevel = 0;
+ 	mode_lib->vba.MaxVoltageLevel = 5;
+ 
+@@ -323,6 +322,7 @@ static void fetch_ip_params(struct display_mode_lib *mode_lib)
+ 	mode_lib->vba.WritebackMinVSCLRatio = ip->writeback_min_vscl_ratio;
+ 	mode_lib->vba.WritebackMaxHSCLTaps = ip->writeback_max_hscl_taps;
+ 	mode_lib->vba.WritebackMaxVSCLTaps = ip->writeback_max_vscl_taps;
++	mode_lib->vba.WritebackConfiguration = dm_normal;
+ 	mode_lib->vba.GPUVMMaxPageTableLevels = ip->gpuvm_max_page_table_levels;
+ 	mode_lib->vba.HostVMMaxNonCachedPageTableLevels = ip->hostvm_max_page_table_levels;
+ 	mode_lib->vba.HostVMMaxPageTableLevels = ip->hostvm_max_page_table_levels;
+diff --git a/drivers/gpu/drm/amd/display/dc/dml/display_mode_vba.h b/drivers/gpu/drm/amd/display/dc/dml/display_mode_vba.h
+index d488c05131f9..38fc0ab32d7b 100644
+--- a/drivers/gpu/drm/amd/display/dc/dml/display_mode_vba.h
++++ b/drivers/gpu/drm/amd/display/dc/dml/display_mode_vba.h
+@@ -237,6 +237,7 @@ struct vba_vars_st {
+ 	unsigned int WritebackInterfaceLumaBufferSize;
+ 	unsigned int WritebackInterfaceChromaBufferSize;
+ 	unsigned int WritebackChromaLineBufferWidth;
++	enum writeback_config WritebackConfiguration;
+ 	double MaxDCHUBToPSCLThroughput;
+ 	double MaxPSCLToLBThroughput;
+ 	unsigned int PTEBufferSizeInRequestsLuma;
+-- 
+2.17.1
+

@@ -1,0 +1,43 @@
+From 705099dc5dfd1e11172217acc87b4f963d9bda16 Mon Sep 17 00:00:00 2001
+From: Nicholas Kazlauskas <nicholas.kazlauskas@amd.com>
+Date: Wed, 19 Dec 2018 08:35:51 -0500
+Subject: [PATCH 0974/2940] drm/amd/display: Use div_u64 for flip timestamp ns
+ to ms
+
+Resolves __udivdi3 missing errors when building for i386.
+
+Fixes: 6378ef012ddc ("drm/amd/display: Add below the range support for FreeSync")
+
+Signed-off-by: Nicholas Kazlauskas <nicholas.kazlauskas@amd.com>
+Reviewed-by: Alex Deucher <alexander.deucher@amd.com>
+Signed-off-by: Alex Deucher <alexander.deucher@amd.com>
+---
+ drivers/gpu/drm/amd/display/amdgpu_dm/amdgpu_dm.c | 5 ++++-
+ 1 file changed, 4 insertions(+), 1 deletion(-)
+
+diff --git a/drivers/gpu/drm/amd/display/amdgpu_dm/amdgpu_dm.c b/drivers/gpu/drm/amd/display/amdgpu_dm/amdgpu_dm.c
+index 6c93f68f619a..2e0eac108e55 100644
+--- a/drivers/gpu/drm/amd/display/amdgpu_dm/amdgpu_dm.c
++++ b/drivers/gpu/drm/amd/display/amdgpu_dm/amdgpu_dm.c
+@@ -4595,6 +4595,7 @@ static void amdgpu_dm_do_flip(struct drm_crtc *crtc,
+ 			      struct dc_state *state)
+ {
+ 	unsigned long flags;
++	uint64_t timestamp_ns;
+ 	uint32_t target_vblank;
+ 	int r, vpos, hpos;
+ 	struct amdgpu_crtc *acrtc = to_amdgpu_crtc(crtc);
+@@ -4657,7 +4658,9 @@ static void amdgpu_dm_do_flip(struct drm_crtc *crtc,
+ 	addr.address.grph.addr.low_part = lower_32_bits(afb->address);
+ 	addr.address.grph.addr.high_part = upper_32_bits(afb->address);
+ 	addr.flip_immediate = async_flip;
+-	addr.flip_timestamp_in_us = ktime_get_ns() / 1000;
++
++	timestamp_ns = ktime_get_ns();
++	addr.flip_timestamp_in_us = div_u64(timestamp_ns, 1000);
+ 
+ 
+ 	if (acrtc->base.state->event)
+-- 
+2.17.1
+

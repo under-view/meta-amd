@@ -1,0 +1,231 @@
+From 1cee186c7b61d2594ab9ac7352a8d4219b520126 Mon Sep 17 00:00:00 2001
+From: Xiangliang Yu <Xiangliang.Yu@amd.com>
+Date: Wed, 5 Dec 2018 11:23:43 +0800
+Subject: [PATCH 0917/2940] drm/amdgpu/psp: Add support VMR ring for VF
+
+PSP only support VMR ring for SRIOV vf since v45 and all commands will
+be send to VMR ring for executing.
+
+VMR ring use C2PMSG 101 ~ 103 instead of C2PMSG 64 ~ 71.
+
+Signed-off-by: Xiangliang Yu <Xiangliang.Yu@amd.com>
+Acked-by: Alex Deucher <alexander.deucher@amd.com>
+Signed-off-by: Alex Deucher <alexander.deucher@amd.com>
+---
+ drivers/gpu/drm/amd/amdgpu/amdgpu_psp.c | 18 ++++-
+ drivers/gpu/drm/amd/amdgpu/amdgpu_psp.h |  1 +
+ drivers/gpu/drm/amd/amdgpu/psp_gfx_if.h |  5 +-
+ drivers/gpu/drm/amd/amdgpu/psp_v11_0.c  | 92 +++++++++++++++++--------
+ 4 files changed, 85 insertions(+), 31 deletions(-)
+
+diff --git a/drivers/gpu/drm/amd/amdgpu/amdgpu_psp.c b/drivers/gpu/drm/amd/amdgpu/amdgpu_psp.c
+index bbd1b427425c..8ea9cab30b2f 100644
+--- a/drivers/gpu/drm/amd/amdgpu/amdgpu_psp.c
++++ b/drivers/gpu/drm/amd/amdgpu/amdgpu_psp.c
+@@ -161,10 +161,22 @@ psp_cmd_submit_buf(struct psp_context *psp,
+ 	return ret;
+ }
+ 
+-static void psp_prep_tmr_cmd_buf(struct psp_gfx_cmd_resp *cmd,
++bool psp_support_vmr_ring(struct psp_context *psp)
++{
++	if (amdgpu_sriov_vf(psp->adev) && psp->sos_fw_version > 0x80045)
++		return true;
++	else
++		return false;
++}
++
++static void psp_prep_tmr_cmd_buf(struct psp_context *psp,
++				 struct psp_gfx_cmd_resp *cmd,
+ 				 uint64_t tmr_mc, uint32_t size)
+ {
+-	cmd->cmd_id = GFX_CMD_ID_SETUP_TMR;
++	if (psp_support_vmr_ring(psp))
++		cmd->cmd_id = GFX_CMD_ID_SETUP_VMR;
++	else
++		cmd->cmd_id = GFX_CMD_ID_SETUP_TMR;
+ 	cmd->cmd.cmd_setup_tmr.buf_phy_addr_lo = lower_32_bits(tmr_mc);
+ 	cmd->cmd.cmd_setup_tmr.buf_phy_addr_hi = upper_32_bits(tmr_mc);
+ 	cmd->cmd.cmd_setup_tmr.buf_size = size;
+@@ -198,7 +210,7 @@ static int psp_tmr_load(struct psp_context *psp)
+ 	if (!cmd)
+ 		return -ENOMEM;
+ 
+-	psp_prep_tmr_cmd_buf(cmd, psp->tmr_mc_addr, PSP_TMR_SIZE);
++	psp_prep_tmr_cmd_buf(psp, cmd, psp->tmr_mc_addr, PSP_TMR_SIZE);
+ 	DRM_INFO("reserve 0x%x from 0x%llx for PSP TMR SIZE\n",
+ 			PSP_TMR_SIZE, psp->tmr_mc_addr);
+ 
+diff --git a/drivers/gpu/drm/amd/amdgpu/amdgpu_psp.h b/drivers/gpu/drm/amd/amdgpu/amdgpu_psp.h
+index 9ec5d1a666a6..10decf70c9aa 100644
+--- a/drivers/gpu/drm/amd/amdgpu/amdgpu_psp.h
++++ b/drivers/gpu/drm/amd/amdgpu/amdgpu_psp.h
+@@ -217,6 +217,7 @@ extern const struct amdgpu_ip_block_version psp_v10_0_ip_block;
+ 
+ int psp_gpu_reset(struct amdgpu_device *adev);
+ int psp_xgmi_invoke(struct psp_context *psp, uint32_t ta_cmd_id);
++bool psp_support_vmr_ring(struct psp_context *psp);
+ 
+ extern const struct amdgpu_ip_block_version psp_v11_0_ip_block;
+ 
+diff --git a/drivers/gpu/drm/amd/amdgpu/psp_gfx_if.h b/drivers/gpu/drm/amd/amdgpu/psp_gfx_if.h
+index 882bd83a28c4..0de00fbe9233 100644
+--- a/drivers/gpu/drm/amd/amdgpu/psp_gfx_if.h
++++ b/drivers/gpu/drm/amd/amdgpu/psp_gfx_if.h
+@@ -43,6 +43,8 @@ enum psp_gfx_crtl_cmd_id
+     GFX_CTRL_CMD_ID_ENABLE_INT      = 0x00050000,   /* enable PSP-to-Gfx interrupt */
+     GFX_CTRL_CMD_ID_DISABLE_INT     = 0x00060000,   /* disable PSP-to-Gfx interrupt */
+     GFX_CTRL_CMD_ID_MODE1_RST       = 0x00070000,   /* trigger the Mode 1 reset */
++    GFX_CTRL_CMD_ID_CONSUME_CMD     = 0x000A0000,   /* send interrupt to psp for updating write pointer of vf */
++    GFX_CTRL_CMD_ID_DESTROY_GPCOM_RING = 0x000C0000, /* destroy GPCOM ring */
+ 
+     GFX_CTRL_CMD_ID_MAX             = 0x000F0000,   /* max command ID */
+ };
+@@ -89,7 +91,8 @@ enum psp_gfx_cmd_id
+     GFX_CMD_ID_LOAD_IP_FW   = 0x00000006,   /* load HW IP FW */
+     GFX_CMD_ID_DESTROY_TMR  = 0x00000007,   /* destroy TMR region */
+     GFX_CMD_ID_SAVE_RESTORE = 0x00000008,   /* save/restore HW IP FW */
+-
++    GFX_CMD_ID_SETUP_VMR    = 0x00000009,   /* setup VMR region */
++    GFX_CMD_ID_DESTROY_VMR  = 0x0000000A,   /* destroy VMR region */
+ };
+ 
+ 
+diff --git a/drivers/gpu/drm/amd/amdgpu/psp_v11_0.c b/drivers/gpu/drm/amd/amdgpu/psp_v11_0.c
+index cbf8c1495e1c..bd7a5dc6ab61 100644
+--- a/drivers/gpu/drm/amd/amdgpu/psp_v11_0.c
++++ b/drivers/gpu/drm/amd/amdgpu/psp_v11_0.c
+@@ -183,6 +183,7 @@ static int psp_v11_0_bootloader_load_sysdrv(struct psp_context *psp)
+ 	sol_reg = RREG32_SOC15(MP0, 0, mmMP0_SMN_C2PMSG_81);
+ 	if (sol_reg) {
+ 		psp->sos_fw_version = RREG32_SOC15(MP0, 0, mmMP0_SMN_C2PMSG_58);
++		printk("sos fw version = 0x%x.\n", psp->sos_fw_version);
+ 		return 0;
+ 	}
+ 
+@@ -308,26 +309,47 @@ static int psp_v11_0_ring_create(struct psp_context *psp,
+ 	struct psp_ring *ring = &psp->km_ring;
+ 	struct amdgpu_device *adev = psp->adev;
+ 
+-	/* Write low address of the ring to C2PMSG_69 */
+-	psp_ring_reg = lower_32_bits(ring->ring_mem_mc_addr);
+-	WREG32_SOC15(MP0, 0, mmMP0_SMN_C2PMSG_69, psp_ring_reg);
+-	/* Write high address of the ring to C2PMSG_70 */
+-	psp_ring_reg = upper_32_bits(ring->ring_mem_mc_addr);
+-	WREG32_SOC15(MP0, 0, mmMP0_SMN_C2PMSG_70, psp_ring_reg);
+-	/* Write size of ring to C2PMSG_71 */
+-	psp_ring_reg = ring->ring_size;
+-	WREG32_SOC15(MP0, 0, mmMP0_SMN_C2PMSG_71, psp_ring_reg);
+-	/* Write the ring initialization command to C2PMSG_64 */
+-	psp_ring_reg = ring_type;
+-	psp_ring_reg = psp_ring_reg << 16;
+-	WREG32_SOC15(MP0, 0, mmMP0_SMN_C2PMSG_64, psp_ring_reg);
+-
+-	/* there might be handshake issue with hardware which needs delay */
+-	mdelay(20);
+-
+-	/* Wait for response flag (bit 31) in C2PMSG_64 */
+-	ret = psp_wait_for(psp, SOC15_REG_OFFSET(MP0, 0, mmMP0_SMN_C2PMSG_64),
+-			   0x80000000, 0x8000FFFF, false);
++	if (psp_support_vmr_ring(psp)) {
++		/* Write low address of the ring to C2PMSG_102 */
++		psp_ring_reg = lower_32_bits(ring->ring_mem_mc_addr);
++		WREG32_SOC15(MP0, 0, mmMP0_SMN_C2PMSG_102, psp_ring_reg);
++		/* Write high address of the ring to C2PMSG_103 */
++		psp_ring_reg = upper_32_bits(ring->ring_mem_mc_addr);
++		WREG32_SOC15(MP0, 0, mmMP0_SMN_C2PMSG_103, psp_ring_reg);
++
++		/* Write the ring initialization command to C2PMSG_101 */
++		WREG32_SOC15(MP0, 0, mmMP0_SMN_C2PMSG_101,
++					     GFX_CTRL_CMD_ID_INIT_GPCOM_RING);
++
++		/* there might be handshake issue with hardware which needs delay */
++		mdelay(20);
++
++		/* Wait for response flag (bit 31) in C2PMSG_101 */
++		ret = psp_wait_for(psp, SOC15_REG_OFFSET(MP0, 0, mmMP0_SMN_C2PMSG_101),
++				   0x80000000, 0x8000FFFF, false);
++
++	} else {
++		/* Write low address of the ring to C2PMSG_69 */
++		psp_ring_reg = lower_32_bits(ring->ring_mem_mc_addr);
++		WREG32_SOC15(MP0, 0, mmMP0_SMN_C2PMSG_69, psp_ring_reg);
++		/* Write high address of the ring to C2PMSG_70 */
++		psp_ring_reg = upper_32_bits(ring->ring_mem_mc_addr);
++		WREG32_SOC15(MP0, 0, mmMP0_SMN_C2PMSG_70, psp_ring_reg);
++		/* Write size of ring to C2PMSG_71 */
++		psp_ring_reg = ring->ring_size;
++		WREG32_SOC15(MP0, 0, mmMP0_SMN_C2PMSG_71, psp_ring_reg);
++		/* Write the ring initialization command to C2PMSG_64 */
++		psp_ring_reg = ring_type;
++		psp_ring_reg = psp_ring_reg << 16;
++		WREG32_SOC15(MP0, 0, mmMP0_SMN_C2PMSG_64, psp_ring_reg);
++
++		/* there might be handshake issue with hardware which needs delay */
++		mdelay(20);
++
++		/* Wait for response flag (bit 31) in C2PMSG_64 */
++		ret = psp_wait_for(psp, SOC15_REG_OFFSET(MP0, 0, mmMP0_SMN_C2PMSG_64),
++				   0x80000000, 0x8000FFFF, false);
++	}
+ 
+ 	return ret;
+ }
+@@ -338,15 +360,24 @@ static int psp_v11_0_ring_stop(struct psp_context *psp,
+ 	int ret = 0;
+ 	struct amdgpu_device *adev = psp->adev;
+ 
+-	/* Write the ring destroy command to C2PMSG_64 */
+-	WREG32_SOC15(MP0, 0, mmMP0_SMN_C2PMSG_64, GFX_CTRL_CMD_ID_DESTROY_RINGS);
++	/* Write the ring destroy command*/
++	if (psp_support_vmr_ring(psp))
++		WREG32_SOC15(MP0, 0, mmMP0_SMN_C2PMSG_101,
++				     GFX_CTRL_CMD_ID_DESTROY_GPCOM_RING);
++	else
++		WREG32_SOC15(MP0, 0, mmMP0_SMN_C2PMSG_64,
++				     GFX_CTRL_CMD_ID_DESTROY_RINGS);
+ 
+ 	/* there might be handshake issue with hardware which needs delay */
+ 	mdelay(20);
+ 
+-	/* Wait for response flag (bit 31) in C2PMSG_64 */
+-	ret = psp_wait_for(psp, SOC15_REG_OFFSET(MP0, 0, mmMP0_SMN_C2PMSG_64),
+-			   0x80000000, 0x80000000, false);
++	/* Wait for response flag (bit 31) */
++	if (psp_support_vmr_ring(psp))
++		ret = psp_wait_for(psp, SOC15_REG_OFFSET(MP0, 0, mmMP0_SMN_C2PMSG_101),
++				   0x80000000, 0x80000000, false);
++	else
++		ret = psp_wait_for(psp, SOC15_REG_OFFSET(MP0, 0, mmMP0_SMN_C2PMSG_64),
++				   0x80000000, 0x80000000, false);
+ 
+ 	return ret;
+ }
+@@ -385,7 +416,10 @@ static int psp_v11_0_cmd_submit(struct psp_context *psp,
+ 	uint32_t rb_frame_size_dw = sizeof(struct psp_gfx_rb_frame) / 4;
+ 
+ 	/* KM (GPCOM) prepare write pointer */
+-	psp_write_ptr_reg = RREG32_SOC15(MP0, 0, mmMP0_SMN_C2PMSG_67);
++	if (psp_support_vmr_ring(psp))
++		psp_write_ptr_reg = RREG32_SOC15(MP0, 0, mmMP0_SMN_C2PMSG_102);
++	else
++		psp_write_ptr_reg = RREG32_SOC15(MP0, 0, mmMP0_SMN_C2PMSG_67);
+ 
+ 	/* Update KM RB frame pointer to new frame */
+ 	/* write_frame ptr increments by size of rb_frame in bytes */
+@@ -414,7 +448,11 @@ static int psp_v11_0_cmd_submit(struct psp_context *psp,
+ 
+ 	/* Update the write Pointer in DWORDs */
+ 	psp_write_ptr_reg = (psp_write_ptr_reg + rb_frame_size_dw) % ring_size_dw;
+-	WREG32_SOC15(MP0, 0, mmMP0_SMN_C2PMSG_67, psp_write_ptr_reg);
++	if (psp_support_vmr_ring(psp)) {
++		WREG32_SOC15(MP0, 0, mmMP0_SMN_C2PMSG_102, psp_write_ptr_reg);
++		WREG32_SOC15(MP0, 0, mmMP0_SMN_C2PMSG_101, GFX_CTRL_CMD_ID_CONSUME_CMD);
++	} else
++		WREG32_SOC15(MP0, 0, mmMP0_SMN_C2PMSG_67, psp_write_ptr_reg);
+ 
+ 	return 0;
+ }
+-- 
+2.17.1
+

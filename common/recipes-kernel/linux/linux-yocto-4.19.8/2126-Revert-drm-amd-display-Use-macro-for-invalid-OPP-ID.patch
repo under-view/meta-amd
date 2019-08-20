@@ -1,0 +1,75 @@
+From 1935ba22c15a3fdeb280c639e42c02fcd255c711 Mon Sep 17 00:00:00 2001
+From: Alex Deucher <alexander.deucher@amd.com>
+Date: Mon, 17 Jun 2019 13:08:58 -0500
+Subject: [PATCH 2126/2940] Revert "drm/amd/display: Use macro for invalid OPP
+ ID"
+
+This reverts commit 1e1900d04f379a97078af1738b3e88c89dea0f40.
+
+Signed-off-by: Alex Deucher <alexander.deucher@amd.com>
+---
+ drivers/gpu/drm/amd/display/dc/dcn10/dcn10_hubp.c         | 4 ++--
+ drivers/gpu/drm/amd/display/dc/dcn10/dcn10_hw_sequencer.c | 4 ++--
+ drivers/gpu/drm/amd/display/dc/inc/hw/hubp.h              | 2 --
+ 3 files changed, 4 insertions(+), 6 deletions(-)
+
+diff --git a/drivers/gpu/drm/amd/display/dc/dcn10/dcn10_hubp.c b/drivers/gpu/drm/amd/display/dc/dcn10/dcn10_hubp.c
+index aea2b63db137..54b219a710d8 100644
+--- a/drivers/gpu/drm/amd/display/dc/dcn10/dcn10_hubp.c
++++ b/drivers/gpu/drm/amd/display/dc/dcn10/dcn10_hubp.c
+@@ -63,7 +63,7 @@ void hubp1_set_blank(struct hubp *hubp, bool blank)
+ 		}
+ 
+ 		hubp->mpcc_id = 0xf;
+-		hubp->opp_id = OPP_ID_INVALID;
++		hubp->opp_id = 0xf;
+ 	}
+ }
+ 
+@@ -1226,7 +1226,7 @@ void dcn10_hubp_construct(
+ 	hubp1->hubp_shift = hubp_shift;
+ 	hubp1->hubp_mask = hubp_mask;
+ 	hubp1->base.inst = inst;
+-	hubp1->base.opp_id = OPP_ID_INVALID;
++	hubp1->base.opp_id = 0xf;
+ 	hubp1->base.mpcc_id = 0xf;
+ }
+ 
+diff --git a/drivers/gpu/drm/amd/display/dc/dcn10/dcn10_hw_sequencer.c b/drivers/gpu/drm/amd/display/dc/dcn10/dcn10_hw_sequencer.c
+index 3667fd2742b6..d763d6e51365 100644
+--- a/drivers/gpu/drm/amd/display/dc/dcn10/dcn10_hw_sequencer.c
++++ b/drivers/gpu/drm/amd/display/dc/dcn10/dcn10_hw_sequencer.c
+@@ -1025,7 +1025,7 @@ static void dcn10_init_pipes(struct dc *dc, struct dc_state *context)
+ 		pipe_ctx->plane_res.dpp = dpp;
+ 		pipe_ctx->plane_res.mpcc_inst = dpp->inst;
+ 		hubp->mpcc_id = dpp->inst;
+-		hubp->opp_id = OPP_ID_INVALID;
++		hubp->opp_id = 0xf;
+ 		hubp->power_gated = false;
+ 
+ 		dc->res_pool->opps[i]->mpc_tree_params.opp_id = dc->res_pool->opps[i]->inst;
+@@ -2370,7 +2370,7 @@ static void dcn10_apply_ctx_for_surface(
+ 		if (pipe_ctx->plane_state && !old_pipe_ctx->plane_state) {
+ 			if (old_pipe_ctx->stream_res.tg == tg &&
+ 			    old_pipe_ctx->plane_res.hubp &&
+-			    old_pipe_ctx->plane_res.hubp->opp_id != OPP_ID_INVALID)
++			    old_pipe_ctx->plane_res.hubp->opp_id != 0xf)
+ 				dcn10_disable_plane(dc, old_pipe_ctx);
+ 		}
+ 
+diff --git a/drivers/gpu/drm/amd/display/dc/inc/hw/hubp.h b/drivers/gpu/drm/amd/display/dc/inc/hw/hubp.h
+index 5420ad2da96f..455df4999797 100644
+--- a/drivers/gpu/drm/amd/display/dc/inc/hw/hubp.h
++++ b/drivers/gpu/drm/amd/display/dc/inc/hw/hubp.h
+@@ -28,8 +28,6 @@
+ 
+ #include "mem_input.h"
+ 
+-#define OPP_ID_INVALID 0xf
+-
+ 
+ enum cursor_pitch {
+ 	CURSOR_PITCH_64_PIXELS = 0,
+-- 
+2.17.1
+

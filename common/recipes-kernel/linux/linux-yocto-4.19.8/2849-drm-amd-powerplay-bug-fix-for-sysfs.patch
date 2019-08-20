@@ -1,0 +1,38 @@
+From 22ff08c62f573ccf0ba81e6d474967c057a2ad1c Mon Sep 17 00:00:00 2001
+From: Kenneth Feng <kenneth.feng@amd.com>
+Date: Thu, 11 Jul 2019 15:37:50 +0800
+Subject: [PATCH 2849/2940] drm/amd/powerplay: bug fix for sysfs
+
+when we set profile_peak to sysfs:power_dpm_force_performance_level,
+we gets the wrong socclk level and mclk level.this patch fix this issue.
+
+Signed-off-by: Kenneth Feng <kenneth.feng@amd.com>
+Reviewed-by: Feifei Xu <Feifei.Xu@amd.com>
+---
+ drivers/gpu/drm/amd/powerplay/navi10_ppt.c | 4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
+
+diff --git a/drivers/gpu/drm/amd/powerplay/navi10_ppt.c b/drivers/gpu/drm/amd/powerplay/navi10_ppt.c
+index 5ee6508f1d13..cd32b20a13c1 100644
+--- a/drivers/gpu/drm/amd/powerplay/navi10_ppt.c
++++ b/drivers/gpu/drm/amd/powerplay/navi10_ppt.c
+@@ -1157,14 +1157,14 @@ static int navi10_get_profiling_clk_mask(struct smu_context *smu,
+ 			ret = smu_get_dpm_level_count(smu, SMU_MCLK, &level_count);
+ 			if (ret)
+ 				return ret;
+-			*sclk_mask = level_count - 1;
++			*mclk_mask = level_count - 1;
+ 		}
+ 
+ 		if(soc_mask) {
+ 			ret = smu_get_dpm_level_count(smu, SMU_SOCCLK, &level_count);
+ 			if (ret)
+ 				return ret;
+-			*sclk_mask = level_count - 1;
++			*soc_mask = level_count - 1;
+ 		}
+ 	}
+ 
+-- 
+2.17.1
+

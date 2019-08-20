@@ -1,0 +1,33 @@
+From bc04d91127b508a61007613a0d30d0cd38ede3f3 Mon Sep 17 00:00:00 2001
+From: Evan Quan <evan.quan@amd.com>
+Date: Thu, 17 Jan 2019 17:48:30 +0800
+Subject: [PATCH 1121/2940] drm/amd/powerplay: avoid unnecessary dpm level
+ setting
+
+No dpm level setting is needed when the request level
+is actually same as current.
+
+Signed-off-by: Evan Quan <evan.quan@amd.com>
+Reviewed-by: Alex Deucher <alexander.deucher@amd.com>
+Signed-off-by: Alex Deucher <alexander.deucher@amd.com>
+---
+ drivers/gpu/drm/amd/powerplay/hwmgr/pp_psm.c | 3 ++-
+ 1 file changed, 2 insertions(+), 1 deletion(-)
+
+diff --git a/drivers/gpu/drm/amd/powerplay/hwmgr/pp_psm.c b/drivers/gpu/drm/amd/powerplay/hwmgr/pp_psm.c
+index 56437866d120..68f3dcaa8070 100644
+--- a/drivers/gpu/drm/amd/powerplay/hwmgr/pp_psm.c
++++ b/drivers/gpu/drm/amd/powerplay/hwmgr/pp_psm.c
+@@ -278,7 +278,8 @@ int psm_adjust_power_state_dynamic(struct pp_hwmgr *hwmgr, bool skip,
+ 
+ 	phm_notify_smc_display_config_after_ps_adjustment(hwmgr);
+ 
+-	if (!phm_force_dpm_levels(hwmgr, hwmgr->request_dpm_level))
++	if ((hwmgr->request_dpm_level != hwmgr->dpm_level) &&
++	    !phm_force_dpm_levels(hwmgr, hwmgr->request_dpm_level))
+ 		hwmgr->dpm_level = hwmgr->request_dpm_level;
+ 
+ 	if (hwmgr->dpm_level != AMD_DPM_FORCED_LEVEL_MANUAL) {
+-- 
+2.17.1
+

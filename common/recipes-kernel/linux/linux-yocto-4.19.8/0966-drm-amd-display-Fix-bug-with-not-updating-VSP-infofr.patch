@@ -1,0 +1,39 @@
+From 362c4f085798f66402566eb77e58f4659adc0cb7 Mon Sep 17 00:00:00 2001
+From: SivapiriyanKumarasamy <sivapiriyan.kumarasamy@amd.com>
+Date: Thu, 29 Nov 2018 07:18:29 -0500
+Subject: [PATCH 0966/2940] drm/amd/display: Fix bug with not updating VSP
+ infoframe
+
+[WHY]
+Currently, when the VSP infopacket is rebuilt in DM, it is not updated
+when being programmed in encoder.
+
+[HOW]
+Add new VSP case for update_info_frame
+
+Signed-off-by: SivapiriyanKumarasamy <sivapiriyan.kumarasamy@amd.com>
+Reviewed-by: Anthony Koo <Anthony.Koo@amd.com>
+Acked-by: Krunoslav Kovac <Krunoslav.Kovac@amd.com>
+Acked-by: Leo Li <sunpeng.li@amd.com>
+Signed-off-by: Alex Deucher <alexander.deucher@amd.com>
+---
+ drivers/gpu/drm/amd/display/dc/core/dc.c | 3 ++-
+ 1 file changed, 2 insertions(+), 1 deletion(-)
+
+diff --git a/drivers/gpu/drm/amd/display/dc/core/dc.c b/drivers/gpu/drm/amd/display/dc/core/dc.c
+index 91ff5bdefb61..1484d33111d4 100644
+--- a/drivers/gpu/drm/amd/display/dc/core/dc.c
++++ b/drivers/gpu/drm/amd/display/dc/core/dc.c
+@@ -1467,7 +1467,8 @@ static void commit_planes_do_stream_update(struct dc *dc,
+ 
+ 			if ((stream_update->hdr_static_metadata && !stream->use_dynamic_meta) ||
+ 					stream_update->vrr_infopacket ||
+-					stream_update->vsc_infopacket) {
++					stream_update->vsc_infopacket ||
++					stream_update->vsp_infopacket) {
+ 				resource_build_info_frame(pipe_ctx);
+ 				dc->hwss.update_info_frame(pipe_ctx);
+ 			}
+-- 
+2.17.1
+

@@ -1,0 +1,73 @@
+From e77665f0439eb5954a2dc1c2989c7b8402e6b881 Mon Sep 17 00:00:00 2001
+From: David Francis <David.Francis@amd.com>
+Date: Thu, 25 Oct 2018 14:18:12 -0400
+Subject: [PATCH 0819/2940] drm/amd/display: Clean up DCN1 clock requests
+
+[Why]
+There was a full clock request struct of which only
+one value was being used.
+
+[How]
+Replace the struct with a uint32_t
+
+Signed-off-by: David Francis <David.Francis@amd.com>
+Reviewed-by: Nicholas Kazlauskas <Nicholas.Kazlauskas@amd.com>
+Reviewed-by: Sun peng Li <Sunpeng.Li@amd.com>
+Acked-by: Bhawanpreet Lakha <Bhawanpreet.Lakha@amd.com>
+Signed-off-by: Alex Deucher <alexander.deucher@amd.com>
+---
+ .../gpu/drm/amd/display/dc/dcn10/dcn10_clk_mgr.c  | 15 ++++++---------
+ 1 file changed, 6 insertions(+), 9 deletions(-)
+
+diff --git a/drivers/gpu/drm/amd/display/dc/dcn10/dcn10_clk_mgr.c b/drivers/gpu/drm/amd/display/dc/dcn10/dcn10_clk_mgr.c
+index d5314610b2cd..4312b091f6bb 100644
+--- a/drivers/gpu/drm/amd/display/dc/dcn10/dcn10_clk_mgr.c
++++ b/drivers/gpu/drm/amd/display/dc/dcn10/dcn10_clk_mgr.c
+@@ -205,7 +205,7 @@ static void dcn1_update_clocks(struct clk_mgr *clk_mgr,
+ 			&dc->res_pool->pp_smu_req;
+ 	struct pp_smu_display_requirement_rv smu_req = *smu_req_cur;
+ 	struct pp_smu_funcs_rv *pp_smu = dc->res_pool->pp_smu;
+-	struct dm_pp_clock_for_voltage_req clock_voltage_req = {0};
++	uint32_t requested_dcf_clock_in_khz = 0;
+ 	bool send_request_to_increase = false;
+ 	bool send_request_to_lower = false;
+ 	int display_count;
+@@ -245,8 +245,6 @@ static void dcn1_update_clocks(struct clk_mgr *clk_mgr,
+ 	// F Clock
+ 	if (should_set_clock(safe_to_lower, new_clocks->fclk_khz, clk_mgr->clks.fclk_khz)) {
+ 		clk_mgr->clks.fclk_khz = new_clocks->fclk_khz;
+-		clock_voltage_req.clk_type = DM_PP_CLOCK_TYPE_FCLK;
+-		clock_voltage_req.clocks_in_khz = new_clocks->fclk_khz;
+ 		smu_req.hard_min_fclk_khz = new_clocks->fclk_khz;
+ 
+ 		dm_pp_apply_clock_for_voltage_request(clk_mgr->ctx, &clock_voltage_req);
+@@ -274,10 +272,10 @@ static void dcn1_update_clocks(struct clk_mgr *clk_mgr,
+ 	 */
+ 	if (send_request_to_increase) {
+ 		/*use dcfclk to request voltage*/
+-		clock_voltage_req.clk_type = DM_PP_CLOCK_TYPE_DCFCLK;
+-		clock_voltage_req.clocks_in_khz = dcn_find_dcfclk_suits_all(dc, new_clocks);
++		requested_dcf_clock_in_khz = dcn_find_dcfclk_suits_all(dc, new_clocks);
++
++		notify_hard_min_dcfclk_to_smu(pp_smu, requested_dcf_clock_in_khz);
+ 
+-		notify_hard_min_dcfclk_to_smu(pp_smu, clock_voltage_req.clocks_in_khz);
+ 		if (pp_smu->set_display_requirement)
+ 			pp_smu->set_display_requirement(&pp_smu->pp_smu, &smu_req);
+ 
+@@ -297,10 +295,9 @@ static void dcn1_update_clocks(struct clk_mgr *clk_mgr,
+ 
+ 	if (!send_request_to_increase && send_request_to_lower) {
+ 		/*use dcfclk to request voltage*/
+-		clock_voltage_req.clk_type = DM_PP_CLOCK_TYPE_DCFCLK;
+-		clock_voltage_req.clocks_in_khz = dcn_find_dcfclk_suits_all(dc, new_clocks);
++		requested_dcf_clock_in_khz = dcn_find_dcfclk_suits_all(dc, new_clocks);
+ 
+-		notify_hard_min_dcfclk_to_smu(pp_smu, clock_voltage_req.clocks_in_khz);
++		notify_hard_min_dcfclk_to_smu(pp_smu, requested_dcf_clock_in_khz);
+ 
+ 		if (pp_smu->set_display_requirement)
+ 			pp_smu->set_display_requirement(&pp_smu->pp_smu, &smu_req);
+-- 
+2.17.1
+

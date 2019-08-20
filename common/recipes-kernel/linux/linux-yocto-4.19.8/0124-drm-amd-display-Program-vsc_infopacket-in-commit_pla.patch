@@ -1,0 +1,44 @@
+From 2b10a2b4bcafab0095d39319228a3228e69fbdc5 Mon Sep 17 00:00:00 2001
+From: Alvin lee <alvin.lee3@amd.com>
+Date: Fri, 8 Jun 2018 13:58:36 -0400
+Subject: [PATCH 0124/2940] drm/amd/display: Program vsc_infopacket in
+ commit_planes_for_stream
+
+Signed-off-by: Alvin lee <alvin.lee3@amd.com>
+Reviewed-by: Jun Lei <Jun.Lei@amd.com>
+Acked-by: Harry Wentland <harry.wentland@amd.com>
+Signed-off-by: Alex Deucher <alexander.deucher@amd.com>
+---
+ drivers/gpu/drm/amd/display/dc/core/dc.c   | 3 ++-
+ drivers/gpu/drm/amd/display/dc/dc_stream.h | 1 +
+ 2 files changed, 3 insertions(+), 1 deletion(-)
+
+diff --git a/drivers/gpu/drm/amd/display/dc/core/dc.c b/drivers/gpu/drm/amd/display/dc/core/dc.c
+index 247cb252769e..c5453f13d149 100644
+--- a/drivers/gpu/drm/amd/display/dc/core/dc.c
++++ b/drivers/gpu/drm/amd/display/dc/core/dc.c
+@@ -1394,7 +1394,8 @@ static void commit_planes_do_stream_update(struct dc *dc,
+ 			}
+ 
+ 			if (stream_update->hdr_static_metadata ||
+-				stream_update->vrr_infopacket) {
++				stream_update->vrr_infopacket ||
++				stream_update->vsc_infopacket) {
+ 				resource_build_info_frame(pipe_ctx);
+ 				dc->hwss.update_info_frame(pipe_ctx);
+ 			}
+diff --git a/drivers/gpu/drm/amd/display/dc/dc_stream.h b/drivers/gpu/drm/amd/display/dc/dc_stream.h
+index 8f81133ac0c1..790beb5cb358 100644
+--- a/drivers/gpu/drm/amd/display/dc/dc_stream.h
++++ b/drivers/gpu/drm/amd/display/dc/dc_stream.h
+@@ -129,6 +129,7 @@ struct dc_stream_update {
+ 	unsigned long long *periodic_fn_vsync_delta;
+ 	struct dc_crtc_timing_adjust *adjust;
+ 	struct dc_info_packet *vrr_infopacket;
++	struct dc_info_packet *vsc_infopacket;
+ 
+ 	bool *dpms_off;
+ };
+-- 
+2.17.1
+

@@ -1,0 +1,101 @@
+From b7690d9b6f248b87833b41d833cfe0e00d07faaa Mon Sep 17 00:00:00 2001
+From: Harry Wentland <harry.wentland@amd.com>
+Date: Wed, 15 Aug 2018 16:49:52 -0500
+Subject: [PATCH 0128/2940] drm/amdgpu/display: add freesync drm properties
+
+Add connector properties for controlling freesync.
+
+Signed-off-by: Harry Wentland <harry.wentland@amd.com>
+Signed-off-by: Alex Deucher <alexander.deucher@amd.com>
+---
+ drivers/gpu/drm/amd/amdgpu/amdgpu_display.c   | 13 +++++++++++++
+ drivers/gpu/drm/amd/amdgpu/amdgpu_mode.h      |  4 ++++
+ .../gpu/drm/amd/display/amdgpu_dm/amdgpu_dm.c | 19 +++++++++++++++++++
+ 3 files changed, 36 insertions(+)
+
+diff --git a/drivers/gpu/drm/amd/amdgpu/amdgpu_display.c b/drivers/gpu/drm/amd/amdgpu/amdgpu_display.c
+index 6748cd7fc129..642b47c5f4b8 100644
+--- a/drivers/gpu/drm/amd/amdgpu/amdgpu_display.c
++++ b/drivers/gpu/drm/amd/amdgpu/amdgpu_display.c
+@@ -626,6 +626,19 @@ int amdgpu_display_modeset_create_props(struct amdgpu_device *adev)
+ 					 "dither",
+ 					 amdgpu_dither_enum_list, sz);
+ 
++	if (amdgpu_device_has_dc_support(adev)) {
++		adev->mode_info.freesync_property =
++			drm_property_create_bool(adev->ddev, 0, "freesync");
++		if (!adev->mode_info.freesync_property)
++			return -ENOMEM;
++		adev->mode_info.freesync_capable_property =
++			drm_property_create_bool(adev->ddev,
++						 0,
++						 "freesync_capable");
++		if (!adev->mode_info.freesync_capable_property)
++			return -ENOMEM;
++	}
++
+ 	return 0;
+ }
+ 
+diff --git a/drivers/gpu/drm/amd/amdgpu/amdgpu_mode.h b/drivers/gpu/drm/amd/amdgpu/amdgpu_mode.h
+index b9e9e8b02fb7..f91a9bdcd63c 100644
+--- a/drivers/gpu/drm/amd/amdgpu/amdgpu_mode.h
++++ b/drivers/gpu/drm/amd/amdgpu/amdgpu_mode.h
+@@ -339,6 +339,10 @@ struct amdgpu_mode_info {
+ 	struct drm_property *audio_property;
+ 	/* FMT dithering */
+ 	struct drm_property *dither_property;
++	/* it is used to allow enablement of freesync mode */
++	struct drm_property *freesync_property;
++	/* it is used to know about display capability of freesync mode */
++	struct drm_property *freesync_capable_property;
+ 	/* hardcoded DFP edid from BIOS */
+ 	struct edid *bios_hardcoded_edid;
+ 	int bios_hardcoded_edid_size;
+diff --git a/drivers/gpu/drm/amd/display/amdgpu_dm/amdgpu_dm.c b/drivers/gpu/drm/amd/display/amdgpu_dm/amdgpu_dm.c
+index fcaa4a625427..e98b265a1629 100644
+--- a/drivers/gpu/drm/amd/display/amdgpu_dm/amdgpu_dm.c
++++ b/drivers/gpu/drm/amd/display/amdgpu_dm/amdgpu_dm.c
+@@ -2844,6 +2844,12 @@ int amdgpu_dm_connector_atomic_set_property(struct drm_connector *connector,
+ 	} else if (property == adev->mode_info.underscan_property) {
+ 		dm_new_state->underscan_enable = val;
+ 		ret = 0;
++	} else if (property == adev->mode_info.freesync_property) {
++		dm_new_state->freesync_enable = val;
++		ret = 0;
++	} else if (property == adev->mode_info.freesync_capable_property) {
++		dm_new_state->freesync_capable = val;
++		ret = 0;
+ 	}
+ 
+ 	return ret;
+@@ -2886,6 +2892,12 @@ int amdgpu_dm_connector_atomic_get_property(struct drm_connector *connector,
+ 	} else if (property == adev->mode_info.underscan_property) {
+ 		*val = dm_state->underscan_enable;
+ 		ret = 0;
++	} else if (property == adev->mode_info.freesync_property) {
++		*val = dm_state->freesync_enable;
++		ret = 0;
++	} else if (property == adev->mode_info.freesync_capable_property) {
++		*val = dm_state->freesync_capable;
++		ret = 0;
+ 	}
+ 	return ret;
+ }
+@@ -3712,6 +3724,13 @@ void amdgpu_dm_connector_init_helper(struct amdgpu_display_manager *dm,
+ 				adev->mode_info.underscan_vborder_property,
+ 				0);
+ 
++	if (connector_type == DRM_MODE_CONNECTOR_HDMIA ||
++	    connector_type == DRM_MODE_CONNECTOR_DisplayPort) {
++		drm_object_attach_property(&aconnector->base.base,
++				adev->mode_info.freesync_property, 0);
++		drm_object_attach_property(&aconnector->base.base,
++				adev->mode_info.freesync_capable_property, 0);
++	}
+ }
+ 
+ static int amdgpu_dm_i2c_xfer(struct i2c_adapter *i2c_adap,
+-- 
+2.17.1
+

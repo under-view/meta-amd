@@ -1,0 +1,75 @@
+From aaf3cecdb140fa5f833ac3174dafa62b91a4490c Mon Sep 17 00:00:00 2001
+From: Oak Zeng <Oak.Zeng@amd.com>
+Date: Mon, 10 Jun 2019 15:22:35 -0500
+Subject: [PATCH 2789/2940] drm/amdkfd: Initialize HSA_CAP_ATS_PRESENT
+ capability in topology codes
+
+Move HSA_CAP_ATS_PRESENT initialization logic from kfd iommu codes to
+kfd topology codes. This removes kfd_iommu_device_init's dependency
+on kfd_topology_add_device. Also remove duplicate code setting the
+same.
+
+Change-Id: I2bf3c000d4795b41afe1b39fe679677c1f86bfbe
+Signed-off-by: Oak Zeng <Oak.Zeng@amd.com>
+Reviewed-by: Felix Kuehling <Felix.Kuehling@amd.com>
+---
+ drivers/gpu/drm/amd/amdkfd/kfd_iommu.c    | 10 +---------
+ drivers/gpu/drm/amd/amdkfd/kfd_topology.c | 11 +++++++++--
+ 2 files changed, 10 insertions(+), 11 deletions(-)
+
+diff --git a/drivers/gpu/drm/amd/amdkfd/kfd_iommu.c b/drivers/gpu/drm/amd/amdkfd/kfd_iommu.c
+index 01494752c36a..5f35df23fb18 100644
+--- a/drivers/gpu/drm/amd/amdkfd/kfd_iommu.c
++++ b/drivers/gpu/drm/amd/amdkfd/kfd_iommu.c
+@@ -66,16 +66,8 @@ int kfd_iommu_device_init(struct kfd_dev *kfd)
+ 
+ 	top_dev = kfd_topology_device_by_id(kfd->id);
+ 
+-	/*
+-	 * Overwrite ATS capability according to needs_iommu_device to fix
+-	 * potential missing corresponding bit in CRAT of BIOS.
+-	 */
+-	if (!kfd->device_info->needs_iommu_device) {
+-		top_dev->node_props.capability &= ~HSA_CAP_ATS_PRESENT;
++	if (!kfd->device_info->needs_iommu_device)
+ 		return 0;
+-	}
+-
+-	top_dev->node_props.capability |= HSA_CAP_ATS_PRESENT;
+ 
+ 	iommu_info.flags = 0;
+ 	err = amd_iommu_device_info(kfd->pdev, &iommu_info);
+diff --git a/drivers/gpu/drm/amd/amdkfd/kfd_topology.c b/drivers/gpu/drm/amd/amdkfd/kfd_topology.c
+index 55df4105233a..9df84017b5c3 100644
+--- a/drivers/gpu/drm/amd/amdkfd/kfd_topology.c
++++ b/drivers/gpu/drm/amd/amdkfd/kfd_topology.c
+@@ -1409,17 +1409,24 @@ int kfd_topology_add_device(struct kfd_dev *gpu)
+ 		     dev->gpu->device_info->asic_family);
+ 	}
+ 
++	/*
++	* Overwrite ATS capability according to needs_iommu_device to fix
++	* potential missing corresponding bit in CRAT of BIOS.
++	*/
++	if (dev->gpu->device_info->needs_iommu_device)
++		dev->node_props.capability |= HSA_CAP_ATS_PRESENT;
++	else
++		dev->node_props.capability &= ~HSA_CAP_ATS_PRESENT;
++
+ 	/* Fix errors in CZ CRAT.
+ 	 * simd_count: Carrizo CRAT reports wrong simd_count, probably
+ 	 *		because it doesn't consider masked out CUs
+ 	 * max_waves_per_simd: Carrizo reports wrong max_waves_per_simd
+-	 * capability flag: Carrizo CRAT doesn't report IOMMU flags
+ 	 */
+ 	if (dev->gpu->device_info->asic_family == CHIP_CARRIZO) {
+ 		dev->node_props.simd_count =
+ 			cu_info.simd_per_cu * cu_info.cu_active_number;
+ 		dev->node_props.max_waves_per_simd = 10;
+-		dev->node_props.capability |= HSA_CAP_ATS_PRESENT;
+ 	}
+ 
+ 	ctx = amdgpu_ras_get_context((struct amdgpu_device *)(dev->gpu->kgd));
+-- 
+2.17.1
+

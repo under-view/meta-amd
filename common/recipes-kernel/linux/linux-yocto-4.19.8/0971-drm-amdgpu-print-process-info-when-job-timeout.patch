@@ -1,0 +1,48 @@
+From d32a4b0951461ad0bc2798f4ba1a0da0f3324443 Mon Sep 17 00:00:00 2001
+From: Trigger Huang <Trigger.Huang@amd.com>
+Date: Tue, 18 Dec 2018 09:14:47 +0800
+Subject: [PATCH 0971/2940] drm/amdgpu: print process info when job timeout
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+When a job is timeout, try to print the related process information
+for debugging
+
+Signed-off-by: Trigger Huang <Trigger.Huang@amd.com>
+Reviewed-by: Christian König <christian.koenig@amd.com>.
+Signed-off-by: Alex Deucher <alexander.deucher@amd.com>
+---
+ drivers/gpu/drm/amd/amdgpu/amdgpu_job.c | 6 ++++++
+ 1 file changed, 6 insertions(+)
+
+diff --git a/drivers/gpu/drm/amd/amdgpu/amdgpu_job.c b/drivers/gpu/drm/amd/amdgpu/amdgpu_job.c
+index e0af44fd6a0c..0a17fb1af204 100644
+--- a/drivers/gpu/drm/amd/amdgpu/amdgpu_job.c
++++ b/drivers/gpu/drm/amd/amdgpu/amdgpu_job.c
+@@ -32,6 +32,9 @@ static void amdgpu_job_timedout(struct drm_sched_job *s_job)
+ {
+ 	struct amdgpu_ring *ring = to_amdgpu_ring(s_job->sched);
+ 	struct amdgpu_job *job = to_amdgpu_job(s_job);
++	struct amdgpu_task_info ti;
++
++	memset(&ti, 0, sizeof(struct amdgpu_task_info));
+ 
+ 	if (amdgpu_ring_soft_recovery(ring, job->vmid, s_job->s_fence->parent)) {
+ 		DRM_ERROR("ring %s timeout, but soft recovered\n",
+@@ -39,9 +42,12 @@ static void amdgpu_job_timedout(struct drm_sched_job *s_job)
+ 		return;
+ 	}
+ 
++	amdgpu_vm_get_task_info(ring->adev, job->pasid, &ti);
+ 	DRM_ERROR("ring %s timeout, signaled seq=%u, emitted seq=%u\n",
+ 		  job->base.sched->name, atomic_read(&ring->fence_drv.last_seq),
+ 		  ring->fence_drv.sync_seq);
++	DRM_ERROR("Process information: process %s pid %d thread %s pid %d\n",
++		  ti.process_name, ti.tgid, ti.task_name, ti.pid);
+ 
+ 	if (amdgpu_device_should_recover_gpu(ring->adev))
+ 		amdgpu_device_gpu_recover(ring->adev, job);
+-- 
+2.17.1
+

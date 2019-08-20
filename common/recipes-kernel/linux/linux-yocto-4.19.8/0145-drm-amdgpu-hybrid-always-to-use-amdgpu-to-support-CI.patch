@@ -1,0 +1,39 @@
+From 82e25c3f02708def433924a9b21e0ed8dc6a6729 Mon Sep 17 00:00:00 2001
+From: Evan Quan <evan.quan@amd.com>
+Date: Thu, 6 Jul 2017 14:45:08 +0800
+Subject: [PATCH 0145/2940] drm/amdgpu: [hybrid] always to use amdgpu to
+ support CI/SI asics on hybrid
+
+  - Revert "amdgpu: Set cik/si_support to 1 by default if radeon isn't built"
+
+Change-Id: I2b535a8f9a1a5cfcc35a71451a5d7363f8be61e8
+
+Conflicts:
+      drivers/gpu/drm/amd/amdgpu/amdgpu_drv.c
+---
+ drivers/gpu/drm/amd/amdgpu/amdgpu_drv.c | 2 --
+ 1 file changed, 2 deletions(-)
+
+diff --git a/drivers/gpu/drm/amd/amdgpu/amdgpu_drv.c b/drivers/gpu/drm/amd/amdgpu/amdgpu_drv.c
+index e72c0f80adb7..c33e49cff64b 100644
+--- a/drivers/gpu/drm/amd/amdgpu/amdgpu_drv.c
++++ b/drivers/gpu/drm/amd/amdgpu/amdgpu_drv.c
+@@ -502,7 +502,6 @@ MODULE_PARM_DESC(si_support, "SI support (1 = enabled (default), 0 = disabled)")
+ int amdgpu_si_support = 1;
+ MODULE_PARM_DESC(si_support, "SI support (1 = enabled (default), 0 = disabled)");
+ #endif
+-
+ module_param_named(si_support, amdgpu_si_support, int, 0444);
+ #endif
+ 
+@@ -521,7 +520,6 @@ MODULE_PARM_DESC(cik_support, "CIK support (1 = enabled, 0 = disabled (default))
+ int amdgpu_cik_support = 1;
+ MODULE_PARM_DESC(cik_support, "CIK support (1 = enabled (default), 0 = disabled)");
+ #endif
+-
+ module_param_named(cik_support, amdgpu_cik_support, int, 0444);
+ #endif
+ 
+-- 
+2.17.1
+

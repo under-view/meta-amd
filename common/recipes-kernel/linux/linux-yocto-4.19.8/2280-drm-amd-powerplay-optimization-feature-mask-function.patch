@@ -1,0 +1,185 @@
+From 40528fafc4ab534c78517f2875d5b8926ea0facd Mon Sep 17 00:00:00 2001
+From: Kevin Wang <kevin1.wang@amd.com>
+Date: Tue, 19 Mar 2019 17:20:09 +0800
+Subject: [PATCH 2280/2940] drm/amd/powerplay: optimization feature mask
+ function for asic
+
+1.change function return value type: from "unallowed" to "allowed"
+2.replace feature mask number with feature macro, the code will clear.
+
+Signed-off-by: Kevin Wang <kevin1.wang@amd.com>
+Reviewed-by: Huang Rui <ray.huang@amd.com>
+Reviewed-by: Kenneth Feng <kenneth.feng@amd.com>
+Signed-off-by: Alex Deucher <alexander.deucher@amd.com>
+---
+ drivers/gpu/drm/amd/powerplay/amdgpu_smu.c    | 10 +++---
+ .../gpu/drm/amd/powerplay/inc/amdgpu_smu.h    |  6 ++--
+ drivers/gpu/drm/amd/powerplay/navi10_ppt.c    | 22 +++++++++---
+ drivers/gpu/drm/amd/powerplay/vega20_ppt.c    | 36 ++++++++++++++++---
+ 4 files changed, 57 insertions(+), 17 deletions(-)
+
+diff --git a/drivers/gpu/drm/amd/powerplay/amdgpu_smu.c b/drivers/gpu/drm/amd/powerplay/amdgpu_smu.c
+index a48ca6a4353c..cc245f4c61ab 100644
+--- a/drivers/gpu/drm/amd/powerplay/amdgpu_smu.c
++++ b/drivers/gpu/drm/amd/powerplay/amdgpu_smu.c
+@@ -233,22 +233,22 @@ int smu_feature_init_dpm(struct smu_context *smu)
+ {
+ 	struct smu_feature *feature = &smu->smu_feature;
+ 	int ret = 0;
+-	uint32_t unallowed_feature_mask[SMU_FEATURE_MAX/32];
++	uint32_t allowed_feature_mask[SMU_FEATURE_MAX/32];
+ 
+ 	if (!smu->pm_enabled)
+ 		return ret;
+ 	mutex_lock(&feature->mutex);
+-	bitmap_fill(feature->allowed, SMU_FEATURE_MAX);
++	bitmap_zero(feature->allowed, SMU_FEATURE_MAX);
+ 	mutex_unlock(&feature->mutex);
+ 
+-	ret = smu_get_unallowed_feature_mask(smu, unallowed_feature_mask,
++	ret = smu_get_allowed_feature_mask(smu, allowed_feature_mask,
+ 					     SMU_FEATURE_MAX/32);
+ 	if (ret)
+ 		return ret;
+ 
+ 	mutex_lock(&feature->mutex);
+-	bitmap_andnot(feature->allowed, feature->allowed,
+-		      (unsigned long *)unallowed_feature_mask,
++	bitmap_or(feature->allowed, feature->allowed,
++		      (unsigned long *)allowed_feature_mask,
+ 		      feature->feature_num);
+ 	mutex_unlock(&feature->mutex);
+ 
+diff --git a/drivers/gpu/drm/amd/powerplay/inc/amdgpu_smu.h b/drivers/gpu/drm/amd/powerplay/inc/amdgpu_smu.h
+index 4ec643417b68..23324b9fb31b 100644
+--- a/drivers/gpu/drm/amd/powerplay/inc/amdgpu_smu.h
++++ b/drivers/gpu/drm/amd/powerplay/inc/amdgpu_smu.h
+@@ -421,7 +421,7 @@ struct pptable_funcs {
+ 	int (*append_powerplay_table)(struct smu_context *smu);
+ 	int (*get_smu_msg_index)(struct smu_context *smu, uint32_t index);
+ 	int (*run_afll_btc)(struct smu_context *smu);
+-	int (*get_unallowed_feature_mask)(struct smu_context *smu, uint32_t *feature_mask, uint32_t num);
++	int (*get_allowed_feature_mask)(struct smu_context *smu, uint32_t *feature_mask, uint32_t num);
+ 	enum amd_pm_state_type (*get_current_power_state)(struct smu_context *smu);
+ 	int (*set_default_dpm_table)(struct smu_context *smu);
+ 	int (*set_power_state)(struct smu_context *smu);
+@@ -703,8 +703,8 @@ struct smu_funcs
+ 	((smu)->ppt_funcs? ((smu)->ppt_funcs->get_smu_msg_index? (smu)->ppt_funcs->get_smu_msg_index((smu), (msg)) : -EINVAL) : -EINVAL)
+ #define smu_run_afll_btc(smu) \
+ 	((smu)->ppt_funcs? ((smu)->ppt_funcs->run_afll_btc? (smu)->ppt_funcs->run_afll_btc((smu)) : 0) : 0)
+-#define smu_get_unallowed_feature_mask(smu, feature_mask, num) \
+-	((smu)->ppt_funcs? ((smu)->ppt_funcs->get_unallowed_feature_mask? (smu)->ppt_funcs->get_unallowed_feature_mask((smu), (feature_mask), (num)) : 0) : 0)
++#define smu_get_allowed_feature_mask(smu, feature_mask, num) \
++	((smu)->ppt_funcs? ((smu)->ppt_funcs->get_allowed_feature_mask? (smu)->ppt_funcs->get_allowed_feature_mask((smu), (feature_mask), (num)) : 0) : 0)
+ #define smu_set_deep_sleep_dcefclk(smu, clk) \
+ 	((smu)->funcs->set_deep_sleep_dcefclk ? (smu)->funcs->set_deep_sleep_dcefclk((smu), (clk)) : 0)
+ #define smu_set_active_display_count(smu, count) \
+diff --git a/drivers/gpu/drm/amd/powerplay/navi10_ppt.c b/drivers/gpu/drm/amd/powerplay/navi10_ppt.c
+index 424b138eba2f..6c2000734f1f 100644
+--- a/drivers/gpu/drm/amd/powerplay/navi10_ppt.c
++++ b/drivers/gpu/drm/amd/powerplay/navi10_ppt.c
+@@ -112,15 +112,29 @@ static int navi10_get_smu_msg_index(struct smu_context *smc, uint32_t index)
+ 	return val;
+ }
+ 
++#define FEATURE_MASK(feature) (1UL << feature)
+ static int
+-navi10_get_unallowed_feature_mask(struct smu_context *smu,
++navi10_get_allowed_feature_mask(struct smu_context *smu,
+ 				  uint32_t *feature_mask, uint32_t num)
+ {
+ 	if (num > 2)
+ 		return -EINVAL;
+ 
+-	feature_mask[0] = 0xdc3f7f8c;
+-	feature_mask[1] = 0xfffffcec;	/* bit32~bit63 is Unsupported */
++	memset(feature_mask, 0, sizeof(uint32_t) * num);
++
++	*(uint64_t *)feature_mask |= FEATURE_MASK(FEATURE_DPM_SOCCLK_BIT)
++				| FEATURE_MASK(FEATURE_DPM_MP0CLK_BIT)
++				| FEATURE_MASK(FEATURE_DPM_LINK_BIT)
++				| FEATURE_MASK(FEATURE_GFX_ULV_BIT)
++				| FEATURE_MASK(FEATURE_RSMU_SMN_CG_BIT)
++				| FEATURE_MASK(FEATURE_PPT_BIT)
++				| FEATURE_MASK(FEATURE_TDC_BIT)
++				| FEATURE_MASK(FEATURE_GFX_EDC_BIT)
++				| FEATURE_MASK(FEATURE_VR0HOT_BIT)
++				| FEATURE_MASK(FEATURE_FAN_CONTROL_BIT)
++				| FEATURE_MASK(FEATURE_THERMAL_BIT)
++				| FEATURE_MASK(FEATURE_LED_DISPLAY_BIT)
++				| FEATURE_MASK(FEATURE_MMHUB_PG);
+ 
+ 	return 0;
+ }
+@@ -298,7 +312,7 @@ static const struct pptable_funcs navi10_ppt_funcs = {
+ 	.check_powerplay_table = navi10_check_powerplay_table,
+ 	.append_powerplay_table = navi10_append_powerplay_table,
+ 	.get_smu_msg_index = navi10_get_smu_msg_index,
+-	.get_unallowed_feature_mask = navi10_get_unallowed_feature_mask,
++	.get_allowed_feature_mask = navi10_get_allowed_feature_mask,
+ 	.set_default_dpm_table = navi10_set_default_dpm_table,
+ };
+ 
+diff --git a/drivers/gpu/drm/amd/powerplay/vega20_ppt.c b/drivers/gpu/drm/amd/powerplay/vega20_ppt.c
+index e070c7e7cdb7..7e6148ab134b 100644
+--- a/drivers/gpu/drm/amd/powerplay/vega20_ppt.c
++++ b/drivers/gpu/drm/amd/powerplay/vega20_ppt.c
+@@ -402,16 +402,42 @@ static int vega20_run_btc_afll(struct smu_context *smu)
+ 	return smu_send_smc_msg(smu, SMU_MSG_RunAfllBtc);
+ }
+ 
++#define FEATURE_MASK(feature) (1UL << feature)
+ static int
+-vega20_get_unallowed_feature_mask(struct smu_context *smu,
++vega20_get_allowed_feature_mask(struct smu_context *smu,
+ 				  uint32_t *feature_mask, uint32_t num)
+ {
+ 	if (num > 2)
+ 		return -EINVAL;
+ 
+-	feature_mask[0] = 0xE0041C00;
+-	feature_mask[1] = 0xFFFFFFFE; /* bit32~bit63 is Unsupported */
+-
++	memset(feature_mask, 0, sizeof(uint32_t) * num);
++
++	*(uint64_t *)feature_mask |= FEATURE_MASK(FEATURE_DPM_PREFETCHER_BIT)
++				| FEATURE_MASK(FEATURE_DPM_GFXCLK_BIT)
++				| FEATURE_MASK(FEATURE_DPM_UCLK_BIT)
++				| FEATURE_MASK(FEATURE_DPM_SOCCLK_BIT)
++				| FEATURE_MASK(FEATURE_DPM_UVD_BIT)
++				| FEATURE_MASK(FEATURE_DPM_VCE_BIT)
++				| FEATURE_MASK(FEATURE_ULV_BIT)
++				| FEATURE_MASK(FEATURE_DPM_MP0CLK_BIT)
++				| FEATURE_MASK(FEATURE_DPM_LINK_BIT)
++				| FEATURE_MASK(FEATURE_DPM_DCEFCLK_BIT)
++				| FEATURE_MASK(FEATURE_PPT_BIT)
++				| FEATURE_MASK(FEATURE_TDC_BIT)
++				| FEATURE_MASK(FEATURE_THERMAL_BIT)
++				| FEATURE_MASK(FEATURE_GFX_PER_CU_CG_BIT)
++				| FEATURE_MASK(FEATURE_RM_BIT)
++				| FEATURE_MASK(FEATURE_ACDC_BIT)
++				| FEATURE_MASK(FEATURE_VR0HOT_BIT)
++				| FEATURE_MASK(FEATURE_VR1HOT_BIT)
++				| FEATURE_MASK(FEATURE_FW_CTF_BIT)
++				| FEATURE_MASK(FEATURE_LED_DISPLAY_BIT)
++				| FEATURE_MASK(FEATURE_FAN_CONTROL_BIT)
++				| FEATURE_MASK(FEATURE_GFX_EDC_BIT)
++				| FEATURE_MASK(FEATURE_GFXOFF_BIT)
++				| FEATURE_MASK(FEATURE_CG_BIT)
++				| FEATURE_MASK(FEATURE_DPM_FCLK_BIT)
++				| FEATURE_MASK(FEATURE_XGMI_BIT);
+ 	return 0;
+ }
+ 
+@@ -2822,7 +2848,7 @@ static const struct pptable_funcs vega20_ppt_funcs = {
+ 	.append_powerplay_table = vega20_append_powerplay_table,
+ 	.get_smu_msg_index = vega20_get_smu_msg_index,
+ 	.run_afll_btc = vega20_run_btc_afll,
+-	.get_unallowed_feature_mask = vega20_get_unallowed_feature_mask,
++	.get_allowed_feature_mask = vega20_get_allowed_feature_mask,
+ 	.get_current_power_state = vega20_get_current_power_state,
+ 	.set_default_dpm_table = vega20_set_default_dpm_table,
+ 	.set_power_state = NULL,
+-- 
+2.17.1
+

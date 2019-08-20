@@ -1,0 +1,59 @@
+From a068822d41364fdf911eaba1ff44756a512a4923 Mon Sep 17 00:00:00 2001
+From: Roman Li <Roman.Li@amd.com>
+Date: Mon, 28 Jan 2019 10:59:34 -0500
+Subject: [PATCH 1263/2940] drm/amd/display: Raise dispclk value for dce11
+
+[Why]
+The visual corruption due to low display clock value.
+Observed on Carrizo 4K@60Hz.
+
+[How]
+There was earlier patch for dce_update_clocks:
+Adding +15% workaround also to to dce11_update_clocks
+
+Signed-off-by: Roman Li <Roman.Li@amd.com>
+Reviewed-by: Nicholas Kazlauskas <Nicholas.Kazlauskas@amd.com>
+Acked-by: Leo Li <sunpeng.li@amd.com>
+Signed-off-by: Chaudhary Amit Kumar <Chaudharyamit.Kumar@amd.com>
+---
+ drivers/gpu/drm/amd/display/dc/dce/dce_clk_mgr.c | 13 ++++++-------
+ 1 file changed, 6 insertions(+), 7 deletions(-)
+
+diff --git a/drivers/gpu/drm/amd/display/dc/dce/dce_clk_mgr.c b/drivers/gpu/drm/amd/display/dc/dce/dce_clk_mgr.c
+index e164d61951ea..75c2397e837b 100644
+--- a/drivers/gpu/drm/amd/display/dc/dce/dce_clk_mgr.c
++++ b/drivers/gpu/drm/amd/display/dc/dce/dce_clk_mgr.c
+@@ -693,10 +693,11 @@ static void dce11_update_clocks(struct clk_mgr *clk_mgr,
+ {
+ 	struct dce_clk_mgr *clk_mgr_dce = TO_DCE_CLK_MGR(clk_mgr);
+ 	struct dm_pp_power_level_change_request level_change_req;
+-        int unpatched_disp_clk = context->bw.dce.dispclk_khz;
++        int patched_disp_clk = context->bw.dce.dispclk_khz;
+ 
++        /*TODO: W/A for dal3 linux, investigate why this works */
+         if (!clk_mgr_dce->dfs_bypass_active)
+-                context->bw.dce.dispclk_khz = context->bw.dce.dispclk_khz * 115 / 100;
++                patched_disp_clk = patched_disp_clk * 115 / 100;
+ 
+ 	level_change_req.power_level = dce_get_required_clocks_state(clk_mgr, context);
+ 	/* get max clock state from PPLIB */
+@@ -706,13 +707,11 @@ static void dce11_update_clocks(struct clk_mgr *clk_mgr,
+ 			clk_mgr_dce->cur_min_clks_state = level_change_req.power_level;
+ 	}
+ 
+-	if (should_set_clock(safe_to_lower, context->bw.dce.dispclk_khz, clk_mgr->clks.dispclk_khz)) {
+-		context->bw.dce.dispclk_khz = dce_set_clock(clk_mgr, context->bw.dce.dispclk_khz);
+-		clk_mgr->clks.dispclk_khz = context->bw.dce.dispclk_khz;
++       if (should_set_clock(safe_to_lower, patched_disp_clk, clk_mgr->clks.dispclk_khz)) {
++               context->bw.dce.dispclk_khz = dce_set_clock(clk_mgr, patched_disp_clk);
++               clk_mgr->clks.dispclk_khz = patched_disp_clk;
+ 	}
+ 	dce11_pplib_apply_display_requirements(clk_mgr->ctx->dc, context);
+-
+-	context->bw.dce.dispclk_khz = unpatched_disp_clk;
+ }
+ 
+ static void dce112_update_clocks(struct clk_mgr *clk_mgr,
+-- 
+2.17.1
+

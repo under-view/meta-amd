@@ -1,0 +1,42 @@
+From 463bccd20cfbe01665c515ceb19961cedd52712c Mon Sep 17 00:00:00 2001
+From: wentalou <Wentao.Lou@amd.com>
+Date: Thu, 25 Apr 2019 12:43:04 +0800
+Subject: [PATCH 1835/2940] drm/amdgpu: value of amdgpu_sriov_vf cannot be set
+ into F32_POLL_ENABLE
+
+amdgpu_sriov_vf would return 0x0 or 0x4 to indicate if sriov.
+but F32_POLL_ENABLE need 0x0 or 0x1 to determine if enabled.
+set 0x4 into F32_POLL_ENABLE would make SDMA0_GFX_RB_WPTR_POLL_CNTL not working.
+
+Change-Id: I7d13ed35469ebd7bdf10c90341181977c6cfd38d
+Signed-off-by: Wentao Lou <Wentao.Lou@amd.com>
+Reviewed-by: Alex Deucher <alexander.deucher@amd.com>
+---
+ drivers/gpu/drm/amd/amdgpu/sdma_v4_0.c | 4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
+
+diff --git a/drivers/gpu/drm/amd/amdgpu/sdma_v4_0.c b/drivers/gpu/drm/amd/amdgpu/sdma_v4_0.c
+index 279e09f610a6..9b84ad39cb61 100644
+--- a/drivers/gpu/drm/amd/amdgpu/sdma_v4_0.c
++++ b/drivers/gpu/drm/amd/amdgpu/sdma_v4_0.c
+@@ -851,7 +851,7 @@ static void sdma_v4_0_gfx_resume(struct amdgpu_device *adev, unsigned int i)
+ 	wptr_poll_cntl = RREG32_SDMA(i, mmSDMA0_GFX_RB_WPTR_POLL_CNTL);
+ 	wptr_poll_cntl = REG_SET_FIELD(wptr_poll_cntl,
+ 				       SDMA0_GFX_RB_WPTR_POLL_CNTL,
+-				       F32_POLL_ENABLE, amdgpu_sriov_vf(adev));
++				       F32_POLL_ENABLE, amdgpu_sriov_vf(adev)? 1 : 0);
+ 	WREG32_SDMA(i, mmSDMA0_GFX_RB_WPTR_POLL_CNTL, wptr_poll_cntl);
+ 
+ 	/* enable DMA RB */
+@@ -944,7 +944,7 @@ static void sdma_v4_0_page_resume(struct amdgpu_device *adev, unsigned int i)
+ 	wptr_poll_cntl = RREG32_SDMA(i, mmSDMA0_PAGE_RB_WPTR_POLL_CNTL);
+ 	wptr_poll_cntl = REG_SET_FIELD(wptr_poll_cntl,
+ 				       SDMA0_PAGE_RB_WPTR_POLL_CNTL,
+-				       F32_POLL_ENABLE, amdgpu_sriov_vf(adev));
++				       F32_POLL_ENABLE, amdgpu_sriov_vf(adev)? 1 : 0);
+ 	WREG32_SDMA(i, mmSDMA0_PAGE_RB_WPTR_POLL_CNTL, wptr_poll_cntl);
+ 
+ 	/* enable DMA RB */
+-- 
+2.17.1
+

@@ -1,0 +1,31 @@
+From 98ceabb75648beeaf3a48d23a4bf107ee8a5ecfa Mon Sep 17 00:00:00 2001
+From: Shaoyun Liu <Shaoyun.Liu@amd.com>
+Date: Tue, 6 Feb 2018 15:37:53 -0500
+Subject: [PATCH 2698/2940] drm/amdgpu: Add vega20 support on kfd probe
+
+Add Vega20 support in amdgpu_amdkfd_device_probe.
+
+Signed-off-by: Shaoyun Liu <Shaoyun.Liu@amd.com>
+Acked-by: Alex Deucher <alexander.deucher@amd.com>
+Reviewed-by: Felix Kuehling <Felix.Kuehling@amd.com>
+Signed-off-by: Alex Deucher <alexander.deucher@amd.com>
+Signed-off-by: Felix Kuehling <Felix.Kuehling@amd.com>
+---
+ drivers/gpu/drm/amd/amdgpu/amdgpu_amdkfd.c | 1 +
+ 1 file changed, 1 insertion(+)
+
+diff --git a/drivers/gpu/drm/amd/amdgpu/amdgpu_amdkfd.c b/drivers/gpu/drm/amd/amdgpu/amdgpu_amdkfd.c
+index 9e6a4c42c233..3201afb6fa95 100644
+--- a/drivers/gpu/drm/amd/amdgpu/amdgpu_amdkfd.c
++++ b/drivers/gpu/drm/amd/amdgpu/amdgpu_amdkfd.c
+@@ -79,6 +79,7 @@ void amdgpu_amdkfd_device_probe(struct amdgpu_device *adev)
+ 		kfd2kgd = amdgpu_amdkfd_gfx_8_0_get_functions();
+ 		break;
+ 	case CHIP_VEGA10:
++	case CHIP_VEGA20:
+ 	case CHIP_RAVEN:
+ 		kfd2kgd = amdgpu_amdkfd_gfx_9_0_get_functions();
+ 		break;
+-- 
+2.17.1
+

@@ -1,0 +1,33 @@
+From 3fd67b5f392c329693b6cd39298a68227d117d7e Mon Sep 17 00:00:00 2001
+From: "Le.Ma" <Le.Ma@amd.com>
+Date: Thu, 26 Apr 2018 16:15:39 +0800
+Subject: [PATCH 2190/2940] drm/amdgpu: add fw load type flag for rlc autoload
+
+Add another firmware load type AMDGPU_FW_LOAD_RLC_AUTO to support firmware
+autoloading new feature in gfx10.
+
+This flag can be leveraged for future engines that need autoload fw.
+
+Signed-off-by: Le.Ma <Le.Ma@amd.com>
+Reviewed-by: Alex Deucher <alexander.deucher@amd.com>
+Reviewed-by: Hawking Zhang <Hawking.Zhang@amd.com>
+Signed-off-by: Alex Deucher <alexander.deucher@amd.com>
+---
+ drivers/gpu/drm/amd/amdgpu/amdgpu_ucode.h | 1 +
+ 1 file changed, 1 insertion(+)
+
+diff --git a/drivers/gpu/drm/amd/amdgpu/amdgpu_ucode.h b/drivers/gpu/drm/amd/amdgpu/amdgpu_ucode.h
+index 1347d3e3cea6..77ec68787c3e 100644
+--- a/drivers/gpu/drm/amd/amdgpu/amdgpu_ucode.h
++++ b/drivers/gpu/drm/amd/amdgpu/amdgpu_ucode.h
+@@ -238,6 +238,7 @@ enum amdgpu_firmware_load_type {
+ 	AMDGPU_FW_LOAD_DIRECT = 0,
+ 	AMDGPU_FW_LOAD_SMU,
+ 	AMDGPU_FW_LOAD_PSP,
++	AMDGPU_FW_LOAD_RLC_AUTO,
+ };
+ 
+ /* conform to smu_ucode_xfer_cz.h */
+-- 
+2.17.1
+

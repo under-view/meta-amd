@@ -1,0 +1,61 @@
+From 21f75646a6c6bf29ba39d15f4c0c11d9d4243718 Mon Sep 17 00:00:00 2001
+From: Nikola Cornij <nikola.cornij@amd.com>
+Date: Thu, 25 Oct 2018 17:02:42 -0400
+Subject: [PATCH 0802/2940] drm/amd/display: Consolidate
+ two-pixels-per-container check
+
+[why]
+The condition to check for two pixels per containter has become rather
+long and is used in number of places.
+
+[how]
+Move the check to a helper function.
+
+Signed-off-by: Nikola Cornij <nikola.cornij@amd.com>
+Reviewed-by: Eric Bernstein <Eric.Bernstein@amd.com>
+Acked-by: Bhawanpreet Lakha <Bhawanpreet.Lakha@amd.com>
+Signed-off-by: Alex Deucher <alexander.deucher@amd.com>
+---
+ drivers/gpu/drm/amd/display/dc/dcn10/dcn10_optc.c | 9 +++++++--
+ drivers/gpu/drm/amd/display/dc/dcn10/dcn10_optc.h | 2 ++
+ 2 files changed, 9 insertions(+), 2 deletions(-)
+
+diff --git a/drivers/gpu/drm/amd/display/dc/dcn10/dcn10_optc.c b/drivers/gpu/drm/amd/display/dc/dcn10/dcn10_optc.c
+index 7d1f66797cb3..7c76f4016ba8 100644
+--- a/drivers/gpu/drm/amd/display/dc/dcn10/dcn10_optc.c
++++ b/drivers/gpu/drm/amd/display/dc/dcn10/dcn10_optc.c
+@@ -335,9 +335,8 @@ void optc1_program_timing(
+ 	/* Enable stereo - only when we need to pack 3D frame. Other types
+ 	 * of stereo handled in explicit call
+ 	 */
+-	h_div_2 = (dc_crtc_timing->pixel_encoding == PIXEL_ENCODING_YCBCR420) ?
+-			1 : 0;
+ 
++	h_div_2 = optc1_is_two_pixels_per_containter(&patched_crtc_timing);
+ 	REG_UPDATE(OTG_H_TIMING_CNTL,
+ 			OTG_H_TIMING_DIV_BY2, h_div_2);
+ 
+@@ -1422,3 +1421,9 @@ void dcn10_timing_generator_init(struct optc *optc1)
+ 	optc1->min_h_sync_width = 8;
+ 	optc1->min_v_sync_width = 1;
+ }
++
++bool optc1_is_two_pixels_per_containter(const struct dc_crtc_timing *timing)
++{
++	return timing->pixel_encoding == PIXEL_ENCODING_YCBCR420;
++}
++
+diff --git a/drivers/gpu/drm/amd/display/dc/dcn10/dcn10_optc.h b/drivers/gpu/drm/amd/display/dc/dcn10/dcn10_optc.h
+index c1b114209fe8..8bacf0b6e27e 100644
+--- a/drivers/gpu/drm/amd/display/dc/dcn10/dcn10_optc.h
++++ b/drivers/gpu/drm/amd/display/dc/dcn10/dcn10_optc.h
+@@ -565,4 +565,6 @@ bool optc1_configure_crc(struct timing_generator *optc,
+ bool optc1_get_crc(struct timing_generator *optc,
+ 		    uint32_t *r_cr, uint32_t *g_y, uint32_t *b_cb);
+ 
++bool optc1_is_two_pixels_per_containter(const struct dc_crtc_timing *timing);
++
+ #endif /* __DC_TIMING_GENERATOR_DCN10_H__ */
+-- 
+2.17.1
+

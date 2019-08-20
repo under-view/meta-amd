@@ -1,0 +1,32 @@
+From e963cd1cddf71ccae8a15da696edad556358a547 Mon Sep 17 00:00:00 2001
+From: Leo Liu <leo.liu@amd.com>
+Date: Wed, 8 May 2019 11:05:11 -0400
+Subject: [PATCH 1936/2940] drm/amdgpu: add no_user_fence flag to ring funcs
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+So we can generalize the no user fence supported engine
+
+Signed-off-by: Leo Liu <leo.liu@amd.com>
+Reviewed-by: Alex Deucher <alexander.deucher@amd.com>
+Reviewed-by: Christian König <christian.koenig@amd.com>
+---
+ drivers/gpu/drm/amd/amdgpu/amdgpu_ring.h | 1 +
+ 1 file changed, 1 insertion(+)
+
+diff --git a/drivers/gpu/drm/amd/amdgpu/amdgpu_ring.h b/drivers/gpu/drm/amd/amdgpu/amdgpu_ring.h
+index d7fae2676269..cdddce938bf5 100644
+--- a/drivers/gpu/drm/amd/amdgpu/amdgpu_ring.h
++++ b/drivers/gpu/drm/amd/amdgpu/amdgpu_ring.h
+@@ -114,6 +114,7 @@ struct amdgpu_ring_funcs {
+ 	uint32_t		align_mask;
+ 	u32			nop;
+ 	bool			support_64bit_ptrs;
++	bool			no_user_fence;
+ 	unsigned		vmhub;
+ 	unsigned		extra_dw;
+ 
+-- 
+2.17.1
+

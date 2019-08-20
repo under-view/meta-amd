@@ -1,0 +1,28 @@
+From cb1e4e6d4afda7bfe22a4974605718c75d5ec86b Mon Sep 17 00:00:00 2001
+From: Oak Zeng <Oak.Zeng@amd.com>
+Date: Wed, 20 Mar 2019 16:04:10 -0500
+Subject: [PATCH 2936/2940] drm/amdgpu: Enable xgmi support for Arcturus
+
+Signed-off-by: Oak Zeng <Oak.Zeng@amd.com>
+Reviewed-by: Alex Deucher <alexander.deucher@amd.com>
+Signed-off-by: Alex Deucher <alexander.deucher@amd.com>
+---
+ drivers/gpu/drm/amd/amdgpu/soc15.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/drivers/gpu/drm/amd/amdgpu/soc15.c b/drivers/gpu/drm/amd/amdgpu/soc15.c
+index 8c881697d29b..fb4c7aac8d9e 100644
+--- a/drivers/gpu/drm/amd/amdgpu/soc15.c
++++ b/drivers/gpu/drm/amd/amdgpu/soc15.c
+@@ -592,7 +592,7 @@ int soc15_set_ip_blocks(struct amdgpu_device *adev)
+ 		return -EINVAL;
+ 	}
+ 
+-	if (adev->asic_type == CHIP_VEGA20)
++	if (adev->asic_type == CHIP_VEGA20 || adev->asic_type == CHIP_ARCTURUS)
+ 		adev->gmc.xgmi.supported = true;
+ 
+ 	if (adev->flags & AMD_IS_APU)
+-- 
+2.17.1
+

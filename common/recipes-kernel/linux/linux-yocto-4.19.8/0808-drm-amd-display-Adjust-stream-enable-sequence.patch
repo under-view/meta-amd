@@ -1,0 +1,48 @@
+From c7c33b89cdcad74af1fe1918da814bae5f6b2c2d Mon Sep 17 00:00:00 2001
+From: Joshua Aberback <joshua.aberback@amd.com>
+Date: Tue, 30 Oct 2018 15:34:33 -0400
+Subject: [PATCH 0808/2940] drm/amd/display: Adjust stream enable sequence
+
+[Why]
+We observed an issue where a display would not accept programming of
+the ignore_MSA_timing_param bit if the stream was blanked.
+
+[How]
+move enable_stream_features from enable_link_dp to
+core_link_enable_stream, after unblank_stream
+
+Signed-off-by: Joshua Aberback <joshua.aberback@amd.com>
+Reviewed-by: Jun Lei <Jun.Lei@amd.com>
+Acked-by: Anthony Koo <Anthony.Koo@amd.com>
+Acked-by: Bhawanpreet Lakha <Bhawanpreet.Lakha@amd.com>
+Signed-off-by: Alex Deucher <alexander.deucher@amd.com>
+---
+ drivers/gpu/drm/amd/display/dc/core/dc_link.c | 5 +++--
+ 1 file changed, 3 insertions(+), 2 deletions(-)
+
+diff --git a/drivers/gpu/drm/amd/display/dc/core/dc_link.c b/drivers/gpu/drm/amd/display/dc/core/dc_link.c
+index 6344613b82b3..7494ed791ef1 100644
+--- a/drivers/gpu/drm/amd/display/dc/core/dc_link.c
++++ b/drivers/gpu/drm/amd/display/dc/core/dc_link.c
+@@ -1396,8 +1396,6 @@ static enum dc_status enable_link_dp(
+ 	else
+ 		status = DC_FAIL_DP_LINK_TRAINING;
+ 
+-	enable_stream_features(pipe_ctx);
+-
+ 	return status;
+ }
+ 
+@@ -2594,6 +2592,9 @@ void core_link_enable_stream(
+ 		core_dc->hwss.unblank_stream(pipe_ctx,
+ 			&pipe_ctx->stream->sink->link->cur_link_settings);
+ 
++		if (dc_is_dp_signal(pipe_ctx->stream->signal))
++			enable_stream_features(pipe_ctx);
++
+ 		dc_link_set_backlight_level(pipe_ctx->stream->sink->link,
+ 				pipe_ctx->stream->bl_pwm_level,
+ 				0,
+-- 
+2.17.1
+

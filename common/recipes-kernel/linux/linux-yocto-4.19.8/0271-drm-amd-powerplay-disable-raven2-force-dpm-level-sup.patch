@@ -1,0 +1,43 @@
+From 06ed55c27de23dd49a891ae3f041366f58c2f69f Mon Sep 17 00:00:00 2001
+From: Evan Quan <evan.quan@amd.com>
+Date: Tue, 19 Jun 2018 10:41:00 -0500
+Subject: [PATCH 0271/2940] drm/amd/powerplay: disable raven2 force dpm level
+ support (v2)
+
+It's not supported yet.
+
+v2: rebase (Alex)
+
+Signed-off-by: Evan Quan <evan.quan@amd.com>
+Reviewed-by: Rex Zhu <Rex.Zhu@amd.com>
+Signed-off-by: Alex Deucher <alexander.deucher@amd.com>
+---
+ drivers/gpu/drm/amd/powerplay/hwmgr/smu10_hwmgr.c | 6 ++++++
+ 1 file changed, 6 insertions(+)
+
+diff --git a/drivers/gpu/drm/amd/powerplay/hwmgr/smu10_hwmgr.c b/drivers/gpu/drm/amd/powerplay/hwmgr/smu10_hwmgr.c
+index 5b55c709fb1c..9808bd48b386 100644
+--- a/drivers/gpu/drm/amd/powerplay/hwmgr/smu10_hwmgr.c
++++ b/drivers/gpu/drm/amd/powerplay/hwmgr/smu10_hwmgr.c
+@@ -551,12 +551,18 @@ static int smu10_dpm_force_dpm_level(struct pp_hwmgr *hwmgr,
+ 				enum amd_dpm_forced_level level)
+ {
+ 	struct smu10_hwmgr *data = hwmgr->backend;
++	struct amdgpu_device *adev = hwmgr->adev;
+ 
+ 	if (hwmgr->smu_version < 0x1E3700) {
+ 		pr_info("smu firmware version too old, can not set dpm level\n");
+ 		return 0;
+ 	}
+ 
++	/* Disable UMDPSTATE support on rv2 temporarily */
++	if ((adev->asic_type == CHIP_RAVEN) &&
++	    (adev->rev_id >= 8))
++		return 0;
++
+ 	switch (level) {
+ 	case AMD_DPM_FORCED_LEVEL_HIGH:
+ 	case AMD_DPM_FORCED_LEVEL_PROFILE_PEAK:
+-- 
+2.17.1
+

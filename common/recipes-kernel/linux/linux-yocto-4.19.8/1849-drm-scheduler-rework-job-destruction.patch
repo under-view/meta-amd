@@ -1,0 +1,377 @@
+From 2bfe4bc2722e55fabd84794561932669a1db4931 Mon Sep 17 00:00:00 2001
+From: =?UTF-8?q?Christian=20K=C3=B6nig?= <christian.koenig@amd.com>
+Date: Thu, 21 Mar 2019 13:08:07 +0100
+Subject: [PATCH 1849/2940] drm/scheduler: rework job destruction
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+We now destroy finished jobs from the worker thread to make sure that
+we never destroy a job currently in timeout processing.
+By this we avoid holding lock around ring mirror list in drm_sched_stop
+which should solve a deadlock reported by a user.
+
+v2: Remove unused variable.
+v4: Move guilty job free into sched code.
+v5:
+Move sched->hw_rq_count to drm_sched_start to account for counter
+decrement in drm_sched_stop even when we don't call resubmit jobs
+if guily job did signal.
+
+Bugzilla: https://bugs.freedesktop.org/show_bug.cgi?id=109692
+
+Signed-off-by: Christian König <christian.koenig@amd.com>
+Signed-off-by: Andrey Grodzovsky <andrey.grodzovsky@amd.com>
+Acked-by: Chunming Zhou <david1.zhou@amd.com>
+Signed-off-by: Chaudhary Amit Kumar <Chaudharyamit.Kumar@amd.com>
+---
+ drivers/gpu/drm/amd/amdgpu/amdgpu_device.c |   9 +-
+ drivers/gpu/drm/scheduler/sched_main.c     | 159 ++++++++++++---------
+ include/drm/gpu_scheduler.h                |   6 +-
+ 3 files changed, 99 insertions(+), 75 deletions(-)
+
+diff --git a/drivers/gpu/drm/amd/amdgpu/amdgpu_device.c b/drivers/gpu/drm/amd/amdgpu/amdgpu_device.c
+index dae5c4fb9f50..9b9744023785 100644
+--- a/drivers/gpu/drm/amd/amdgpu/amdgpu_device.c
++++ b/drivers/gpu/drm/amd/amdgpu/amdgpu_device.c
+@@ -3387,7 +3387,7 @@ static int amdgpu_device_pre_asic_reset(struct amdgpu_device *adev,
+ 		if (!ring || !ring->sched.thread)
+ 			continue;
+ 
+-		drm_sched_stop(&ring->sched);
++		drm_sched_stop(&ring->sched, &job->base);
+ 
+ 		/* after all hw jobs are reset, hw fence is meaningless, so force_completion */
+ 		amdgpu_fence_driver_force_completion(ring);
+@@ -3396,8 +3396,6 @@ static int amdgpu_device_pre_asic_reset(struct amdgpu_device *adev,
+ 	if(job)
+ 		drm_sched_increase_karma(&job->base);
+ 
+-
+-
+ 	if (!amdgpu_sriov_vf(adev)) {
+ 
+ 		if (!need_full_reset)
+@@ -3535,8 +3533,7 @@ static int amdgpu_do_asic_reset(struct amdgpu_hive_info *hive,
+ 	return r;
+ }
+ 
+-static void amdgpu_device_post_asic_reset(struct amdgpu_device *adev,
+-					  struct amdgpu_job *job)
++static void amdgpu_device_post_asic_reset(struct amdgpu_device *adev)
+ {
+ 	int i;
+ 
+@@ -3676,7 +3673,7 @@ int amdgpu_device_gpu_recover(struct amdgpu_device *adev,
+ 
+ 	/* Post ASIC reset for all devs .*/
+ 	list_for_each_entry(tmp_adev, device_list_handle, gmc.xgmi.head) {
+-		amdgpu_device_post_asic_reset(tmp_adev, tmp_adev == adev ? job : NULL);
++		amdgpu_device_post_asic_reset(tmp_adev);
+ 
+ 		if (r) {
+ 			/* bad news, how to tell it to userspace ? */
+diff --git a/drivers/gpu/drm/scheduler/sched_main.c b/drivers/gpu/drm/scheduler/sched_main.c
+index e97ddef5185e..423176f33684 100644
+--- a/drivers/gpu/drm/scheduler/sched_main.c
++++ b/drivers/gpu/drm/scheduler/sched_main.c
+@@ -267,32 +267,6 @@ void drm_sched_resume_timeout(struct drm_gpu_scheduler *sched,
+ }
+ EXPORT_SYMBOL(drm_sched_resume_timeout);
+ 
+-/* job_finish is called after hw fence signaled
+- */
+-static void drm_sched_job_finish(struct work_struct *work)
+-{
+-	struct drm_sched_job *s_job = container_of(work, struct drm_sched_job,
+-						   finish_work);
+-	struct drm_gpu_scheduler *sched = s_job->sched;
+-	unsigned long flags;
+-
+-	/*
+-	 * Canceling the timeout without removing our job from the ring mirror
+-	 * list is safe, as we will only end up in this worker if our jobs
+-	 * finished fence has been signaled. So even if some another worker
+-	 * manages to find this job as the next job in the list, the fence
+-	 * signaled check below will prevent the timeout to be restarted.
+-	 */
+-	cancel_delayed_work_sync(&sched->work_tdr);
+-
+-	spin_lock_irqsave(&sched->job_list_lock, flags);
+-	/* queue TDR for next job */
+-	drm_sched_start_timeout(sched);
+-	spin_unlock_irqrestore(&sched->job_list_lock, flags);
+-
+-	sched->ops->free_job(s_job);
+-}
+-
+ static void drm_sched_job_begin(struct drm_sched_job *s_job)
+ {
+ 	struct drm_gpu_scheduler *sched = s_job->sched;
+@@ -317,6 +291,13 @@ static void drm_sched_job_timedout(struct work_struct *work)
+ 	if (job)
+ 		job->sched->ops->timedout_job(job);
+ 
++	/*
++	 * Guilty job did complete and hence needs to be manually removed
++	 * See drm_sched_stop doc.
++	 */
++	if (list_empty(&job->node))
++		job->sched->ops->free_job(job);
++
+ 	spin_lock_irqsave(&sched->job_list_lock, flags);
+ 	drm_sched_start_timeout(sched);
+ 	spin_unlock_irqrestore(&sched->job_list_lock, flags);
+@@ -373,24 +354,26 @@ EXPORT_SYMBOL(drm_sched_increase_karma);
+  *
+  * @sched: scheduler instance
+  *
++ * Stop the scheduler and also removes and frees all completed jobs.
++ * Note: bad job will not be freed as it might be used later and so it's
++ * callers responsibility to release it manually if it's not part of the
++ * mirror list any more.
++ *
+  */
+-void drm_sched_stop(struct drm_gpu_scheduler *sched)
++void drm_sched_stop(struct drm_gpu_scheduler *sched, struct drm_sched_job *bad)
+ {
+-	struct drm_sched_job *s_job;
++	struct drm_sched_job *s_job, *tmp;
+ 	unsigned long flags;
+-        struct dma_fence *last_fence =  NULL;
+ 
+         kthread_park(sched->thread);
+ 
+         /*
+-         * Verify all the signaled jobs in mirror list are removed from the ring
+-         * by waiting for the latest job to enter the list. This should insure that
+-         * also all the previous jobs that were in flight also already singaled
+-         * and removed from the list.
++         * Iterate the job list from later to  earlier one and either deactive
++         * their HW callbacks or remove them from mirror list if they already
++         * signaled.
++         * This iteration is thread safe as sched thread is stopped.
+          */
+-
+-	spin_lock_irqsave(&sched->job_list_lock, flags);
+-	list_for_each_entry_reverse(s_job, &sched->ring_mirror_list, node) {
++	list_for_each_entry_safe_reverse(s_job, tmp, &sched->ring_mirror_list, node) {
+ 		if (s_job->s_fence->parent &&
+ 		    dma_fence_remove_callback(s_job->s_fence->parent,
+ 					      &s_job->cb)) {
+@@ -398,16 +381,30 @@ void drm_sched_stop(struct drm_gpu_scheduler *sched)
+ 			s_job->s_fence->parent = NULL;
+ 			atomic_dec(&sched->hw_rq_count);
+ 		} else {
+-                        last_fence = dma_fence_get(&s_job->s_fence->finished);
+-                        break;
++                        /*
++                         * remove job from ring_mirror_list.
++                         * Locking here is for concurrent resume timeout
++                         */
++                        spin_lock_irqsave(&sched->job_list_lock, flags);
++                        list_del_init(&s_job->node);
++                        spin_unlock_irqrestore(&sched->job_list_lock, flags);
++
++                        /*
++                         * Wait for job's HW fence callback to finish using s_job
++                         * before releasing it.
++                         *
++                         * Job is still alive so fence refcount at least 1
++                         */
++                        dma_fence_wait(&s_job->s_fence->finished, false);
++
++                        /*
++                         * We must keep bad job alive for later use during
++                         * recovery by some of the drivers
++                         */
++                        if (bad != s_job)
++                                sched->ops->free_job(s_job);
+ 		}
+ 	}
+-	spin_unlock_irqrestore(&sched->job_list_lock, flags);
+-
+-        if (last_fence) {
+-                dma_fence_wait(last_fence, false);
+-                dma_fence_put(last_fence);
+-	}
+ }
+ 
+ EXPORT_SYMBOL(drm_sched_stop);
+@@ -421,21 +418,24 @@ EXPORT_SYMBOL(drm_sched_stop);
+ void drm_sched_start(struct drm_gpu_scheduler *sched, bool full_recovery)
+ {
+ 	struct drm_sched_job *s_job, *tmp;
++	unsigned long flags;
+ 	int r;
+ 
+-        if (!full_recovery)
+-                goto unpark;
+ 
+         /*
+          * Locking the list is not required here as the sched thread is parked
+-         * so no new jobs are being pushed in to HW and in drm_sched_stop we
+-         * flushed all the jobs who were still in mirror list but who already
+-         * signaled and removed them self from the list. Also concurrent
++	 * so no new jobs are being inserted or removed. Also concurrent
+          * GPU recovers can't run in parallel.
+          */
+ 
+ 	list_for_each_entry_safe(s_job, tmp, &sched->ring_mirror_list, node) {
+ 		struct dma_fence *fence = s_job->s_fence->parent;
++
++                atomic_inc(&sched->hw_rq_count);
++
++                if (!full_recovery)
++                        continue;
++
+ 		if (fence) {
+ 			r = dma_fence_add_callback(fence, &s_job->cb,
+ 						   drm_sched_process_job);
+@@ -447,7 +447,11 @@ void drm_sched_start(struct drm_gpu_scheduler *sched, bool full_recovery)
+ 		} else 
+ 			drm_sched_process_job(NULL, &s_job->cb);
+ 	}
+-	drm_sched_start_timeout(sched);
++        if (full_recovery) {
++                spin_lock_irqsave(&sched->job_list_lock, flags);
++                drm_sched_start_timeout(sched);
++                spin_unlock_irqrestore(&sched->job_list_lock, flags);
++        }
+ 
+ unpark:
+         kthread_unpark(sched->thread);
+@@ -466,7 +470,6 @@ void drm_sched_resubmit_jobs(struct drm_gpu_scheduler *sched)
+         uint64_t guilty_context;
+         bool found_guilty = false;
+ 
+-        /*TODO DO we need spinlock here ? */
+         list_for_each_entry_safe(s_job, tmp, &sched->ring_mirror_list, node) {
+                 struct drm_sched_fence *s_fence = s_job->s_fence;
+ 
+@@ -479,7 +482,6 @@ void drm_sched_resubmit_jobs(struct drm_gpu_scheduler *sched)
+                         dma_fence_set_error(&s_fence->finished, -ECANCELED);
+ 
+                 s_job->s_fence->parent = sched->ops->run_job(s_job);
+-                atomic_inc(&sched->hw_rq_count);
+         }
+ }
+ EXPORT_SYMBOL(drm_sched_resubmit_jobs);
+@@ -516,7 +518,6 @@ int drm_sched_job_init(struct drm_sched_job *job,
+ 		return -ENOMEM;
+ 	job->id = atomic64_inc_return(&sched->job_id_count);
+ 
+-	INIT_WORK(&job->finish_work, drm_sched_job_finish);
+ 	INIT_LIST_HEAD(&job->node);
+ 
+ 	return 0;
+@@ -599,24 +600,53 @@ static void drm_sched_process_job(struct dma_fence *f, struct dma_fence_cb *cb)
+ 	struct drm_sched_job *s_job = container_of(cb, struct drm_sched_job, cb);
+ 	struct drm_sched_fence *s_fence = s_job->s_fence;
+ 	struct drm_gpu_scheduler *sched = s_fence->sched;
+-	unsigned long flags;
+-
+-	cancel_delayed_work(&sched->work_tdr);
+ 
+ 	atomic_dec(&sched->hw_rq_count);
+ 	atomic_dec(&sched->num_jobs);
+ 
+-	spin_lock_irqsave(&sched->job_list_lock, flags);
+-	/* remove job from ring_mirror_list */
+-	list_del_init(&s_job->node);
+-	spin_unlock_irqrestore(&sched->job_list_lock, flags);
++	trace_drm_sched_process_job(s_fence);
+ 
+ 	drm_sched_fence_finished(s_fence);
+-
+-	trace_drm_sched_process_job(s_fence);
+ 	wake_up_interruptible(&sched->wake_up_worker);
++}
++
++/**
++ * drm_sched_cleanup_jobs - destroy finished jobs
++ *
++ * @sched: scheduler instance
++ *
++ * Remove all finished jobs from the mirror list and destroy them.
++ */
++static void drm_sched_cleanup_jobs(struct drm_gpu_scheduler *sched)
++{
++	unsigned long flags;
++
++	/* Don't destroy jobs while the timeout worker is running */
++	if (!cancel_delayed_work(&sched->work_tdr))
++		return;
++
++
++	while (!list_empty(&sched->ring_mirror_list)) {
++		struct drm_sched_job *job;
++
++		job = list_first_entry(&sched->ring_mirror_list,
++				       struct drm_sched_job, node);
++		if (!dma_fence_is_signaled(&job->s_fence->finished))
++			break;
++
++		spin_lock_irqsave(&sched->job_list_lock, flags);
++		/* remove job from ring_mirror_list */
++		list_del_init(&job->node);
++		spin_unlock_irqrestore(&sched->job_list_lock, flags);
++
++		sched->ops->free_job(job);
++	}
++
++	/* queue timeout for next job */
++	spin_lock_irqsave(&sched->job_list_lock, flags);
++	drm_sched_start_timeout(sched);
++	spin_unlock_irqrestore(&sched->job_list_lock, flags);
+ 
+-	schedule_work(&s_job->finish_work);
+ }
+ 
+ /**
+@@ -658,9 +688,10 @@ static int drm_sched_main(void *param)
+ 		struct dma_fence *fence;
+ 
+ 		wait_event_interruptible(sched->wake_up_worker,
++					 (drm_sched_cleanup_jobs(sched),
+ 					 (!drm_sched_blocked(sched) &&
+ 					  (entity = drm_sched_select_entity(sched))) ||
+-					 kthread_should_stop());
++					 kthread_should_stop()));
+ 
+ 		if (!entity)
+ 			continue;
+diff --git a/include/drm/gpu_scheduler.h b/include/drm/gpu_scheduler.h
+index d1d7fe467787..ca71df7da495 100644
+--- a/include/drm/gpu_scheduler.h
++++ b/include/drm/gpu_scheduler.h
+@@ -164,9 +164,6 @@ struct drm_sched_fence *to_drm_sched_fence(struct dma_fence *f);
+  * @sched: the scheduler instance on which this job is scheduled.
+  * @s_fence: contains the fences for the scheduling of job.
+  * @finish_cb: the callback for the finished fence.
+- * @finish_work: schedules the function @drm_sched_job_finish once the job has
+- *               finished to remove the job from the
+- *               @drm_gpu_scheduler.ring_mirror_list.
+  * @node: used to append this struct to the @drm_gpu_scheduler.ring_mirror_list.
+  * @id: a unique id assigned to each job scheduled on the scheduler.
+  * @karma: increment on every hang caused by this job. If this exceeds the hang
+@@ -185,7 +182,6 @@ struct drm_sched_job {
+ 	struct drm_gpu_scheduler	*sched;
+ 	struct drm_sched_fence		*s_fence;
+ 	struct dma_fence_cb		finish_cb;
+-	struct work_struct		finish_work;
+ 	struct list_head		node;
+ 	uint64_t			id;
+ 	atomic_t			karma;
+@@ -293,7 +289,7 @@ int drm_sched_job_init(struct drm_sched_job *job,
+ 		       void *owner);
+ void drm_sched_job_cleanup(struct drm_sched_job *job);
+ void drm_sched_wakeup(struct drm_gpu_scheduler *sched);
+-void drm_sched_stop(struct drm_gpu_scheduler *sched);
++void drm_sched_stop(struct drm_gpu_scheduler *sched, struct drm_sched_job *bad);
+ void drm_sched_start(struct drm_gpu_scheduler *sched, bool full_recovery);
+ void drm_sched_resubmit_jobs(struct drm_gpu_scheduler *sched);
+ void drm_sched_increase_karma(struct drm_sched_job *bad);
+-- 
+2.17.1
+

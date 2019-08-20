@@ -1,0 +1,49 @@
+From 36ede9fedf0dda55c16a118a7007361b3b03f0d3 Mon Sep 17 00:00:00 2001
+From: Xiaojie Yuan <xiaojie.yuan@amd.com>
+Date: Wed, 27 Mar 2019 12:29:49 +0800
+Subject: [PATCH 2228/2940] drm/amdgpu/discovery: use hardcoded
+ mmRCC_CONFIG_MEMSIZE
+
+register base offset of nbio is not known before IP Discovery table is
+parsed, so hardcode this value.
+
+Signed-off-by: Xiaojie Yuan <xiaojie.yuan@amd.com>
+Reviewed-by: Hawking Zhang <Hawking.Zhang@amd.com>
+Signed-off-by: Alex Deucher <alexander.deucher@amd.com>
+---
+ drivers/gpu/drm/amd/amdgpu/amdgpu_discovery.c | 12 ++++++------
+ 1 file changed, 6 insertions(+), 6 deletions(-)
+
+diff --git a/drivers/gpu/drm/amd/amdgpu/amdgpu_discovery.c b/drivers/gpu/drm/amd/amdgpu/amdgpu_discovery.c
+index f61eb8542c4d..ac065ab91c4b 100644
+--- a/drivers/gpu/drm/amd/amdgpu/amdgpu_discovery.c
++++ b/drivers/gpu/drm/amd/amdgpu/amdgpu_discovery.c
+@@ -28,10 +28,11 @@
+ #include "nbio/nbio_2_3_offset.h"
+ #include "discovery.h"
+ 
+-#define mmMM_INDEX	0x0
+-#define mmMM_INDEX_HI	0x6
+-#define mmMM_DATA	0x1
+-#define HW_ID_MAX	300
++#define mmRCC_CONFIG_MEMSIZE	0xde3
++#define mmMM_INDEX		0x0
++#define mmMM_INDEX_HI		0x6
++#define mmMM_DATA		0x1
++#define HW_ID_MAX		300
+ 
+ const char *hw_id_names[HW_ID_MAX] = {
+ 	[MP1_HWID]		= "MP1",
+@@ -134,8 +135,7 @@ static int hw_id_map[MAX_HWIP] = {
+ static int amdgpu_discovery_read_binary(struct amdgpu_device *adev, uint8_t *binary)
+ {
+ 	uint32_t *p = (uint32_t *)binary;
+-	uint64_t vram_size = RREG32_SOC15(NBIO, 0,
+-			mmRCC_DEV0_EPF0_RCC_CONFIG_MEMSIZE) * 1024 * 1024;
++	uint64_t vram_size = (uint64_t)RREG32(mmRCC_CONFIG_MEMSIZE) << 20;
+ 	uint64_t pos = vram_size - BINARY_MAX_SIZE;
+ 	unsigned long flags;
+ 
+-- 
+2.17.1
+

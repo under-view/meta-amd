@@ -1,0 +1,38 @@
+From 52682b3da751f075fb63d19b0a0136aa8993d6ec Mon Sep 17 00:00:00 2001
+From: YueHaibing <yuehaibing@huawei.com>
+Date: Tue, 9 Oct 2018 01:53:00 +0000
+Subject: [PATCH 2701/2940] drm/amdkfd: Remove set but not used variable
+ 'preempt_all_queues'
+
+Fixes gcc '-Wunused-but-set-variable' warning:
+
+drivers/gpu/drm/amd/amdkfd/kfd_device_queue_manager.c: In function 'destroy_queue_cpsch':
+drivers/gpu/drm/amd/amdkfd/kfd_device_queue_manager.c:1366:7: warning:
+ variable 'preempt_all_queues' set but not used [-Wunused-but-set-variable]
+
+It never used since introduct in
+commit 992839ad64f2 ("drm/amdkfd: Add static user-mode queues support")
+
+Signed-off-by: YueHaibing <yuehaibing@huawei.com>
+Signed-off-by: Alex Deucher <alexander.deucher@amd.com>
+---
+ drivers/gpu/drm/amd/amdkfd/kfd_device_queue_manager.c | 3 ---
+ 1 file changed, 3 deletions(-)
+
+diff --git a/drivers/gpu/drm/amd/amdkfd/kfd_device_queue_manager.c b/drivers/gpu/drm/amd/amdkfd/kfd_device_queue_manager.c
+index 3bc0651d3bcc..a3b933967171 100644
+--- a/drivers/gpu/drm/amd/amdkfd/kfd_device_queue_manager.c
++++ b/drivers/gpu/drm/amd/amdkfd/kfd_device_queue_manager.c
+@@ -1364,9 +1364,6 @@ static int destroy_queue_cpsch(struct device_queue_manager *dqm,
+ {
+ 	int retval;
+ 	struct mqd_manager *mqd_mgr;
+-	bool preempt_all_queues;
+-
+-	preempt_all_queues = false;
+ 
+ 	retval = 0;
+ 
+-- 
+2.17.1
+

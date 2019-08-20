@@ -1,0 +1,118 @@
+From f6c3c7ee2f4eaca508fb80826387d21b6d05cc81 Mon Sep 17 00:00:00 2001
+From: Hawking Zhang <Hawking.Zhang@amd.com>
+Date: Wed, 24 Oct 2018 19:41:13 +0800
+Subject: [PATCH 2202/2940] drm/amdgpu/psp: start rlc autoload after psp
+ recieved all gfx firmware
+
+Signed-off-by: Hawking Zhang <Hawking.Zhang@amd.com>
+Reviewed-by: Le Ma <Le.Ma@amd.com>
+Signed-off-by: Alex Deucher <alexander.deucher@amd.com>
+---
+ drivers/gpu/drm/amd/amdgpu/amdgpu_psp.c | 28 +++++++++++++++++++++++++
+ drivers/gpu/drm/amd/amdgpu/amdgpu_psp.h |  5 +++++
+ drivers/gpu/drm/amd/amdgpu/psp_v11_0.c  |  6 ++++++
+ 3 files changed, 39 insertions(+)
+
+diff --git a/drivers/gpu/drm/amd/amdgpu/amdgpu_psp.c b/drivers/gpu/drm/amd/amdgpu/amdgpu_psp.c
+index a176e65108a0..853437adf2a5 100644
+--- a/drivers/gpu/drm/amd/amdgpu/amdgpu_psp.c
++++ b/drivers/gpu/drm/amd/amdgpu/amdgpu_psp.c
+@@ -934,6 +934,14 @@ static int psp_np_fw_load(struct psp_context *psp)
+ 		if (ret)
+ 			return ret;
+ 
++		/* Start rlc autoload after psp recieved all the gfx firmware */
++		if (ucode->ucode_id == AMDGPU_UCODE_ID_RLC_RESTORE_LIST_SRM_MEM) {
++			ret = psp_rlc_autoload(psp);
++			if (ret) {
++				DRM_ERROR("Failed to start rlc autoload\n");
++				return ret;
++			}
++		}
+ #if 0
+ 		/* check if firmware loaded sucessfully */
+ 		if (!amdgpu_psp_check_fw_loading_status(adev, i))
+@@ -1151,6 +1159,26 @@ int psp_gpu_reset(struct amdgpu_device *adev)
+ 	return psp_mode1_reset(&adev->psp);
+ }
+ 
++int psp_rlc_autoload_start(struct psp_context *psp)
++{
++	int ret;
++	struct psp_gfx_cmd_resp *cmd;
++
++	if (amdgpu_sriov_vf(psp->adev))
++		return 0;
++
++	cmd = kzalloc(sizeof(struct psp_gfx_cmd_resp), GFP_KERNEL);
++	if (!cmd)
++		return -ENOMEM;
++
++	cmd->cmd_id = GFX_CMD_ID_AUTOLOAD_RLC;
++
++	ret = psp_cmd_submit_buf(psp, NULL, cmd,
++				 psp->fence_buf_mc_addr);
++	kfree(cmd);
++	return ret;
++}
++
+ static bool psp_check_fw_loading_status(struct amdgpu_device *adev,
+ 					enum AMDGPU_UCODE_ID ucode_type)
+ {
+diff --git a/drivers/gpu/drm/amd/amdgpu/amdgpu_psp.h b/drivers/gpu/drm/amd/amdgpu/amdgpu_psp.h
+index c222edf992bc..fbf32852cf9c 100644
+--- a/drivers/gpu/drm/amd/amdgpu/amdgpu_psp.h
++++ b/drivers/gpu/drm/amd/amdgpu/amdgpu_psp.h
+@@ -101,6 +101,7 @@ struct psp_funcs
+ 	int (*ras_trigger_error)(struct psp_context *psp,
+ 			struct ta_ras_trigger_error_input *info);
+ 	int (*ras_cure_posion)(struct psp_context *psp, uint64_t *mode_ptr);
++	int (*rlc_autoload_start)(struct psp_context *psp);
+ };
+ 
+ #define AMDGPU_XGMI_MAX_CONNECTED_NODES		64
+@@ -236,6 +237,8 @@ struct amdgpu_psp_funcs {
+ #define psp_xgmi_set_topology_info(psp, num_device, topology) \
+ 		((psp)->funcs->xgmi_set_topology_info ?	 \
+ 		(psp)->funcs->xgmi_set_topology_info((psp), (num_device), (topology)) : -EINVAL)
++#define psp_rlc_autoload(psp) \
++		((psp)->funcs->rlc_autoload_start ? (psp)->funcs->rlc_autoload_start((psp)) : 0)
+ 
+ #define amdgpu_psp_check_fw_loading_status(adev, i) (adev)->firmware.funcs->check_fw_loading_status((adev), (i))
+ 
+@@ -261,6 +264,8 @@ int psp_ras_invoke(struct psp_context *psp, uint32_t ta_cmd_id);
+ int psp_ras_enable_features(struct psp_context *psp,
+ 		union ta_ras_cmd_input *info, bool enable);
+ 
++int psp_rlc_autoload_start(struct psp_context *psp);
++
+ extern const struct amdgpu_ip_block_version psp_v11_0_ip_block;
+ int psp_reg_program(struct psp_context *psp, enum psp_reg_prog_id reg,
+ 		uint32_t value);
+diff --git a/drivers/gpu/drm/amd/amdgpu/psp_v11_0.c b/drivers/gpu/drm/amd/amdgpu/psp_v11_0.c
+index 2c06b66ac686..b7b4acd11470 100644
+--- a/drivers/gpu/drm/amd/amdgpu/psp_v11_0.c
++++ b/drivers/gpu/drm/amd/amdgpu/psp_v11_0.c
+@@ -819,6 +819,11 @@ static int psp_v11_0_ras_cure_posion(struct psp_context *psp, uint64_t *mode_ptr
+ #endif
+ }
+ 
++static int psp_v11_0_rlc_autoload_start(struct psp_context *psp)
++{
++        return psp_rlc_autoload_start(psp);
++}
++
+ static const struct psp_funcs psp_v11_0_funcs = {
+ 	.init_microcode = psp_v11_0_init_microcode,
+ 	.bootloader_load_sysdrv = psp_v11_0_bootloader_load_sysdrv,
+@@ -837,6 +842,7 @@ static const struct psp_funcs psp_v11_0_funcs = {
+ 	.support_vmr_ring = psp_v11_0_support_vmr_ring,
+ 	.ras_trigger_error = psp_v11_0_ras_trigger_error,
+ 	.ras_cure_posion = psp_v11_0_ras_cure_posion,
++	.rlc_autoload_start = psp_v11_0_rlc_autoload_start,
+ };
+ 
+ void psp_v11_0_set_psp_funcs(struct psp_context *psp)
+-- 
+2.17.1
+

@@ -1,0 +1,110 @@
+From 8897efde2061d6767fe60ae7658340d74c7cd082 Mon Sep 17 00:00:00 2001
+From: Nicholas Kazlauskas <nicholas.kazlauskas@amd.com>
+Date: Thu, 14 Mar 2019 12:53:12 -0400
+Subject: [PATCH 1658/2940] drm/amd/display: Only put primary planes into the
+ mode_info->planes list
+
+We want DRM planes to be initialized in the following order:
+
+- primary planes
+- overlay planes
+- cursor planes
+
+to support existing userspace expectations for plane z-ordering. This
+means that we also need to register CRTCs after all planes have been
+initialized since overlay planes can be placed on any CRTC.
+
+So the only reason why we have the mode_info->planes list is to
+remember the primary planes for use later when we need to register
+the CRTC.
+
+Overlay planes have no purpose being in this list. DRM will cleanup
+any planes that we've registered for us, so the only planes that need to
+be explicitly cleaned up are the ones that have failed to register.
+
+By dropping the explicit free on every plane in the mode_info->planes
+list this patch also fixes a double-free in the case where we fail to
+initialize only some of the planes.
+
+Cc: Leo Li <sunpeng.li@amd.com>
+Cc: Harry Wentland <harry.wentland@amd.com>
+Signed-off-by: Nicholas Kazlauskas <nicholas.kazlauskas@amd.com>
+Reviewed-by: Harry Wentland <harry.wentland@amd.com>
+Signed-off-by: Chaudhary Amit Kumar <Chaudharyamit.Kumar@amd.com>
+---
+ .../gpu/drm/amd/display/amdgpu_dm/amdgpu_dm.c  | 18 +++++++++---------
+ 1 file changed, 9 insertions(+), 9 deletions(-)
+
+diff --git a/drivers/gpu/drm/amd/display/amdgpu_dm/amdgpu_dm.c b/drivers/gpu/drm/amd/display/amdgpu_dm/amdgpu_dm.c
+index 8e090c6957df..11e41a0f54d4 100644
+--- a/drivers/gpu/drm/amd/display/amdgpu_dm/amdgpu_dm.c
++++ b/drivers/gpu/drm/amd/display/amdgpu_dm/amdgpu_dm.c
+@@ -1821,8 +1821,6 @@ static int initialize_plane(struct amdgpu_display_manager *dm,
+ 	int ret = 0;
+ 
+ 	plane = kzalloc(sizeof(struct drm_plane), GFP_KERNEL);
+-	mode_info->planes[plane_id] = plane;
+-
+ 	if (!plane) {
+ 		DRM_ERROR("KMS: Failed to allocate plane\n");
+ 		return -ENOMEM;
+@@ -1840,13 +1838,17 @@ static int initialize_plane(struct amdgpu_display_manager *dm,
+ 	if (plane_id >= dm->dc->caps.max_streams)
+ 		possible_crtcs = 0xff;
+ 
+-	ret = amdgpu_dm_plane_init(dm, mode_info->planes[plane_id], possible_crtcs);
++	ret = amdgpu_dm_plane_init(dm, plane, possible_crtcs);
+ 
+ 	if (ret) {
+ 		DRM_ERROR("KMS: Failed to initialize plane\n");
++		kfree(plane);
+ 		return ret;
+ 	}
+ 
++	if (mode_info)
++		mode_info->planes[plane_id] = plane;
++
+ 	return ret;
+ }
+ 
+@@ -1889,7 +1891,7 @@ static int amdgpu_dm_initialize_drm_device(struct amdgpu_device *adev)
+ 	struct amdgpu_encoder *aencoder = NULL;
+ 	struct amdgpu_mode_info *mode_info = &adev->mode_info;
+ 	uint32_t link_cnt;
+-	int32_t overlay_planes, primary_planes, total_planes;
++	int32_t overlay_planes, primary_planes;
+ 	enum dc_connection_type new_connection_type = dc_connection_none;
+ 
+ 	link_cnt = dm->dc->caps.max_links;
+@@ -1918,8 +1920,7 @@ static int amdgpu_dm_initialize_drm_device(struct amdgpu_device *adev)
+ 
+         /* There is one primary plane per CRTC */
+         primary_planes = dm->dc->caps.max_streams;
+-        total_planes = primary_planes + overlay_planes;
+-        ASSERT(total_planes <= AMDGPU_MAX_PLANES);
++        ASSERT(primary_planes <= AMDGPU_MAX_PLANES);
+ 
+         /*
+          * Initialize primary planes, implicit planes for legacy IOCTLS.
+@@ -1941,7 +1942,7 @@ static int amdgpu_dm_initialize_drm_device(struct amdgpu_device *adev)
+ 	 * Order is reversed to match iteration order in atomic check.
+ 	 */
+ 	for (i = (overlay_planes - 1); i >= 0; i--) {
+-		if (initialize_plane(dm, mode_info, primary_planes + i,
++		if (initialize_plane(dm, NULL, primary_planes + i,
+ 				     DRM_PLANE_TYPE_OVERLAY)) {
+ 			DRM_ERROR("KMS: Failed to initialize overlay plane\n");
+ 			goto fail;
+@@ -2046,8 +2047,7 @@ static int amdgpu_dm_initialize_drm_device(struct amdgpu_device *adev)
+ fail:
+ 	kfree(aencoder);
+ 	kfree(aconnector);
+-	for (i = 0; i < primary_planes; i++)
+-		kfree(mode_info->planes[i]);
++
+ 	return -EINVAL;
+ }
+ 
+-- 
+2.17.1
+

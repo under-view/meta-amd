@@ -1,0 +1,134 @@
+From 4cb5fdda3ee3a1ecdfca187110195a716f8296d7 Mon Sep 17 00:00:00 2001
+From: Harish Kasiviswanathan <Harish.Kasiviswanathan@amd.com>
+Date: Fri, 25 Jan 2019 16:35:35 -0500
+Subject: [PATCH 2742/2940] drm/amdkfd: Ref. count compute profile switching
+
+Currently, compute profile is activated when first queue of a process is
+created. However, there are rare cases (e.g. RDMA) where no user mode
+queues are created and GPU just acts as a slave device.
+
+Add a dedicated reference counter to keep track of entry/exit to/from
+compute profile. These entry/exit functions can be called from any
+context.
+
+Change-Id: I12ed5797c2f70d0fb639176365c93bca611a8975
+Signed-off-by: Harish Kasiviswanathan <Harish.Kasiviswanathan@amd.com>
+---
+ drivers/gpu/drm/amd/amdkfd/kfd_device.c       | 16 ++++++++++++++++
+ .../drm/amd/amdkfd/kfd_device_queue_manager.c | 19 ++++++++-----------
+ drivers/gpu/drm/amd/amdkfd/kfd_priv.h         |  7 +++++++
+ 3 files changed, 31 insertions(+), 11 deletions(-)
+
+diff --git a/drivers/gpu/drm/amd/amdkfd/kfd_device.c b/drivers/gpu/drm/amd/amdkfd/kfd_device.c
+index 05183737419f..1350de675611 100644
+--- a/drivers/gpu/drm/amd/amdkfd/kfd_device.c
++++ b/drivers/gpu/drm/amd/amdkfd/kfd_device.c
+@@ -461,6 +461,7 @@ struct kfd_dev *kgd2kfd_probe(struct kgd_dev *kgd,
+ 	kfd->pdev = pdev;
+ 	kfd->init_complete = false;
+ 	kfd->kfd2kgd = f2g;
++	atomic_set(&kfd->compute_profile, 0);
+ 
+ 	mutex_init(&kfd->doorbell_mutex);
+ 	memset(&kfd->doorbell_available_index, 0,
+@@ -1026,6 +1027,21 @@ int kfd_gtt_sa_free(struct kfd_dev *kfd, struct kfd_mem_obj *mem_obj)
+ 	return 0;
+ }
+ 
++void kfd_inc_compute_active(struct kfd_dev *kfd)
++{
++	if (atomic_inc_return(&kfd->compute_profile) == 1)
++		amdgpu_amdkfd_set_compute_idle(kfd->kgd, false);
++}
++
++void kfd_dec_compute_active(struct kfd_dev *kfd)
++{
++	int count = atomic_dec_return(&kfd->compute_profile);
++
++	if (count == 0)
++		amdgpu_amdkfd_set_compute_idle(kfd->kgd, true);
++	WARN_ONCE(count < 0, "Compute profile ref. count error");
++}
++
+ #if defined(CONFIG_DEBUG_FS)
+ 
+ /* This function will send a package to HIQ to hang the HWS
+diff --git a/drivers/gpu/drm/amd/amdkfd/kfd_device_queue_manager.c b/drivers/gpu/drm/amd/amdkfd/kfd_device_queue_manager.c
+index ffb841d334f3..f53b8fa87b0b 100644
+--- a/drivers/gpu/drm/amd/amdkfd/kfd_device_queue_manager.c
++++ b/drivers/gpu/drm/amd/amdkfd/kfd_device_queue_manager.c
+@@ -797,8 +797,8 @@ static int register_process(struct device_queue_manager *dqm,
+ 
+ 	retval = dqm->asic_ops.update_qpd(dqm, qpd);
+ 
+-	if (dqm->processes_count++ == 0)
+-		amdgpu_amdkfd_set_compute_idle(dqm->dev->kgd, false);
++	dqm->processes_count++;
++	kfd_inc_compute_active(dqm->dev);
+ 
+ 	dqm_unlock(dqm);
+ 
+@@ -821,9 +821,8 @@ static int unregister_process(struct device_queue_manager *dqm,
+ 		if (qpd == cur->qpd) {
+ 			list_del(&cur->list);
+ 			kfree(cur);
+-			if (--dqm->processes_count == 0)
+-				amdgpu_amdkfd_set_compute_idle(
+-					dqm->dev->kgd, true);
++			dqm->processes_count--;
++			kfd_dec_compute_active(dqm->dev);
+ 			goto out;
+ 		}
+ 	}
+@@ -1539,9 +1538,8 @@ static int process_termination_nocpsch(struct device_queue_manager *dqm,
+ 		if (qpd == cur->qpd) {
+ 			list_del(&cur->list);
+ 			kfree(cur);
+-			if (--dqm->processes_count == 0)
+-				amdgpu_amdkfd_set_compute_idle(
+-						dqm->dev->kgd, true);
++			dqm->processes_count--;
++			kfd_dec_compute_active(dqm->dev);
+ 			break;
+ 		}
+ 	}
+@@ -1624,9 +1622,8 @@ static int process_termination_cpsch(struct device_queue_manager *dqm,
+ 		if (qpd == cur->qpd) {
+ 			list_del(&cur->list);
+ 			kfree(cur);
+-			if (--dqm->processes_count == 0)
+-				amdgpu_amdkfd_set_compute_idle(
+-						dqm->dev->kgd, true);
++			dqm->processes_count--;
++			kfd_dec_compute_active(dqm->dev);
+ 			break;
+ 		}
+ 	}
+diff --git a/drivers/gpu/drm/amd/amdkfd/kfd_priv.h b/drivers/gpu/drm/amd/amdkfd/kfd_priv.h
+index ce6acede25e1..195e58d6e059 100644
+--- a/drivers/gpu/drm/amd/amdkfd/kfd_priv.h
++++ b/drivers/gpu/drm/amd/amdkfd/kfd_priv.h
+@@ -323,6 +323,9 @@ struct kfd_dev {
+ 	uint64_t hive_id;
+ 
+ 	bool pci_atomic_requested;
++
++	/* Compute Profile ref. count */
++	atomic_t compute_profile;
+ };
+ 
+ struct kfd_ipc_obj;
+@@ -1148,6 +1151,10 @@ static inline int kfd_devcgroup_check_permission(struct kfd_dev *kfd)
+ 					  DEVCG_ACC_WRITE | DEVCG_ACC_READ);
+ }
+ 
++/* Compute profile */
++void kfd_inc_compute_active(struct kfd_dev *dev);
++void kfd_dec_compute_active(struct kfd_dev *dev);
++
+ /* Debugfs */
+ #if defined(CONFIG_DEBUG_FS)
+ 
+-- 
+2.17.1
+

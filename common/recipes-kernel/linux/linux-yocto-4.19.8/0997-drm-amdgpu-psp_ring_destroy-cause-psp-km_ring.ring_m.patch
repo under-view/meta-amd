@@ -1,0 +1,33 @@
+From 95dace45477a37706a3d0cc112cd93cfb76a0a78 Mon Sep 17 00:00:00 2001
+From: wentalou <Wentao.Lou@amd.com>
+Date: Tue, 18 Dec 2018 15:42:08 +0800
+Subject: [PATCH 0997/2940] drm/amdgpu: psp_ring_destroy cause
+ psp->km_ring.ring_mem NULL
+
+psp_ring_destroy inside psp_load_fw cause psp->km_ring.ring_mem NULL.
+Call Trace occurred when psp_cmd_submit.
+should be psp_ring_stop instead.
+
+Reviewed-by: Xiangliang Yu <Xiangliang.Yu@amd.com>
+Signed-off-by: Wentao Lou <Wentao.Lou@amd.com>
+Signed-off-by: Alex Deucher <alexander.deucher@amd.com>
+---
+ drivers/gpu/drm/amd/amdgpu/amdgpu_psp.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/drivers/gpu/drm/amd/amdgpu/amdgpu_psp.c b/drivers/gpu/drm/amd/amdgpu/amdgpu_psp.c
+index 3af2a0d5f7e9..122b7ba843c5 100644
+--- a/drivers/gpu/drm/amd/amdgpu/amdgpu_psp.c
++++ b/drivers/gpu/drm/amd/amdgpu/amdgpu_psp.c
+@@ -556,7 +556,7 @@ static int psp_load_fw(struct amdgpu_device *adev)
+ 	struct psp_context *psp = &adev->psp;
+ 
+ 	if (amdgpu_sriov_vf(adev) && adev->in_gpu_reset) {
+-		psp_ring_destroy(psp, PSP_RING_TYPE__KM);
++		psp_ring_stop(psp, PSP_RING_TYPE__KM); /* should not destroy ring, only stop */
+ 		goto skip_memalloc;
+ 	}
+ 
+-- 
+2.17.1
+

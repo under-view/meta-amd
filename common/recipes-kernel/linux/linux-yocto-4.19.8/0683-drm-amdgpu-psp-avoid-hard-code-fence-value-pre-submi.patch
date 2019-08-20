@@ -1,0 +1,107 @@
+From 71f31fb32471092730e0c26e5314d6c9f64644bb Mon Sep 17 00:00:00 2001
+From: Hawking Zhang <Hawking.Zhang@amd.com>
+Date: Fri, 28 Sep 2018 14:23:11 +0800
+Subject: [PATCH 0683/2940] drm/amdgpu/psp: avoid hard-code fence value pre
+ submission
+
+Hard-code submission fence is not a sustainable way as there is
+more and more run-time psp kernel mode submission from driver to
+fw
+
+Signed-off-by: Hawking Zhang <Hawking.Zhang@amd.com>
+Acked-by: Alex Deucher <alexander.deucher@amd.com>
+Reviewed-by: Huang Rui <ray.huang@amd.com>
+Signed-off-by: Alex Deucher <alexander.deucher@amd.com>
+Signed-off-by: Chaudhary Amit Kumar <Chaudharyamit.Kumar@amd.com>
+---
+ drivers/gpu/drm/amd/amdgpu/amdgpu_psp.c | 18 +++++++++++-------
+ drivers/gpu/drm/amd/amdgpu/amdgpu_psp.h |  5 ++++-
+ 2 files changed, 15 insertions(+), 8 deletions(-)
+
+diff --git a/drivers/gpu/drm/amd/amdgpu/amdgpu_psp.c b/drivers/gpu/drm/amd/amdgpu/amdgpu_psp.c
+index 20048d5855b9..aa1cb20ef0ae 100644
+--- a/drivers/gpu/drm/amd/amdgpu/amdgpu_psp.c
++++ b/drivers/gpu/drm/amd/amdgpu/amdgpu_psp.c
+@@ -119,21 +119,25 @@ int psp_wait_for(struct psp_context *psp, uint32_t reg_index,
+ static int
+ psp_cmd_submit_buf(struct psp_context *psp,
+ 		   struct amdgpu_firmware_info *ucode,
+-		   struct psp_gfx_cmd_resp *cmd, uint64_t fence_mc_addr,
+-		   int index)
++		   struct psp_gfx_cmd_resp *cmd, uint64_t fence_mc_addr)
+ {
+ 	int ret;
++	int index;
+ 
+ 	memset(psp->cmd_buf_mem, 0, PSP_CMD_BUFFER_SIZE);
+ 
+ 	memcpy(psp->cmd_buf_mem, cmd, sizeof(struct psp_gfx_cmd_resp));
+ 
++	index = atomic_inc_return(&psp->fence_value);
+ 	ret = psp_cmd_submit(psp, ucode, psp->cmd_buf_mc_addr,
+ 			     fence_mc_addr, index);
++        if (ret) {
++                atomic_dec(&psp->fence_value);
++                return ret;
++        }
+ 
+-	while (*((unsigned int *)psp->fence_buf) != index) {
++	while (*((unsigned int *)psp->fence_buf) != index)
+ 		msleep(1);
+-	}
+ 	
+ 	/* In some cases, psp response status is not 0 even there is no
+ 	* problem while the command is submitted. Some version of PSP FW
+@@ -197,7 +201,7 @@ static int psp_tmr_load(struct psp_context *psp)
+ 			PSP_TMR_SIZE, psp->tmr_mc_addr);
+ 
+ 	ret = psp_cmd_submit_buf(psp, NULL, cmd,
+-				 psp->fence_buf_mc_addr, 1);
++				 psp->fence_buf_mc_addr);
+ 	if (ret)
+ 		goto failed;
+ 
+@@ -264,7 +268,7 @@ static int psp_asd_load(struct psp_context *psp)
+ 			     psp->asd_ucode_size, PSP_ASD_SHARED_MEM_SIZE);
+ 
+ 	ret = psp_cmd_submit_buf(psp, NULL, cmd,
+-				 psp->fence_buf_mc_addr, 2);
++				 psp->fence_buf_mc_addr);
+ 
+ 	kfree(cmd);
+ 
+@@ -327,7 +331,7 @@ static int psp_np_fw_load(struct psp_context *psp)
+ 			return ret;
+ 
+ 		ret = psp_cmd_submit_buf(psp, ucode, psp->cmd,
+-					 psp->fence_buf_mc_addr, i + 3);
++					 psp->fence_buf_mc_addr);
+ 		if (ret)
+ 			return ret;
+ 
+diff --git a/drivers/gpu/drm/amd/amdgpu/amdgpu_psp.h b/drivers/gpu/drm/amd/amdgpu/amdgpu_psp.h
+index 8b8720e9c3f0..5bc59bcb3097 100644
+--- a/drivers/gpu/drm/amd/amdgpu/amdgpu_psp.h
++++ b/drivers/gpu/drm/amd/amdgpu/amdgpu_psp.h
+@@ -96,7 +96,7 @@ struct psp_context
+ 
+ 	const struct psp_funcs		*funcs;
+ 
+-	/* fence buffer */
++	/* firmware buffer */
+ 	struct amdgpu_bo		*fw_pri_bo;
+ 	uint64_t			fw_pri_mc_addr;
+ 	void				*fw_pri_buf;
+@@ -134,6 +134,9 @@ struct psp_context
+ 	struct amdgpu_bo		*cmd_buf_bo;
+ 	uint64_t			cmd_buf_mc_addr;
+ 	struct psp_gfx_cmd_resp		*cmd_buf_mem;
++
++	/* fence value associated with cmd buffer */
++	atomic_t			fence_value;
+ };
+ 
+ struct amdgpu_psp_funcs {
+-- 
+2.17.1
+

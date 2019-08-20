@@ -1,0 +1,49 @@
+From dd642f7f02d902d03bfcad6289f9da0d45ec99da Mon Sep 17 00:00:00 2001
+From: Daniel Vetter <daniel.vetter@ffwll.ch>
+Date: Wed, 28 Nov 2018 23:12:34 +0100
+Subject: [PATCH 0924/2940] drm/dp-mst-helper: Remove hotplug callback
+
+When everyone implements it exactly the same way, among all 4
+implementations, there's not really a need to overwrite this at all.
+
+Aside: drm_kms_helper_hotplug_event is pretty much core functionality
+at this point. Probably should move it there.
+
+Reviewed-by: Lyude Paul <lyude@redhat.com>
+Acked-by: Alex Deucher <alexander.deucher@amd.com>
+Signed-off-by: Daniel Vetter <daniel.vetter@intel.com>
+Link: https://patchwork.freedesktop.org/patch/msgid/20181128221234.15054-1-daniel.vetter@ffwll.ch
+---
+ .../gpu/drm/amd/display/amdgpu_dm/amdgpu_dm_mst_types.c  | 9 ---------
+ 1 file changed, 9 deletions(-)
+
+diff --git a/drivers/gpu/drm/amd/display/amdgpu_dm/amdgpu_dm_mst_types.c b/drivers/gpu/drm/amd/display/amdgpu_dm/amdgpu_dm_mst_types.c
+index 1b0d209d8367..5e7ca1f3a8d1 100644
+--- a/drivers/gpu/drm/amd/display/amdgpu_dm/amdgpu_dm_mst_types.c
++++ b/drivers/gpu/drm/amd/display/amdgpu_dm/amdgpu_dm_mst_types.c
+@@ -395,14 +395,6 @@ static void dm_dp_destroy_mst_connector(struct drm_dp_mst_topology_mgr *mgr,
+ 	drm_connector_put(connector);
+ }
+ 
+-static void dm_dp_mst_hotplug(struct drm_dp_mst_topology_mgr *mgr)
+-{
+-	struct amdgpu_dm_connector *master = container_of(mgr, struct amdgpu_dm_connector, mst_mgr);
+-	struct drm_device *dev = master->base.dev;
+-
+-	drm_kms_helper_hotplug_event(dev);
+-}
+-
+ static void dm_dp_mst_register_connector(struct drm_connector *connector)
+ {
+ 	struct drm_device *dev = connector->dev;
+@@ -419,7 +411,6 @@ static void dm_dp_mst_register_connector(struct drm_connector *connector)
+ static const struct drm_dp_mst_topology_cbs dm_mst_cbs = {
+ 	.add_connector = dm_dp_add_mst_connector,
+ 	.destroy_connector = dm_dp_destroy_mst_connector,
+-	.hotplug = dm_dp_mst_hotplug,
+ 	.register_connector = dm_dp_mst_register_connector
+ };
+ 
+-- 
+2.17.1
+

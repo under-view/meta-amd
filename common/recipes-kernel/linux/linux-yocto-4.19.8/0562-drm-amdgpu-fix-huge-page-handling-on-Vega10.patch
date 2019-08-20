@@ -1,0 +1,62 @@
+From 17c5105e796d453e731b9e29d2fa2e76ee0e7823 Mon Sep 17 00:00:00 2001
+From: =?UTF-8?q?Christian=20K=C3=B6nig?= <christian.koenig@amd.com>
+Date: Mon, 12 Nov 2018 18:08:31 +0100
+Subject: [PATCH 0562/2940] drm/amdgpu: fix huge page handling on Vega10
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+We accidentially set the huge flag on the parent instead of the childs.
+This caused some VM faults under memory pressure.
+
+Change-Id: I15e7f77ebf4c6fe6218336a098112c6bec8f16bd
+Signed-off-by: Christian König <christian.koenig@amd.com>
+Acked-by: Alex Deucher <alexander.deucher@amd.com>
+Acked-by: Alvin Huan <Alvin.Huan@amd.com>
+Acked-by: Aaron Liu <Aaron.Liu@amd.com>
+Tested-by: Samuel Pitoiset <samuel.pitoiset@gmail.com>
+Reviewed-by: Felix Kuehling <Felix.Kuehling@amd.com>
+---
+ drivers/gpu/drm/amd/amdgpu/amdgpu_vm.c | 18 ++++++++++--------
+ 1 file changed, 10 insertions(+), 8 deletions(-)
+
+diff --git a/drivers/gpu/drm/amd/amdgpu/amdgpu_vm.c b/drivers/gpu/drm/amd/amdgpu/amdgpu_vm.c
+index 3553a94b2026..5a4e26dad1df 100644
+--- a/drivers/gpu/drm/amd/amdgpu/amdgpu_vm.c
++++ b/drivers/gpu/drm/amd/amdgpu/amdgpu_vm.c
+@@ -1618,13 +1618,6 @@ static int amdgpu_vm_update_ptes(struct amdgpu_pte_update_params *params,
+ 			continue;
+ 		}
+ 
+-		/* First check if the entry is already handled */
+-		if (cursor.pfn < frag_start) {
+-			cursor.entry->huge = true;
+-			amdgpu_vm_pt_next(adev, &cursor);
+-			continue;
+-		}
+-
+ 		/* If it isn't already handled it can't be a huge page */
+ 		if (cursor.entry->huge) {
+ 			/* Add the entry to the relocated list to update it. */
+@@ -1687,8 +1680,17 @@ static int amdgpu_vm_update_ptes(struct amdgpu_pte_update_params *params,
+ 			}
+ 		} while (frag_start < entry_end);
+ 
+-		if (frag >= shift)
++		if (amdgpu_vm_pt_descendant(adev, &cursor)) {
++			/* Mark all child entries as huge */
++			while (cursor.pfn < frag_start) {
++				cursor.entry->huge = true;
++				amdgpu_vm_pt_next(adev, &cursor);
++			}
++
++		} else if (frag >= shift) {
++			/* or just move on to the next on the same level. */
+ 			amdgpu_vm_pt_next(adev, &cursor);
++		}
+ 	}
+ 
+ 	return 0;
+-- 
+2.17.1
+

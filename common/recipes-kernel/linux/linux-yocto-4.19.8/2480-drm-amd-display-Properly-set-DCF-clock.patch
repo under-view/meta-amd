@@ -1,0 +1,49 @@
+From ccd68bb68632b33860c7938ecafb050084d7eb3d Mon Sep 17 00:00:00 2001
+From: Aidan Wood <Aidan.Wood@amd.com>
+Date: Fri, 22 Mar 2019 14:21:35 -0400
+Subject: [PATCH 2480/2940] drm/amd/display: Properly set DCF clock
+
+[Why]
+If num_states == 0 we did update_bound_box which doesn't updated any max
+clocks if num_states == 0, therefore we need to do cap_soc_clocks
+instead, also SMU cannot set DCF clock to a higher than or equal to freq
+than SOC clock
+
+[How]
+Add a num_states != 0 check for update_bounding_box to be run, and after
+we run get_maximum_sustainable_clocks we now check if the reported max
+value of DCF is higher than SOC and if necessary set it to 1000
+(becomes 1 after division by 1000) lower than SOC
+
+Signed-off-by: Aidan Wood <Aidan.Wood@amd.com>
+Reviewed-by: Aric Cyr <Aric.Cyr@amd.com>
+Acked-by: Leo Li <sunpeng.li@amd.com>
+Signed-off-by: Alex Deucher <alexander.deucher@amd.com>
+---
+ drivers/gpu/drm/amd/display/dc/dcn20/dcn20_resource.c | 7 +++++--
+ 1 file changed, 5 insertions(+), 2 deletions(-)
+
+diff --git a/drivers/gpu/drm/amd/display/dc/dcn20/dcn20_resource.c b/drivers/gpu/drm/amd/display/dc/dcn20/dcn20_resource.c
+index 49114d823240..6bc4b3f3301f 100644
+--- a/drivers/gpu/drm/amd/display/dc/dcn20/dcn20_resource.c
++++ b/drivers/gpu/drm/amd/display/dc/dcn20/dcn20_resource.c
+@@ -2611,11 +2611,14 @@ static bool init_soc_bounding_box(struct dc *dc,
+ 		if (pool->base.pp_smu->nv_funcs.get_maximum_sustainable_clocks) {
+ 			status = (*pool->base.pp_smu->nv_funcs.get_maximum_sustainable_clocks)
+ 					(&pool->base.pp_smu->nv_funcs.pp_smu, &max_clocks);
+-
++			/* SMU cannot set DCF clock to anything equal to or higher than SOC clock
++			 */
++			if (max_clocks.dcfClockInKhz >= max_clocks.socClockInKhz)
++				max_clocks.dcfClockInKhz = max_clocks.socClockInKhz - 1000;
+ 			clock_limits_available = (status == PP_SMU_RESULT_OK);
+ 		}
+ 
+-		if (clock_limits_available && uclk_states_available)
++		if (clock_limits_available && uclk_states_available && num_states)
+ 			update_bounding_box(dc, &dcn2_0_soc, &max_clocks, uclk_states, num_states);
+ 		else if (clock_limits_available)
+ 			cap_soc_clocks(&dcn2_0_soc, max_clocks);
+-- 
+2.17.1
+

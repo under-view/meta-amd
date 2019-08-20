@@ -1,0 +1,54 @@
+From e88fb243213c6209b0684fab6d7c8a8ea9a14c61 Mon Sep 17 00:00:00 2001
+From: "Tao.Huang" <Tao.Huang@amd.com>
+Date: Mon, 6 May 2019 16:26:54 +0800
+Subject: [PATCH 2065/2940] drm/amd/display: fix resource saving missing when
+ power state switch
+
+Signed-off-by: Tao.Huang <Tao.Huang@amd.com>
+Reviewed-by: Jun Lei <Jun.Lei@amd.com>
+Acked-by: Bhawanpreet Lakha <Bhawanpreet.Lakha@amd.com>
+---
+ drivers/gpu/drm/amd/display/dc/core/dc.c | 11 +++++++++++
+ 1 file changed, 11 insertions(+)
+
+diff --git a/drivers/gpu/drm/amd/display/dc/core/dc.c b/drivers/gpu/drm/amd/display/dc/core/dc.c
+index 0536e32e60b0..edb070ca1dec 100644
+--- a/drivers/gpu/drm/amd/display/dc/core/dc.c
++++ b/drivers/gpu/drm/amd/display/dc/core/dc.c
+@@ -1941,6 +1941,12 @@ void dc_set_power_state(
+ 	enum dc_acpi_cm_power_state power_state)
+ {
+ 	struct kref refcount;
++	struct display_mode_lib *dml = kzalloc(sizeof(struct display_mode_lib),
++						GFP_KERNEL);
++
++	ASSERT(dml);
++	if (!dml)
++		return;
+ 
+ 	switch (power_state) {
+ 	case DC_ACPI_CM_POWER_STATE_D0:
+@@ -1957,15 +1963,20 @@ void dc_set_power_state(
+ 
+ 		/* Preserve refcount */
+ 		refcount = dc->current_state->refcount;
++		/* Preserve display mode lib */
++		memcpy(dml, &dc->current_state->bw_ctx.dml, sizeof(struct display_mode_lib));
++
+ 		dc_resource_state_destruct(dc->current_state);
+ 		memset(dc->current_state, 0,
+ 				sizeof(*dc->current_state));
+ 
+ 		dc->current_state->refcount = refcount;
++		dc->current_state->bw_ctx.dml = *dml;
+ 
+ 		break;
+ 	}
+ 
++	kfree(dml);
+ }
+ 
+ void dc_resume(struct dc *dc)
+-- 
+2.17.1
+

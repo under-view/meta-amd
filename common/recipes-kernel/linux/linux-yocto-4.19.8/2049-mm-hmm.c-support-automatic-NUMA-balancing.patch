@@ -1,0 +1,43 @@
+From 56af71944396f0376a44b8ea94c896cba63efc7d Mon Sep 17 00:00:00 2001
+From: Philip Yang <Philip.Yang@amd.com>
+Date: Tue, 28 May 2019 15:28:58 -0400
+Subject: [PATCH 2049/2940] mm/hmm.c: support automatic NUMA balancing
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+While the page is migrating by NUMA balancing, HMM failed to detect this
+condition and still return the old page.  Application will use the new
+page migrated, but driver pass the old page physical address to GPU, this
+crash the application later.
+
+Use pte_protnone(pte) to return this condition and then hmm_vma_do_fault
+will allocate new page.
+
+Link: http://lkml.kernel.org/r/20190510195258.9930-2-Felix.Kuehling@amd.com
+Signed-off-by: Philip Yang <Philip.Yang@amd.com>
+Signed-off-by: Felix Kuehling <Felix.Kuehling@amd.com>
+Reviewed-by: Jérôme Glisse <jglisse@redhat.com>
+Cc: Alex Deucher <alex.deucher@amd.com>
+Cc: Dave Airlie <airlied@gmail.com>
+Signed-off-by: Andrew Morton <akpm@linux-foundation.org>
+---
+ mm/hmm.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/mm/hmm.c b/mm/hmm.c
+index c5cb352f5276..4609bde6997e 100644
+--- a/mm/hmm.c
++++ b/mm/hmm.c
+@@ -512,7 +512,7 @@ static int hmm_vma_handle_pmd(struct mm_walk *walk,
+ 
+ static inline uint64_t pte_to_hmm_pfn_flags(struct hmm_range *range, pte_t pte)
+ {
+-	if (pte_none(pte) || !pte_present(pte))
++	if (pte_none(pte) || !pte_present(pte) || pte_protnone(pte))
+ 		return 0;
+ 	return pte_write(pte) ? range->flags[HMM_PFN_VALID] |
+ 				range->flags[HMM_PFN_WRITE] :
+-- 
+2.17.1
+

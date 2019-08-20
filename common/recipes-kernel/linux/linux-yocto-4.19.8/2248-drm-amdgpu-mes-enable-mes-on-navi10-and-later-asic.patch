@@ -1,0 +1,32 @@
+From 7cb9188f9482e0d445b15b4242dd99b59599643a Mon Sep 17 00:00:00 2001
+From: Jack Xiao <Jack.Xiao@amd.com>
+Date: Fri, 25 Jan 2019 14:56:01 +0800
+Subject: [PATCH 2248/2940] drm/amdgpu/mes: enable mes on navi10 and later asic
+
+When amdgpu_mes is enabled and asic family is navi10 and
+later asic, enable mes per device.
+
+Acked-by: Hawking Zhang <Hawking.Zhang@amd.com>
+Signed-off-by: Jack Xiao <Jack.Xiao@amd.com>
+Signed-off-by: Alex Deucher <alexander.deucher@amd.com>
+---
+ drivers/gpu/drm/amd/amdgpu/amdgpu_device.c | 3 +++
+ 1 file changed, 3 insertions(+)
+
+diff --git a/drivers/gpu/drm/amd/amdgpu/amdgpu_device.c b/drivers/gpu/drm/amd/amdgpu/amdgpu_device.c
+index 5c46c150a962..b64c00205cc2 100644
+--- a/drivers/gpu/drm/amd/amdgpu/amdgpu_device.c
++++ b/drivers/gpu/drm/amd/amdgpu/amdgpu_device.c
+@@ -2566,6 +2566,9 @@ int amdgpu_device_init(struct amdgpu_device *adev,
+ 	if (amdgpu_mcbp)
+ 		DRM_INFO("MCBP is enabled\n");
+ 
++	if (amdgpu_mes && adev->asic_type >= CHIP_NAVI10)
++		adev->enable_mes = true;
++
+ 	if (amdgpu_discovery) {
+ 		r = amdgpu_discovery_init(adev);
+ 		if (r) {
+-- 
+2.17.1
+

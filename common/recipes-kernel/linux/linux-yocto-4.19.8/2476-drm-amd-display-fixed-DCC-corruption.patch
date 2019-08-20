@@ -1,0 +1,34 @@
+From 4415364a08ee448d8e80b93b94b1976c9ccdc0fc Mon Sep 17 00:00:00 2001
+From: Bob Yang <Bob.Yang@amd.com>
+Date: Mon, 18 Mar 2019 11:44:52 +0800
+Subject: [PATCH 2476/2940] drm/amd/display: fixed DCC corruption
+
+[Description]
+swath_bytes_horz_wc should be 256/64/64 for 2160p 32bpp surface
+
+Signed-off-by: Bob Yang <Bob.Yang@amd.com>
+Reviewed-by: Charlene Liu <Charlene.Liu@amd.com>
+Acked-by: Leo Li <sunpeng.li@amd.com>
+Signed-off-by: Alex Deucher <alexander.deucher@amd.com>
+---
+ drivers/gpu/drm/amd/display/dc/dcn20/dcn20_hubbub.c | 4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
+
+diff --git a/drivers/gpu/drm/amd/display/dc/dcn20/dcn20_hubbub.c b/drivers/gpu/drm/amd/display/dc/dcn20/dcn20_hubbub.c
+index 09e8d10a7a01..b3a99b10cfbd 100644
+--- a/drivers/gpu/drm/amd/display/dc/dcn20/dcn20_hubbub.c
++++ b/drivers/gpu/drm/amd/display/dc/dcn20/dcn20_hubbub.c
+@@ -194,8 +194,8 @@ static void hubbub2_det_request_size(
+ 
+ 	hubbub2_get_blk256_size(&blk256_width, &blk256_height, bpe);
+ 
+-	swath_bytes_horz_wc = height * blk256_height * bpe;
+-	swath_bytes_vert_wc = width * blk256_width * bpe;
++	swath_bytes_horz_wc = width * blk256_height * bpe;
++	swath_bytes_vert_wc = height * blk256_width * bpe;
+ 
+ 	*req128_horz_wc = (2 * swath_bytes_horz_wc <= detile_buf_size) ?
+ 			false : /* full 256B request */
+-- 
+2.17.1
+

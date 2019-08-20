@@ -1,0 +1,127 @@
+From fa34232f38aca97d5f3fc07a6f89dc53a6be475b Mon Sep 17 00:00:00 2001
+From: Nicholas Kazlauskas <nicholas.kazlauskas@amd.com>
+Date: Fri, 29 Mar 2019 14:58:32 -0400
+Subject: [PATCH 1787/2940] drm/amd/display: Relax requirements for CRTCs to be
+ enabled
+
+[Why]
+As long as we have at least one non-cursor plane enabled on a CRTC then
+the CRTC itself can remain enabled.
+
+This will allow for commits where there's an overlay plane enabled but
+no primary plane enabled.
+
+[How]
+Remove existing primary plane fb != NULL checks and replace them with
+the new does_crtc_have_active_plane helper.
+
+This will be called from atomic check when validating the CRTC.
+
+Since the primary plane state can now potentially be NULL we'll need
+to guard for that when accessing it in some of the cursor logic.
+
+Change-Id: I25f32ff13d1e81e20eea233ffdddadf704ecd8d2
+Signed-off-by: Nicholas Kazlauskas <nicholas.kazlauskas@amd.com>
+Reviewed-by: David Francis <David.Francis@amd.com>
+Acked-by: Bhawanpreet Lakha <Bhawanpreet Lakha@amd.com>
+---
+ .../gpu/drm/amd/display/amdgpu_dm/amdgpu_dm.c | 55 +++++++++++++++----
+ 1 file changed, 44 insertions(+), 11 deletions(-)
+
+diff --git a/drivers/gpu/drm/amd/display/amdgpu_dm/amdgpu_dm.c b/drivers/gpu/drm/amd/display/amdgpu_dm/amdgpu_dm.c
+index 7b6d53eba878..86405f4acc50 100644
+--- a/drivers/gpu/drm/amd/display/amdgpu_dm/amdgpu_dm.c
++++ b/drivers/gpu/drm/amd/display/amdgpu_dm/amdgpu_dm.c
+@@ -3974,6 +3974,38 @@ static void dm_crtc_helper_disable(struct drm_crtc *crtc)
+ {
+ }
+ 
++static bool does_crtc_have_active_plane(struct drm_crtc_state *new_crtc_state)
++{
++	struct drm_atomic_state *state = new_crtc_state->state;
++	struct drm_plane *plane;
++	int num_active = 0;
++
++	drm_for_each_plane_mask(plane, state->dev, new_crtc_state->plane_mask) {
++		struct drm_plane_state *new_plane_state;
++
++		/* Cursor planes are "fake". */
++		if (plane->type == DRM_PLANE_TYPE_CURSOR)
++			continue;
++
++		new_plane_state = drm_atomic_get_new_plane_state(state, plane);
++
++		if (!new_plane_state) {
++			/*
++			 * The plane is enable on the CRTC and hasn't changed
++			 * state. This means that it previously passed
++			 * validation and is therefore enabled.
++			 */
++			num_active += 1;
++			continue;
++		}
++
++		/* We need a framebuffer to be considered enabled. */
++		num_active += (new_plane_state->fb != NULL);
++	}
++
++	return num_active > 0;
++}
++
+ static int dm_crtc_helper_atomic_check(struct drm_crtc *crtc,
+ 				       struct drm_crtc_state *state)
+ {
+@@ -3992,6 +4024,11 @@ static int dm_crtc_helper_atomic_check(struct drm_crtc *crtc,
+ 	if (!dm_crtc_state->stream)
+ 		return 0;
+ 
++	/* We want at least one hardware plane enabled to use the stream. */
++	if (state->enable && state->active &&
++	    !does_crtc_have_active_plane(state))
++		return -EINVAL;
++
+ 	if (dc_validate_stream(dc, dm_crtc_state->stream) == DC_OK)
+ 		return 0;
+ 
+@@ -4969,9 +5006,13 @@ static int get_cursor_position(struct drm_plane *plane, struct drm_crtc *crtc,
+ 
+ 	x = plane->state->crtc_x;
+ 	y = plane->state->crtc_y;
+-	/* avivo cursor are offset into the total surface */
+-	x += crtc->primary->state->src_x >> 16;
+-	y += crtc->primary->state->src_y >> 16;
++
++	if (crtc->primary->state) {
++		/* avivo cursor are offset into the total surface */
++		x += crtc->primary->state->src_x >> 16;
++		y += crtc->primary->state->src_y >> 16;
++	}
++
+ 	if (x < 0) {
+ 		xorigin = min(-x, amdgpu_crtc->max_cursor_width - 1);
+ 		x = 0;
+@@ -5990,7 +6031,6 @@ static int dm_update_crtc_state(struct amdgpu_display_manager *dm,
+         struct amdgpu_dm_connector *aconnector = NULL;
+         struct drm_connector_state *drm_new_conn_state = NULL, *drm_old_conn_state = NULL;
+         struct dm_connector_state *dm_new_conn_state = NULL, *dm_old_conn_state = NULL;
+-        struct drm_plane_state *new_plane_state = NULL;
+ 
+ 	new_stream = NULL;
+ 
+@@ -5998,13 +6038,6 @@ static int dm_update_crtc_state(struct amdgpu_display_manager *dm,
+         dm_new_crtc_state = to_dm_crtc_state(new_crtc_state);
+         acrtc = to_amdgpu_crtc(crtc);
+ 
+-	new_plane_state = drm_atomic_get_new_plane_state(state, new_crtc_state->crtc->primary);
+-
+-        if (new_crtc_state->enable && new_plane_state && !new_plane_state->fb) {
+-                ret = -EINVAL;
+-                goto fail;
+-        }
+-
+ 	aconnector = amdgpu_dm_find_first_crtc_matching_connector(state, crtc);
+ 
+         /* TODO This hack should go away */
+-- 
+2.17.1
+

@@ -1,0 +1,36 @@
+From 63c3d01363ab3ba4bff19c8c754f2dac34ec45a3 Mon Sep 17 00:00:00 2001
+From: "Leo (Hanghong) Ma" <hanghong.ma@amd.com>
+Date: Tue, 16 Apr 2019 11:07:22 -0400
+Subject: [PATCH 2533/2940] drm/amd/display: Expose send immediate sdp message
+ interface
+
+[Why]
+To send sdp message immediately from a single slot.
+
+[How]
+Modify the generic SDP message interface, and use GSP4 to send immediate
+sdp message.
+
+Signed-off-by: Leo (Hanghong) Ma <hanghong.ma@amd.com>
+Reviewed-by: Harry Wentland <Harry.Wentland@amd.com>
+Acked-by: Bhawanpreet Lakha <Bhawanpreet.Lakha@amd.com>
+Signed-off-by: Alex Deucher <alexander.deucher@amd.com>
+---
+ drivers/gpu/drm/amd/display/dc/dc_stream.h | 1 -
+ 1 file changed, 1 deletion(-)
+
+diff --git a/drivers/gpu/drm/amd/display/dc/dc_stream.h b/drivers/gpu/drm/amd/display/dc/dc_stream.h
+index 0a83cd36d506..e253a5c591f6 100644
+--- a/drivers/gpu/drm/amd/display/dc/dc_stream.h
++++ b/drivers/gpu/drm/amd/display/dc/dc_stream.h
+@@ -126,7 +126,6 @@ struct dc_stream_state {
+ 	struct dc_info_packet vrr_infopacket;
+ 	struct dc_info_packet vsc_infopacket;
+ 	struct dc_info_packet vsp_infopacket;
+-	struct dc_info_packet dpsdp_infopacket;
+ 
+ 	struct rect src; /* composition area */
+ 	struct rect dst; /* stream addressable area */
+-- 
+2.17.1
+

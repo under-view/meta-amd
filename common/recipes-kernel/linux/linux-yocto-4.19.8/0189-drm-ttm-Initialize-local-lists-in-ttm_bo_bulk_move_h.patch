@@ -1,0 +1,40 @@
+From ed053d56eec6649d2b85adc0f1548e6ca32d5f2d Mon Sep 17 00:00:00 2001
+From: =?UTF-8?q?Michel=20D=C3=A4nzer?= <michel.daenzer@amd.com>
+Date: Tue, 28 Aug 2018 18:56:29 +0200
+Subject: [PATCH 0189/2940] drm/ttm: Initialize local lists in
+ ttm_bo_bulk_move_helper
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+The first parameter of list_cut_position() must point to an initialized
+list.
+
+Noticed thanks to KASAN pointing out something's fishy here.
+
+Change-Id: I58848734d64619c3113efd77547242b6f9bdc720
+Fixes: "drm/ttm: add bulk move function on LRU"
+Reviewed-by: Christian König <christian.koenig@amd.com>
+Signed-off-by: Michel Dänzer <michel.daenzer@amd.com>
+Signed-off-by: Alex Deucher <alexander.deucher@amd.com>
+---
+ drivers/gpu/drm/ttm/ttm_bo.c | 3 ++-
+ 1 file changed, 2 insertions(+), 1 deletion(-)
+
+diff --git a/drivers/gpu/drm/ttm/ttm_bo.c b/drivers/gpu/drm/ttm/ttm_bo.c
+index 579b8c6e6ae3..dc33b3b5975e 100644
+--- a/drivers/gpu/drm/ttm/ttm_bo.c
++++ b/drivers/gpu/drm/ttm/ttm_bo.c
+@@ -250,7 +250,8 @@ EXPORT_SYMBOL(ttm_bo_move_to_lru_tail);
+ static void ttm_bo_bulk_move_helper(struct ttm_lru_bulk_move_pos *pos,
+ 				    struct list_head *lru, bool is_swap)
+ {
+-	struct list_head entries, before;
++	LIST_HEAD(entries);
++	LIST_HEAD(before);
+ 	struct list_head *list1, *list2;
+ 
+ 	list1 = is_swap ? &pos->last->swap : &pos->last->lru;
+-- 
+2.17.1
+

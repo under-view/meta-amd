@@ -1,0 +1,27 @@
+From 2a3271d9b38a3719421b429ef5cefddb8c4ebc0a Mon Sep 17 00:00:00 2001
+From: Hawking Zhang <Hawking.Zhang@amd.com>
+Date: Thu, 14 Mar 2019 23:46:51 +0800
+Subject: [PATCH 2473/2940] drm/amd/display: enable DSC support by default
+
+Signed-off-by: Hawking Zhang <Hawking.Zhang@amd.com>
+Signed-off-by: Alex Deucher <alexander.deucher@amd.com>
+---
+ drivers/gpu/drm/amd/display/Kconfig | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/drivers/gpu/drm/amd/display/Kconfig b/drivers/gpu/drm/amd/display/Kconfig
+index 9cb2211edf4c..33e7efbb4ef4 100644
+--- a/drivers/gpu/drm/amd/display/Kconfig
++++ b/drivers/gpu/drm/amd/display/Kconfig
+@@ -26,7 +26,7 @@ config DRM_AMD_DC_DCN2_0
+ 
+ config DRM_AMD_DC_DSC_SUPPORT
+ 	bool "DSC support"
+-	default n
++	default y
+ 	depends on DRM_AMD_DC && X86
+ 	depends on DRM_AMD_DC_DCN1_0
+ 	depends on DRM_AMD_DC_DCN2_0
+-- 
+2.17.1
+

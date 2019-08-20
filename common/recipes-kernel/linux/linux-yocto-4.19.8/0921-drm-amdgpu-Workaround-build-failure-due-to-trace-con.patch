@@ -1,0 +1,72 @@
+From 4aab134554904fe39e55b4d46ccb6a2f332efbd9 Mon Sep 17 00:00:00 2001
+From: "Kuehling, Felix" <Felix.Kuehling@amd.com>
+Date: Fri, 7 Dec 2018 22:07:20 +0000
+Subject: [PATCH 0921/2940] drm/amdgpu: Workaround build failure due to trace
+ conflict
+
+Avoid including mmu_context.h in amdgpu_amdkfd.h since that may be
+included in other header files that define traces. This leads to
+conflicts due to traces defined in other headers included via
+mmu_context.h.
+
+Acked-by: Alex Deucher <alexander.deucher@amd.com>
+Signed-off-by: Felix Kuehling <Felix.Kuehling@amd.com>
+Signed-off-by: Alex Deucher <alexander.deucher@amd.com>
+---
+ drivers/gpu/drm/amd/amdgpu/amdgpu_amdkfd.h        | 1 -
+ drivers/gpu/drm/amd/amdgpu/amdgpu_amdkfd_gfx_v7.c | 1 +
+ drivers/gpu/drm/amd/amdgpu/amdgpu_amdkfd_gfx_v8.c | 1 +
+ drivers/gpu/drm/amd/amdgpu/amdgpu_amdkfd_gfx_v9.c | 1 +
+ 4 files changed, 3 insertions(+), 1 deletion(-)
+
+diff --git a/drivers/gpu/drm/amd/amdgpu/amdgpu_amdkfd.h b/drivers/gpu/drm/amd/amdgpu/amdgpu_amdkfd.h
+index cc9aeab5468c..91c28f94b77d 100644
+--- a/drivers/gpu/drm/amd/amdgpu/amdgpu_amdkfd.h
++++ b/drivers/gpu/drm/amd/amdgpu/amdgpu_amdkfd.h
+@@ -27,7 +27,6 @@
+ 
+ #include <linux/types.h>
+ #include <linux/mm.h>
+-#include <linux/mmu_context.h>
+ #include <linux/workqueue.h>
+ #include <kgd_kfd_interface.h>
+ #include <drm/ttm/ttm_execbuf_util.h>
+diff --git a/drivers/gpu/drm/amd/amdgpu/amdgpu_amdkfd_gfx_v7.c b/drivers/gpu/drm/amd/amdgpu/amdgpu_amdkfd_gfx_v7.c
+index 9803b91f3e77..b3aa4c7ef924 100644
+--- a/drivers/gpu/drm/amd/amdgpu/amdgpu_amdkfd_gfx_v7.c
++++ b/drivers/gpu/drm/amd/amdgpu/amdgpu_amdkfd_gfx_v7.c
+@@ -23,6 +23,7 @@
+ #include <linux/fdtable.h>
+ #include <linux/uaccess.h>
+ #include <linux/firmware.h>
++#include <linux/mmu_context.h>
+ #include <drm/drmP.h>
+ #include "amdgpu.h"
+ #include "amdgpu_amdkfd.h"
+diff --git a/drivers/gpu/drm/amd/amdgpu/amdgpu_amdkfd_gfx_v8.c b/drivers/gpu/drm/amd/amdgpu/amdgpu_amdkfd_gfx_v8.c
+index f6e53e9352bd..12a98f4940b0 100644
+--- a/drivers/gpu/drm/amd/amdgpu/amdgpu_amdkfd_gfx_v8.c
++++ b/drivers/gpu/drm/amd/amdgpu/amdgpu_amdkfd_gfx_v8.c
+@@ -24,6 +24,7 @@
+ #include <linux/fdtable.h>
+ #include <linux/uaccess.h>
+ #include <linux/firmware.h>
++#include <linux/mmu_context.h>
+ #include <drm/drmP.h>
+ #include "amdgpu.h"
+ #include "amdgpu_amdkfd.h"
+diff --git a/drivers/gpu/drm/amd/amdgpu/amdgpu_amdkfd_gfx_v9.c b/drivers/gpu/drm/amd/amdgpu/amdgpu_amdkfd_gfx_v9.c
+index 818dee5ce500..a0c00b8276c3 100644
+--- a/drivers/gpu/drm/amd/amdgpu/amdgpu_amdkfd_gfx_v9.c
++++ b/drivers/gpu/drm/amd/amdgpu/amdgpu_amdkfd_gfx_v9.c
+@@ -26,6 +26,7 @@
+ #include <linux/fdtable.h>
+ #include <linux/uaccess.h>
+ #include <linux/firmware.h>
++#include <linux/mmu_context.h>
+ #include <drm/drmP.h>
+ #include "amdgpu.h"
+ #include "amdgpu_amdkfd.h"
+-- 
+2.17.1
+

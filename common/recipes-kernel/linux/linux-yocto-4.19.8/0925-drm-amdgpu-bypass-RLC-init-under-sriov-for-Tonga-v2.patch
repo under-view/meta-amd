@@ -1,0 +1,39 @@
+From 52f4bdc848768935aed28c86b8fb60169279af5f Mon Sep 17 00:00:00 2001
+From: Tiecheng Zhou <Tiecheng.Zhou@amd.com>
+Date: Fri, 7 Dec 2018 09:11:35 +0800
+Subject: [PATCH 0925/2940] drm/amdgpu: bypass RLC init under sriov for Tonga
+ (v2)
+
+RLC will go wrong in soft_reset under sriov
+
+Workaroound: only need to init RLC csb, and skip RLC stop, reset, start
+    this is because host-driver has already done full initialization on RLC
+
+v2: squash in build fix
+
+Signed-off-by: Tiecehng Zhou <Tiecheng.Zhou@amd.com>
+Acked-by: Alex Deucher <alexander.deucher@amd.com>
+Signed-off-by: Alex Deucher <alexander.deucher@amd.com>
+---
+ drivers/gpu/drm/amd/amdgpu/gfx_v8_0.c | 5 +++++
+ 1 file changed, 5 insertions(+)
+
+diff --git a/drivers/gpu/drm/amd/amdgpu/gfx_v8_0.c b/drivers/gpu/drm/amd/amdgpu/gfx_v8_0.c
+index f454067ba369..2e829b2d94bd 100644
+--- a/drivers/gpu/drm/amd/amdgpu/gfx_v8_0.c
++++ b/drivers/gpu/drm/amd/amdgpu/gfx_v8_0.c
+@@ -4068,6 +4068,11 @@ static void gfx_v8_0_rlc_start(struct amdgpu_device *adev)
+ 
+ static int gfx_v8_0_rlc_resume(struct amdgpu_device *adev)
+ {
++	if (amdgpu_sriov_vf(adev)) {
++		gfx_v8_0_init_csb(adev);
++		return 0;
++	}
++
+ 	adev->gfx.rlc.funcs->stop(adev);
+ 	adev->gfx.rlc.funcs->reset(adev);
+ 	gfx_v8_0_init_pg(adev);
+-- 
+2.17.1
+

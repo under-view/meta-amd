@@ -1,0 +1,31 @@
+From 083ac6b6dad87dcee9eb2be88364f498fe777138 Mon Sep 17 00:00:00 2001
+From: Le Ma <le.ma@amd.com>
+Date: Thu, 15 Nov 2018 18:54:35 +0800
+Subject: [PATCH 2922/2940] drm/amdgpu: add Arcturus chip_name for init sdma
+ microcode
+
+Signed-off-by: Le Ma <le.ma@amd.com>
+Acked-by: Felix Kuehling <Felix.Kuehling@amd.com>
+Reviewed-by: Hawking Zhang <Hawking.Zhang@amd.com>
+Signed-off-by: Alex Deucher <alexander.deucher@amd.com>
+---
+ drivers/gpu/drm/amd/amdgpu/sdma_v4_0.c | 3 +++
+ 1 file changed, 3 insertions(+)
+
+diff --git a/drivers/gpu/drm/amd/amdgpu/sdma_v4_0.c b/drivers/gpu/drm/amd/amdgpu/sdma_v4_0.c
+index d7ff9ec61b6d..467fcfbe8085 100644
+--- a/drivers/gpu/drm/amd/amdgpu/sdma_v4_0.c
++++ b/drivers/gpu/drm/amd/amdgpu/sdma_v4_0.c
+@@ -366,6 +366,9 @@ static int sdma_v4_0_init_microcode(struct amdgpu_device *adev)
+ 		else
+ 			chip_name = "raven";
+ 		break;
++	case CHIP_ARCTURUS:
++		chip_name = "arcturus";
++		break;
+ 	default:
+ 		BUG();
+ 	}
+-- 
+2.17.1
+

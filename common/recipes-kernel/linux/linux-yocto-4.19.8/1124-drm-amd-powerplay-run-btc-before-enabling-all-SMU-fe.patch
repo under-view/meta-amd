@@ -1,0 +1,46 @@
+From 949a20f1b3f24a30551106ff65d083ee35345787 Mon Sep 17 00:00:00 2001
+From: Evan Quan <evan.quan@amd.com>
+Date: Mon, 21 Jan 2019 14:39:26 +0800
+Subject: [PATCH 1124/2940] drm/amd/powerplay: run btc before enabling all SMU
+ features
+
+BTC is needed before enabling all SMU features.
+
+Signed-off-by: Evan Quan <evan.quan@amd.com>
+Acked-by: Alex Deucher <alexander.deucher@amd.com>
+Signed-off-by: Alex Deucher <alexander.deucher@amd.com>
+---
+ drivers/gpu/drm/amd/powerplay/hwmgr/vega20_hwmgr.c | 10 ++++++++++
+ 1 file changed, 10 insertions(+)
+
+diff --git a/drivers/gpu/drm/amd/powerplay/hwmgr/vega20_hwmgr.c b/drivers/gpu/drm/amd/powerplay/hwmgr/vega20_hwmgr.c
+index 60a22d8da7f0..5085b3636f8e 100644
+--- a/drivers/gpu/drm/amd/powerplay/hwmgr/vega20_hwmgr.c
++++ b/drivers/gpu/drm/amd/powerplay/hwmgr/vega20_hwmgr.c
+@@ -804,6 +804,11 @@ static int vega20_set_allowed_featuresmask(struct pp_hwmgr *hwmgr)
+ 	return 0;
+ }
+ 
++static int vega20_run_btc(struct pp_hwmgr *hwmgr)
++{
++	return smum_send_msg_to_smc(hwmgr, PPSMC_MSG_RunBtc);
++}
++
+ static int vega20_run_btc_afll(struct pp_hwmgr *hwmgr)
+ {
+ 	return smum_send_msg_to_smc(hwmgr, PPSMC_MSG_RunAfllBtc);
+@@ -1565,6 +1570,11 @@ static int vega20_enable_dpm_tasks(struct pp_hwmgr *hwmgr)
+ 			"[EnableDPMTasks] Failed to initialize SMC table!",
+ 			return result);
+ 
++	result = vega20_run_btc(hwmgr);
++	PP_ASSERT_WITH_CODE(!result,
++			"[EnableDPMTasks] Failed to run btc!",
++			return result);
++
+ 	result = vega20_run_btc_afll(hwmgr);
+ 	PP_ASSERT_WITH_CODE(!result,
+ 			"[EnableDPMTasks] Failed to run btc afll!",
+-- 
+2.17.1
+

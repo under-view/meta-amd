@@ -1,0 +1,57 @@
+From 4cb11cf8e7e76dd28d7a0a47d635c1ec54702cec Mon Sep 17 00:00:00 2001
+From: Alex Deucher <alexander.deucher@amd.com>
+Date: Wed, 31 Oct 2018 23:58:56 -0500
+Subject: [PATCH 1056/2940] drm/amdgpu/cik: add need_reset_on_init asic
+ callback for CIK (v2)
+
+CIK chips require a reset if the driver was previously loaded
+because the SMU can only be loaded once between each reset.
+
+v2: rebase
+
+Reviewed-by: Evan Quan <evan.quan@amd.com>
+Reviewed-by: Felix Kuehling <Felix.Kuehling@amd.com>
+Signed-off-by: Alex Deucher <alexander.deucher@amd.com>
+---
+ drivers/gpu/drm/amd/amdgpu/cik.c | 18 ++++++++++++++++++
+ 1 file changed, 18 insertions(+)
+
+diff --git a/drivers/gpu/drm/amd/amdgpu/cik.c b/drivers/gpu/drm/amd/amdgpu/cik.c
+index 6277de51483f..b1b7abed7dab 100644
+--- a/drivers/gpu/drm/amd/amdgpu/cik.c
++++ b/drivers/gpu/drm/amd/amdgpu/cik.c
+@@ -1787,6 +1787,23 @@ static void cik_get_pcie_usage(struct amdgpu_device *adev, uint64_t *count0,
+ 	*count1 = RREG32_PCIE(ixPCIE_PERF_COUNT1_TXCLK) | (cnt1_of << 32);
+ }
+ 
++static bool cik_need_reset_on_init(struct amdgpu_device *adev)
++{
++	u32 clock_cntl, pc;
++
++	if (adev->flags & AMD_IS_APU)
++		return false;
++
++	/* check if the SMC is already running */
++	clock_cntl = RREG32_SMC(ixSMC_SYSCON_CLOCK_CNTL_0);
++	pc = RREG32_SMC(ixSMC_PC_C);
++	if ((0 == REG_GET_FIELD(clock_cntl, SMC_SYSCON_CLOCK_CNTL_0, ck_disable)) &&
++	    (0x20100 <= pc))
++		return true;
++
++	return false;
++}
++
+ static const struct amdgpu_asic_funcs cik_asic_funcs =
+ {
+ 	.read_disabled_bios = &cik_read_disabled_bios,
+@@ -1803,6 +1820,7 @@ static const struct amdgpu_asic_funcs cik_asic_funcs =
+ 	.need_full_reset = &cik_need_full_reset,
+ 	.init_doorbell_index = &legacy_doorbell_index_init,
+ 	.get_pcie_usage = &cik_get_pcie_usage,
++	.need_reset_on_init = &cik_need_reset_on_init,
+ };
+ 
+ static int cik_common_early_init(void *handle)
+-- 
+2.17.1
+

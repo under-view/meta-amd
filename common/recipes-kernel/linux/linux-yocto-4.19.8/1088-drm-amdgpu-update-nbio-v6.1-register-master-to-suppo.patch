@@ -1,0 +1,46 @@
+From 597f7c9947fba42cc79101fd8fd796997baee08f Mon Sep 17 00:00:00 2001
+From: Jim Qu <Jim.Qu@amd.com>
+Date: Wed, 7 Nov 2018 10:54:18 +0800
+Subject: [PATCH 1088/2940] drm/amdgpu: update nbio v6.1 register/master to
+ support BACO
+
+Signed-off-by: Jim Qu <Jim.Qu@amd.com>
+Reviewed-by: Alex Deucher <alexander.deucher@amd.com>
+Reviewed-by: Hawking Zhang <Hawking.Zhang@amd.com>
+Signed-off-by: Alex Deucher <alexander.deucher@amd.com>
+---
+ drivers/gpu/drm/amd/include/asic_reg/nbio/nbio_6_1_offset.h  | 2 ++
+ drivers/gpu/drm/amd/include/asic_reg/nbio/nbio_6_1_sh_mask.h | 4 ++++
+ 2 files changed, 6 insertions(+)
+
+diff --git a/drivers/gpu/drm/amd/include/asic_reg/nbio/nbio_6_1_offset.h b/drivers/gpu/drm/amd/include/asic_reg/nbio/nbio_6_1_offset.h
+index 13d4de645190..d8e0dd192fdd 100644
+--- a/drivers/gpu/drm/amd/include/asic_reg/nbio/nbio_6_1_offset.h
++++ b/drivers/gpu/drm/amd/include/asic_reg/nbio/nbio_6_1_offset.h
+@@ -2247,6 +2247,8 @@
+ 
+ // addressBlock: nbio_nbif_rcc_strap_BIFDEC1[13440..14975]
+ // base address: 0x3480
++#define mmRCC_BIF_STRAP0                                                                               0x0000
++#define mmRCC_BIF_STRAP0_BASE_IDX                                                                      2
+ #define mmRCC_DEV0_EPF0_STRAP0                                                                         0x000f
+ #define mmRCC_DEV0_EPF0_STRAP0_BASE_IDX                                                                2
+ 
+diff --git a/drivers/gpu/drm/amd/include/asic_reg/nbio/nbio_6_1_sh_mask.h b/drivers/gpu/drm/amd/include/asic_reg/nbio/nbio_6_1_sh_mask.h
+index a02b67943372..29af5167cd00 100644
+--- a/drivers/gpu/drm/amd/include/asic_reg/nbio/nbio_6_1_sh_mask.h
++++ b/drivers/gpu/drm/amd/include/asic_reg/nbio/nbio_6_1_sh_mask.h
+@@ -16838,6 +16838,10 @@
+ 
+ 
+ // addressBlock: nbio_nbif_rcc_strap_BIFDEC1[13440..14975]
++//RCC_BIF_STRAP0
++#define RCC_BIF_STRAP0__STRAP_PX_CAPABLE__SHIFT                                                               0x7
++#define RCC_BIF_STRAP0__STRAP_PX_CAPABLE_MASK                                                                 0x00000080L
++
+ //RCC_DEV0_EPF0_STRAP0
+ #define RCC_DEV0_EPF0_STRAP0__STRAP_DEVICE_ID_DEV0_F0__SHIFT                                                  0x0
+ #define RCC_DEV0_EPF0_STRAP0__STRAP_MAJOR_REV_ID_DEV0_F0__SHIFT                                               0x10
+-- 
+2.17.1
+

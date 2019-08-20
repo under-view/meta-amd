@@ -1,0 +1,39 @@
+From 7b6a73d273ce24264fd60eb34c7155d164c193e0 Mon Sep 17 00:00:00 2001
+From: Kenneth Feng <kenneth.feng@amd.com>
+Date: Tue, 14 May 2019 17:08:36 +0800
+Subject: [PATCH 2377/2940] drm/amd/powerplay: enable gfxclk ds,dcefclk ds and
+ fw dstate on navi10
+
+on navi10, by default the below four features are enabled.
+gfxclk deep sleep: enabled and verified
+fw dstate: enabled and then soc ulv is verified
+dcefclk deep sleep: enabled and verified. notice that on different boards,
+due to the minimum dcefclk deep sleep setting in VBIOS, we may not see dcefclk
+deep sleep kicking in.
+
+Signed-off-by: Kenneth Feng <kenneth.feng@amd.com>
+Reviewed-by: Huang Rui <ray.huang@amd.com>
+Signed-off-by: Alex Deucher <alexander.deucher@amd.com>
+---
+ drivers/gpu/drm/amd/powerplay/navi10_ppt.c | 5 ++++-
+ 1 file changed, 4 insertions(+), 1 deletion(-)
+
+diff --git a/drivers/gpu/drm/amd/powerplay/navi10_ppt.c b/drivers/gpu/drm/amd/powerplay/navi10_ppt.c
+index dece57fc751e..c312eadcf3e0 100644
+--- a/drivers/gpu/drm/amd/powerplay/navi10_ppt.c
++++ b/drivers/gpu/drm/amd/powerplay/navi10_ppt.c
+@@ -326,7 +326,10 @@ navi10_get_allowed_feature_mask(struct smu_context *smu,
+ 				| FEATURE_MASK(FEATURE_LED_DISPLAY_BIT)
+ 				| FEATURE_MASK(FEATURE_MMHUB_PG_BIT)
+ 				| FEATURE_MASK(FEATURE_ATHUB_PG_BIT)
+-				| FEATURE_MASK(FEATURE_DPM_DCEFCLK_BIT);
++				| FEATURE_MASK(FEATURE_DPM_DCEFCLK_BIT)
++				| FEATURE_MASK(FEATURE_DS_GFXCLK_BIT)
++				| FEATURE_MASK(FEATURE_DS_DCEFCLK_BIT)
++				| FEATURE_MASK(FEATURE_FW_DSTATE_BIT);
+ 
+ 	if (adev->pm.pp_feature & PP_MCLK_DPM_MASK)
+ 		*(uint64_t *)feature_mask |= FEATURE_MASK(FEATURE_DPM_UCLK_BIT)
+-- 
+2.17.1
+

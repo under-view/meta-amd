@@ -1,0 +1,306 @@
+From f6c25bfda3388a64af758893d5fba3a40ec1721b Mon Sep 17 00:00:00 2001
+From: Jun Lei <Jun.Lei@amd.com>
+Date: Tue, 26 Mar 2019 17:32:59 -0400
+Subject: [PATCH 1772/2940] drm/amd/display: expand plane caps to include fp16
+ and scaling capability
+
+[why]
+there are some scaling capabilities such as fp16 which are known to be unsupported
+on a given ASIC.  exposing these static capabilities allows much simpler implementation
+for OS interfaces which require to report such static capabilities to reduce the
+number of dynamic validation calls
+
+[how]
+refactor the existing plane caps to be more extensible, and add fp16 and scaling
+capabilities
+
+Change-Id: I8feb15d433f21a10df26ef3cd07cc892de34ce4b
+Signed-off-by: Jun Lei <Jun.Lei@amd.com>
+Reviewed-by: Tony Cheng <Tony.Cheng@amd.com>
+Acked-by: Bhawanpreet Lakha <Bhawanpreet Lakha@amd.com>
+Acked-by: Harry Wentland <Harry.Wentland@amd.com>
+---
+ .../gpu/drm/amd/display/amdgpu_dm/amdgpu_dm.c |  6 +--
+ drivers/gpu/drm/amd/display/dc/dc.h           | 23 ++++++++++-
+ .../amd/display/dc/dce100/dce100_resource.c   | 19 +++++++++-
+ .../amd/display/dc/dce110/dce110_resource.c   | 38 ++++++++++++++++++-
+ .../amd/display/dc/dce112/dce112_resource.c   | 19 +++++++++-
+ .../amd/display/dc/dce120/dce120_resource.c   | 19 +++++++++-
+ .../drm/amd/display/dc/dce80/dce80_resource.c | 19 +++++++++-
+ .../drm/amd/display/dc/dcn10/dcn10_resource.c | 20 +++++++++-
+ 8 files changed, 150 insertions(+), 13 deletions(-)
+
+diff --git a/drivers/gpu/drm/amd/display/amdgpu_dm/amdgpu_dm.c b/drivers/gpu/drm/amd/display/amdgpu_dm/amdgpu_dm.c
+index d5654efa2f66..e014a00a0021 100644
+--- a/drivers/gpu/drm/amd/display/amdgpu_dm/amdgpu_dm.c
++++ b/drivers/gpu/drm/amd/display/amdgpu_dm/amdgpu_dm.c
+@@ -2086,7 +2086,7 @@ static int amdgpu_dm_initialize_drm_device(struct amdgpu_device *adev)
+ 		if (!plane->blends_with_above || !plane->blends_with_below)
+ 			continue;
+ 
+-		if (!plane->supports_argb8888)
++		if (!plane->pixel_format_support.argb8888)
+ 			continue;
+ 
+ 		if (initialize_plane(dm, NULL, primary_planes + i,
+@@ -4256,7 +4256,7 @@ static int get_plane_formats(const struct drm_plane *plane,
+ 			formats[num_formats++] = rgb_formats[i];
+ 		}
+ 
+-		if (plane_cap && plane_cap->supports_nv12)
++		if (plane_cap && plane_cap->pixel_format_support.nv12)
+ 			formats[num_formats++] = DRM_FORMAT_NV12;
+ 		break;
+ 
+@@ -4310,7 +4310,7 @@ static int amdgpu_dm_plane_init(struct amdgpu_display_manager *dm,
+ 	}
+ 
+ 	if (plane->type == DRM_PLANE_TYPE_PRIMARY &&
+-	    plane_cap && plane_cap->supports_nv12) {
++	    plane_cap && plane_cap->pixel_format_support.nv12) {
+ 		/* This only affects YUV formats. */
+ 		drm_plane_create_color_properties(
+ 			plane,
+diff --git a/drivers/gpu/drm/amd/display/dc/dc.h b/drivers/gpu/drm/amd/display/dc/dc.h
+index 8a645ec8e293..3c1b83ffe37e 100644
+--- a/drivers/gpu/drm/amd/display/dc/dc.h
++++ b/drivers/gpu/drm/amd/display/dc/dc.h
+@@ -69,8 +69,27 @@ struct dc_plane_cap {
+ 	uint32_t blends_with_above : 1;
+ 	uint32_t blends_with_below : 1;
+ 	uint32_t per_pixel_alpha : 1;
+-	uint32_t supports_argb8888 : 1;
+-	uint32_t supports_nv12 : 1;
++	struct {
++		uint32_t argb8888 : 1;
++		uint32_t nv12 : 1;
++		uint32_t fp16 : 1;
++	} pixel_format_support;
++	// max upscaling factor x1000
++	// upscaling factors are always >= 1
++	// for example, 1080p -> 8K is 4.0, or 4000 raw value
++	struct {
++		uint32_t argb8888;
++		uint32_t nv12;
++		uint32_t fp16;
++	} max_upscale_factor;
++	// max downscale factor x1000
++	// downscale factors are always <= 1
++	// for example, 8K -> 1080p is 0.25, or 250 raw value
++	struct {
++		uint32_t argb8888;
++		uint32_t nv12;
++		uint32_t fp16;
++	} max_downscale_factor;
+ };
+ 
+ struct dc_caps {
+diff --git a/drivers/gpu/drm/amd/display/dc/dce100/dce100_resource.c b/drivers/gpu/drm/amd/display/dc/dce100/dce100_resource.c
+index 767d37c6d942..f38ea29b3377 100644
+--- a/drivers/gpu/drm/amd/display/dc/dce100/dce100_resource.c
++++ b/drivers/gpu/drm/amd/display/dc/dce100/dce100_resource.c
+@@ -380,7 +380,24 @@ static const struct resource_caps res_cap = {
+ 
+ static const struct dc_plane_cap plane_cap = {
+ 	.type = DC_PLANE_TYPE_DCE_RGB,
+-	.supports_argb8888 = true,
++
++	.pixel_format_support = {
++			.argb8888 = true,
++			.nv12 = false,
++			.fp16 = false
++	},
++
++	.max_upscale_factor = {
++			.argb8888 = 16000,
++			.nv12 = 1,
++			.fp16 = 1
++	},
++
++	.max_downscale_factor = {
++			.argb8888 = 250,
++			.nv12 = 1,
++			.fp16 = 1
++	}
+ };
+ 
+ #define CTX  ctx
+diff --git a/drivers/gpu/drm/amd/display/dc/dce110/dce110_resource.c b/drivers/gpu/drm/amd/display/dc/dce110/dce110_resource.c
+index 7c4914b2b524..d5ebc4538711 100644
+--- a/drivers/gpu/drm/amd/display/dc/dce110/dce110_resource.c
++++ b/drivers/gpu/drm/amd/display/dc/dce110/dce110_resource.c
+@@ -397,14 +397,48 @@ static const struct dc_plane_cap plane_cap = {
+ 		.blends_with_below = true,
+ 		.blends_with_above = true,
+ 		.per_pixel_alpha = 1,
+-		.supports_argb8888 = true,
++
++		.pixel_format_support = {
++				.argb8888 = true,
++				.nv12 = false,
++				.fp16 = false
++		},
++
++		.max_upscale_factor = {
++				.argb8888 = 16000,
++				.nv12 = 1,
++				.fp16 = 1
++		},
++
++		.max_downscale_factor = {
++				.argb8888 = 250,
++				.nv12 = 1,
++				.fp16 = 1
++		}
+ };
+ 
+ static const struct dc_plane_cap underlay_plane_cap = {
+ 		.type = DC_PLANE_TYPE_DCE_UNDERLAY,
+ 		.blends_with_above = true,
+ 		.per_pixel_alpha = 1,
+-		.supports_nv12 = true
++
++		.pixel_format_support = {
++				.argb8888 = false,
++				.nv12 = true,
++				.fp16 = false
++		},
++
++		.max_upscale_factor = {
++				.argb8888 = 1,
++				.nv12 = 16000,
++				.fp16 = 1
++		},
++
++		.max_downscale_factor = {
++				.argb8888 = 1,
++				.nv12 = 250,
++				.fp16 = 1
++		}
+ };
+ 
+ #define CTX  ctx
+diff --git a/drivers/gpu/drm/amd/display/dc/dce112/dce112_resource.c b/drivers/gpu/drm/amd/display/dc/dce112/dce112_resource.c
+index 2f28a74383f5..afbc82b87982 100644
+--- a/drivers/gpu/drm/amd/display/dc/dce112/dce112_resource.c
++++ b/drivers/gpu/drm/amd/display/dc/dce112/dce112_resource.c
+@@ -399,7 +399,24 @@ static const struct resource_caps polaris_11_resource_cap = {
+ 
+ static const struct dc_plane_cap plane_cap = {
+ 	.type = DC_PLANE_TYPE_DCE_RGB,
+-	.supports_argb8888 = true,
++
++	.pixel_format_support = {
++			.argb8888 = true,
++			.nv12 = false,
++			.fp16 = false
++	},
++
++	.max_upscale_factor = {
++			.argb8888 = 16000,
++			.nv12 = 1,
++			.fp16 = 1
++	},
++
++	.max_downscale_factor = {
++			.argb8888 = 250,
++			.nv12 = 1,
++			.fp16 = 1
++	}
+ };
+ 
+ #define CTX  ctx
+diff --git a/drivers/gpu/drm/amd/display/dc/dce120/dce120_resource.c b/drivers/gpu/drm/amd/display/dc/dce120/dce120_resource.c
+index 01ea503faa12..6d49c7143c67 100644
+--- a/drivers/gpu/drm/amd/display/dc/dce120/dce120_resource.c
++++ b/drivers/gpu/drm/amd/display/dc/dce120/dce120_resource.c
+@@ -456,7 +456,24 @@ static const struct resource_caps res_cap = {
+ 
+ static const struct dc_plane_cap plane_cap = {
+ 	.type = DC_PLANE_TYPE_DCE_RGB,
+-	.supports_argb8888 = true,
++
++	.pixel_format_support = {
++			.argb8888 = true,
++			.nv12 = false,
++			.fp16 = false
++	},
++
++	.max_upscale_factor = {
++			.argb8888 = 16000,
++			.nv12 = 1,
++			.fp16 = 1
++	},
++
++	.max_downscale_factor = {
++			.argb8888 = 250,
++			.nv12 = 1,
++			.fp16 = 1
++	}
+ };
+ 
+ static const struct dc_debug_options debug_defaults = {
+diff --git a/drivers/gpu/drm/amd/display/dc/dce80/dce80_resource.c b/drivers/gpu/drm/amd/display/dc/dce80/dce80_resource.c
+index c7899ec96287..9569f3af12a3 100644
+--- a/drivers/gpu/drm/amd/display/dc/dce80/dce80_resource.c
++++ b/drivers/gpu/drm/amd/display/dc/dce80/dce80_resource.c
+@@ -389,7 +389,24 @@ static const struct resource_caps res_cap_83 = {
+ 
+ static const struct dc_plane_cap plane_cap = {
+ 	.type = DC_PLANE_TYPE_DCE_RGB,
+-	.supports_argb8888 = true,
++
++	.pixel_format_support = {
++			.argb8888 = true,
++			.nv12 = false,
++			.fp16 = false
++	},
++
++	.max_upscale_factor = {
++			.argb8888 = 16000,
++			.nv12 = 1,
++			.fp16 = 1
++	},
++
++	.max_downscale_factor = {
++			.argb8888 = 250,
++			.nv12 = 1,
++			.fp16 = 1
++	}
+ };
+ 
+ static const struct dce_dmcu_registers dmcu_regs = {
+diff --git a/drivers/gpu/drm/amd/display/dc/dcn10/dcn10_resource.c b/drivers/gpu/drm/amd/display/dc/dcn10/dcn10_resource.c
+index 79f4fbb8a145..7eccb54c421d 100644
+--- a/drivers/gpu/drm/amd/display/dc/dcn10/dcn10_resource.c
++++ b/drivers/gpu/drm/amd/display/dc/dcn10/dcn10_resource.c
+@@ -521,8 +521,24 @@ static const struct dc_plane_cap plane_cap = {
+ 	.blends_with_above = true,
+ 	.blends_with_below = true,
+ 	.per_pixel_alpha = true,
+-	.supports_argb8888 = true,
+-	.supports_nv12 = true
++
++	.pixel_format_support = {
++			.argb8888 = true,
++			.nv12 = true,
++			.fp16 = true
++	},
++
++	.max_upscale_factor = {
++			.argb8888 = 16000,
++			.nv12 = 16000,
++			.fp16 = 1
++	},
++
++	.max_downscale_factor = {
++			.argb8888 = 250,
++			.nv12 = 250,
++			.fp16 = 1
++	}
+ };
+ 
+ static const struct dc_debug_options debug_defaults_drv = {
+-- 
+2.17.1
+

@@ -1,0 +1,35 @@
+From 2b0e9fd4cc8a7184c59518f094cb6086b591a012 Mon Sep 17 00:00:00 2001
+From: Harish Kasiviswanathan <Harish.Kasiviswanathan@amd.com>
+Date: Tue, 30 Apr 2019 19:04:57 -0400
+Subject: [PATCH 2778/2940] drm/amdkfd: Use device cgroup only if enabled in
+ Kconfig
+
+Change-Id: I7a66f3204ae973802138da196a344c8740cb097f
+Signed-off-by: Harish Kasiviswanathan <Harish.Kasiviswanathan@amd.com>
+---
+ drivers/gpu/drm/amd/amdkfd/kfd_priv.h | 4 ++++
+ 1 file changed, 4 insertions(+)
+
+diff --git a/drivers/gpu/drm/amd/amdkfd/kfd_priv.h b/drivers/gpu/drm/amd/amdkfd/kfd_priv.h
+index 7cd1404129f4..6f22f4e1dba5 100644
+--- a/drivers/gpu/drm/amd/amdkfd/kfd_priv.h
++++ b/drivers/gpu/drm/amd/amdkfd/kfd_priv.h
+@@ -1156,11 +1156,15 @@ int kfd_ipc_init(void);
+ /* Check with device cgroup if @kfd device is accessible */
+ static inline int kfd_devcgroup_check_permission(struct kfd_dev *kfd)
+ {
++#if defined(CONFIG_CGROUP_DEVICE)
+ 	struct drm_device *ddev = kfd->ddev;
+ 
+ 	return devcgroup_check_permission(DEVCG_DEV_CHAR, DRM_MAJOR,
+ 					  ddev->render->index,
+ 					  DEVCG_ACC_WRITE | DEVCG_ACC_READ);
++#else
++	return 0;
++#endif
+ }
+ 
+ /* Compute profile */
+-- 
+2.17.1
+

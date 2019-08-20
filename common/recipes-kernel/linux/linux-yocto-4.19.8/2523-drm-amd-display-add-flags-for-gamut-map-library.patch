@@ -1,0 +1,71 @@
+From 4eefc569a27a3d79c3f5fa29f4bf5292f3d43d59 Mon Sep 17 00:00:00 2001
+From: Vitaly Prosyak <vitaly.prosyak@amd.com>
+Date: Tue, 9 Apr 2019 10:39:25 -0500
+Subject: [PATCH 2523/2940] drm/amd/display: add flags for gamut map library
+
+[Why & How]
+Gamut map lib provides a wider gamut mapping options
+vs BT2390
+
+Signed-off-by: Vitaly Prosyak <vitaly.prosyak@amd.com>
+Reviewed-by: Krunoslav Kovac <Krunoslav.Kovac@amd.com>
+Acked-by: Aric Cyr <Aric.Cyr@amd.com>
+Acked-by: Bhawanpreet Lakha <Bhawanpreet.Lakha@amd.com>
+Acked-by: Vitaly Prosyak <Vitaly.Prosyak@amd.com>
+Signed-off-by: Alex Deucher <alexander.deucher@amd.com>
+---
+ .../drm/amd/display/modules/inc/mod_shared.h  | 24 ++++++++++++++++++-
+ 1 file changed, 23 insertions(+), 1 deletion(-)
+
+diff --git a/drivers/gpu/drm/amd/display/modules/inc/mod_shared.h b/drivers/gpu/drm/amd/display/modules/inc/mod_shared.h
+index 9406d0a167ee..6c877eeba429 100644
+--- a/drivers/gpu/drm/amd/display/modules/inc/mod_shared.h
++++ b/drivers/gpu/drm/amd/display/modules/inc/mod_shared.h
+@@ -61,7 +61,10 @@ union lut3d_control_flags {
+ 		unsigned int use_3dlut					:1;
+ 		unsigned int less_than_dcip3				:1;
+ 		unsigned int override_lum				:1;
+-		unsigned int reseved					:8;
++		unsigned int use_gamut_map_lib					:1;
++		unsigned int chromatic_adaptation_src				:1;
++		unsigned int chromatic_adaptation_dst				:1;
++		unsigned int reseved					:5;
+ 	} bits;
+ };
+ 
+@@ -71,6 +74,21 @@ enum tm_show_option_internal {
+ 	tm_show_option_internal_duplicate_sidebyside/*use flags2*/
+ };
+ 
++enum lut3d_control_gamut_map {
++	lut3d_control_gamut_map_none = 0,
++	lut3d_control_gamut_map_tonemap,
++	lut3d_control_gamut_map_chto,
++	lut3d_control_gamut_map_chto_chso,
++	lut3d_control_gamut_map_chto_chci
++};
++
++enum lut3d_control_rotation_mode {
++	lut3d_control_rotation_mode_none = 0,
++	lut3d_control_rotation_mode_hue,
++	lut3d_control_rotation_mode_cc,
++	lut3d_control_rotation_mode_hue_cc
++};
++
+ struct lut3d_settings {
+ 	unsigned char version;
+ 	union lut3d_control_flags flags;
+@@ -80,6 +98,10 @@ struct lut3d_settings {
+ 	unsigned int max_lum;
+ 	unsigned int min_lum2;
+ 	unsigned int max_lum2;
++	enum lut3d_control_gamut_map map;
++	enum lut3d_control_rotation_mode rotation;
++	enum lut3d_control_gamut_map map2;
++	enum lut3d_control_rotation_mode rotation2;
+ };
+ #endif
+ 
+-- 
+2.17.1
+

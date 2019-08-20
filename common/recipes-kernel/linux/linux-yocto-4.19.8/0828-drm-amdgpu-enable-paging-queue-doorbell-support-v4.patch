@@ -1,0 +1,95 @@
+From 708b8b298e694ea9e684b3d522ada9f54aa52029 Mon Sep 17 00:00:00 2001
+From: Philip Yang <Philip.Yang@amd.com>
+Date: Mon, 19 Nov 2018 10:36:02 -0500
+Subject: [PATCH 0828/2940] drm/amdgpu: enable paging queue doorbell support v4
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+Because increase SDMA_DOORBELL_RANGE to add new SDMA doorbell for paging queue will
+break SRIOV, instead we can reserve and map two doorbell pages for amdgpu, paging
+queues doorbell index use same index as SDMA gfx queues index but on second page.
+
+For Vega20, after we change doorbell layout to increase SDMA doorbell for 8 SDMA RLC
+queues later, we could use new doorbell index for paging queue.
+
+Signed-off-by: Philip Yang <Philip.Yang@amd.com>
+Reviewed-by: Felix Kuehling <Felix.Kuehling@amd.com>
+Reviewed-by: Alex Deucher <alexander.deucher@amd.com>
+Reviewed-by: Christian König <christian.koenig@amd.com>
+Signed-off-by: Alex Deucher <alexander.deucher@amd.com>
+---
+ drivers/gpu/drm/amd/amdgpu/amdgpu_device.c |  6 +++++
+ drivers/gpu/drm/amd/amdgpu/sdma_v4_0.c     | 28 +++++++++++++++-------
+ 2 files changed, 25 insertions(+), 9 deletions(-)
+
+diff --git a/drivers/gpu/drm/amd/amdgpu/amdgpu_device.c b/drivers/gpu/drm/amd/amdgpu/amdgpu_device.c
+index f3c02edd61d8..2e14c4e2686c 100644
+--- a/drivers/gpu/drm/amd/amdgpu/amdgpu_device.c
++++ b/drivers/gpu/drm/amd/amdgpu/amdgpu_device.c
+@@ -534,6 +534,12 @@ static int amdgpu_device_doorbell_init(struct amdgpu_device *adev)
+ 	if (adev->doorbell.num_doorbells == 0)
+ 		return -EINVAL;
+ 
++	/* For Vega, reserve and map two pages on doorbell BAR since SDMA
++	 * paging queue doorbell use the second page
++	 */
++	if (adev->asic_type >= CHIP_VEGA10)
++		adev->doorbell.num_doorbells *= 2;
++
+ 	adev->doorbell.ptr = ioremap(adev->doorbell.base,
+ 				     adev->doorbell.num_doorbells *
+ 				     sizeof(u32));
+diff --git a/drivers/gpu/drm/amd/amdgpu/sdma_v4_0.c b/drivers/gpu/drm/amd/amdgpu/sdma_v4_0.c
+index da862601b404..e9ece3d19110 100644
+--- a/drivers/gpu/drm/amd/amdgpu/sdma_v4_0.c
++++ b/drivers/gpu/drm/amd/amdgpu/sdma_v4_0.c
+@@ -1504,18 +1504,15 @@ static int sdma_v4_0_sw_init(void *handle)
+ 		ring->ring_obj = NULL;
+ 		ring->use_doorbell = true;
+ 
+-		DRM_INFO("use_doorbell being set to: [%s]\n",
+-				ring->use_doorbell?"true":"false");
+-
++		/* doorbell size is 2 dwords, get DWORD offset */
+ 		if (adev->asic_type == CHIP_VEGA10)
+ 			ring->doorbell_index = (i == 0) ?
+-				(AMDGPU_VEGA10_DOORBELL64_sDMA_ENGINE0 << 1) //get DWORD offset
+-				: (AMDGPU_VEGA10_DOORBELL64_sDMA_ENGINE1 << 1); // get DWORD offset
++				(AMDGPU_VEGA10_DOORBELL64_sDMA_ENGINE0 << 1)
++				: (AMDGPU_VEGA10_DOORBELL64_sDMA_ENGINE1 << 1);
+ 		else
+ 			ring->doorbell_index = (i == 0) ?
+-				(AMDGPU_DOORBELL64_sDMA_ENGINE0 << 1) //get DWORD offset
+-				: (AMDGPU_DOORBELL64_sDMA_ENGINE1 << 1); // get DWORD offset
+-
++				(AMDGPU_DOORBELL64_sDMA_ENGINE0 << 1)
++				: (AMDGPU_DOORBELL64_sDMA_ENGINE1 << 1);
+ 
+ 		sprintf(ring->name, "sdma%d", i);
+ 		r = amdgpu_ring_init(adev, ring, 1024,
+@@ -1529,7 +1526,20 @@ static int sdma_v4_0_sw_init(void *handle)
+ 		if (adev->sdma.has_page_queue) {
+ 			ring = &adev->sdma.instance[i].page;
+ 			ring->ring_obj = NULL;
+-			ring->use_doorbell = false;
++			ring->use_doorbell = true;
++
++			/* paging queue use same doorbell index/routing as gfx queue
++			 * with 0x400 (4096 dwords) offset on second doorbell page
++			 */
++			if (adev->asic_type == CHIP_VEGA10)
++				ring->doorbell_index = (i == 0) ?
++					(AMDGPU_VEGA10_DOORBELL64_sDMA_ENGINE0 << 1)
++					: (AMDGPU_VEGA10_DOORBELL64_sDMA_ENGINE1 << 1);
++			else
++				ring->doorbell_index = (i == 0) ?
++					(AMDGPU_DOORBELL64_sDMA_ENGINE0 << 1)
++					: (AMDGPU_DOORBELL64_sDMA_ENGINE1 << 1);
++			ring->doorbell_index += 0x400;
+ 
+ 			sprintf(ring->name, "page%d", i);
+ 			r = amdgpu_ring_init(adev, ring, 1024,
+-- 
+2.17.1
+

@@ -1,0 +1,29 @@
+From bfc5101f8a14013cf1dad87f49e459b4bc49c864 Mon Sep 17 00:00:00 2001
+From: tiancyin <tianci.yin@amd.com>
+Date: Thu, 30 May 2019 11:04:11 +0800
+Subject: [PATCH 2418/2940] drm/amdgpu: add new navi10 DIDs
+
+Reviewed-by: Jack Xiao <Jack.Xiao@amd.com>
+Signed-off-by: tiancyin <tianci.yin@amd.com>
+Signed-off-by: Alex Deucher <alexander.deucher@amd.com>
+---
+ drivers/gpu/drm/amd/amdgpu/amdgpu_drv.c | 2 ++
+ 1 file changed, 2 insertions(+)
+
+diff --git a/drivers/gpu/drm/amd/amdgpu/amdgpu_drv.c b/drivers/gpu/drm/amd/amdgpu/amdgpu_drv.c
+index 90d4f3113b6f..4b9afc396dcc 100644
+--- a/drivers/gpu/drm/amd/amdgpu/amdgpu_drv.c
++++ b/drivers/gpu/drm/amd/amdgpu/amdgpu_drv.c
+@@ -887,7 +887,9 @@ static const struct pci_device_id pciidlist[] = {
+ 	{0x1002, 0x7310, PCI_ANY_ID, PCI_ANY_ID, 0, 0, CHIP_NAVI10},
+ 	{0x1002, 0x7312, PCI_ANY_ID, PCI_ANY_ID, 0, 0, CHIP_NAVI10},
+ 	{0x1002, 0x7318, PCI_ANY_ID, PCI_ANY_ID, 0, 0, CHIP_NAVI10},
++	{0x1002, 0x7319, PCI_ANY_ID, PCI_ANY_ID, 0, 0, CHIP_NAVI10},
+ 	{0x1002, 0x731A, PCI_ANY_ID, PCI_ANY_ID, 0, 0, CHIP_NAVI10},
++	{0x1002, 0x731B, PCI_ANY_ID, PCI_ANY_ID, 0, 0, CHIP_NAVI10},
+ 	{0x1002, 0x731F, PCI_ANY_ID, PCI_ANY_ID, 0, 0, CHIP_NAVI10},
+ 
+ 	{0, 0, 0}
+-- 
+2.17.1
+

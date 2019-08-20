@@ -1,0 +1,34 @@
+From 2085203bb13794878c27255a0535fb089c77bb68 Mon Sep 17 00:00:00 2001
+From: Evan Quan <evan.quan@amd.com>
+Date: Wed, 21 Nov 2018 11:25:53 +0800
+Subject: [PATCH 0941/2940] drm/amdgpu: increase the MAX ring number
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+As two more SDMA page queue rings are added on Vega20.
+
+Signed-off-by: Evan Quan <evan.quan@amd.com>
+Reviewed-by: Oak Zeng <Oak.Zeng@amd.com>
+Reviewed-by: Christian König <christian.koenig@amd.com>
+Signed-off-by: Alex Deucher <alexander.deucher@amd.com>
+---
+ drivers/gpu/drm/amd/amdgpu/amdgpu_ring.h | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/drivers/gpu/drm/amd/amdgpu/amdgpu_ring.h b/drivers/gpu/drm/amd/amdgpu/amdgpu_ring.h
+index 0beb01fef83f..d87e828a084b 100644
+--- a/drivers/gpu/drm/amd/amdgpu/amdgpu_ring.h
++++ b/drivers/gpu/drm/amd/amdgpu/amdgpu_ring.h
+@@ -29,7 +29,7 @@
+ #include <drm/drm_print.h>
+ 
+ /* max number of rings */
+-#define AMDGPU_MAX_RINGS		21
++#define AMDGPU_MAX_RINGS		23
+ #define AMDGPU_MAX_GFX_RINGS		1
+ #define AMDGPU_MAX_COMPUTE_RINGS	8
+ #define AMDGPU_MAX_VCE_RINGS		3
+-- 
+2.17.1
+

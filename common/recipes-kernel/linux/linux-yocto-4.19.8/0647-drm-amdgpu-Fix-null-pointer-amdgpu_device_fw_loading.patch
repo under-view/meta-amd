@@ -1,0 +1,31 @@
+From e269ea14c3056acceb36c7005d130403335c7ff6 Mon Sep 17 00:00:00 2001
+From: Emily Deng <Emily.Deng@amd.com>
+Date: Thu, 18 Oct 2018 15:01:05 +0800
+Subject: [PATCH 0647/2940] drm/amdgpu: Fix null pointer
+ amdgpu_device_fw_loading
+
+Need to check adev->powerplay.pp_funcs.
+
+Signed-off-by: Emily Deng <Emily.Deng@amd.com>
+Reviewed-by: Huang Rui <ray.huang@amd.com>
+Signed-off-by: Alex Deucher <alexander.deucher@amd.com>
+---
+ drivers/gpu/drm/amd/amdgpu/amdgpu_device.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/drivers/gpu/drm/amd/amdgpu/amdgpu_device.c b/drivers/gpu/drm/amd/amdgpu/amdgpu_device.c
+index 2736eda66ccb..8f456a050267 100644
+--- a/drivers/gpu/drm/amd/amdgpu/amdgpu_device.c
++++ b/drivers/gpu/drm/amd/amdgpu/amdgpu_device.c
+@@ -1648,7 +1648,7 @@ static int amdgpu_device_fw_loading(struct amdgpu_device *adev)
+ 		}
+ 	}
+ 
+-	if (adev->powerplay.pp_funcs->load_firmware) {
++	if (adev->powerplay.pp_funcs && adev->powerplay.pp_funcs->load_firmware) {
+ 		r = adev->powerplay.pp_funcs->load_firmware(adev->powerplay.pp_handle);
+ 		if (r) {
+ 			pr_err("firmware loading failed\n");
+-- 
+2.17.1
+

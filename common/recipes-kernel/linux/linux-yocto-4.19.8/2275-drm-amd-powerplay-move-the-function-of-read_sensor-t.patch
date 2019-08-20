@@ -1,0 +1,114 @@
+From b9cbe79b38ff98852e5cb7ea8f37b56c71b6c879 Mon Sep 17 00:00:00 2001
+From: Kevin Wang <kevin1.wang@amd.com>
+Date: Tue, 5 Mar 2019 14:16:12 +0800
+Subject: [PATCH 2275/2940] drm/amd/powerplay: move the function of read_sensor
+ to asic file
+
+The read_sensor functions has asic related parts code,
+so move them to asic file to implement.
+
+Signed-off-by: Kevin Wang <kevin1.wang@amd.com>
+Reviewed-by: Huang Rui <ray.huang@amd.com>
+Signed-off-by: Alex Deucher <alexander.deucher@amd.com>
+---
+ .../gpu/drm/amd/powerplay/inc/amdgpu_smu.h    |  4 ++++
+ drivers/gpu/drm/amd/powerplay/smu_v11_0.c     | 12 ++++------
+ drivers/gpu/drm/amd/powerplay/vega20_ppt.c    | 23 +++++++++++++++++++
+ 3 files changed, 31 insertions(+), 8 deletions(-)
+
+diff --git a/drivers/gpu/drm/amd/powerplay/inc/amdgpu_smu.h b/drivers/gpu/drm/amd/powerplay/inc/amdgpu_smu.h
+index 57049af9a5a2..fbbaf8e2a6a2 100644
+--- a/drivers/gpu/drm/amd/powerplay/inc/amdgpu_smu.h
++++ b/drivers/gpu/drm/amd/powerplay/inc/amdgpu_smu.h
+@@ -456,6 +456,8 @@ struct pptable_funcs {
+ 	int (*force_performance_level)(struct smu_context *smu, enum amd_dpm_forced_level level);
+ 	int (*dpm_set_uvd_enable)(struct smu_context *smu, bool enable);
+ 	int (*dpm_set_vce_enable)(struct smu_context *smu, bool enable);
++	int (*read_sensor)(struct smu_context *smu, enum amd_pp_sensors sensor,
++			   void *data, uint32_t *size);
+ 	int (*pre_display_config_changed)(struct smu_context *smu);
+ 	int (*display_config_changed)(struct smu_context *smu);
+ 	int (*apply_clocks_adjust_rules)(struct smu_context *smu);
+@@ -660,6 +662,8 @@ struct smu_funcs
+ 	((smu)->funcs->start_thermal_control? (smu)->funcs->start_thermal_control((smu)) : 0)
+ #define smu_read_sensor(smu, sensor, data, size) \
+ 	((smu)->funcs->read_sensor? (smu)->funcs->read_sensor((smu), (sensor), (data), (size)) : 0)
++#define smu_asic_read_sensor(smu, sensor, data, size) \
++	((smu)->ppt_funcs->read_sensor? (smu)->ppt_funcs->read_sensor((smu), (sensor), (data), (size)) : 0)
+ #define smu_get_power_profile_mode(smu, buf) \
+ 	((smu)->ppt_funcs->get_power_profile_mode ? (smu)->ppt_funcs->get_power_profile_mode((smu), buf) : 0)
+ #define smu_set_power_profile_mode(smu, param, param_size) \
+diff --git a/drivers/gpu/drm/amd/powerplay/smu_v11_0.c b/drivers/gpu/drm/amd/powerplay/smu_v11_0.c
+index 2cbf270bc1e1..004c84223e40 100644
+--- a/drivers/gpu/drm/amd/powerplay/smu_v11_0.c
++++ b/drivers/gpu/drm/amd/powerplay/smu_v11_0.c
+@@ -1381,14 +1381,6 @@ static int smu_v11_0_read_sensor(struct smu_context *smu,
+ 		ret = smu_v11_0_get_gfx_vdd(smu, (uint32_t *)data);
+ 		*size = 4;
+ 		break;
+-	case AMDGPU_PP_SENSOR_UVD_POWER:
+-		*(uint32_t *)data = smu_feature_is_enabled(smu, FEATURE_DPM_UVD_BIT) ? 1 : 0;
+-		*size = 4;
+-		break;
+-	case AMDGPU_PP_SENSOR_VCE_POWER:
+-		*(uint32_t *)data = smu_feature_is_enabled(smu, FEATURE_DPM_VCE_BIT) ? 1 : 0;
+-		*size = 4;
+-		break;
+ 	case AMDGPU_PP_SENSOR_MIN_FAN_RPM:
+ 		*(uint32_t *)data = 0;
+ 		*size = 4;
+@@ -1402,6 +1394,10 @@ static int smu_v11_0_read_sensor(struct smu_context *smu,
+ 		break;
+ 	}
+ 
++	/* try get sensor data by asic */
++	if (ret)
++		ret = smu_asic_read_sensor(smu, sensor, data, size);
++
+ 	if (ret)
+ 		*size = 0;
+ 
+diff --git a/drivers/gpu/drm/amd/powerplay/vega20_ppt.c b/drivers/gpu/drm/amd/powerplay/vega20_ppt.c
+index 31c104233323..06f91969cf76 100644
+--- a/drivers/gpu/drm/amd/powerplay/vega20_ppt.c
++++ b/drivers/gpu/drm/amd/powerplay/vega20_ppt.c
+@@ -2772,6 +2772,28 @@ static int vega20_set_ppfeature_status(struct smu_context *smu, uint64_t new_ppf
+ 	return 0;
+ }
+ 
++static int vega20_read_sensor(struct smu_context *smu,
++			      enum amd_pp_sensors sensor,
++			      void *data, uint32_t *size)
++{
++	int ret = 0;
++
++	switch (sensor) {
++	case AMDGPU_PP_SENSOR_UVD_POWER:
++		*(uint32_t *)data = smu_feature_is_enabled(smu, FEATURE_DPM_UVD_BIT) ? 1 : 0;
++		*size = 4;
++		break;
++	case AMDGPU_PP_SENSOR_VCE_POWER:
++		*(uint32_t *)data = smu_feature_is_enabled(smu, FEATURE_DPM_VCE_BIT) ? 1 : 0;
++		*size = 4;
++		break;
++	default:
++		return -EINVAL;
++	}
++
++	return ret;
++}
++
+ static const struct pptable_funcs vega20_ppt_funcs = {
+ 	.alloc_dpm_context = vega20_allocate_dpm_context,
+ 	.store_powerplay_table = vega20_store_powerplay_table,
+@@ -2799,6 +2821,7 @@ static const struct pptable_funcs vega20_ppt_funcs = {
+ 	.od_edit_dpm_table = vega20_odn_edit_dpm_table,
+ 	.dpm_set_uvd_enable = vega20_dpm_set_uvd_enable,
+ 	.dpm_set_vce_enable = vega20_dpm_set_vce_enable,
++	.read_sensor = vega20_read_sensor,
+ 	.pre_display_config_changed = vega20_pre_display_config_changed,
+ 	.display_config_changed = vega20_display_config_changed,
+ 	.apply_clocks_adjust_rules = vega20_apply_clocks_adjust_rules,
+-- 
+2.17.1
+

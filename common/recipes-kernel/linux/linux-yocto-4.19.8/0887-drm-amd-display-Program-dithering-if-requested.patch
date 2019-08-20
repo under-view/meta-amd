@@ -1,0 +1,52 @@
+From ad20e00200d50bdfe6bd47e77e88e6304614e429 Mon Sep 17 00:00:00 2001
+From: SivapiriyanKumarasamy <sivapiriyan.kumarasamy@amd.com>
+Date: Wed, 7 Nov 2018 14:59:41 -0500
+Subject: [PATCH 0887/2940] drm/amd/display: Program dithering if requested
+
+Dithering needs to be enabled or disabled as requested. If
+dc_stream_update->dither_option is non-null, program the FMT blocks.
+
+Signed-off-by: SivapiriyanKumarasamy <sivapiriyan.kumarasamy@amd.com>
+Reviewed-by: Anthony Koo <Anthony.Koo@amd.com>
+Reviewed-by: Krunoslav Kovac <Krunoslav.Kovac@amd.com>
+Acked-by: Leo Li <sunpeng.li@amd.com>
+Signed-off-by: Alex Deucher <alexander.deucher@amd.com>
+---
+ drivers/gpu/drm/amd/display/dc/core/dc.c   | 8 ++++++++
+ drivers/gpu/drm/amd/display/dc/dc_stream.h | 1 +
+ 2 files changed, 9 insertions(+)
+
+diff --git a/drivers/gpu/drm/amd/display/dc/core/dc.c b/drivers/gpu/drm/amd/display/dc/core/dc.c
+index 2d3fa8e792d8..30fd7b792ef9 100644
+--- a/drivers/gpu/drm/amd/display/dc/core/dc.c
++++ b/drivers/gpu/drm/amd/display/dc/core/dc.c
+@@ -1463,6 +1463,14 @@ static void commit_planes_do_stream_update(struct dc *dc,
+ 			if (stream_update->output_csc_transform)
+ 				dc_stream_program_csc_matrix(dc, stream);
+ 
++			if (stream_update->dither_option) {
++				resource_build_bit_depth_reduction_params(pipe_ctx->stream,
++									&pipe_ctx->stream->bit_depth_params);
++				pipe_ctx->stream_res.opp->funcs->opp_program_fmt(pipe_ctx->stream_res.opp,
++						&stream->bit_depth_params,
++						&stream->clamping);
++			}
++
+ 			/* Full fe update*/
+ 			if (update_type == UPDATE_TYPE_FAST)
+ 				continue;
+diff --git a/drivers/gpu/drm/amd/display/dc/dc_stream.h b/drivers/gpu/drm/amd/display/dc/dc_stream.h
+index 0c42418b0b3d..be34d638e15d 100644
+--- a/drivers/gpu/drm/amd/display/dc/dc_stream.h
++++ b/drivers/gpu/drm/amd/display/dc/dc_stream.h
+@@ -136,6 +136,7 @@ struct dc_stream_update {
+ 
+ 	struct colorspace_transform *gamut_remap;
+ 	enum dc_color_space *output_color_space;
++	enum dc_dither_option *dither_option;
+ 
+ 	struct dc_csc_transform *output_csc_transform;
+ 
+-- 
+2.17.1
+

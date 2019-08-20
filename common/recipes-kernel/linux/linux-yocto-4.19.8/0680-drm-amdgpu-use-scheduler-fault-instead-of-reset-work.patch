@@ -1,0 +1,393 @@
+From 874d025ab7986ef612bb4ff6dfd74606b126344b Mon Sep 17 00:00:00 2001
+From: =?UTF-8?q?Christian=20K=C3=B6nig?= <christian.koenig@amd.com>
+Date: Tue, 16 Oct 2018 13:08:21 +0200
+Subject: [PATCH 0680/2940] drm/amdgpu: use scheduler fault instead of reset
+ work
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+Signal a fault to the scheduler on an illegal instruction or register
+access violation instead of kicking of the reset handler directly.
+
+Signed-off-by: Christian König <christian.koenig@amd.com>
+Acked-by: Andrey Grodzovsky <andrey.grodzovsky@amd.com>
+Signed-off-by: Alex Deucher <alexander.deucher@amd.com>
+---
+ drivers/gpu/drm/amd/amdgpu/amdgpu.h     |  1 -
+ drivers/gpu/drm/amd/amdgpu/amdgpu_irq.c | 21 -----------------
+ drivers/gpu/drm/amd/amdgpu/cik_sdma.c   |  5 +++-
+ drivers/gpu/drm/amd/amdgpu/gfx_v6_0.c   | 23 ++++++++++++++++--
+ drivers/gpu/drm/amd/amdgpu/gfx_v7_0.c   | 28 ++++++++++++++++++++--
+ drivers/gpu/drm/amd/amdgpu/gfx_v8_0.c   | 31 +++++++++++++++++++++++--
+ drivers/gpu/drm/amd/amdgpu/gfx_v9_0.c   | 31 +++++++++++++++++++++++--
+ drivers/gpu/drm/amd/amdgpu/sdma_v2_4.c  |  8 ++++++-
+ drivers/gpu/drm/amd/amdgpu/sdma_v3_0.c  |  8 ++++++-
+ drivers/gpu/drm/amd/amdgpu/sdma_v4_0.c  | 21 +++++++++++++++--
+ 10 files changed, 142 insertions(+), 35 deletions(-)
+
+diff --git a/drivers/gpu/drm/amd/amdgpu/amdgpu.h b/drivers/gpu/drm/amd/amdgpu/amdgpu.h
+index d2a1aa6d9e2e..c518f7e57605 100644
+--- a/drivers/gpu/drm/amd/amdgpu/amdgpu.h
++++ b/drivers/gpu/drm/amd/amdgpu/amdgpu.h
+@@ -863,7 +863,6 @@ struct amdgpu_device {
+ 	bool				need_dma32;
+ 	bool				need_swiotlb;
+ 	bool				accel_working;
+-	struct work_struct		reset_work;
+ 	struct notifier_block		acpi_nb;
+ 	struct amdgpu_i2c_chan		*i2c_bus[AMDGPU_MAX_I2C_BUS];
+ 	struct amdgpu_debugfs		debugfs[AMDGPU_DEBUGFS_MAX_COMPONENTS];
+diff --git a/drivers/gpu/drm/amd/amdgpu/amdgpu_irq.c b/drivers/gpu/drm/amd/amdgpu/amdgpu_irq.c
+index 52c17f6219a7..6b6524f04ce0 100644
+--- a/drivers/gpu/drm/amd/amdgpu/amdgpu_irq.c
++++ b/drivers/gpu/drm/amd/amdgpu/amdgpu_irq.c
+@@ -93,23 +93,6 @@ static void amdgpu_hotplug_work_func(struct work_struct *work)
+ 	drm_helper_hpd_irq_event(dev);
+ }
+ 
+-/**
+- * amdgpu_irq_reset_work_func - execute GPU reset
+- *
+- * @work: work struct pointer
+- *
+- * Execute scheduled GPU reset (Cayman+).
+- * This function is called when the IRQ handler thinks we need a GPU reset.
+- */
+-static void amdgpu_irq_reset_work_func(struct work_struct *work)
+-{
+-	struct amdgpu_device *adev = container_of(work, struct amdgpu_device,
+-						  reset_work);
+-
+-	if (!amdgpu_sriov_vf(adev) && amdgpu_device_should_recover_gpu(adev))
+-		amdgpu_device_gpu_recover(adev, NULL);
+-}
+-
+ /**
+  * amdgpu_irq_disable_all - disable *all* interrupts
+  *
+@@ -262,15 +245,12 @@ int amdgpu_irq_init(struct amdgpu_device *adev)
+ 				amdgpu_hotplug_work_func);
+ 	}
+ 
+-	INIT_WORK(&adev->reset_work, amdgpu_irq_reset_work_func);
+-
+ 	adev->irq.installed = true;
+ 	r = drm_irq_install(adev->ddev, adev->ddev->pdev->irq);
+ 	if (r) {
+ 		adev->irq.installed = false;
+ 		if (!amdgpu_device_has_dc_support(adev))
+ 			flush_work(&adev->hotplug_work);
+-		cancel_work_sync(&adev->reset_work);
+ 		return r;
+ 	}
+ 	adev->ddev->max_vblank_count = 0x00ffffff;
+@@ -299,7 +279,6 @@ void amdgpu_irq_fini(struct amdgpu_device *adev)
+ 			pci_disable_msi(adev->pdev);
+ 		if (!amdgpu_device_has_dc_support(adev))
+ 			flush_work(&adev->hotplug_work);
+-		cancel_work_sync(&adev->reset_work);
+ 	}
+ 
+ 	for (i = 0; i < AMDGPU_IRQ_CLIENTID_MAX; ++i) {
+diff --git a/drivers/gpu/drm/amd/amdgpu/cik_sdma.c b/drivers/gpu/drm/amd/amdgpu/cik_sdma.c
+index b918c8886b75..32eb43d165f2 100644
+--- a/drivers/gpu/drm/amd/amdgpu/cik_sdma.c
++++ b/drivers/gpu/drm/amd/amdgpu/cik_sdma.c
+@@ -1214,8 +1214,11 @@ static int cik_sdma_process_illegal_inst_irq(struct amdgpu_device *adev,
+ 					     struct amdgpu_irq_src *source,
+ 					     struct amdgpu_iv_entry *entry)
+ {
++	u8 instance_id;
++
+ 	DRM_ERROR("Illegal instruction in SDMA command stream\n");
+-	schedule_work(&adev->reset_work);
++	instance_id = (entry->ring_id & 0x3) >> 0;
++	drm_sched_fault(&adev->sdma.instance[instance_id].ring.sched);
+ 	return 0;
+ }
+ 
+diff --git a/drivers/gpu/drm/amd/amdgpu/gfx_v6_0.c b/drivers/gpu/drm/amd/amdgpu/gfx_v6_0.c
+index d76eb27945dc..622dd70f310e 100644
+--- a/drivers/gpu/drm/amd/amdgpu/gfx_v6_0.c
++++ b/drivers/gpu/drm/amd/amdgpu/gfx_v6_0.c
+@@ -3393,12 +3393,31 @@ static int gfx_v6_0_eop_irq(struct amdgpu_device *adev,
+ 	return 0;
+ }
+ 
++static void gfx_v6_0_fault(struct amdgpu_device *adev,
++			   struct amdgpu_iv_entry *entry)
++{
++	struct amdgpu_ring *ring;
++
++	switch (entry->ring_id) {
++	case 0:
++		ring = &adev->gfx.gfx_ring[0];
++		break;
++	case 1:
++	case 2:
++		ring = &adev->gfx.compute_ring[entry->ring_id - 1];
++		break;
++	default:
++		return;
++	}
++	drm_sched_fault(&ring->sched);
++}
++
+ static int gfx_v6_0_priv_reg_irq(struct amdgpu_device *adev,
+ 				 struct amdgpu_irq_src *source,
+ 				 struct amdgpu_iv_entry *entry)
+ {
+ 	DRM_ERROR("Illegal register access in command stream\n");
+-	schedule_work(&adev->reset_work);
++	gfx_v6_0_fault(adev, entry);
+ 	return 0;
+ }
+ 
+@@ -3407,7 +3426,7 @@ static int gfx_v6_0_priv_inst_irq(struct amdgpu_device *adev,
+ 				  struct amdgpu_iv_entry *entry)
+ {
+ 	DRM_ERROR("Illegal instruction in command stream\n");
+-	schedule_work(&adev->reset_work);
++	gfx_v6_0_fault(adev, entry);
+ 	return 0;
+ }
+ 
+diff --git a/drivers/gpu/drm/amd/amdgpu/gfx_v7_0.c b/drivers/gpu/drm/amd/amdgpu/gfx_v7_0.c
+index 0e72bc09939a..9fadb32da827 100644
+--- a/drivers/gpu/drm/amd/amdgpu/gfx_v7_0.c
++++ b/drivers/gpu/drm/amd/amdgpu/gfx_v7_0.c
+@@ -4959,12 +4959,36 @@ static int gfx_v7_0_eop_irq(struct amdgpu_device *adev,
+ 	return 0;
+ }
+ 
++static void gfx_v7_0_fault(struct amdgpu_device *adev,
++			   struct amdgpu_iv_entry *entry)
++{
++	struct amdgpu_ring *ring;
++	u8 me_id, pipe_id;
++	int i;
++
++	me_id = (entry->ring_id & 0x0c) >> 2;
++	pipe_id = (entry->ring_id & 0x03) >> 0;
++	switch (me_id) {
++	case 0:
++		drm_sched_fault(&adev->gfx.gfx_ring[0].sched);
++		break;
++	case 1:
++	case 2:
++		for (i = 0; i < adev->gfx.num_compute_rings; i++) {
++			ring = &adev->gfx.compute_ring[i];
++			if ((ring->me == me_id) && (ring->pipe == pipe_id))
++				drm_sched_fault(&ring->sched);
++		}
++		break;
++	}
++}
++
+ static int gfx_v7_0_priv_reg_irq(struct amdgpu_device *adev,
+ 				 struct amdgpu_irq_src *source,
+ 				 struct amdgpu_iv_entry *entry)
+ {
+ 	DRM_ERROR("Illegal register access in command stream\n");
+-	schedule_work(&adev->reset_work);
++	gfx_v7_0_fault(adev, entry);
+ 	return 0;
+ }
+ 
+@@ -4974,7 +4998,7 @@ static int gfx_v7_0_priv_inst_irq(struct amdgpu_device *adev,
+ {
+ 	DRM_ERROR("Illegal instruction in command stream\n");
+ 	// XXX soft reset the gfx block only
+-	schedule_work(&adev->reset_work);
++	gfx_v7_0_fault(adev, entry);
+ 	return 0;
+ }
+ 
+diff --git a/drivers/gpu/drm/amd/amdgpu/gfx_v8_0.c b/drivers/gpu/drm/amd/amdgpu/gfx_v8_0.c
+index e56e492dc069..1aefd57ec424 100644
+--- a/drivers/gpu/drm/amd/amdgpu/gfx_v8_0.c
++++ b/drivers/gpu/drm/amd/amdgpu/gfx_v8_0.c
+@@ -6736,12 +6736,39 @@ static int gfx_v8_0_eop_irq(struct amdgpu_device *adev,
+ 	return 0;
+ }
+ 
++static void gfx_v8_0_fault(struct amdgpu_device *adev,
++			   struct amdgpu_iv_entry *entry)
++{
++	u8 me_id, pipe_id, queue_id;
++	struct amdgpu_ring *ring;
++	int i;
++
++	me_id = (entry->ring_id & 0x0c) >> 2;
++	pipe_id = (entry->ring_id & 0x03) >> 0;
++	queue_id = (entry->ring_id & 0x70) >> 4;
++
++	switch (me_id) {
++	case 0:
++		drm_sched_fault(&adev->gfx.gfx_ring[0].sched);
++		break;
++	case 1:
++	case 2:
++		for (i = 0; i < adev->gfx.num_compute_rings; i++) {
++			ring = &adev->gfx.compute_ring[i];
++			if (ring->me == me_id && ring->pipe == pipe_id &&
++			    ring->queue == queue_id)
++				drm_sched_fault(&ring->sched);
++		}
++		break;
++	}
++}
++
+ static int gfx_v8_0_priv_reg_irq(struct amdgpu_device *adev,
+ 				 struct amdgpu_irq_src *source,
+ 				 struct amdgpu_iv_entry *entry)
+ {
+ 	DRM_ERROR("Illegal register access in command stream\n");
+-	schedule_work(&adev->reset_work);
++	gfx_v8_0_fault(adev, entry);
+ 	return 0;
+ }
+ 
+@@ -6750,7 +6777,7 @@ static int gfx_v8_0_priv_inst_irq(struct amdgpu_device *adev,
+ 				  struct amdgpu_iv_entry *entry)
+ {
+ 	DRM_ERROR("Illegal instruction in command stream\n");
+-	schedule_work(&adev->reset_work);
++	gfx_v8_0_fault(adev, entry);
+ 	return 0;
+ }
+ 
+diff --git a/drivers/gpu/drm/amd/amdgpu/gfx_v9_0.c b/drivers/gpu/drm/amd/amdgpu/gfx_v9_0.c
+index 3413db71e1ca..50311f82ff68 100644
+--- a/drivers/gpu/drm/amd/amdgpu/gfx_v9_0.c
++++ b/drivers/gpu/drm/amd/amdgpu/gfx_v9_0.c
+@@ -4717,12 +4717,39 @@ static int gfx_v9_0_eop_irq(struct amdgpu_device *adev,
+ 	return 0;
+ }
+ 
++static void gfx_v9_0_fault(struct amdgpu_device *adev,
++			   struct amdgpu_iv_entry *entry)
++{
++	u8 me_id, pipe_id, queue_id;
++	struct amdgpu_ring *ring;
++	int i;
++
++	me_id = (entry->ring_id & 0x0c) >> 2;
++	pipe_id = (entry->ring_id & 0x03) >> 0;
++	queue_id = (entry->ring_id & 0x70) >> 4;
++
++	switch (me_id) {
++	case 0:
++		drm_sched_fault(&adev->gfx.gfx_ring[0].sched);
++		break;
++	case 1:
++	case 2:
++		for (i = 0; i < adev->gfx.num_compute_rings; i++) {
++			ring = &adev->gfx.compute_ring[i];
++			if (ring->me == me_id && ring->pipe == pipe_id &&
++			    ring->queue == queue_id)
++				drm_sched_fault(&ring->sched);
++		}
++		break;
++	}
++}
++
+ static int gfx_v9_0_priv_reg_irq(struct amdgpu_device *adev,
+ 				 struct amdgpu_irq_src *source,
+ 				 struct amdgpu_iv_entry *entry)
+ {
+ 	DRM_ERROR("Illegal register access in command stream\n");
+-	schedule_work(&adev->reset_work);
++	gfx_v9_0_fault(adev, entry);
+ 	return 0;
+ }
+ 
+@@ -4731,7 +4758,7 @@ static int gfx_v9_0_priv_inst_irq(struct amdgpu_device *adev,
+ 				  struct amdgpu_iv_entry *entry)
+ {
+ 	DRM_ERROR("Illegal instruction in command stream\n");
+-	schedule_work(&adev->reset_work);
++	gfx_v9_0_fault(adev, entry);
+ 	return 0;
+ }
+ 
+diff --git a/drivers/gpu/drm/amd/amdgpu/sdma_v2_4.c b/drivers/gpu/drm/amd/amdgpu/sdma_v2_4.c
+index 2d4770e173dd..bedbd5f296c5 100644
+--- a/drivers/gpu/drm/amd/amdgpu/sdma_v2_4.c
++++ b/drivers/gpu/drm/amd/amdgpu/sdma_v2_4.c
+@@ -1105,8 +1105,14 @@ static int sdma_v2_4_process_illegal_inst_irq(struct amdgpu_device *adev,
+ 					      struct amdgpu_irq_src *source,
+ 					      struct amdgpu_iv_entry *entry)
+ {
++	u8 instance_id, queue_id;
++
+ 	DRM_ERROR("Illegal instruction in SDMA command stream\n");
+-	schedule_work(&adev->reset_work);
++	instance_id = (entry->ring_id & 0x3) >> 0;
++	queue_id = (entry->ring_id & 0xc) >> 2;
++
++	if (instance_id <= 1 && queue_id == 0)
++		drm_sched_fault(&adev->sdma.instance[instance_id].ring.sched);
+ 	return 0;
+ }
+ 
+diff --git a/drivers/gpu/drm/amd/amdgpu/sdma_v3_0.c b/drivers/gpu/drm/amd/amdgpu/sdma_v3_0.c
+index 6fb3edaba0ec..415968dc6c87 100644
+--- a/drivers/gpu/drm/amd/amdgpu/sdma_v3_0.c
++++ b/drivers/gpu/drm/amd/amdgpu/sdma_v3_0.c
+@@ -1440,8 +1440,14 @@ static int sdma_v3_0_process_illegal_inst_irq(struct amdgpu_device *adev,
+ 					      struct amdgpu_irq_src *source,
+ 					      struct amdgpu_iv_entry *entry)
+ {
++	u8 instance_id, queue_id;
++
+ 	DRM_ERROR("Illegal instruction in SDMA command stream\n");
+-	schedule_work(&adev->reset_work);
++	instance_id = (entry->ring_id & 0x3) >> 0;
++	queue_id = (entry->ring_id & 0xc) >> 2;
++
++	if (instance_id <= 1 && queue_id == 0)
++		drm_sched_fault(&adev->sdma.instance[instance_id].ring.sched);
+ 	return 0;
+ }
+ 
+diff --git a/drivers/gpu/drm/amd/amdgpu/sdma_v4_0.c b/drivers/gpu/drm/amd/amdgpu/sdma_v4_0.c
+index c0d1650d6c71..88d93430dfb1 100644
+--- a/drivers/gpu/drm/amd/amdgpu/sdma_v4_0.c
++++ b/drivers/gpu/drm/amd/amdgpu/sdma_v4_0.c
+@@ -1717,12 +1717,29 @@ static int sdma_v4_0_process_illegal_inst_irq(struct amdgpu_device *adev,
+ 					      struct amdgpu_irq_src *source,
+ 					      struct amdgpu_iv_entry *entry)
+ {
++	int instance;
++
+ 	DRM_ERROR("Illegal instruction in SDMA command stream\n");
+-	schedule_work(&adev->reset_work);
++
++	switch (entry->client_id) {
++	case SOC15_IH_CLIENTID_SDMA0:
++		instance = 0;
++		break;
++	case SOC15_IH_CLIENTID_SDMA1:
++		instance = 1;
++		break;
++	default:
++		return 0;
++	}
++
++	switch (entry->ring_id) {
++	case 0:
++		drm_sched_fault(&adev->sdma.instance[instance].ring.sched);
++		break;
++	}
+ 	return 0;
+ }
+ 
+-
+ static void sdma_v4_0_update_medium_grain_clock_gating(
+ 		struct amdgpu_device *adev,
+ 		bool enable)
+-- 
+2.17.1
+

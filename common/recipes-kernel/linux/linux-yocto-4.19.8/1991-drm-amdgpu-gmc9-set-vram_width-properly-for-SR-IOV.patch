@@ -1,0 +1,42 @@
+From f1c08cd5c424814dd37cb1efa97aad069dddec5b Mon Sep 17 00:00:00 2001
+From: Alex Deucher <alexander.deucher@amd.com>
+Date: Fri, 17 May 2019 09:31:43 -0500
+Subject: [PATCH 1991/2940] drm/amdgpu/gmc9: set vram_width properly for SR-IOV
+
+For SR-IOV, vram_width can't be read from ATOM as
+RAVEN, and DF related registers is not readable, so hardcord
+is the only way to set the correct vram_width.
+
+Reviewed-by: Yintian Tao <yttao@amd.com>
+Signed-off-by: Trigger Huang <Trigger.Huang@amd.com>
+Signed-off-by: Yintian Tao <yttao@amd.com>
+Signed-off-by: Alex Deucher <alexander.deucher@amd.com>
+---
+ drivers/gpu/drm/amd/amdgpu/gmc_v9_0.c | 10 +++++++++-
+ 1 file changed, 9 insertions(+), 1 deletion(-)
+
+diff --git a/drivers/gpu/drm/amd/amdgpu/gmc_v9_0.c b/drivers/gpu/drm/amd/amdgpu/gmc_v9_0.c
+index e04975170f83..2d6fb6dff58c 100644
+--- a/drivers/gpu/drm/amd/amdgpu/gmc_v9_0.c
++++ b/drivers/gpu/drm/amd/amdgpu/gmc_v9_0.c
+@@ -832,8 +832,16 @@ static int gmc_v9_0_mc_init(struct amdgpu_device *adev)
+ 	int chansize, numchan;
+ 	int r;
+ 
+-	if (amdgpu_emu_mode != 1)
++	if (amdgpu_sriov_vf(adev)) {
++		/* For Vega10 SR-IOV, vram_width can't be read from ATOM as RAVEN,
++		 * and DF related registers is not readable, seems hardcord is the
++		 * only way to set the correct vram_width
++		 */
++		adev->gmc.vram_width = 2048;
++	} else if (amdgpu_emu_mode != 1) {
+ 		adev->gmc.vram_width = amdgpu_atomfirmware_get_vram_width(adev);
++	}
++
+ 	if (!adev->gmc.vram_width) {
+ 		/* hbm memory channel size */
+ 		if (adev->flags & AMD_IS_APU)
+-- 
+2.17.1
+

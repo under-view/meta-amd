@@ -1,0 +1,82 @@
+From dca018147a2d278675ca21f543249f39c5f53816 Mon Sep 17 00:00:00 2001
+From: Yongqiang Sun <yongqiang.sun@amd.com>
+Date: Tue, 26 Feb 2019 10:52:22 -0500
+Subject: [PATCH 1634/2940] drm/amd/display: change generic_reg_wait to void.
+
+we were only checking the return value in one place, thus changing
+generic_reg_wait from int to void and reading the register instead of
+getting it from generic_reg_wait, when we need the return value.
+
+Change-Id: Ib14a77e497960f39d9860ca8832355bdea1d9909
+Signed-off-by: Yongqiang Sun <yongqiang.sun@amd.com>
+Reviewed-by: Tony Cheng <Tony.Cheng@amd.com>
+Acked-by: Bhawanpreet Lakha <Bhawanpreet.Lakha@amd.com>
+---
+ drivers/gpu/drm/amd/display/dc/dc_helper.c   | 6 ++----
+ drivers/gpu/drm/amd/display/dc/dce/dce_aux.c | 3 ++-
+ drivers/gpu/drm/amd/display/dc/dm_services.h | 2 +-
+ 3 files changed, 5 insertions(+), 6 deletions(-)
+
+diff --git a/drivers/gpu/drm/amd/display/dc/dc_helper.c b/drivers/gpu/drm/amd/display/dc/dc_helper.c
+index 0ac1b8364d14..d8fe455e5872 100644
+--- a/drivers/gpu/drm/amd/display/dc/dc_helper.c
++++ b/drivers/gpu/drm/amd/display/dc/dc_helper.c
+@@ -310,7 +310,7 @@ uint32_t generic_reg_get(const struct dc_context *ctx,
+ }
+ */
+ 
+-uint32_t generic_reg_wait(const struct dc_context *ctx,
++void generic_reg_wait(const struct dc_context *ctx,
+ 	uint32_t addr, uint32_t shift, uint32_t mask, uint32_t condition_value,
+ 	unsigned int delay_between_poll_us, unsigned int time_out_num_tries,
+ 	const char *func_name, int line)
+@@ -340,7 +340,7 @@ uint32_t generic_reg_wait(const struct dc_context *ctx,
+ 				DC_LOG_DC("REG_WAIT taking a while: %dms in %s line:%d\n",
+ 						delay_between_poll_us * i / 1000,
+ 						func_name, line);
+-			return reg_val;
++			return;
+ 		}
+ 	}
+ 
+@@ -350,8 +350,6 @@ uint32_t generic_reg_wait(const struct dc_context *ctx,
+ 
+ 	if (!IS_FPGA_MAXIMUS_DC(ctx->dce_environment))
+ 		BREAK_TO_DEBUGGER();
+-
+-	return reg_val;
+ }
+ 
+ void generic_write_indirect_reg(const struct dc_context *ctx,
+diff --git a/drivers/gpu/drm/amd/display/dc/dce/dce_aux.c b/drivers/gpu/drm/amd/display/dc/dce/dce_aux.c
+index cdb3042e1ae1..937b5cffd7ef 100644
+--- a/drivers/gpu/drm/amd/display/dc/dce/dce_aux.c
++++ b/drivers/gpu/drm/amd/display/dc/dce/dce_aux.c
+@@ -317,9 +317,10 @@ static enum aux_channel_operation_result get_channel_status(
+ 	*returned_bytes = 0;
+ 
+ 	/* poll to make sure that SW_DONE is asserted */
+-	value = REG_WAIT(AUX_SW_STATUS, AUX_SW_DONE, 1,
++	REG_WAIT(AUX_SW_STATUS, AUX_SW_DONE, 1,
+ 				10, aux110->timeout_period/10);
+ 
++	value = REG_READ(AUX_SW_STATUS);
+ 	/* in case HPD is LOW, exit AUX transaction */
+ 	if ((value & AUX_SW_STATUS__AUX_SW_HPD_DISCON_MASK))
+ 		return AUX_CHANNEL_OPERATION_FAILED_HPD_DISCON;
+diff --git a/drivers/gpu/drm/amd/display/dc/dm_services.h b/drivers/gpu/drm/amd/display/dc/dm_services.h
+index a62d53a1df31..b351d3dcf8b2 100644
+--- a/drivers/gpu/drm/amd/display/dc/dm_services.h
++++ b/drivers/gpu/drm/amd/display/dc/dm_services.h
+@@ -159,7 +159,7 @@ uint32_t generic_reg_update_ex(const struct dc_context *ctx,
+  * return number of poll before condition is met
+  * return 0 if condition is not meet after specified time out tries
+  */
+-unsigned int generic_reg_wait(const struct dc_context *ctx,
++void generic_reg_wait(const struct dc_context *ctx,
+ 	uint32_t addr, uint32_t mask, uint32_t shift, uint32_t condition_value,
+ 	unsigned int delay_between_poll_us, unsigned int time_out_num_tries,
+ 	const char *func_name, int line);
+-- 
+2.17.1
+

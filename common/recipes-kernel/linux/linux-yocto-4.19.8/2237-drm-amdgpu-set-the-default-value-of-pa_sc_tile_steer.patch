@@ -1,0 +1,33 @@
+From 49c70d9f024d7102122d542e5d1b8f0e9277b318 Mon Sep 17 00:00:00 2001
+From: Hawking Zhang <Hawking.Zhang@amd.com>
+Date: Tue, 12 Jun 2018 18:31:24 +0800
+Subject: [PATCH 2237/2940] drm/amdgpu: set the default value of
+ pa_sc_tile_steering_override
+
+So userspace can access it.
+
+Signed-off-by: Hawking Zhang <Hawking.Zhang@amd.com>
+Reviewed-by: Alex Deucher <alexander.deucher@amd.com>
+Signed-off-by: Alex Deucher <alexander.deucher@amd.com>
+---
+ drivers/gpu/drm/amd/amdgpu/amdgpu_kms.c | 4 ++++
+ 1 file changed, 4 insertions(+)
+
+diff --git a/drivers/gpu/drm/amd/amdgpu/amdgpu_kms.c b/drivers/gpu/drm/amd/amdgpu/amdgpu_kms.c
+index 2e4d2b61573d..d39fbd00917e 100644
+--- a/drivers/gpu/drm/amd/amdgpu/amdgpu_kms.c
++++ b/drivers/gpu/drm/amd/amdgpu/amdgpu_kms.c
+@@ -776,6 +776,10 @@ static int amdgpu_info_ioctl(struct drm_device *dev, void *data, struct drm_file
+ 		dev_info.gs_prim_buffer_depth = adev->gfx.config.gs_prim_buffer_depth;
+ 		dev_info.max_gs_waves_per_vgt = adev->gfx.config.max_gs_threads;
+ 
++		if (adev->family >= AMDGPU_FAMILY_NV)
++			dev_info.pa_sc_tile_steering_override =
++				adev->gfx.config.pa_sc_tile_steering_override;
++
+ 		return copy_to_user(out, &dev_info,
+ 				    min((size_t)size, sizeof(dev_info))) ? -EFAULT : 0;
+ 	}
+-- 
+2.17.1
+

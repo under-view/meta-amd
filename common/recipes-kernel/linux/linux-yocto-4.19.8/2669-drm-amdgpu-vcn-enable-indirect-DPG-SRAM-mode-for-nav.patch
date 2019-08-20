@@ -1,0 +1,47 @@
+From e6327cd4f1303580168d2677fbb3ffea6dc8c51c Mon Sep 17 00:00:00 2001
+From: Xiaojie Yuan <xiaojie.yuan@amd.com>
+Date: Tue, 2 Jul 2019 12:52:52 -0500
+Subject: [PATCH 2669/2940] drm/amdgpu/vcn: enable indirect DPG SRAM mode for
+ navi14
+
+Enable VCN dynamic powergating for navi14.
+
+Signed-off-by: Xiaojie Yuan <xiaojie.yuan@amd.com>
+Reviewed-by: Leo Liu <leo.liu@amd.com>
+Signed-off-by: Alex Deucher <alexander.deucher@amd.com>
+---
+ drivers/gpu/drm/amd/amdgpu/amdgpu_vcn.c | 3 +++
+ drivers/gpu/drm/amd/amdgpu/nv.c         | 3 ++-
+ 2 files changed, 5 insertions(+), 1 deletion(-)
+
+diff --git a/drivers/gpu/drm/amd/amdgpu/amdgpu_vcn.c b/drivers/gpu/drm/amd/amdgpu/amdgpu_vcn.c
+index f3aaf5531c0e..8a162bdad79e 100644
+--- a/drivers/gpu/drm/amd/amdgpu/amdgpu_vcn.c
++++ b/drivers/gpu/drm/amd/amdgpu/amdgpu_vcn.c
+@@ -83,6 +83,9 @@ int amdgpu_vcn_sw_init(struct amdgpu_device *adev)
+ 		break;
+     case CHIP_NAVI14:
+ 		fw_name = FIRMWARE_NAVI14;
++		if ((adev->firmware.load_type == AMDGPU_FW_LOAD_PSP) &&
++		    (adev->pg_flags & AMD_PG_SUPPORT_VCN_DPG))
++			adev->vcn.indirect_sram = true;
+ 		break;
+ 	default:
+ 		return -EINVAL;
+diff --git a/drivers/gpu/drm/amd/amdgpu/nv.c b/drivers/gpu/drm/amd/amdgpu/nv.c
+index 1b2b55be3d14..9e21e223e7bb 100644
+--- a/drivers/gpu/drm/amd/amdgpu/nv.c
++++ b/drivers/gpu/drm/amd/amdgpu/nv.c
+@@ -546,7 +546,8 @@ static int nv_common_early_init(void *handle)
+ 			AMD_CG_SUPPORT_VCN_MGCG |
+ 			AMD_CG_SUPPORT_BIF_MGCG |
+ 			AMD_CG_SUPPORT_BIF_LS;
+-		adev->pg_flags = AMD_PG_SUPPORT_VCN;
++		adev->pg_flags = AMD_PG_SUPPORT_VCN |
++			AMD_PG_SUPPORT_VCN_DPG;
+ 		adev->external_rev_id = adev->rev_id + 0x1; /* ??? */
+ 		break;
+ 	default:
+-- 
+2.17.1
+

@@ -1,0 +1,100 @@
+From 9b3a0b6b7076fd7f2d48a499330c0cd9564ef88b Mon Sep 17 00:00:00 2001
+From: =?UTF-8?q?Christian=20K=C3=B6nig?= <christian.koenig@amd.com>
+Date: Wed, 26 Sep 2018 16:15:44 +0200
+Subject: [PATCH 0481/2940] drm/amdgpu: fix incorrect use of amdgpu_irq_add_id
+ in si_dma.c
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+Adding a second irq source because of a different src_id is actually a
+bug.
+
+Signed-off-by: Christian König <christian.koenig@amd.com>
+Reviewed-by: Huang Rui <ray.huang@amd.com>
+---
+ drivers/gpu/drm/amd/amdgpu/amdgpu_sdma.h |  4 ----
+ drivers/gpu/drm/amd/amdgpu/si_dma.c      | 27 +++++++-----------------
+ 2 files changed, 8 insertions(+), 23 deletions(-)
+
+diff --git a/drivers/gpu/drm/amd/amdgpu/amdgpu_sdma.h b/drivers/gpu/drm/amd/amdgpu/amdgpu_sdma.h
+index d17503f0df8e..500113ec65ca 100644
+--- a/drivers/gpu/drm/amd/amdgpu/amdgpu_sdma.h
++++ b/drivers/gpu/drm/amd/amdgpu/amdgpu_sdma.h
+@@ -46,10 +46,6 @@ struct amdgpu_sdma_instance {
+ 
+ struct amdgpu_sdma {
+ 	struct amdgpu_sdma_instance instance[AMDGPU_MAX_SDMA_INSTANCES];
+-#ifdef CONFIG_DRM_AMDGPU_SI
+-	//SI DMA has a difference trap irq number for the second engine
+-	struct amdgpu_irq_src	trap_irq_1;
+-#endif
+ 	struct amdgpu_irq_src	trap_irq;
+ 	struct amdgpu_irq_src	illegal_inst_irq;
+ 	int			num_instances;
+diff --git a/drivers/gpu/drm/amd/amdgpu/si_dma.c b/drivers/gpu/drm/amd/amdgpu/si_dma.c
+index d4ceaf440f26..adbaea6da0d7 100644
+--- a/drivers/gpu/drm/amd/amdgpu/si_dma.c
++++ b/drivers/gpu/drm/amd/amdgpu/si_dma.c
+@@ -502,12 +502,14 @@ static int si_dma_sw_init(void *handle)
+ 	struct amdgpu_device *adev = (struct amdgpu_device *)handle;
+ 
+ 	/* DMA0 trap event */
+-	r = amdgpu_irq_add_id(adev, AMDGPU_IRQ_CLIENTID_LEGACY, 224, &adev->sdma.trap_irq);
++	r = amdgpu_irq_add_id(adev, AMDGPU_IRQ_CLIENTID_LEGACY, 224,
++			      &adev->sdma.trap_irq);
+ 	if (r)
+ 		return r;
+ 
+ 	/* DMA1 trap event */
+-	r = amdgpu_irq_add_id(adev, AMDGPU_IRQ_CLIENTID_LEGACY, 244, &adev->sdma.trap_irq_1);
++	r = amdgpu_irq_add_id(adev, AMDGPU_IRQ_CLIENTID_LEGACY, 244,
++			      &adev->sdma.trap_irq);
+ 	if (r)
+ 		return r;
+ 
+@@ -649,17 +651,10 @@ static int si_dma_process_trap_irq(struct amdgpu_device *adev,
+ 				      struct amdgpu_irq_src *source,
+ 				      struct amdgpu_iv_entry *entry)
+ {
+-	amdgpu_fence_process(&adev->sdma.instance[0].ring);
+-
+-	return 0;
+-}
+-
+-static int si_dma_process_trap_irq_1(struct amdgpu_device *adev,
+-				      struct amdgpu_irq_src *source,
+-				      struct amdgpu_iv_entry *entry)
+-{
+-	amdgpu_fence_process(&adev->sdma.instance[1].ring);
+-
++	if (entry->src_id == 224)
++		amdgpu_fence_process(&adev->sdma.instance[0].ring);
++	else
++		amdgpu_fence_process(&adev->sdma.instance[1].ring);
+ 	return 0;
+ }
+ 
+@@ -786,11 +781,6 @@ static const struct amdgpu_irq_src_funcs si_dma_trap_irq_funcs = {
+ 	.process = si_dma_process_trap_irq,
+ };
+ 
+-static const struct amdgpu_irq_src_funcs si_dma_trap_irq_funcs_1 = {
+-	.set = si_dma_set_trap_irq_state,
+-	.process = si_dma_process_trap_irq_1,
+-};
+-
+ static const struct amdgpu_irq_src_funcs si_dma_illegal_inst_irq_funcs = {
+ 	.process = si_dma_process_illegal_inst_irq,
+ };
+@@ -799,7 +789,6 @@ static void si_dma_set_irq_funcs(struct amdgpu_device *adev)
+ {
+ 	adev->sdma.trap_irq.num_types = AMDGPU_SDMA_IRQ_LAST;
+ 	adev->sdma.trap_irq.funcs = &si_dma_trap_irq_funcs;
+-	adev->sdma.trap_irq_1.funcs = &si_dma_trap_irq_funcs_1;
+ 	adev->sdma.illegal_inst_irq.funcs = &si_dma_illegal_inst_irq_funcs;
+ }
+ 
+-- 
+2.17.1
+

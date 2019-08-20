@@ -1,0 +1,56 @@
+From a410d1c0ee27df87307d1a97637ab504feb8ac4d Mon Sep 17 00:00:00 2001
+From: =?UTF-8?q?Christian=20K=C3=B6nig?= <christian.koenig@amd.com>
+Date: Wed, 30 Jan 2019 14:09:29 +0100
+Subject: [PATCH 1195/2940] drm/amdgpu: cleanup VM dw estimation a bit
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+No functional change.
+
+Signed-off-by: Christian König <christian.koenig@amd.com>
+Reviewed-by: Felix Kuehling <Felix.Kuehling@amd.com>
+---
+ drivers/gpu/drm/amd/amdgpu/amdgpu_vm.c | 16 ++++++++--------
+ 1 file changed, 8 insertions(+), 8 deletions(-)
+
+diff --git a/drivers/gpu/drm/amd/amdgpu/amdgpu_vm.c b/drivers/gpu/drm/amd/amdgpu/amdgpu_vm.c
+index 5346c2ef4eb9..7da1fc2d8eca 100644
+--- a/drivers/gpu/drm/amd/amdgpu/amdgpu_vm.c
++++ b/drivers/gpu/drm/amd/amdgpu/amdgpu_vm.c
+@@ -1777,13 +1777,12 @@ static int amdgpu_vm_bo_update_mapping(struct amdgpu_device *adev,
+ 	/*
+ 	 * reserve space for two commands every (1 << BLOCK_SIZE)
+ 	 *  entries or 2k dwords (whatever is smaller)
+-         *
+-         * The second command is for the shadow pagetables.
+ 	 */
++	ncmds = ((nptes >> min(adev->vm_manager.block_size, 11u)) + 1);
++
++	/* The second command is for the shadow pagetables. */
+ 	if (vm->root.base.bo->shadow)
+-		ncmds = ((nptes >> min(adev->vm_manager.block_size, 11u)) + 1) * 2;
+-	else
+-		ncmds = ((nptes >> min(adev->vm_manager.block_size, 11u)) + 1);
++		ncmds *= 2;
+ 
+ 	/* padding, etc. */
+ 	ndw = 64;
+@@ -1802,10 +1801,11 @@ static int amdgpu_vm_bo_update_mapping(struct amdgpu_device *adev,
+ 		ndw += ncmds * 10;
+ 
+ 		/* extra commands for begin/end fragments */
++		ncmds = 2 * adev->vm_manager.fragment_size;
+ 		if (vm->root.base.bo->shadow)
+-		        ndw += 2 * 10 * adev->vm_manager.fragment_size * 2;
+-		else
+-		        ndw += 2 * 10 * adev->vm_manager.fragment_size;
++			ncmds *= 2;
++
++		ndw += 10 * ncmds;
+ 
+ 		params.func = amdgpu_vm_do_set_ptes;
+ 	}
+-- 
+2.17.1
+

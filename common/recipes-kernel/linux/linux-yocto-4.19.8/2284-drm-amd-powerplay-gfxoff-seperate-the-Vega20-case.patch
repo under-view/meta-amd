@@ -1,0 +1,53 @@
+From 8583dd806f7d77bc6af1257d662e3441900e6ff2 Mon Sep 17 00:00:00 2001
+From: Kenneth Feng <kenneth.feng@amd.com>
+Date: Thu, 28 Mar 2019 10:54:16 +0800
+Subject: [PATCH 2284/2940] drm/amd/powerplay: gfxoff-seperate the Vega20 case
+
+seperate the Vega20 case from navi10 for gfxoff so that gfxoff
+won't be allowed on Vega20
+
+Signed-off-by: Kenneth Feng <kenneth.feng@amd.com>
+Reviewed-by: Huang Rui <ray.huang@amd.com>
+Signed-off-by: Alex Deucher <alexander.deucher@amd.com>
+---
+ drivers/gpu/drm/amd/powerplay/smu_v11_0.c | 23 +++++++++++++++++------
+ 1 file changed, 17 insertions(+), 6 deletions(-)
+
+diff --git a/drivers/gpu/drm/amd/powerplay/smu_v11_0.c b/drivers/gpu/drm/amd/powerplay/smu_v11_0.c
+index e1841651693a..d0019b8a68f3 100644
+--- a/drivers/gpu/drm/amd/powerplay/smu_v11_0.c
++++ b/drivers/gpu/drm/amd/powerplay/smu_v11_0.c
+@@ -1550,13 +1550,24 @@ smu_v11_0_set_watermarks_for_clock_ranges(struct smu_context *smu, struct
+ static int smu_v11_0_gfx_off_control(struct smu_context *smu, bool enable)
+ {
+ 	int ret = 0;
++	struct amdgpu_device *adev = smu->adev;
+ 
+-	mutex_lock(&smu->mutex);
+-	if (enable)
+-		ret = smu_send_smc_msg(smu, SMU_MSG_AllowGfxOff);
+-	else
+-		ret = smu_send_smc_msg(smu, SMU_MSG_DisallowGfxOff);
+-	mutex_unlock(&smu->mutex);
++	switch (adev->asic_type) {
++	case CHIP_VEGA20:
++		break;
++	case CHIP_NAVI10:
++		if (!(adev->pm.pp_feature & PP_GFXOFF_MASK))
++			return 0;
++		mutex_lock(&smu->mutex);
++		if (enable)
++			ret = smu_send_smc_msg(smu, SMU_MSG_AllowGfxOff);
++		else
++			ret = smu_send_smc_msg(smu, SMU_MSG_DisallowGfxOff);
++		mutex_unlock(&smu->mutex);
++		break;
++	default:
++		break;
++	}
+ 
+ 	return ret;
+ }
+-- 
+2.17.1
+

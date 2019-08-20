@@ -1,0 +1,46 @@
+From a9e7838a058707e8d0cf7d1e00f0db9431344167 Mon Sep 17 00:00:00 2001
+From: Eric Bernstein <eric.bernstein@amd.com>
+Date: Wed, 7 Nov 2018 16:26:50 -0500
+Subject: [PATCH 1000/2940] drm/amd/display: Expose hubp1_vready_workaround
+ function
+
+Expose this function for future use.
+
+Signed-off-by: Eric Bernstein <eric.bernstein@amd.com>
+Reviewed-by: Dmytro Laktyushkin <Dmytro.Laktyushkin@amd.com>
+Reviewed-by: Tony Cheng <Tony.Cheng@amd.com>
+Acked-by: Leo Li <sunpeng.li@amd.com>
+Signed-off-by: Alex Deucher <alexander.deucher@amd.com>
+---
+ drivers/gpu/drm/amd/display/dc/dcn10/dcn10_hubp.c | 2 +-
+ drivers/gpu/drm/amd/display/dc/dcn10/dcn10_hubp.h | 2 ++
+ 2 files changed, 3 insertions(+), 1 deletion(-)
+
+diff --git a/drivers/gpu/drm/amd/display/dc/dcn10/dcn10_hubp.c b/drivers/gpu/drm/amd/display/dc/dcn10/dcn10_hubp.c
+index 345af015d061..e24ea6146a29 100644
+--- a/drivers/gpu/drm/amd/display/dc/dcn10/dcn10_hubp.c
++++ b/drivers/gpu/drm/amd/display/dc/dcn10/dcn10_hubp.c
+@@ -115,7 +115,7 @@ static void hubp1_set_hubp_blank_en(struct hubp *hubp, bool blank)
+ 	REG_UPDATE(DCHUBP_CNTL, HUBP_BLANK_EN, blank_en);
+ }
+ 
+-static void hubp1_vready_workaround(struct hubp *hubp,
++void hubp1_vready_workaround(struct hubp *hubp,
+ 		struct _vcs_dpi_display_pipe_dest_params_st *pipe_dest)
+ {
+ 	uint32_t value = 0;
+diff --git a/drivers/gpu/drm/amd/display/dc/dcn10/dcn10_hubp.h b/drivers/gpu/drm/amd/display/dc/dcn10/dcn10_hubp.h
+index 62d4232e7796..e82ca15c842f 100644
+--- a/drivers/gpu/drm/amd/display/dc/dcn10/dcn10_hubp.h
++++ b/drivers/gpu/drm/amd/display/dc/dcn10/dcn10_hubp.h
+@@ -745,5 +745,7 @@ void hubp1_clear_underflow(struct hubp *hubp);
+ 
+ enum cursor_pitch hubp1_get_cursor_pitch(unsigned int pitch);
+ 
++void hubp1_vready_workaround(struct hubp *hubp,
++		struct _vcs_dpi_display_pipe_dest_params_st *pipe_dest);
+ 
+ #endif
+-- 
+2.17.1
+

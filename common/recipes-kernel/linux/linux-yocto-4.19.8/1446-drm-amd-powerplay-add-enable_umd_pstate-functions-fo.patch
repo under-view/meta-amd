@@ -1,0 +1,118 @@
+From 475a29620f323d47e1a5231fb1c70cd9929ef53e Mon Sep 17 00:00:00 2001
+From: Chengming Gui <Jack.Gui@amd.com>
+Date: Thu, 17 Jan 2019 17:57:18 +0800
+Subject: [PATCH 1446/2940] drm/amd/powerplay: add enable_umd_pstate functions
+ for SMU11
+
+add enable_umd_pstate to support sys interface for SMU11.
+
+Signed-off-by: Chengming Gui <Jack.Gui@amd.com>
+Reviewed-by: Huang Rui <ray.huang@amd.com>
+Acked-by: Alex Deucher <alexander.deucher@amd.com>
+---
+ drivers/gpu/drm/amd/include/amd_shared.h      |  3 ++
+ drivers/gpu/drm/amd/powerplay/amdgpu_smu.c    | 44 +++++++++++++++++++
+ .../gpu/drm/amd/powerplay/inc/amdgpu_smu.h    |  4 ++
+ 3 files changed, 51 insertions(+)
+
+diff --git a/drivers/gpu/drm/amd/include/amd_shared.h b/drivers/gpu/drm/amd/include/amd_shared.h
+index 470d7b89071a..574bf6e70763 100644
+--- a/drivers/gpu/drm/amd/include/amd_shared.h
++++ b/drivers/gpu/drm/amd/include/amd_shared.h
+@@ -137,6 +137,7 @@ enum DC_FEATURE_MASK {
+ 	DC_FBC_MASK = 0x1,
+ };
+ 
++enum amd_dpm_forced_level;
+ /**
+  * struct amd_ip_funcs - general hooks for managing amdgpu IP Blocks
+  */
+@@ -186,6 +187,8 @@ struct amd_ip_funcs {
+ 				     enum amd_powergating_state state);
+ 	/** @get_clockgating_state: get current clockgating status */
+ 	void (*get_clockgating_state)(void *handle, u32 *flags);
++	/** @enable_umd_pstate: enable UMD powerstate */
++	int (*enable_umd_pstate)(void *handle, enum amd_dpm_forced_level *level);
+ };
+ 
+ 
+diff --git a/drivers/gpu/drm/amd/powerplay/amdgpu_smu.c b/drivers/gpu/drm/amd/powerplay/amdgpu_smu.c
+index 2a8669c89539..83fadcac18e6 100644
+--- a/drivers/gpu/drm/amd/powerplay/amdgpu_smu.c
++++ b/drivers/gpu/drm/amd/powerplay/amdgpu_smu.c
+@@ -940,6 +940,49 @@ static int smu_set_powergating_state(void *handle,
+ 	return 0;
+ }
+ 
++static int smu_enable_umd_pstate(void *handle,
++		      enum amd_dpm_forced_level *level)
++{
++	uint32_t profile_mode_mask = AMD_DPM_FORCED_LEVEL_PROFILE_STANDARD |
++					AMD_DPM_FORCED_LEVEL_PROFILE_MIN_SCLK |
++					AMD_DPM_FORCED_LEVEL_PROFILE_MIN_MCLK |
++					AMD_DPM_FORCED_LEVEL_PROFILE_PEAK;
++
++	struct smu_context *smu = (struct smu_context*)(handle);
++	struct smu_dpm_context *smu_dpm_ctx = &(smu->smu_dpm);
++	if (!smu_dpm_ctx->dpm_context)
++		return -EINVAL;
++
++	if (!(smu_dpm_ctx->dpm_level & profile_mode_mask)) {
++		/* enter umd pstate, save current level, disable gfx cg*/
++		if (*level & profile_mode_mask) {
++			smu_dpm_ctx->saved_dpm_level = smu_dpm_ctx->dpm_level;
++			smu_dpm_ctx->enable_umd_pstate = true;
++			amdgpu_device_ip_set_clockgating_state(smu->adev,
++							       AMD_IP_BLOCK_TYPE_GFX,
++							       AMD_CG_STATE_UNGATE);
++			amdgpu_device_ip_set_powergating_state(smu->adev,
++							       AMD_IP_BLOCK_TYPE_GFX,
++							       AMD_PG_STATE_UNGATE);
++		}
++	} else {
++		/* exit umd pstate, restore level, enable gfx cg*/
++		if (!(*level & profile_mode_mask)) {
++			if (*level == AMD_DPM_FORCED_LEVEL_PROFILE_EXIT)
++				*level = smu_dpm_ctx->saved_dpm_level;
++			smu_dpm_ctx->enable_umd_pstate = false;
++			amdgpu_device_ip_set_clockgating_state(smu->adev,
++							       AMD_IP_BLOCK_TYPE_GFX,
++							       AMD_CG_STATE_GATE);
++			amdgpu_device_ip_set_powergating_state(smu->adev,
++							       AMD_IP_BLOCK_TYPE_GFX,
++							       AMD_PG_STATE_GATE);
++		}
++	}
++
++	return 0;
++}
++
+ const struct amd_ip_funcs smu_ip_funcs = {
+ 	.name = "smu",
+ 	.early_init = smu_early_init,
+@@ -956,6 +999,7 @@ const struct amd_ip_funcs smu_ip_funcs = {
+ 	.soft_reset = NULL,
+ 	.set_clockgating_state = smu_set_clockgating_state,
+ 	.set_powergating_state = smu_set_powergating_state,
++	.enable_umd_pstate = smu_enable_umd_pstate,
+ };
+ 
+ const struct amdgpu_ip_block_version smu_v11_0_ip_block =
+diff --git a/drivers/gpu/drm/amd/powerplay/inc/amdgpu_smu.h b/drivers/gpu/drm/amd/powerplay/inc/amdgpu_smu.h
+index 9d9e527bac3c..63cd1ba60dc2 100644
+--- a/drivers/gpu/drm/amd/powerplay/inc/amdgpu_smu.h
++++ b/drivers/gpu/drm/amd/powerplay/inc/amdgpu_smu.h
+@@ -316,6 +316,10 @@ struct smu_dpm_context {
+ 	uint32_t dpm_context_size;
+ 	void *dpm_context;
+ 	void *golden_dpm_context;
++	bool enable_umd_pstate;
++	enum amd_dpm_forced_level dpm_level;
++	enum amd_dpm_forced_level saved_dpm_level;
++	enum amd_dpm_forced_level requested_dpm_level;
+ 	struct smu_power_state *dpm_request_power_state;
+ 	struct smu_power_state *dpm_current_power_state;
+ 	struct mclock_latency_table *mclk_latency_table;
+-- 
+2.17.1
+

@@ -1,0 +1,31 @@
+From 91a256227222ed07fe23a6e4748a74bca9b64778 Mon Sep 17 00:00:00 2001
+From: Dmytro Laktyushkin <Dmytro.Laktyushkin@amd.com>
+Date: Wed, 5 Dec 2018 10:52:25 -0500
+Subject: [PATCH 1213/2940] drm/amd/display: add a debug flag to force odm
+ combine
+
+Adding a bit vector to allow forcing odm on specific otgs
+
+Change-Id: Ie95a63fe7e1eba541fe5129f5e77b47e96d0530b
+Signed-off-by: Dmytro Laktyushkin <Dmytro.Laktyushkin@amd.com>
+Reviewed-by: Charlene Liu <Charlene.Liu@amd.com>
+Acked-by: Bhawanpreet Lakha <Bhawanpreet.Lakha@amd.com>
+---
+ drivers/gpu/drm/amd/display/dc/dc.h | 1 +
+ 1 file changed, 1 insertion(+)
+
+diff --git a/drivers/gpu/drm/amd/display/dc/dc.h b/drivers/gpu/drm/amd/display/dc/dc.h
+index aa0f8080872a..8b9a901491a7 100644
+--- a/drivers/gpu/drm/amd/display/dc/dc.h
++++ b/drivers/gpu/drm/amd/display/dc/dc.h
+@@ -255,6 +255,7 @@ struct dc_debug_options {
+ 	bool scl_reset_length10;
+ 	bool hdmi20_disable;
+ 	bool skip_detection_link_training;
++	unsigned int force_odm_combine; //bit vector based on otg inst
+ 	unsigned int force_fclk_khz;
+ };
+ 
+-- 
+2.17.1
+

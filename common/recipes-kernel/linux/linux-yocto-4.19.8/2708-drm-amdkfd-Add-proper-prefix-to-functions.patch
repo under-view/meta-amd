@@ -1,0 +1,276 @@
+From 6732dff89459575e470fa97961f5f918ff265d4f Mon Sep 17 00:00:00 2001
+From: Amber Lin <Amber.Lin@amd.com>
+Date: Thu, 18 Oct 2018 13:38:19 -0400
+Subject: [PATCH 2708/2940] drm/amdkfd: Add proper prefix to functions
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+Add amdgpu_amdkfd_ prefix to amdgpu functions served for amdkfd usage.
+
+v2: fix indentation
+
+Signed-off-by: Amber Lin <Amber.Lin@amd.com>
+Acked-by: Christian König <christian.koenig@amd.com>
+Reviewed-by: Alex Deucher <alexander.deucher@amd.com>
+Reviewed-by: Felix Kuehling <Felix.Kuehling@amd.com>
+Signed-off-by: Alex Deucher <alexander.deucher@amd.com>
+---
+ drivers/gpu/drm/amd/amdgpu/amdgpu_amdkfd.c    | 18 ++++++++---------
+ drivers/gpu/drm/amd/amdgpu/amdgpu_amdkfd.h    | 20 +++++++++----------
+ drivers/gpu/drm/amd/amdkfd/kfd_chardev.c      |  4 ++--
+ drivers/gpu/drm/amd/amdkfd/kfd_crat.c         |  4 ++--
+ drivers/gpu/drm/amd/amdkfd/kfd_device.c       |  6 +++---
+ drivers/gpu/drm/amd/amdkfd/kfd_mqd_manager.c  |  2 +-
+ .../gpu/drm/amd/amdkfd/kfd_mqd_manager_v9.c   |  4 ++--
+ drivers/gpu/drm/amd/amdkfd/kfd_topology.c     |  8 ++++----
+ 8 files changed, 33 insertions(+), 33 deletions(-)
+
+diff --git a/drivers/gpu/drm/amd/amdgpu/amdgpu_amdkfd.c b/drivers/gpu/drm/amd/amdgpu/amdgpu_amdkfd.c
+index 3201afb6fa95..99883c2856ac 100644
+--- a/drivers/gpu/drm/amd/amdgpu/amdgpu_amdkfd.c
++++ b/drivers/gpu/drm/amd/amdgpu/amdgpu_amdkfd.c
+@@ -252,9 +252,9 @@ void amdgpu_amdkfd_gpu_reset(struct kgd_dev *kgd)
+ 		amdgpu_device_gpu_recover(adev, NULL);
+ }
+ 
+-int alloc_gtt_mem(struct kgd_dev *kgd, size_t size,
+-			void **mem_obj, uint64_t *gpu_addr,
+-			void **cpu_ptr, bool mqd_gfx9)
++int amdgpu_amdkfd_alloc_gtt_mem(struct kgd_dev *kgd, size_t size,
++				void **mem_obj, uint64_t *gpu_addr,
++				void **cpu_ptr, bool mqd_gfx9)
+ {
+ 	struct amdgpu_device *adev = (struct amdgpu_device *)kgd;
+ 	struct amdgpu_bo *bo = NULL;
+@@ -324,7 +324,7 @@ int alloc_gtt_mem(struct kgd_dev *kgd, size_t size,
+ 	return r;
+ }
+ 
+-void free_gtt_mem(struct kgd_dev *kgd, void *mem_obj)
++void amdgpu_amdkfd_free_gtt_mem(struct kgd_dev *kgd, void *mem_obj)
+ {
+ 	struct amdgpu_bo *bo = (struct amdgpu_bo *) mem_obj;
+ 
+@@ -335,8 +335,8 @@ void free_gtt_mem(struct kgd_dev *kgd, void *mem_obj)
+ 	amdgpu_bo_unref(&(bo));
+ }
+ 
+-void get_local_mem_info(struct kgd_dev *kgd,
+-			struct kfd_local_mem_info *mem_info)
++void amdgpu_amdkfd_get_local_mem_info(struct kgd_dev *kgd,
++				      struct kfd_local_mem_info *mem_info)
+ {
+ 	struct amdgpu_device *adev = (struct amdgpu_device *)kgd;
+ 	uint64_t address_mask = adev->dev->dma_mask ? ~*adev->dev->dma_mask :
+@@ -367,7 +367,7 @@ void get_local_mem_info(struct kgd_dev *kgd,
+ 		mem_info->mem_clk_max = 100;
+ }
+ 
+-uint64_t get_gpu_clock_counter(struct kgd_dev *kgd)
++uint64_t amdgpu_amdkfd_get_gpu_clock_counter(struct kgd_dev *kgd)
+ {
+ 	struct amdgpu_device *adev = (struct amdgpu_device *)kgd;
+ 
+@@ -376,7 +376,7 @@ uint64_t get_gpu_clock_counter(struct kgd_dev *kgd)
+ 	return 0;
+ }
+ 
+-uint32_t get_max_engine_clock_in_mhz(struct kgd_dev *kgd)
++uint32_t amdgpu_amdkfd_get_max_engine_clock_in_mhz(struct kgd_dev *kgd)
+ {
+ 	struct amdgpu_device *adev = (struct amdgpu_device *)kgd;
+ 
+@@ -389,7 +389,7 @@ uint32_t get_max_engine_clock_in_mhz(struct kgd_dev *kgd)
+ 		return 100;
+ }
+ 
+-void get_cu_info(struct kgd_dev *kgd, struct kfd_cu_info *cu_info)
++void amdgpu_amdkfd_get_cu_info(struct kgd_dev *kgd, struct kfd_cu_info *cu_info)
+ {
+ 	struct amdgpu_device *adev = (struct amdgpu_device *)kgd;
+ 	struct amdgpu_cu_info acu_info = adev->gfx.cu_info;
+diff --git a/drivers/gpu/drm/amd/amdgpu/amdgpu_amdkfd.h b/drivers/gpu/drm/amd/amdgpu/amdgpu_amdkfd.h
+index e19766cd6130..573df02e74b1 100644
+--- a/drivers/gpu/drm/amd/amdgpu/amdgpu_amdkfd.h
++++ b/drivers/gpu/drm/amd/amdgpu/amdgpu_amdkfd.h
+@@ -133,16 +133,16 @@ int amdgpu_amdkfd_post_reset(struct amdgpu_device *adev);
+ void amdgpu_amdkfd_gpu_reset(struct kgd_dev *kgd);
+ 
+ /* Shared API */
+-int alloc_gtt_mem(struct kgd_dev *kgd, size_t size,
+-			void **mem_obj, uint64_t *gpu_addr,
+-			void **cpu_ptr, bool mqd_gfx9);
+-void free_gtt_mem(struct kgd_dev *kgd, void *mem_obj);
+-void get_local_mem_info(struct kgd_dev *kgd,
+-			struct kfd_local_mem_info *mem_info);
+-uint64_t get_gpu_clock_counter(struct kgd_dev *kgd);
+-
+-uint32_t get_max_engine_clock_in_mhz(struct kgd_dev *kgd);
+-void get_cu_info(struct kgd_dev *kgd, struct kfd_cu_info *cu_info);
++int amdgpu_amdkfd_alloc_gtt_mem(struct kgd_dev *kgd, size_t size,
++				void **mem_obj, uint64_t *gpu_addr,
++				void **cpu_ptr, bool mqd_gfx9);
++void amdgpu_amdkfd_free_gtt_mem(struct kgd_dev *kgd, void *mem_obj);
++void amdgpu_amdkfd_get_local_mem_info(struct kgd_dev *kgd,
++				      struct kfd_local_mem_info *mem_info);
++uint64_t amdgpu_amdkfd_get_gpu_clock_counter(struct kgd_dev *kgd);
++
++uint32_t amdgpu_amdkfd_get_max_engine_clock_in_mhz(struct kgd_dev *kgd);
++void amdgpu_amdkfd_get_cu_info(struct kgd_dev *kgd, struct kfd_cu_info *cu_info);
+ uint64_t amdgpu_amdkfd_get_vram_usage(struct kgd_dev *kgd);
+ 
+ #define read_user_wptr(mmptr, wptr, dst)				\
+diff --git a/drivers/gpu/drm/amd/amdkfd/kfd_chardev.c b/drivers/gpu/drm/amd/amdkfd/kfd_chardev.c
+index 85e833df5727..5f4062b41add 100644
+--- a/drivers/gpu/drm/amd/amdkfd/kfd_chardev.c
++++ b/drivers/gpu/drm/amd/amdkfd/kfd_chardev.c
+@@ -835,7 +835,7 @@ static int kfd_ioctl_get_clock_counters(struct file *filep,
+ 	dev = kfd_device_by_id(args->gpu_id);
+ 	if (dev)
+ 		/* Reading GPU clock counter from KGD */
+-		args->gpu_clock_counter = get_gpu_clock_counter(dev->kgd);
++		args->gpu_clock_counter = amdgpu_amdkfd_get_gpu_clock_counter(dev->kgd);
+ 	else
+ 		/* Node without GPU resource */
+ 		args->gpu_clock_counter = 0;
+@@ -1240,7 +1240,7 @@ bool kfd_dev_is_large_bar(struct kfd_dev *dev)
+ 	if (dev->device_info->needs_iommu_device)
+ 		return false;
+ 
+-	get_local_mem_info(dev->kgd, &mem_info);
++	amdgpu_amdkfd_get_local_mem_info(dev->kgd, &mem_info);
+ 	if (mem_info.local_mem_size_private == 0 &&
+ 			mem_info.local_mem_size_public > 0)
+ 		return true;
+diff --git a/drivers/gpu/drm/amd/amdkfd/kfd_crat.c b/drivers/gpu/drm/amd/amdkfd/kfd_crat.c
+index a48be9992478..3783d122f283 100644
+--- a/drivers/gpu/drm/amd/amdkfd/kfd_crat.c
++++ b/drivers/gpu/drm/amd/amdkfd/kfd_crat.c
+@@ -1160,7 +1160,7 @@ static int kfd_create_vcrat_image_gpu(void *pcrat_image,
+ 	cu->flags |= CRAT_CU_FLAGS_GPU_PRESENT;
+ 	cu->proximity_domain = proximity_domain;
+ 
+-	get_cu_info(kdev->kgd, &cu_info);
++	amdgpu_amdkfd_get_cu_info(kdev->kgd, &cu_info);
+ 	cu->num_simd_per_cu = cu_info.simd_per_cu;
+ 	cu->num_simd_cores = cu_info.simd_per_cu * cu_info.cu_active_number;
+ 	cu->max_waves_simd = cu_info.max_waves_per_simd;
+@@ -1191,7 +1191,7 @@ static int kfd_create_vcrat_image_gpu(void *pcrat_image,
+ 	 * report the total FB size (public+private) as a single
+ 	 * private heap.
+ 	 */
+-	get_local_mem_info(kdev->kgd, &local_mem_info);
++	amdgpu_amdkfd_get_local_mem_info(kdev->kgd, &local_mem_info);
+ 	sub_type_hdr = (typeof(sub_type_hdr))((char *)sub_type_hdr +
+ 			sub_type_hdr->length);
+ 
+diff --git a/drivers/gpu/drm/amd/amdkfd/kfd_device.c b/drivers/gpu/drm/amd/amdkfd/kfd_device.c
+index eeb42af763ce..d7e0f41f8edc 100644
+--- a/drivers/gpu/drm/amd/amdkfd/kfd_device.c
++++ b/drivers/gpu/drm/amd/amdkfd/kfd_device.c
+@@ -479,7 +479,7 @@ bool kgd2kfd_device_init(struct kfd_dev *kfd,
+ 	/* add another 512KB for all other allocations on gart (HPD, fences) */
+ 	size += 512 * 1024;
+ 
+-	if (alloc_gtt_mem(
++	if (amdgpu_amdkfd_alloc_gtt_mem(
+ 			kfd->kgd, size, &kfd->gtt_mem,
+ 			&kfd->gtt_start_gpu_addr, &kfd->gtt_start_cpu_ptr,
+ 			false)) {
+@@ -553,7 +553,7 @@ bool kgd2kfd_device_init(struct kfd_dev *kfd,
+ kfd_doorbell_error:
+ 	kfd_gtt_sa_fini(kfd);
+ kfd_gtt_sa_init_error:
+-	free_gtt_mem(kfd->kgd, kfd->gtt_mem);
++	amdgpu_amdkfd_free_gtt_mem(kfd->kgd, kfd->gtt_mem);
+ 	dev_err(kfd_device,
+ 		"device %x:%x NOT added due to errors\n",
+ 		kfd->pdev->vendor, kfd->pdev->device);
+@@ -570,7 +570,7 @@ void kgd2kfd_device_exit(struct kfd_dev *kfd)
+ 		kfd_topology_remove_device(kfd);
+ 		kfd_doorbell_fini(kfd);
+ 		kfd_gtt_sa_fini(kfd);
+-		free_gtt_mem(kfd->kgd, kfd->gtt_mem);
++		amdgpu_amdkfd_free_gtt_mem(kfd->kgd, kfd->gtt_mem);
+ 	}
+ 
+ 	kfree(kfd);
+diff --git a/drivers/gpu/drm/amd/amdkfd/kfd_mqd_manager.c b/drivers/gpu/drm/amd/amdkfd/kfd_mqd_manager.c
+index 270807038867..6910028010d6 100644
+--- a/drivers/gpu/drm/amd/amdkfd/kfd_mqd_manager.c
++++ b/drivers/gpu/drm/amd/amdkfd/kfd_mqd_manager.c
+@@ -59,7 +59,7 @@ void mqd_symmetrically_map_cu_mask(struct mqd_manager *mm,
+ 	uint32_t cu_per_sh[4] = {0};
+ 	int i, se, cu = 0;
+ 
+-	get_cu_info(mm->dev->kgd, &cu_info);
++	amdgpu_amdkfd_get_cu_info(mm->dev->kgd, &cu_info);
+ 
+ 	if (cu_mask_count > cu_info.cu_active_number)
+ 		cu_mask_count = cu_info.cu_active_number;
+diff --git a/drivers/gpu/drm/amd/amdkfd/kfd_mqd_manager_v9.c b/drivers/gpu/drm/amd/amdkfd/kfd_mqd_manager_v9.c
+index db3b1950a6a6..9dbba609450e 100644
+--- a/drivers/gpu/drm/amd/amdkfd/kfd_mqd_manager_v9.c
++++ b/drivers/gpu/drm/amd/amdkfd/kfd_mqd_manager_v9.c
+@@ -84,7 +84,7 @@ static int init_mqd(struct mqd_manager *mm, void **mqd,
+ 		*mqd_mem_obj = kzalloc(sizeof(struct kfd_mem_obj), GFP_KERNEL);
+ 		if (!*mqd_mem_obj)
+ 			return -ENOMEM;
+-		retval = alloc_gtt_mem(kfd->kgd,
++		retval = amdgpu_amdkfd_alloc_gtt_mem(kfd->kgd,
+ 			ALIGN(q->ctl_stack_size, PAGE_SIZE) +
+ 				ALIGN(sizeof(struct v9_mqd), PAGE_SIZE),
+ 			&((*mqd_mem_obj)->gtt_mem),
+@@ -251,7 +251,7 @@ static void uninit_mqd(struct mqd_manager *mm, void *mqd,
+ 	struct kfd_dev *kfd = mm->dev;
+ 
+ 	if (mqd_mem_obj->gtt_mem) {
+-		free_gtt_mem(kfd->kgd, mqd_mem_obj->gtt_mem);
++		amdgpu_amdkfd_free_gtt_mem(kfd->kgd, mqd_mem_obj->gtt_mem);
+ 		kfree(mqd_mem_obj);
+ 	} else {
+ 		kfd_gtt_sa_free(mm->dev, mqd_mem_obj);
+diff --git a/drivers/gpu/drm/amd/amdkfd/kfd_topology.c b/drivers/gpu/drm/amd/amdkfd/kfd_topology.c
+index 6f73101d0136..c73b4ff61f99 100644
+--- a/drivers/gpu/drm/amd/amdkfd/kfd_topology.c
++++ b/drivers/gpu/drm/amd/amdkfd/kfd_topology.c
+@@ -1053,7 +1053,7 @@ static uint32_t kfd_generate_gpu_id(struct kfd_dev *gpu)
+ 	if (!gpu)
+ 		return 0;
+ 
+-	get_local_mem_info(gpu->kgd, &local_mem_info);
++	amdgpu_amdkfd_get_local_mem_info(gpu->kgd, &local_mem_info);
+ 
+ 	local_mem_size = local_mem_info.local_mem_size_private +
+ 			local_mem_info.local_mem_size_public;
+@@ -1119,7 +1119,7 @@ static void kfd_fill_mem_clk_max_info(struct kfd_topology_device *dev)
+ 	 * for APUs - If CRAT from ACPI reports more than one bank, then
+ 	 *	all the banks will report the same mem_clk_max information
+ 	 */
+-	get_local_mem_info(dev->gpu->kgd, &local_mem_info);
++	amdgpu_amdkfd_get_local_mem_info(dev->gpu->kgd, &local_mem_info);
+ 
+ 	list_for_each_entry(mem, &dev->mem_props, list)
+ 		mem->mem_clk_max = local_mem_info.mem_clk_max;
+@@ -1240,7 +1240,7 @@ int kfd_topology_add_device(struct kfd_dev *gpu)
+ 	 * needed for the topology
+ 	 */
+ 
+-	get_cu_info(dev->gpu->kgd, &cu_info);
++	amdgpu_amdkfd_get_cu_info(dev->gpu->kgd, &cu_info);
+ 	dev->node_props.simd_arrays_per_engine =
+ 		cu_info.num_shader_arrays_per_engine;
+ 
+@@ -1249,7 +1249,7 @@ int kfd_topology_add_device(struct kfd_dev *gpu)
+ 	dev->node_props.location_id = PCI_DEVID(gpu->pdev->bus->number,
+ 		gpu->pdev->devfn);
+ 	dev->node_props.max_engine_clk_fcompute =
+-		get_max_engine_clock_in_mhz(dev->gpu->kgd);
++		amdgpu_amdkfd_get_max_engine_clock_in_mhz(dev->gpu->kgd);
+ 	dev->node_props.max_engine_clk_ccompute =
+ 		cpufreq_quick_get_max(0) / 1000;
+ 	dev->node_props.drm_render_minor =
+-- 
+2.17.1
+

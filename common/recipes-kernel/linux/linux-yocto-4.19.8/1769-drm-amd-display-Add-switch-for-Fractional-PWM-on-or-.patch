@@ -1,0 +1,76 @@
+From a6dcfa6147cf37b207ea8b1185637eafffcd836f Mon Sep 17 00:00:00 2001
+From: Anthony Koo <Anthony.Koo@amd.com>
+Date: Thu, 28 Mar 2019 12:39:48 -0400
+Subject: [PATCH 1769/2940] drm/amd/display: Add switch for Fractional PWM on
+ or off
+
+[Why]
+Some LED Driver might not like Fractional PWM especially at extreme
+ranges near 0% or 100%.
+For example, backlight flashing could be observed.
+We want a way to switch fractional PWM on/off either for debug, or
+possibly production.
+
+[How]
+Add DC code that can send new FW command to enable/disable
+fractional PWM.
+
+Signed-off-by: Anthony Koo <Anthony.Koo@amd.com>
+Reviewed-by: Aric Cyr <Aric.Cyr@amd.com>
+Acked-by: Leo Li <sunpeng.li@amd.com>
+---
+ drivers/gpu/drm/amd/display/dc/dc.h          |  1 +
+ drivers/gpu/drm/amd/display/dc/dce/dce_abm.c | 18 ++++++++++++++++++
+ 2 files changed, 19 insertions(+)
+
+diff --git a/drivers/gpu/drm/amd/display/dc/dc.h b/drivers/gpu/drm/amd/display/dc/dc.h
+index facc830fa428..8a645ec8e293 100644
+--- a/drivers/gpu/drm/amd/display/dc/dc.h
++++ b/drivers/gpu/drm/amd/display/dc/dc.h
+@@ -186,6 +186,7 @@ struct dc_config {
+ 	bool disable_disp_pll_sharing;
+ 	bool fbc_support;
+ 	bool optimize_edp_link_rate;
++	bool disable_fractional_pwm;
+ 	bool allow_seamless_boot_optimization;
+ };
+ 
+diff --git a/drivers/gpu/drm/amd/display/dc/dce/dce_abm.c b/drivers/gpu/drm/amd/display/dc/dce/dce_abm.c
+index da96229db53a..855360b1414f 100644
+--- a/drivers/gpu/drm/amd/display/dc/dce/dce_abm.c
++++ b/drivers/gpu/drm/amd/display/dc/dce/dce_abm.c
+@@ -50,6 +50,7 @@
+ #define MCP_ABM_LEVEL_SET 0x65
+ #define MCP_ABM_PIPE_SET 0x66
+ #define MCP_BL_SET 0x67
++#define MCP_BL_SET_PWM_FRAC     0x6A  /* Enable or disable Fractional PWM */
+ 
+ #define MCP_DISABLE_ABM_IMMEDIATELY 255
+ 
+@@ -390,6 +391,23 @@ static bool dce_abm_init_backlight(struct abm *abm)
+ 	REG_UPDATE(BL_PWM_GRP1_REG_LOCK,
+ 			BL_PWM_GRP1_REG_LOCK, 0);
+ 
++	/* Wait until microcontroller is ready to process interrupt */
++	REG_WAIT(MASTER_COMM_CNTL_REG, MASTER_COMM_INTERRUPT, 0, 100, 800);
++
++	/* Set PWM fractional enable/disable */
++	value = (abm->ctx->dc->config.disable_fractional_pwm == false) ? 1 : 0;
++	REG_WRITE(MASTER_COMM_DATA_REG1, value);
++
++	/* Set command to enable or disable fractional PWM microcontroller */
++	REG_UPDATE(MASTER_COMM_CMD_REG, MASTER_COMM_CMD_REG_BYTE0,
++			MCP_BL_SET_PWM_FRAC);
++
++	/* Notify microcontroller of new command */
++	REG_UPDATE(MASTER_COMM_CNTL_REG, MASTER_COMM_INTERRUPT, 1);
++
++	/* Ensure command has been executed before continuing */
++	REG_WAIT(MASTER_COMM_CNTL_REG, MASTER_COMM_INTERRUPT, 0, 100, 800);
++
+ 	return true;
+ }
+ 
+-- 
+2.17.1
+

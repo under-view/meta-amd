@@ -1,0 +1,45 @@
+From 8835c1241c2dbe6f94548820c64eee793be5abd9 Mon Sep 17 00:00:00 2001
+From: wentalou <Wentao.Lou@amd.com>
+Date: Fri, 7 Dec 2018 13:53:18 +0800
+Subject: [PATCH 0937/2940] drm/amdgpu: kfd_pre_reset outside req_full_gpu
+ cause sriov hang
+
+XGMI hive put kfd_pre_reset into amdgpu_device_lock_adev,
+but outside req_full_gpu of sriov.
+It would make sriov hang during reset.
+
+Signed-off-by: Wentao Lou <Wentao.Lou@amd.com>
+Reviewed-by: Shaoyun Liu <Shaoyun.Liu@amd.com>
+Signed-off-by: Alex Deucher <alexander.deucher@amd.com>
+---
+ drivers/gpu/drm/amd/amdgpu/amdgpu_device.c | 10 ++++++----
+ 1 file changed, 6 insertions(+), 4 deletions(-)
+
+diff --git a/drivers/gpu/drm/amd/amdgpu/amdgpu_device.c b/drivers/gpu/drm/amd/amdgpu/amdgpu_device.c
+index 59d07e35578f..0ba2c5747a8c 100644
+--- a/drivers/gpu/drm/amd/amdgpu/amdgpu_device.c
++++ b/drivers/gpu/drm/amd/amdgpu/amdgpu_device.c
+@@ -3525,14 +3525,16 @@ static void amdgpu_device_lock_adev(struct amdgpu_device *adev)
+ 	mutex_lock(&adev->lock_reset);
+ 	atomic_inc(&adev->gpu_reset_counter);
+ 	adev->in_gpu_reset = 1;
+-	/* Block kfd */
+-	amdgpu_amdkfd_pre_reset(adev);
++	/* Block kfd: SRIOV would do it separately */
++	if (!amdgpu_sriov_vf(adev))
++                amdgpu_amdkfd_pre_reset(adev);
+ }
+ 
+ static void amdgpu_device_unlock_adev(struct amdgpu_device *adev)
+ {
+-	/*unlock kfd */
+-	amdgpu_amdkfd_post_reset(adev);
++	/*unlock kfd: SRIOV would do it separately */
++	if (!amdgpu_sriov_vf(adev))
++                amdgpu_amdkfd_post_reset(adev);
+ 	amdgpu_vf_error_trans_all(adev);
+ 	adev->in_gpu_reset = 0;
+ 	mutex_unlock(&adev->lock_reset);
+-- 
+2.17.1
+

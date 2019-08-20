@@ -1,0 +1,29 @@
+From 946d3aff944f140668712ba191f70447dff7186e Mon Sep 17 00:00:00 2001
+From: Chaudhary Amit Kumar <Chaudharyamit.Kumar@amd.com>
+Date: Mon, 24 Jun 2019 15:37:18 +0530
+Subject: [PATCH 2105/2940] drm/amdgpu: conditionally compile amdgpu's amdkfd
+ files
+
+In case CONFIG_HSA_AMD is not chosen, there is no need to compile amdkfd
+files that reside inside amdgpu dirver.There are stub functions that are
+compiled only if amdkfd is not compiled amdgpu_amdkfd_unreserve_system_memory_limit
+---
+ drivers/gpu/drm/amd/amdgpu/amdgpu_amdkfd.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/drivers/gpu/drm/amd/amdgpu/amdgpu_amdkfd.c b/drivers/gpu/drm/amd/amdgpu/amdgpu_amdkfd.c
+index 3eb0ab92d7e8..9616cd68fdc5 100644
+--- a/drivers/gpu/drm/amd/amdgpu/amdgpu_amdkfd.c
++++ b/drivers/gpu/drm/amd/amdgpu/amdgpu_amdkfd.c
+@@ -520,7 +520,7 @@ bool amdkfd_fence_check_mm(struct dma_fence *f, struct mm_struct *mm)
+ 	return false;
+ }
+ 
+-void amdgpu_amdkfd_unreserve_memory_limit(struct amdgpu_bo *bo)
++void amdgpu_amdkfd_unreserve_system_memory_limit(struct amdgpu_bo *bo)
+ {
+ }
+ 
+-- 
+2.17.1
+

@@ -1,0 +1,32 @@
+From ad7ee1f6901bace7f090eabe22dffc3395f838d2 Mon Sep 17 00:00:00 2001
+From: Alex Deucher <alexander.deucher@amd.com>
+Date: Wed, 9 Jan 2019 22:19:28 -0500
+Subject: [PATCH 1126/2940] drm/amdgpu: Add missing power attribute to APU
+ check
+
+Add missing power_average to visible check for power
+attributes for APUs.  Was missed before.
+
+Reviewed-by: Evan Quan <evan.quan@amd.com>
+Signed-off-by: Alex Deucher <alexander.deucher@amd.com>
+---
+ drivers/gpu/drm/amd/amdgpu/amdgpu_pm.c | 3 ++-
+ 1 file changed, 2 insertions(+), 1 deletion(-)
+
+diff --git a/drivers/gpu/drm/amd/amdgpu/amdgpu_pm.c b/drivers/gpu/drm/amd/amdgpu/amdgpu_pm.c
+index 250be1ef1719..a7adb7b6bd98 100644
+--- a/drivers/gpu/drm/amd/amdgpu/amdgpu_pm.c
++++ b/drivers/gpu/drm/amd/amdgpu/amdgpu_pm.c
+@@ -1981,7 +1981,8 @@ static umode_t hwmon_attributes_visible(struct kobject *kobj,
+ 		effective_mode &= ~S_IWUSR;
+ 
+ 	if ((adev->flags & AMD_IS_APU) &&
+-	    (attr == &sensor_dev_attr_power1_cap_max.dev_attr.attr ||
++	    (attr == &sensor_dev_attr_power1_average.dev_attr.attr ||
++	     attr == &sensor_dev_attr_power1_cap_max.dev_attr.attr ||
+ 	     attr == &sensor_dev_attr_power1_cap_min.dev_attr.attr||
+ 	     attr == &sensor_dev_attr_power1_cap.dev_attr.attr))
+ 		return 0;
+-- 
+2.17.1
+

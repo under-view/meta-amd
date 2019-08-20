@@ -1,0 +1,61 @@
+From fe8e86b11a343f7101df9af6f0a9a3704ac673cf Mon Sep 17 00:00:00 2001
+From: Shirish S <shirish.s@amd.com>
+Date: Thu, 20 Dec 2018 16:08:02 +0530
+Subject: [PATCH 1032/2940] drm/amd/display: fix compliler errors
+ [-Werror,-Wmissing-braces]
+
+Initializing structures with { } is known to be problematic since
+it doesn't necessararily initialize all bytes, in case of padding,
+causing random failures when structures are memcmp().
+
+This patch fixes the structure initialisation related compiler
+error by memset.
+
+Signed-off-by: Shirish S <shirish.s@amd.com>
+Reviewed-by: Alex Deucher <alexander.deucher@amd.com>
+Signed-off-by: Alex Deucher <alexander.deucher@amd.com>
+---
+ drivers/gpu/drm/amd/display/dc/dcn10/dcn10_hw_sequencer.c      | 3 ++-
+ .../gpu/drm/amd/display/dc/dcn10/dcn10_hw_sequencer_debug.c    | 3 ++-
+ 2 files changed, 4 insertions(+), 2 deletions(-)
+
+diff --git a/drivers/gpu/drm/amd/display/dc/dcn10/dcn10_hw_sequencer.c b/drivers/gpu/drm/amd/display/dc/dcn10/dcn10_hw_sequencer.c
+index df0283069453..7bbf7dc0a6ef 100644
+--- a/drivers/gpu/drm/amd/display/dc/dcn10/dcn10_hw_sequencer.c
++++ b/drivers/gpu/drm/amd/display/dc/dcn10/dcn10_hw_sequencer.c
+@@ -91,9 +91,10 @@ static void log_mpc_crc(struct dc *dc,
+ void dcn10_log_hubbub_state(struct dc *dc, struct dc_log_buffer_ctx *log_ctx)
+ {
+ 	struct dc_context *dc_ctx = dc->ctx;
+-	struct dcn_hubbub_wm wm = {0};
++	struct dcn_hubbub_wm wm;
+ 	int i;
+ 
++	memset(&wm, 0, sizeof(struct dcn_hubbub_wm));
+ 	dc->res_pool->hubbub->funcs->wm_read_state(dc->res_pool->hubbub, &wm);
+ 
+ 	DTN_INFO("HUBBUB WM:      data_urgent  pte_meta_urgent"
+diff --git a/drivers/gpu/drm/amd/display/dc/dcn10/dcn10_hw_sequencer_debug.c b/drivers/gpu/drm/amd/display/dc/dcn10/dcn10_hw_sequencer_debug.c
+index 5ead46269acf..98f41d250978 100644
+--- a/drivers/gpu/drm/amd/display/dc/dcn10/dcn10_hw_sequencer_debug.c
++++ b/drivers/gpu/drm/amd/display/dc/dcn10/dcn10_hw_sequencer_debug.c
+@@ -71,7 +71,7 @@ static unsigned int snprintf_count(char *pBuf, unsigned int bufSize, char *fmt,
+ static unsigned int dcn10_get_hubbub_state(struct dc *dc, char *pBuf, unsigned int bufSize)
+ {
+ 	struct dc_context *dc_ctx = dc->ctx;
+-	struct dcn_hubbub_wm wm = {0};
++	struct dcn_hubbub_wm wm;
+ 	int i;
+ 
+ 	unsigned int chars_printed = 0;
+@@ -80,6 +80,7 @@ static unsigned int dcn10_get_hubbub_state(struct dc *dc, char *pBuf, unsigned i
+ 	const uint32_t ref_clk_mhz = dc_ctx->dc->res_pool->ref_clock_inKhz / 1000;
+ 	static const unsigned int frac = 1000;
+ 
++	memset(&wm, 0, sizeof(struct dcn_hubbub_wm));
+ 	dc->res_pool->hubbub->funcs->wm_read_state(dc->res_pool->hubbub, &wm);
+ 
+ 	chars_printed = snprintf_count(pBuf, remaining_buffer, "wm_set_index,data_urgent,pte_meta_urgent,sr_enter,sr_exit,dram_clk_chanage\n");
+-- 
+2.17.1
+

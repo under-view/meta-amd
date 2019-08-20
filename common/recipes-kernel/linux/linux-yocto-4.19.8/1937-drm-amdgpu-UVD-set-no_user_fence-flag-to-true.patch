@@ -1,0 +1,95 @@
+From f78f3402b0cf4048314abbc6fd13671cb5474ed1 Mon Sep 17 00:00:00 2001
+From: Leo Liu <leo.liu@amd.com>
+Date: Wed, 8 May 2019 11:07:26 -0400
+Subject: [PATCH 1937/2940] drm/amdgpu/UVD: set no_user_fence flag to true
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+There is no user fence support for UVD
+
+Signed-off-by: Leo Liu <leo.liu@amd.com>
+Reviewed-by: Alex Deucher <alexander.deucher@amd.com>
+Reviewed-by: Christian König <christian.koenig@amd.com>
+---
+ drivers/gpu/drm/amd/amdgpu/uvd_v4_2.c | 1 +
+ drivers/gpu/drm/amd/amdgpu/uvd_v5_0.c | 1 +
+ drivers/gpu/drm/amd/amdgpu/uvd_v6_0.c | 3 +++
+ drivers/gpu/drm/amd/amdgpu/uvd_v7_0.c | 2 ++
+ 4 files changed, 7 insertions(+)
+
+diff --git a/drivers/gpu/drm/amd/amdgpu/uvd_v4_2.c b/drivers/gpu/drm/amd/amdgpu/uvd_v4_2.c
+index c4fb58667fd4..bf3385280d3f 100644
+--- a/drivers/gpu/drm/amd/amdgpu/uvd_v4_2.c
++++ b/drivers/gpu/drm/amd/amdgpu/uvd_v4_2.c
+@@ -741,6 +741,7 @@ static const struct amdgpu_ring_funcs uvd_v4_2_ring_funcs = {
+ 	.type = AMDGPU_RING_TYPE_UVD,
+ 	.align_mask = 0xf,
+ 	.support_64bit_ptrs = false,
++	.no_user_fence = true,
+ 	.get_rptr = uvd_v4_2_ring_get_rptr,
+ 	.get_wptr = uvd_v4_2_ring_get_wptr,
+ 	.set_wptr = uvd_v4_2_ring_set_wptr,
+diff --git a/drivers/gpu/drm/amd/amdgpu/uvd_v5_0.c b/drivers/gpu/drm/amd/amdgpu/uvd_v5_0.c
+index 52bd8a654734..3210a7bd9a6d 100644
+--- a/drivers/gpu/drm/amd/amdgpu/uvd_v5_0.c
++++ b/drivers/gpu/drm/amd/amdgpu/uvd_v5_0.c
+@@ -849,6 +849,7 @@ static const struct amdgpu_ring_funcs uvd_v5_0_ring_funcs = {
+ 	.type = AMDGPU_RING_TYPE_UVD,
+ 	.align_mask = 0xf,
+ 	.support_64bit_ptrs = false,
++	.no_user_fence = true,
+ 	.get_rptr = uvd_v5_0_ring_get_rptr,
+ 	.get_wptr = uvd_v5_0_ring_get_wptr,
+ 	.set_wptr = uvd_v5_0_ring_set_wptr,
+diff --git a/drivers/gpu/drm/amd/amdgpu/uvd_v6_0.c b/drivers/gpu/drm/amd/amdgpu/uvd_v6_0.c
+index c9edddf9f88a..c61a314c56cc 100644
+--- a/drivers/gpu/drm/amd/amdgpu/uvd_v6_0.c
++++ b/drivers/gpu/drm/amd/amdgpu/uvd_v6_0.c
+@@ -1502,6 +1502,7 @@ static const struct amdgpu_ring_funcs uvd_v6_0_ring_phys_funcs = {
+ 	.type = AMDGPU_RING_TYPE_UVD,
+ 	.align_mask = 0xf,
+ 	.support_64bit_ptrs = false,
++	.no_user_fence = true,
+ 	.get_rptr = uvd_v6_0_ring_get_rptr,
+ 	.get_wptr = uvd_v6_0_ring_get_wptr,
+ 	.set_wptr = uvd_v6_0_ring_set_wptr,
+@@ -1527,6 +1528,7 @@ static const struct amdgpu_ring_funcs uvd_v6_0_ring_vm_funcs = {
+ 	.type = AMDGPU_RING_TYPE_UVD,
+ 	.align_mask = 0xf,
+ 	.support_64bit_ptrs = false,
++	.no_user_fence = true,
+ 	.get_rptr = uvd_v6_0_ring_get_rptr,
+ 	.get_wptr = uvd_v6_0_ring_get_wptr,
+ 	.set_wptr = uvd_v6_0_ring_set_wptr,
+@@ -1555,6 +1557,7 @@ static const struct amdgpu_ring_funcs uvd_v6_0_enc_ring_vm_funcs = {
+ 	.align_mask = 0x3f,
+ 	.nop = HEVC_ENC_CMD_NO_OP,
+ 	.support_64bit_ptrs = false,
++	.no_user_fence = true,
+ 	.get_rptr = uvd_v6_0_enc_ring_get_rptr,
+ 	.get_wptr = uvd_v6_0_enc_ring_get_wptr,
+ 	.set_wptr = uvd_v6_0_enc_ring_set_wptr,
+diff --git a/drivers/gpu/drm/amd/amdgpu/uvd_v7_0.c b/drivers/gpu/drm/amd/amdgpu/uvd_v7_0.c
+index 2191d3d0a219..cdb96d4cb424 100644
+--- a/drivers/gpu/drm/amd/amdgpu/uvd_v7_0.c
++++ b/drivers/gpu/drm/amd/amdgpu/uvd_v7_0.c
+@@ -1759,6 +1759,7 @@ static const struct amdgpu_ring_funcs uvd_v7_0_ring_vm_funcs = {
+ 	.type = AMDGPU_RING_TYPE_UVD,
+ 	.align_mask = 0xf,
+ 	.support_64bit_ptrs = false,
++	.no_user_fence = true,
+ 	.vmhub = AMDGPU_MMHUB,
+ 	.get_rptr = uvd_v7_0_ring_get_rptr,
+ 	.get_wptr = uvd_v7_0_ring_get_wptr,
+@@ -1791,6 +1792,7 @@ static const struct amdgpu_ring_funcs uvd_v7_0_enc_ring_vm_funcs = {
+ 	.align_mask = 0x3f,
+ 	.nop = HEVC_ENC_CMD_NO_OP,
+ 	.support_64bit_ptrs = false,
++	.no_user_fence = true,
+ 	.vmhub = AMDGPU_MMHUB,
+ 	.get_rptr = uvd_v7_0_enc_ring_get_rptr,
+ 	.get_wptr = uvd_v7_0_enc_ring_get_wptr,
+-- 
+2.17.1
+

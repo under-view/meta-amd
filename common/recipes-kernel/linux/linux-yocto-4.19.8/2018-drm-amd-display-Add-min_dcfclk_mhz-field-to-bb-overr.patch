@@ -1,0 +1,30 @@
+From cc212c3e7093f3d1446d401cb2e03b2360ffdda9 Mon Sep 17 00:00:00 2001
+From: Jun Lei <Jun.Lei@amd.com>
+Date: Thu, 9 May 2019 15:32:27 -0400
+Subject: [PATCH 2018/2940] drm/amd/display: Add min_dcfclk_mhz field to bb
+ overrides
+
+Add min_dcfclk_mhz to bounding box overrides.
+
+Signed-off-by: Jun Lei <Jun.Lei@amd.com>
+Reviewed-by: Tony Cheng <Tony.Cheng@amd.com>
+Acked-by: Leo Li <sunpeng.li@amd.com>
+---
+ drivers/gpu/drm/amd/display/dc/dc.h | 1 +
+ 1 file changed, 1 insertion(+)
+
+diff --git a/drivers/gpu/drm/amd/display/dc/dc.h b/drivers/gpu/drm/amd/display/dc/dc.h
+index 3a1e059ae575..c9f605d96695 100644
+--- a/drivers/gpu/drm/amd/display/dc/dc.h
++++ b/drivers/gpu/drm/amd/display/dc/dc.h
+@@ -370,6 +370,7 @@ struct dc_bounding_box_overrides {
+ 	int urgent_latency_ns;
+ 	int percent_of_ideal_drambw;
+ 	int dram_clock_change_latency_ns;
++	int min_dcfclk_mhz;
+ };
+ 
+ struct dc_state;
+-- 
+2.17.1
+

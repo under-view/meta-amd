@@ -1,0 +1,40 @@
+From f14fe36dcdc998838403d66e6193d74c4cb01afa Mon Sep 17 00:00:00 2001
+From: Hugo Hu <hugo.hu@amd.com>
+Date: Wed, 27 Feb 2019 15:18:08 +0800
+Subject: [PATCH 1642/2940] drm/amd/display: Programming correct VRR_EN bit in
+ VTEM structure
+
+[Why]
+In HDMI plugfest, MTK report our EMP with VRR_EN bit = 0.
+VRR_EN bit is EMP-MD0-bit 0. Currently driver set 1 to bit 3.
+
+[How]
+Programming correct VRR_EN bit in EMP-MD0-bit0.
+
+Change-Id: I41d4f5b24896ca34f50fdb3d1d121678faa09034
+Signed-off-by: Hugo Hu <hugo.hu@amd.com>
+Reviewed-by: Reza Amini <Reza.Amini@amd.com>
+Acked-by: Bhawanpreet Lakha <Bhawanpreet.Lakha@amd.com>
+---
+ drivers/gpu/drm/amd/display/modules/freesync/freesync.c | 4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
+
+diff --git a/drivers/gpu/drm/amd/display/modules/freesync/freesync.c b/drivers/gpu/drm/amd/display/modules/freesync/freesync.c
+index 5f493e9d6bbb..8f6f744fb2be 100644
+--- a/drivers/gpu/drm/amd/display/modules/freesync/freesync.c
++++ b/drivers/gpu/drm/amd/display/modules/freesync/freesync.c
+@@ -622,9 +622,9 @@ static void build_vrr_vtem_infopacket_data(const struct dc_stream_state *stream,
+ 
+ 	if (vrr->state == VRR_STATE_ACTIVE_VARIABLE ||
+ 				vrr->state == VRR_STATE_ACTIVE_FIXED){
+-		infopacket->sb[6] |= 0x80; //VRR_EN Bit = 1
++		infopacket->sb[6] |= 0x01; //VRR_EN Bit = 1
+ 	} else {
+-		infopacket->sb[6] &= 0x7F; //VRR_EN Bit = 0
++		infopacket->sb[6] &= 0xFE; //VRR_EN Bit = 0
+ 	}
+ 
+ 	if (!stream->timing.vic) {
+-- 
+2.17.1
+

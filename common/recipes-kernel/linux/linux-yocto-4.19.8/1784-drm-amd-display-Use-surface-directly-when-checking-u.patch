@@ -1,0 +1,127 @@
+From ef448f00a0a034b67fdf99a03adf44b50720f3d3 Mon Sep 17 00:00:00 2001
+From: Nicholas Kazlauskas <nicholas.kazlauskas@amd.com>
+Date: Thu, 10 Jan 2019 09:32:31 -0500
+Subject: [PATCH 1784/2940] drm/amd/display: Use surface directly when checking
+ update type
+
+[Why]
+DC expects the surface memory address to identify the surface.
+
+This doesn't work with what we're doing with the temporary surfaces,
+it will always assume this is a full update because the surface
+isn't in the current context.
+
+[How]
+Use the surface directly. This doesn't give us much improvement yet,
+since we always create a new dc_plane_state when state->allow_modeset
+is true.
+
+The call into dc_check_update_surfaces_for_stream also needs to be
+locked, for two reasons:
+
+1. It checks the current DC state
+2. It modifies the surface update flags
+
+Both of which could be currently in the middle of commit work from
+commit tail.
+
+A TODO here is to pass the context explicitly into this function and
+find a way to get the surface update flags out of it without modifying
+the surface in place.
+
+Change-Id: Icd942bae4da7e16070a68c00dcf44908d195b63a
+Signed-off-by: Nicholas Kazlauskas <nicholas.kazlauskas@amd.com>
+Reviewed-by: David Francis <David.Francis@amd.com>
+Acked-by: Bhawanpreet Lakha <Bhawanpreet Lakha@amd.com>
+---
+ .../gpu/drm/amd/display/amdgpu_dm/amdgpu_dm.c | 28 ++++++++-----------
+ 1 file changed, 12 insertions(+), 16 deletions(-)
+
+diff --git a/drivers/gpu/drm/amd/display/amdgpu_dm/amdgpu_dm.c b/drivers/gpu/drm/amd/display/amdgpu_dm/amdgpu_dm.c
+index b86e9aeca3c8..7f55ca4e70c8 100644
+--- a/drivers/gpu/drm/amd/display/amdgpu_dm/amdgpu_dm.c
++++ b/drivers/gpu/drm/amd/display/amdgpu_dm/amdgpu_dm.c
+@@ -6387,10 +6387,11 @@ static int dm_update_plane_state(struct dc *dc,
+ }
+ 
+ static int
+-dm_determine_update_type_for_commit(struct dc *dc,
++dm_determine_update_type_for_commit(struct amdgpu_display_manager *dm,
+ 				    struct drm_atomic_state *state,
+ 				    enum surface_update_type *out_type)
+ {
++	struct dc *dc = dm->dc;
+ 	struct dm_atomic_state *dm_state = NULL, *old_dm_state = NULL;
+ 	int i, j, num_plane, ret = 0;
+ 	struct drm_plane_state *old_plane_state, *new_plane_state;
+@@ -6404,14 +6405,12 @@ dm_determine_update_type_for_commit(struct dc *dc,
+ 	struct dc_stream_status *status = NULL;
+ 
+ 	struct dc_surface_update *updates;
+-	struct dc_plane_state *surface;
+ 	enum surface_update_type update_type = UPDATE_TYPE_FAST;
+ 
+ 	updates = kcalloc(MAX_SURFACES, sizeof(*updates), GFP_KERNEL);
+-	surface = kcalloc(MAX_SURFACES, sizeof(*surface), GFP_KERNEL);
+ 
+-	if (!updates || !surface) {
+-		DRM_ERROR("Plane or surface update failed to allocate");
++	if (!updates) {
++		DRM_ERROR("Failed to allocate plane updates\n");
+ 		/* Set type to FULL to avoid crashing in DC*/
+ 		update_type = UPDATE_TYPE_FULL;
+ 		goto cleanup;
+@@ -6454,17 +6453,9 @@ dm_determine_update_type_for_commit(struct dc *dc,
+ 			if (crtc != new_plane_crtc)
+ 				continue;
+ 
+-			updates[num_plane].surface = &surface[num_plane];
++			updates[num_plane].surface = new_dm_plane_state->dc_state;
+ 
+ 			if (new_crtc_state->mode_changed) {
+-				updates[num_plane].surface->src_rect =
+-						new_dm_plane_state->dc_state->src_rect;
+-				updates[num_plane].surface->dst_rect =
+-						new_dm_plane_state->dc_state->dst_rect;
+-				updates[num_plane].surface->rotation =
+-						new_dm_plane_state->dc_state->rotation;
+-				updates[num_plane].surface->in_transfer_func =
+-						new_dm_plane_state->dc_state->in_transfer_func;
+ 				stream_update.dst = new_dm_crtc_state->stream->dst;
+ 				stream_update.src = new_dm_crtc_state->stream->src;
+ 			}
+@@ -6499,8 +6490,14 @@ dm_determine_update_type_for_commit(struct dc *dc,
+ 		status = dc_stream_get_status_from_state(old_dm_state->context,
+ 							 new_dm_crtc_state->stream);
+ 
++		/*
++		 * TODO: DC modifies the surface during this call so we need
++		 * to lock here - find a way to do this without locking.
++		 */
++		mutex_lock(&dm->dc_lock);
+ 		update_type = dc_check_update_surfaces_for_stream(dc, updates, num_plane,
+ 								  &stream_update, status);
++		mutex_unlock(&dm->dc_lock);
+ 
+ 		if (update_type > UPDATE_TYPE_MED) {
+ 			update_type = UPDATE_TYPE_FULL;
+@@ -6510,7 +6507,6 @@ dm_determine_update_type_for_commit(struct dc *dc,
+ 
+ cleanup:
+ 	kfree(updates);
+-	kfree(surface);
+ 
+ 	*out_type = update_type;
+ 	return ret;
+@@ -6695,7 +6691,7 @@ static int amdgpu_dm_atomic_check(struct drm_device *dev,
+ 		lock_and_validation_needed = true;
+ 	}
+ 
+-	ret = dm_determine_update_type_for_commit(dc, state, &update_type);
++	ret = dm_determine_update_type_for_commit(&adev->dm, state, &update_type);
+ 	if (ret)
+ 		goto fail;
+ 
+-- 
+2.17.1
+

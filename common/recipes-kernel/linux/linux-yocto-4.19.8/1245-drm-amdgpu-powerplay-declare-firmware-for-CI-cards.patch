@@ -1,0 +1,35 @@
+From 6d81e85fc3bd0a1d7117cafd484340e0945aecef Mon Sep 17 00:00:00 2001
+From: Alex Deucher <alexander.deucher@amd.com>
+Date: Wed, 13 Feb 2019 15:07:06 -0500
+Subject: [PATCH 1245/2940] drm/amdgpu/powerplay: declare firmware for CI cards
+
+Missing firmware declaration caused firmware requirement to
+not be noted by the module and may cause firmware to not
+be available in initrd.
+
+Fixes: bc4b539e385088 "drm/amdgpu: remove old CI DPM implementation"
+Reviewed-by: James Zhu <James.Zhu@amd.com>
+Tested-by: James Zhu <James.Zhu@amd.com>
+Signed-off-by: Alex Deucher <alexander.deucher@amd.com>
+---
+ drivers/gpu/drm/amd/powerplay/smumgr/smumgr.c | 4 ++++
+ 1 file changed, 4 insertions(+)
+
+diff --git a/drivers/gpu/drm/amd/powerplay/smumgr/smumgr.c b/drivers/gpu/drm/amd/powerplay/smumgr/smumgr.c
+index a6edd5df33b0..4240aeec9000 100644
+--- a/drivers/gpu/drm/amd/powerplay/smumgr/smumgr.c
++++ b/drivers/gpu/drm/amd/powerplay/smumgr/smumgr.c
+@@ -29,6 +29,10 @@
+ #include <drm/amdgpu_drm.h>
+ #include "smumgr.h"
+ 
++MODULE_FIRMWARE("amdgpu/bonaire_smc.bin");
++MODULE_FIRMWARE("amdgpu/bonaire_k_smc.bin");
++MODULE_FIRMWARE("amdgpu/hawaii_smc.bin");
++MODULE_FIRMWARE("amdgpu/hawaii_k_smc.bin");
+ MODULE_FIRMWARE("amdgpu/topaz_smc.bin");
+ MODULE_FIRMWARE("amdgpu/topaz_k_smc.bin");
+ MODULE_FIRMWARE("amdgpu/tonga_smc.bin");
+-- 
+2.17.1
+

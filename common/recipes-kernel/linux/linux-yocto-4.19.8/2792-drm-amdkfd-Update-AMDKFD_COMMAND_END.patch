@@ -1,0 +1,29 @@
+From 66ea3f5a52905be087ae2d7617bf1b78418227eb Mon Sep 17 00:00:00 2001
+From: Felix Kuehling <Felix.Kuehling@amd.com>
+Date: Tue, 4 Jun 2019 09:42:04 -0400
+Subject: [PATCH 2792/2940] drm/amdkfd: Update AMDKFD_COMMAND_END
+
+This was missed in the previous commit, leading to
+AMDKFD_IOC_CROSS_MEMORY_COPY not working.
+
+Change-Id: I6227f6b95fc64db23015f9a635f6981c35daeea8
+Signed-off-by: Felix Kuehling <Felix.Kuehling@amd.com>
+---
+ include/uapi/linux/kfd_ioctl.h | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/include/uapi/linux/kfd_ioctl.h b/include/uapi/linux/kfd_ioctl.h
+index b2e1aca6eca0..3e4346530011 100644
+--- a/include/uapi/linux/kfd_ioctl.h
++++ b/include/uapi/linux/kfd_ioctl.h
+@@ -665,6 +665,6 @@ struct kfd_ioctl_cross_memory_copy_args {
+ 		AMDKFD_IOW(0x21, struct kfd_ioctl_dbg_trap_args)
+ 
+ #define AMDKFD_COMMAND_START		0x01
+-#define AMDKFD_COMMAND_END		0x22
++#define AMDKFD_COMMAND_END		0x23
+ 
+ #endif
+-- 
+2.17.1
+

@@ -1,0 +1,29 @@
+From 7fd79c6a26a9ea538ab3fbd64a98ec79d5dfb153 Mon Sep 17 00:00:00 2001
+From: Jack Xiao <Jack.Xiao@amd.com>
+Date: Tue, 2 Jul 2019 11:56:49 +0800
+Subject: [PATCH 2822/2940] drm/amdkfd: remove an unused variable
+
+Just for cleanup.
+
+Signed-off-by: Jack Xiao <Jack.Xiao@amd.com>
+Reviewed-by: Prike Liang <Prike.Liang@amd.com>
+Reviewed-by: Hawking Zhang <Hawking.Zhang@amd.com>
+---
+ drivers/gpu/drm/amd/amdkfd/kfd_device.c | 1 -
+ 1 file changed, 1 deletion(-)
+
+diff --git a/drivers/gpu/drm/amd/amdkfd/kfd_device.c b/drivers/gpu/drm/amd/amdkfd/kfd_device.c
+index af49d2dd361d..79fd90511acd 100644
+--- a/drivers/gpu/drm/amd/amdkfd/kfd_device.c
++++ b/drivers/gpu/drm/amd/amdkfd/kfd_device.c
+@@ -487,7 +487,6 @@ struct kfd_dev *kgd2kfd_probe(struct kgd_dev *kgd,
+ 	struct pci_dev *pdev, const struct kfd2kgd_calls *f2g)
+ {
+ 	struct kfd_dev *kfd;
+-	int ret;
+ 	const struct kfd_device_info *device_info =
+ 					lookup_device_info(pdev->device);
+ 
+-- 
+2.17.1
+

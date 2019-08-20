@@ -1,0 +1,106 @@
+From b8f9a7f0c7e230a5a7a6c356eddc563c648c0e03 Mon Sep 17 00:00:00 2001
+From: Sharat Masetty <smasetty@codeaurora.org>
+Date: Mon, 29 Oct 2018 15:02:28 +0530
+Subject: [PATCH 0812/2940] drm/scheduler: Add drm_sched_job_cleanup
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+This patch adds a new API to clean up the scheduler job resources. This
+is primarliy needed in cases the job was created but was not queued to
+the scheduler queue. Additionally with this change, the layer which
+creates the scheduler job also gets to free up the job's resources and
+this entails moving the dma_fence_put(finished_fence) to the drivers
+ops free handler routines.
+
+Signed-off-by: Sharat Masetty <smasetty@codeaurora.org>
+Reviewed-by: Christian König <christian.koenig@amd.com>
+Acked-by: Andrey Grodzovsky <andrey.grodzovsky@amd.com>
+Signed-off-by: Alex Deucher <alexander.deucher@amd.com>
+---
+ drivers/gpu/drm/amd/amdgpu/gfx_v9_0.c    |  4 ++--
+ drivers/gpu/drm/scheduler/sched_entity.c |  1 -
+ drivers/gpu/drm/scheduler/sched_main.c   | 13 ++++++++++++-
+ include/drm/gpu_scheduler.h              |  1 +
+ 4 files changed, 15 insertions(+), 4 deletions(-)
+
+diff --git a/drivers/gpu/drm/amd/amdgpu/gfx_v9_0.c b/drivers/gpu/drm/amd/amdgpu/gfx_v9_0.c
+index 109636557357..a0f6c0b2ee6b 100644
+--- a/drivers/gpu/drm/amd/amdgpu/gfx_v9_0.c
++++ b/drivers/gpu/drm/amd/amdgpu/gfx_v9_0.c
+@@ -3590,7 +3590,7 @@ static void gfx_v9_0_update_medium_grain_clock_gating(struct amdgpu_device *adev
+ {
+ 	uint32_t data, def;
+ 
+-	adev->gfx.rlc.funcs->enter_safe_mode(adev);
++	amdgpu_gfx_rlc_enter_safe_mode(adev);
+ 
+ 	/* It is disabled by HW by default */
+ 	if (enable && (adev->cg_flags & AMD_CG_SUPPORT_GFX_MGCG)) {
+@@ -3657,7 +3657,7 @@ static void gfx_v9_0_update_medium_grain_clock_gating(struct amdgpu_device *adev
+ 		}
+ 	}
+ 
+-	adev->gfx.rlc.funcs->exit_safe_mode(adev);
++	amdgpu_gfx_rlc_exit_safe_mode(adev);
+ }
+ 
+ static void gfx_v9_0_update_3d_clock_gating(struct amdgpu_device *adev,
+diff --git a/drivers/gpu/drm/scheduler/sched_entity.c b/drivers/gpu/drm/scheduler/sched_entity.c
+index 87738f91eee6..26db90635a7d 100644
+--- a/drivers/gpu/drm/scheduler/sched_entity.c
++++ b/drivers/gpu/drm/scheduler/sched_entity.c
+@@ -211,7 +211,6 @@ static void drm_sched_entity_kill_jobs_cb(struct dma_fence *f,
+ 
+ 	drm_sched_fence_finished(job->s_fence);
+ 	WARN_ON(job->s_fence->parent);
+-	dma_fence_put(&job->s_fence->finished);
+ 	job->sched->ops->free_job(job);
+ }
+ 
+diff --git a/drivers/gpu/drm/scheduler/sched_main.c b/drivers/gpu/drm/scheduler/sched_main.c
+index 10403a232729..0ebe6b51962a 100644
+--- a/drivers/gpu/drm/scheduler/sched_main.c
++++ b/drivers/gpu/drm/scheduler/sched_main.c
+@@ -221,7 +221,6 @@ static void drm_sched_job_finish(struct work_struct *work)
+ 		schedule_delayed_work(&sched->work_tdr, sched->timeout);
+ 	spin_unlock(&sched->job_list_lock);
+ 
+-	dma_fence_put(&s_job->s_fence->finished);
+ 	sched->ops->free_job(s_job);
+ }
+ 
+@@ -406,6 +405,18 @@ int drm_sched_job_init(struct drm_sched_job *job,
+ }
+ EXPORT_SYMBOL(drm_sched_job_init);
+ 
++/**
++ * drm_sched_job_cleanup - clean up scheduler job resources
++ *
++ * @job: scheduler job to clean up
++ */
++void drm_sched_job_cleanup(struct drm_sched_job *job)
++{
++	dma_fence_put(&job->s_fence->finished);
++	job->s_fence = NULL;
++}
++EXPORT_SYMBOL(drm_sched_job_cleanup);
++
+ /**
+  * drm_sched_ready - is the scheduler ready
+  *
+diff --git a/include/drm/gpu_scheduler.h b/include/drm/gpu_scheduler.h
+index 8799458a4f23..1d93e4b41e6c 100644
+--- a/include/drm/gpu_scheduler.h
++++ b/include/drm/gpu_scheduler.h
+@@ -293,6 +293,7 @@ void drm_sched_fini(struct drm_gpu_scheduler *sched);
+ int drm_sched_job_init(struct drm_sched_job *job,
+ 		       struct drm_sched_entity *entity,
+ 		       void *owner);
++void drm_sched_job_cleanup(struct drm_sched_job *job);
+ void drm_sched_wakeup(struct drm_gpu_scheduler *sched);
+ void drm_sched_hw_job_reset(struct drm_gpu_scheduler *sched,
+ 			    struct drm_sched_job *job);
+-- 
+2.17.1
+

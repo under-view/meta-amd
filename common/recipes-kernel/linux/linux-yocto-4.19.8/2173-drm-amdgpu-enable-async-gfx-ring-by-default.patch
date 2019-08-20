@@ -1,0 +1,40 @@
+From 9ee7a379f44794b06c14f8429708f7dbd826f4a6 Mon Sep 17 00:00:00 2001
+From: Jack Xiao <Jack.Xiao@amd.com>
+Date: Thu, 21 Mar 2019 18:20:23 +0800
+Subject: [PATCH 2173/2940] drm/amdgpu: enable async gfx ring by default
+
+VDDGFX requires gfx queue to be installed via MAP_QUEUES packet.
+Hence, enable async gfx ring by default.
+
+Signed-off-by: Jack Xiao <Jack.Xiao@amd.com>
+Reviewed-by: Hawking Zhang <Hawking.Zhang@amd.com>
+Signed-off-by: Alex Deucher <alexander.deucher@amd.com>
+---
+ drivers/gpu/drm/amd/amdgpu/amdgpu_drv.c | 4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
+
+diff --git a/drivers/gpu/drm/amd/amdgpu/amdgpu_drv.c b/drivers/gpu/drm/amd/amdgpu/amdgpu_drv.c
+index eee755f46186..3ac2645b96b6 100644
+--- a/drivers/gpu/drm/amd/amdgpu/amdgpu_drv.c
++++ b/drivers/gpu/drm/amd/amdgpu/amdgpu_drv.c
+@@ -141,7 +141,7 @@ int amdgpu_emu_mode = 0;
+ uint amdgpu_smu_memory_pool_size = 0;
+ /* FBC (bit 0) disabled by default*/
+ uint amdgpu_dc_feature_mask = 0;
+-int amdgpu_async_gfx_ring = 0;
++int amdgpu_async_gfx_ring = 1;
+ 
+ struct amdgpu_mgpu_info mgpu_info = {
+ 	.mutex = __MUTEX_INITIALIZER(mgpu_info.mutex),
+@@ -583,7 +583,7 @@ module_param_named(smu_memory_pool_size, amdgpu_smu_memory_pool_size, uint, 0444
+  * It is used to enable gfx rings that could be configured with different prioritites or equal priorities
+  */
+ MODULE_PARM_DESC(async_gfx_ring,
+-       "Asynchronous GFX rings that could be configured with either different priorities (HP3D ring and LP3D ring), or equal priorities (0 = disabled (default), 1 = enabled)");
++	"Asynchronous GFX rings that could be configured with either different priorities (HP3D ring and LP3D ring), or equal priorities (0 = disabled, 1 = enabled (default))");
+ module_param_named(async_gfx_ring, amdgpu_async_gfx_ring, int, 0444);
+ 
+ /**
+-- 
+2.17.1
+

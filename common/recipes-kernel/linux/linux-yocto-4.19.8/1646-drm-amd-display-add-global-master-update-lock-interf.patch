@@ -1,0 +1,53 @@
+From 937a21bfe59657506e5d980e8b430e0084802e68 Mon Sep 17 00:00:00 2001
+From: Wenjing Liu <Wenjing.Liu@amd.com>
+Date: Tue, 5 Mar 2019 19:28:10 -0500
+Subject: [PATCH 1646/2940] drm/amd/display: add global master update lock
+ interfaces
+
+Add these interfacese for future use
+setup_global_lock()
+lock_global()
+pipe_control_lock_global()
+
+Change-Id: I0b21add5fb5fcb0cb866534a159dccfc34283149
+Signed-off-by: Wenjing Liu <Wenjing.Liu@amd.com>
+Reviewed-by: Tony Cheng <Tony.Cheng@amd.com>
+Acked-by: Bhawanpreet Lakha <Bhawanpreet.Lakha@amd.com>
+---
+ drivers/gpu/drm/amd/display/dc/inc/hw/timing_generator.h | 2 ++
+ drivers/gpu/drm/amd/display/dc/inc/hw_sequencer.h        | 4 ++++
+ 2 files changed, 6 insertions(+)
+
+diff --git a/drivers/gpu/drm/amd/display/dc/inc/hw/timing_generator.h b/drivers/gpu/drm/amd/display/dc/inc/hw/timing_generator.h
+index c25f7df7b5e3..067d53caf28a 100644
+--- a/drivers/gpu/drm/amd/display/dc/inc/hw/timing_generator.h
++++ b/drivers/gpu/drm/amd/display/dc/inc/hw/timing_generator.h
+@@ -187,8 +187,10 @@ struct timing_generator_funcs {
+ 	bool (*did_triggered_reset_occur)(struct timing_generator *tg);
+ 	void (*setup_global_swap_lock)(struct timing_generator *tg,
+ 							const struct dcp_gsl_params *gsl_params);
++	void (*setup_global_lock)(struct timing_generator *tg);
+ 	void (*unlock)(struct timing_generator *tg);
+ 	void (*lock)(struct timing_generator *tg);
++	void (*lock_global)(struct timing_generator *tg);
+ 	void (*enable_reset_trigger)(struct timing_generator *tg,
+ 				     int source_tg_inst);
+ 	void (*enable_crtc_reset)(struct timing_generator *tg,
+diff --git a/drivers/gpu/drm/amd/display/dc/inc/hw_sequencer.h b/drivers/gpu/drm/amd/display/dc/inc/hw_sequencer.h
+index 7676f25216b1..33905468e2b9 100644
+--- a/drivers/gpu/drm/amd/display/dc/inc/hw_sequencer.h
++++ b/drivers/gpu/drm/amd/display/dc/inc/hw_sequencer.h
+@@ -176,6 +176,10 @@ struct hw_sequencer_funcs {
+ 				struct dc *dc,
+ 				struct pipe_ctx *pipe,
+ 				bool lock);
++	void (*pipe_control_lock_global)(
++				struct dc *dc,
++				struct pipe_ctx *pipe,
++				bool lock);
+ 	void (*blank_pixel_data)(
+ 			struct dc *dc,
+ 			struct pipe_ctx *pipe_ctx,
+-- 
+2.17.1
+

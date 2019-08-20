@@ -1,0 +1,40 @@
+From 186cd1ece05afcedddf591559e541d0d0c9d6c68 Mon Sep 17 00:00:00 2001
+From: Kent Russell <kent.russell@amd.com>
+Date: Mon, 15 Jul 2019 08:53:06 -0400
+Subject: [PATCH 2874/2940] drm/amdgpu: Fix Vega20 Perf counter for pcie_bw
+
+The perf counter for Vega20 is 108, instead of 104 which it was on all
+previous GPUs, so add a check to use the appropriate value.
+
+Change-Id: Id5b5026a03b09d8b9d52dda85e17ed5acd818912
+Signed-off-by: Kent Russell <kent.russell@amd.com>
+Acked-by: Alex Deucher <alexander.deucher@amd.com>
+---
+ drivers/gpu/drm/amd/amdgpu/soc15.c | 10 ++++++++--
+ 1 file changed, 8 insertions(+), 2 deletions(-)
+
+diff --git a/drivers/gpu/drm/amd/amdgpu/soc15.c b/drivers/gpu/drm/amd/amdgpu/soc15.c
+index 1e424d918334..852ad0a07995 100644
+--- a/drivers/gpu/drm/amd/amdgpu/soc15.c
++++ b/drivers/gpu/drm/amd/amdgpu/soc15.c
+@@ -716,9 +716,15 @@ static void soc15_get_pcie_usage(struct amdgpu_device *adev, uint64_t *count0,
+ 		return;
+ 
+ 	/* Set the 2 events that we wish to watch, defined above */
+-	/* Reg 40 is # received msgs, Reg 104 is # of posted requests sent */
++	/* Reg 40 is # received msgs */
+ 	perfctr = REG_SET_FIELD(perfctr, PCIE_PERF_CNTL_TXCLK, EVENT0_SEL, 40);
+-	perfctr = REG_SET_FIELD(perfctr, PCIE_PERF_CNTL_TXCLK, EVENT1_SEL, 104);
++	/* Pre-VG20, Reg 104 is # of posted requests sent. On VG20 it's 108 */
++	if (adev->asic_type == CHIP_VEGA20)
++		perfctr = REG_SET_FIELD(perfctr, PCIE_PERF_CNTL_TXCLK,
++					EVENT1_SEL, 108);
++	else
++		perfctr = REG_SET_FIELD(perfctr, PCIE_PERF_CNTL_TXCLK,
++					EVENT1_SEL, 104);
+ 
+ 	/* Write to enable desired perf counters */
+ 	WREG32_PCIE(smnPCIE_PERF_CNTL_TXCLK, perfctr);
+-- 
+2.17.1
+

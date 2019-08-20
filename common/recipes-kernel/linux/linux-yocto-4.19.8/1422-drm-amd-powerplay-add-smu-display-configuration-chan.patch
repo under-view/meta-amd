@@ -1,0 +1,119 @@
+From 75acf8f3412f8142e51a2db6e7d44d5b8bbce179 Mon Sep 17 00:00:00 2001
+From: Huang Rui <ray.huang@amd.com>
+Date: Fri, 11 Jan 2019 16:23:36 +0800
+Subject: [PATCH 1422/2940] drm/amd/powerplay: add smu display configuration
+ change function
+
+This patch adds display configuration change function that creates the new path
+with sw smu driver instead of powerplay.
+
+Signed-off-by: Huang Rui <ray.huang@amd.com>
+Reviewed-by: Evan Quan <evan.quan@amd.com>
+Reviewed-by: Kevin Wang <Kevin1.Wang@amd.com>
+Acked-by: Alex Deucher <alexander.deucher@amd.com>
+---
+ .../amd/display/amdgpu_dm/amdgpu_dm_pp_smu.c  |  5 +++
+ drivers/gpu/drm/amd/powerplay/amdgpu_smu.c    | 34 +++++++++++++++++++
+ .../gpu/drm/amd/powerplay/inc/amdgpu_smu.h    |  6 ++++
+ 3 files changed, 45 insertions(+)
+
+diff --git a/drivers/gpu/drm/amd/display/amdgpu_dm/amdgpu_dm_pp_smu.c b/drivers/gpu/drm/amd/display/amdgpu_dm/amdgpu_dm_pp_smu.c
+index 2f223289b9bd..378cae80ebe0 100644
+--- a/drivers/gpu/drm/amd/display/amdgpu_dm/amdgpu_dm_pp_smu.c
++++ b/drivers/gpu/drm/amd/display/amdgpu_dm/amdgpu_dm_pp_smu.c
+@@ -33,6 +33,7 @@
+ #include "amdgpu_dm_irq.h"
+ #include "amdgpu_pm.h"
+ #include "dm_pp_smu.h"
++#include "amdgpu_smu.h"
+ 
+ 
+ bool dm_pp_apply_display_requirements(
+@@ -40,6 +41,7 @@ bool dm_pp_apply_display_requirements(
+ 		const struct dm_pp_display_configuration *pp_display_cfg)
+ {
+ 	struct amdgpu_device *adev = ctx->driver_context;
++	struct smu_context *smu = &adev->smu;
+ 	int i;
+ 
+ 	if (adev->pm.dpm_enabled) {
+@@ -105,6 +107,9 @@ bool dm_pp_apply_display_requirements(
+ 			adev->powerplay.pp_funcs->display_configuration_change(
+ 				adev->powerplay.pp_handle,
+ 				&adev->pm.pm_display_cfg);
++		else
++			smu_display_configuration_change(smu,
++							 &adev->pm.pm_display_cfg);
+ 
+ 		amdgpu_pm_compute_clocks(adev);
+ 	}
+diff --git a/drivers/gpu/drm/amd/powerplay/amdgpu_smu.c b/drivers/gpu/drm/amd/powerplay/amdgpu_smu.c
+index dc431f2eebe1..cf8739f262c8 100644
+--- a/drivers/gpu/drm/amd/powerplay/amdgpu_smu.c
++++ b/drivers/gpu/drm/amd/powerplay/amdgpu_smu.c
+@@ -780,6 +780,40 @@ static int smu_resume(void *handle)
+ 	return ret;
+ }
+ 
++int smu_display_configuration_change(struct smu_context *smu,
++				     const struct amd_pp_display_configuration *display_config)
++{
++	int index = 0;
++	int num_of_active_display = 0;
++
++	if (!is_support_sw_smu(smu->adev))
++		return -EINVAL;
++
++	if (!display_config)
++		return -EINVAL;
++
++	mutex_lock(&smu->mutex);
++
++	smu_set_deep_sleep_dcefclk(smu,
++				   display_config->min_dcef_deep_sleep_set_clk / 100);
++
++	for (index = 0; index < display_config->num_path_including_non_display; index++) {
++		if (display_config->displays[index].controller_id != 0)
++			num_of_active_display++;
++	}
++
++	smu_set_active_display_count(smu, num_of_active_display);
++
++	smu_store_cc6_data(smu, display_config->cpu_pstate_separation_time,
++			   display_config->cpu_cc6_disable,
++			   display_config->cpu_pstate_disable,
++			   display_config->nb_pstate_switch_disable);
++
++	mutex_unlock(&smu->mutex);
++
++	return 0;
++}
++
+ static int smu_set_clockgating_state(void *handle,
+ 				     enum amd_clockgating_state state)
+ {
+diff --git a/drivers/gpu/drm/amd/powerplay/inc/amdgpu_smu.h b/drivers/gpu/drm/amd/powerplay/inc/amdgpu_smu.h
+index 7d8f15c89d6c..144f7065b129 100644
+--- a/drivers/gpu/drm/amd/powerplay/inc/amdgpu_smu.h
++++ b/drivers/gpu/drm/amd/powerplay/inc/amdgpu_smu.h
+@@ -24,6 +24,7 @@
+ 
+ #include "amdgpu.h"
+ #include "kgd_pp_interface.h"
++#include "dm_pp_interface.h"
+ 
+ enum smu_message_type
+ {
+@@ -395,4 +396,9 @@ int smu_sys_set_pp_table(struct smu_context *smu,  void *buf, size_t size);
+ int smu_get_power_num_states(struct smu_context *smu, struct pp_states_info *state_info);
+ enum amd_pm_state_type smu_get_current_power_state(struct smu_context *smu);
+ 
++/* smu to display interface */
++extern int smu_display_configuration_change(struct smu_context *smu, const
++					    struct amd_pp_display_configuration
++					    *display_config);
++
+ #endif
+-- 
+2.17.1
+

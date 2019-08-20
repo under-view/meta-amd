@@ -1,0 +1,63 @@
+From 8ca4540871642264246720077f535f035b9b3351 Mon Sep 17 00:00:00 2001
+From: =?UTF-8?q?Ville=20Syrj=C3=A4l=C3=A4?= <ville.syrjala@linux.intel.com>
+Date: Thu, 13 Sep 2018 19:31:47 +0300
+Subject: [PATCH 0636/2940] drm/amdgpu: Use per-device driver_features to
+ disable atomic
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+Disable atomic on a per-device basis instead of for all devices.
+Made possible by the new device.driver_features thing.
+
+Cc: Alex Deucher <alexander.deucher@amd.com>
+Cc: "Christian König" <christian.koenig@amd.com>
+Cc: "David (ChunMing) Zhou" <David1.Zhou@amd.com>
+Cc: Harry Wentland <harry.wentland@amd.com>
+Cc: Michel Dänzer <michel@daenzer.net>
+Suggested-by: Michel Dänzer <michel@daenzer.net>
+Signed-off-by: Ville Syrjälä <ville.syrjala@linux.intel.com>
+Link: https://patchwork.freedesktop.org/patch/msgid/20180913163147.27900-2-ville.syrjala@linux.intel.com
+Reviewed-by: Michel Dänzer <michel.daenzer@amd.com>
+Reviewed-by: Alex Deucher <alexander.deucher@amd.com>
+---
+ drivers/gpu/drm/amd/amdgpu/amdgpu_drv.c | 12 ++++--------
+ 1 file changed, 4 insertions(+), 8 deletions(-)
+
+diff --git a/drivers/gpu/drm/amd/amdgpu/amdgpu_drv.c b/drivers/gpu/drm/amd/amdgpu/amdgpu_drv.c
+index 6b231cd069b0..e1b0944bf567 100644
+--- a/drivers/gpu/drm/amd/amdgpu/amdgpu_drv.c
++++ b/drivers/gpu/drm/amd/amdgpu/amdgpu_drv.c
+@@ -834,17 +834,13 @@ static int amdgpu_pci_probe(struct pci_dev *pdev,
+ 	if (ret)
+ 		return ret;
+ 
+-	/* warn the user if they mix atomic and non-atomic capable GPUs */
+-	if ((kms_driver.driver_features & DRIVER_ATOMIC) && !supports_atomic)
+-		DRM_ERROR("Mixing atomic and non-atomic capable GPUs!\n");
+-	/* support atomic early so the atomic debugfs stuff gets created */
+-	if (supports_atomic)
+-		kms_driver.driver_features |= DRIVER_ATOMIC;
+-
+ 	dev = drm_dev_alloc(&kms_driver, &pdev->dev);
+ 	if (IS_ERR(dev))
+ 		return PTR_ERR(dev);
+ 
++	if (!supports_atomic)
++		dev->driver_features &= ~DRIVER_ATOMIC;
++
+ 	ret = pci_enable_device(pdev);
+ 	if (ret)
+ 		goto err_free;
+@@ -1096,7 +1092,7 @@ amdgpu_get_crtc_scanout_position(struct drm_device *dev, unsigned int pipe,
+ 
+ static struct drm_driver kms_driver = {
+ 	.driver_features =
+-	    DRIVER_USE_AGP |
++	    DRIVER_USE_AGP | DRIVER_ATOMIC |
+ 	    DRIVER_HAVE_IRQ | DRIVER_IRQ_SHARED | DRIVER_GEM |
+ 	    DRIVER_PRIME | DRIVER_RENDER | DRIVER_MODESET | DRIVER_SYNCOBJ,
+ 	.load = amdgpu_driver_load_kms,
+-- 
+2.17.1
+

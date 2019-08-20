@@ -1,0 +1,49 @@
+From c6216342507bfc1c37e397d70764b96571e6dd28 Mon Sep 17 00:00:00 2001
+From: Harry Wentland <harry.wentland@amd.com>
+Date: Fri, 22 Feb 2019 09:58:49 -0500
+Subject: [PATCH 2432/2940] drm/amd/display: Add DCN2 BIOS parsing
+
+Handle BIOS parsing for DCN2
+
+Signed-off-by: Harry Wentland <harry.wentland@amd.com>
+Signed-off-by: Alex Deucher <alexander.deucher@amd.com>
+---
+ drivers/gpu/drm/amd/display/dc/bios/bios_parser2.c          | 4 ++++
+ drivers/gpu/drm/amd/display/dc/bios/command_table_helper2.c | 6 ++++++
+ 2 files changed, 10 insertions(+)
+
+diff --git a/drivers/gpu/drm/amd/display/dc/bios/bios_parser2.c b/drivers/gpu/drm/amd/display/dc/bios/bios_parser2.c
+index 12bc7ee66b18..99f40b8a231c 100644
+--- a/drivers/gpu/drm/amd/display/dc/bios/bios_parser2.c
++++ b/drivers/gpu/drm/amd/display/dc/bios/bios_parser2.c
+@@ -1400,6 +1400,10 @@ static enum bp_result get_integrated_info_v11(
+ 	info->ma_channel_number = info_v11->umachannelnumber;
+ 	info->lvds_ss_percentage =
+ 	le16_to_cpu(info_v11->lvds_ss_percentage);
++#ifdef CONFIG_DRM_AMD_DC_DCN2_0
++	info->dp_ss_control =
++	le16_to_cpu(info_v11->reserved1);
++#endif
+ 	info->lvds_sspread_rate_in_10hz =
+ 	le16_to_cpu(info_v11->lvds_ss_rate_10hz);
+ 	info->hdmi_ss_percentage =
+diff --git a/drivers/gpu/drm/amd/display/dc/bios/command_table_helper2.c b/drivers/gpu/drm/amd/display/dc/bios/command_table_helper2.c
+index 53deba42007a..f9439dfc7b75 100644
+--- a/drivers/gpu/drm/amd/display/dc/bios/command_table_helper2.c
++++ b/drivers/gpu/drm/amd/display/dc/bios/command_table_helper2.c
+@@ -61,6 +61,12 @@ bool dal_bios_parser_init_cmd_tbl_helper2(
+ 		*h = dal_cmd_tbl_helper_dce112_get_table2();
+ 		return true;
+ #endif
++
++#if defined(CONFIG_DRM_AMD_DC_DCN2_0)
++	case DCN_VERSION_2_0:
++		*h = dal_cmd_tbl_helper_dce112_get_table2();
++		return true;
++#endif
+ 	case DCE_VERSION_12_0:
+ 	case DCE_VERSION_12_1:
+ 		*h = dal_cmd_tbl_helper_dce112_get_table2();
+-- 
+2.17.1
+

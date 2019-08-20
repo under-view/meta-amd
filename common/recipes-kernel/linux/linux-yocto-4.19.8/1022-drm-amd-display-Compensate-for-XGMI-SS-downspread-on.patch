@@ -1,0 +1,417 @@
+From b428ec219b34c4fb3e22433d47c1e39ab76dca41 Mon Sep 17 00:00:00 2001
+From: Leo Li <sunpeng.li@amd.com>
+Date: Thu, 1 Nov 2018 11:10:18 -0400
+Subject: [PATCH 1022/2940] drm/amd/display: Compensate for XGMI SS downspread
+ on dprefclk
+
+[Why]
+When XGMI is enabled, we need to adjust the dprefclk according to the
+WAFL link's spread spectrum info. This is for VG20 (DCE121) only.
+
+[How]
+dce_clk_mgr already stores SS info, currently being used by audio clock.
+Therefore, patch the clk_mgr's SS info with the xGMI SS info, if xGMI
+is enabled. For display clock, adjust it during dce12_update_clocks()
+before calling set_clock().
+
+Since we rely on a mmhub register to reliably determine if xGMI is
+enabled, the patching step needs to happen after resource_construct()
+has initialized the hardware sequencer.
+
+Signed-off-by: Leo Li <sunpeng.li@amd.com>
+Reviewed-by: Hersen Wu <hersenxs.wu@amd.com>
+Acked-by: Harry Wentland <Harry.Wentland@amd.com>
+Signed-off-by: Alex Deucher <alexander.deucher@amd.com>
+---
+ .../gpu/drm/amd/display/dc/dce/dce_clk_mgr.c  | 64 +++++++++++++++
+ .../gpu/drm/amd/display/dc/dce/dce_clk_mgr.h  | 35 +++++++-
+ .../gpu/drm/amd/display/dc/dce/dce_hwseq.h    | 12 +++
+ .../display/dc/dce120/dce120_hw_sequencer.c   | 15 ++++
+ .../display/dc/dce120/dce120_hw_sequencer.h   |  1 +
+ .../amd/display/dc/dce120/dce120_resource.c   | 81 +++++++++++++++++--
+ 6 files changed, 198 insertions(+), 10 deletions(-)
+
+diff --git a/drivers/gpu/drm/amd/display/dc/dce/dce_clk_mgr.c b/drivers/gpu/drm/amd/display/dc/dce/dce_clk_mgr.c
+index 2579478ae622..2c64333fa8f8 100644
+--- a/drivers/gpu/drm/amd/display/dc/dce/dce_clk_mgr.c
++++ b/drivers/gpu/drm/amd/display/dc/dce/dce_clk_mgr.c
+@@ -447,6 +447,42 @@ void dce_clock_read_ss_info(struct dce_clk_mgr *clk_mgr_dce)
+ 	}
+ }
+ 
++/**
++ * dce121_clock_patch_xgmi_ss_info() - Save XGMI spread spectrum info
++ * @clk_mgr: clock manager base structure
++ *
++ * Reads from VBIOS the XGMI spread spectrum info and saves it within
++ * the dce clock manager. This operation will overwrite the existing dprefclk
++ * SS values if the vBIOS query succeeds. Otherwise, it does nothing. It also
++ * sets the ->xgmi_enabled flag.
++ */
++void dce121_clock_patch_xgmi_ss_info(struct clk_mgr *clk_mgr)
++{
++	struct dce_clk_mgr *clk_mgr_dce = TO_DCE_CLK_MGR(clk_mgr);
++	enum bp_result result;
++	struct spread_spectrum_info info = { { 0 } };
++	struct dc_bios *bp = clk_mgr_dce->base.ctx->dc_bios;
++
++	clk_mgr_dce->xgmi_enabled = false;
++
++	result = bp->funcs->get_spread_spectrum_info(bp, AS_SIGNAL_TYPE_XGMI,
++						     0, &info);
++	if (result == BP_RESULT_OK && info.spread_spectrum_percentage != 0) {
++		clk_mgr_dce->xgmi_enabled = true;
++		clk_mgr_dce->ss_on_dprefclk = true;
++		clk_mgr_dce->dprefclk_ss_divider =
++				info.spread_percentage_divider;
++
++		if (info.type.CENTER_MODE == 0) {
++			/* Currently for DP Reference clock we
++			 * need only SS percentage for
++			 * downspread */
++			clk_mgr_dce->dprefclk_ss_percentage =
++					info.spread_spectrum_percentage;
++		}
++	}
++}
++
+ void dce110_fill_display_configs(
+ 	const struct dc_state *context,
+ 	struct dm_pp_display_configuration *pp_display_cfg)
+@@ -712,6 +748,13 @@ static void dce12_update_clocks(struct clk_mgr *clk_mgr,
+ 
+ 	if (should_set_clock(safe_to_lower, patched_disp_clk, clk_mgr->clks.dispclk_khz)) {
+ 		clock_voltage_req.clk_type = DM_PP_CLOCK_TYPE_DISPLAY_CLK;
++		/*
++		 * When xGMI is enabled, the display clk needs to be adjusted
++		 * with the WAFL link's SS percentage.
++		 */
++		if (clk_mgr_dce->xgmi_enabled)
++			patched_disp_clk = clk_mgr_adjust_dp_ref_freq_for_ss(
++					clk_mgr_dce, patched_disp_clk);
+ 		clock_voltage_req.clocks_in_khz = patched_disp_clk;
+ 		clk_mgr->clks.dispclk_khz = dce112_set_clock(clk_mgr, patched_disp_clk);
+ 
+@@ -877,6 +920,27 @@ struct clk_mgr *dce120_clk_mgr_create(struct dc_context *ctx)
+ 	return &clk_mgr_dce->base;
+ }
+ 
++struct clk_mgr *dce121_clk_mgr_create(struct dc_context *ctx)
++{
++	struct dce_clk_mgr *clk_mgr_dce = kzalloc(sizeof(*clk_mgr_dce),
++						  GFP_KERNEL);
++
++	if (clk_mgr_dce == NULL) {
++		BREAK_TO_DEBUGGER();
++		return NULL;
++	}
++
++	memcpy(clk_mgr_dce->max_clks_by_state, dce120_max_clks_by_state,
++	       sizeof(dce120_max_clks_by_state));
++
++	dce_clk_mgr_construct(clk_mgr_dce, ctx, NULL, NULL, NULL);
++
++	clk_mgr_dce->dprefclk_khz = 625000;
++	clk_mgr_dce->base.funcs = &dce120_funcs;
++
++	return &clk_mgr_dce->base;
++}
++
+ void dce_clk_mgr_destroy(struct clk_mgr **clk_mgr)
+ {
+ 	struct dce_clk_mgr *clk_mgr_dce = TO_DCE_CLK_MGR(*clk_mgr);
+diff --git a/drivers/gpu/drm/amd/display/dc/dce/dce_clk_mgr.h b/drivers/gpu/drm/amd/display/dc/dce/dce_clk_mgr.h
+index 3bceb31d910d..c8f8c442142a 100644
+--- a/drivers/gpu/drm/amd/display/dc/dce/dce_clk_mgr.h
++++ b/drivers/gpu/drm/amd/display/dc/dce/dce_clk_mgr.h
+@@ -94,11 +94,37 @@ struct dce_clk_mgr {
+ 	 * This is basically "Crystal Frequency In KHz" (XTALIN) frequency */
+ 	int dfs_bypass_disp_clk;
+ 
+-	/* Flag for Enabled SS on DPREFCLK */
++	/**
++	 * @ss_on_dprefclk:
++	 *
++	 * True if spread spectrum is enabled on the DP ref clock.
++	 */
+ 	bool ss_on_dprefclk;
+-	/* DPREFCLK SS percentage (if down-spread enabled) */
++
++	/**
++	 * @xgmi_enabled:
++	 *
++	 * True if xGMI is enabled. On VG20, both audio and display clocks need
++	 * to be adjusted with the WAFL link's SS info if xGMI is enabled.
++	 */
++	bool xgmi_enabled;
++
++	/**
++	 * @dprefclk_ss_percentage:
++	 *
++	 * DPREFCLK SS percentage (if down-spread enabled).
++	 *
++	 * Note that if XGMI is enabled, the SS info (percentage and divider)
++	 * from the WAFL link is used instead. This is decided during
++	 * dce_clk_mgr initialization.
++	 */
+ 	int dprefclk_ss_percentage;
+-	/* DPREFCLK SS percentage Divider (100 or 1000) */
++
++	/**
++	 * @dprefclk_ss_divider:
++	 *
++	 * DPREFCLK SS percentage Divider (100 or 1000).
++	 */
+ 	int dprefclk_ss_divider;
+ 	int dprefclk_khz;
+ 
+@@ -163,6 +189,9 @@ struct clk_mgr *dce112_clk_mgr_create(
+ 
+ struct clk_mgr *dce120_clk_mgr_create(struct dc_context *ctx);
+ 
++struct clk_mgr *dce121_clk_mgr_create(struct dc_context *ctx);
++void dce121_clock_patch_xgmi_ss_info(struct clk_mgr *clk_mgr);
++
+ void dce_clk_mgr_destroy(struct clk_mgr **clk_mgr);
+ 
+ int dentist_get_divider_from_did(int did);
+diff --git a/drivers/gpu/drm/amd/display/dc/dce/dce_hwseq.h b/drivers/gpu/drm/amd/display/dc/dce/dce_hwseq.h
+index c83a7f05f14c..956bdf14503f 100644
+--- a/drivers/gpu/drm/amd/display/dc/dce/dce_hwseq.h
++++ b/drivers/gpu/drm/amd/display/dc/dce/dce_hwseq.h
+@@ -133,6 +133,10 @@
+ 	SR(DCHUB_AGP_TOP), \
+ 	BL_REG_LIST()
+ 
++#define HWSEQ_VG20_REG_LIST() \
++	HWSEQ_DCE120_REG_LIST(),\
++	MMHUB_SR(MC_VM_XGMI_LFB_CNTL)
++
+ #define HWSEQ_DCE112_REG_LIST() \
+ 	HWSEQ_DCE10_REG_LIST(), \
+ 	HWSEQ_PIXEL_RATE_REG_LIST(CRTC), \
+@@ -298,6 +302,7 @@ struct dce_hwseq_registers {
+ 	uint32_t MC_VM_SYSTEM_APERTURE_DEFAULT_ADDR_LSB;
+ 	uint32_t MC_VM_SYSTEM_APERTURE_LOW_ADDR;
+ 	uint32_t MC_VM_SYSTEM_APERTURE_HIGH_ADDR;
++	uint32_t MC_VM_XGMI_LFB_CNTL;
+ 	uint32_t AZALIA_AUDIO_DTO;
+ 	uint32_t AZALIA_CONTROLLER_CLOCK_GATING;
+ };
+@@ -382,6 +387,11 @@ struct dce_hwseq_registers {
+ 	HWS_SF(, LVTMA_PWRSEQ_CNTL, LVTMA_BLON, mask_sh), \
+ 	HWS_SF(, LVTMA_PWRSEQ_STATE, LVTMA_PWRSEQ_TARGET_STATE_R, mask_sh)
+ 
++#define HWSEQ_VG20_MASK_SH_LIST(mask_sh)\
++	HWSEQ_DCE12_MASK_SH_LIST(mask_sh),\
++	HWS_SF(, MC_VM_XGMI_LFB_CNTL, PF_LFB_REGION, mask_sh),\
++	HWS_SF(, MC_VM_XGMI_LFB_CNTL, PF_MAX_REGION, mask_sh)
++
+ #define HWSEQ_DCN_MASK_SH_LIST(mask_sh)\
+ 	HWSEQ_PIXEL_RATE_MASK_SH_LIST(mask_sh, OTG0_),\
+ 	HWS_SF1(OTG0_, PHYPLL_PIXEL_RATE_CNTL, PHYPLL_PIXEL_RATE_SOURCE, mask_sh), \
+@@ -470,6 +480,8 @@ struct dce_hwseq_registers {
+ 	type PHYSICAL_PAGE_NUMBER_MSB;\
+ 	type PHYSICAL_PAGE_NUMBER_LSB;\
+ 	type LOGICAL_ADDR; \
++	type PF_LFB_REGION;\
++	type PF_MAX_REGION;\
+ 	type ENABLE_L1_TLB;\
+ 	type SYSTEM_ACCESS_MODE;\
+ 	type LVTMA_BLON;\
+diff --git a/drivers/gpu/drm/amd/display/dc/dce120/dce120_hw_sequencer.c b/drivers/gpu/drm/amd/display/dc/dce120/dce120_hw_sequencer.c
+index eb0f5f9a973b..1ca30928025e 100644
+--- a/drivers/gpu/drm/amd/display/dc/dce120/dce120_hw_sequencer.c
++++ b/drivers/gpu/drm/amd/display/dc/dce120/dce120_hw_sequencer.c
+@@ -244,6 +244,21 @@ static void dce120_update_dchub(
+ 	dh_data->dchub_info_valid = false;
+ }
+ 
++/**
++ * dce121_xgmi_enabled() - Check if xGMI is enabled
++ * @hws: DCE hardware sequencer object
++ *
++ * Return true if xGMI is enabled. False otherwise.
++ */
++bool dce121_xgmi_enabled(struct dce_hwseq *hws)
++{
++	uint32_t pf_max_region;
++
++	REG_GET(MC_VM_XGMI_LFB_CNTL, PF_MAX_REGION, &pf_max_region);
++	/* PF_MAX_REGION == 0 means xgmi is disabled */
++	return !!pf_max_region;
++}
++
+ void dce120_hw_sequencer_construct(struct dc *dc)
+ {
+ 	/* All registers used by dce11.2 match those in dce11 in offset and
+diff --git a/drivers/gpu/drm/amd/display/dc/dce120/dce120_hw_sequencer.h b/drivers/gpu/drm/amd/display/dc/dce120/dce120_hw_sequencer.h
+index 77a6b86d7606..c51afbd0b012 100644
+--- a/drivers/gpu/drm/amd/display/dc/dce120/dce120_hw_sequencer.h
++++ b/drivers/gpu/drm/amd/display/dc/dce120/dce120_hw_sequencer.h
+@@ -30,6 +30,7 @@
+ 
+ struct dc;
+ 
++bool dce121_xgmi_enabled(struct dce_hwseq *hws);
+ void dce120_hw_sequencer_construct(struct dc *dc);
+ 
+ #endif /* __DC_HWSS_DCE112_H__ */
+diff --git a/drivers/gpu/drm/amd/display/dc/dce120/dce120_resource.c b/drivers/gpu/drm/amd/display/dc/dce120/dce120_resource.c
+index f12696674eb0..48a210ec975b 100644
+--- a/drivers/gpu/drm/amd/display/dc/dce120/dce120_resource.c
++++ b/drivers/gpu/drm/amd/display/dc/dce120/dce120_resource.c
+@@ -62,6 +62,8 @@
+ #include "soc15_hw_ip.h"
+ #include "vega10_ip_offset.h"
+ #include "nbio/nbio_6_1_offset.h"
++#include "mmhub/mmhub_9_4_0_offset.h"
++#include "mmhub/mmhub_9_4_0_sh_mask.h"
+ #include "reg_helper.h"
+ 
+ #include "dce100/dce100_resource.h"
+@@ -139,6 +141,17 @@ static const struct dce110_timing_generator_offsets dce120_tg_offsets[] = {
+ 	.reg_name = BASE(mm ## block ## id ## _ ## reg_name ## _BASE_IDX) + \
+ 					mm ## block ## id ## _ ## reg_name
+ 
++/* MMHUB */
++#define MMHUB_BASE_INNER(seg) \
++	MMHUB_BASE__INST0_SEG ## seg
++
++#define MMHUB_BASE(seg) \
++	MMHUB_BASE_INNER(seg)
++
++#define MMHUB_SR(reg_name)\
++		.reg_name = MMHUB_BASE(mm ## reg_name ## _BASE_IDX) +  \
++					mm ## reg_name
++
+ /* macros to expend register list macro defined in HW object header file
+  * end *********************/
+ 
+@@ -681,6 +694,19 @@ static const struct dce_hwseq_mask hwseq_mask = {
+ 		HWSEQ_DCE12_MASK_SH_LIST(_MASK)
+ };
+ 
++/* HWSEQ regs for VG20 */
++static const struct dce_hwseq_registers dce121_hwseq_reg = {
++		HWSEQ_VG20_REG_LIST()
++};
++
++static const struct dce_hwseq_shift dce121_hwseq_shift = {
++		HWSEQ_VG20_MASK_SH_LIST(__SHIFT)
++};
++
++static const struct dce_hwseq_mask dce121_hwseq_mask = {
++		HWSEQ_VG20_MASK_SH_LIST(_MASK)
++};
++
+ static struct dce_hwseq *dce120_hwseq_create(
+ 	struct dc_context *ctx)
+ {
+@@ -695,6 +721,20 @@ static struct dce_hwseq *dce120_hwseq_create(
+ 	return hws;
+ }
+ 
++static struct dce_hwseq *dce121_hwseq_create(
++	struct dc_context *ctx)
++{
++	struct dce_hwseq *hws = kzalloc(sizeof(struct dce_hwseq), GFP_KERNEL);
++
++	if (hws) {
++		hws->ctx = ctx;
++		hws->regs = &dce121_hwseq_reg;
++		hws->shifts = &dce121_hwseq_shift;
++		hws->masks = &dce121_hwseq_mask;
++	}
++	return hws;
++}
++
+ static const struct resource_create_funcs res_create_funcs = {
+ 	.read_dce_straps = read_dce_straps,
+ 	.create_audio = create_audio,
+@@ -702,6 +742,14 @@ static const struct resource_create_funcs res_create_funcs = {
+ 	.create_hwseq = dce120_hwseq_create,
+ };
+ 
++static const struct resource_create_funcs dce121_res_create_funcs = {
++	.read_dce_straps = read_dce_straps,
++	.create_audio = create_audio,
++	.create_stream_encoder = dce120_stream_encoder_create,
++	.create_hwseq = dce121_hwseq_create,
++};
++
++
+ #define mi_inst_regs(id) { MI_DCE12_REG_LIST(id) }
+ static const struct dce_mem_input_registers mi_regs[] = {
+ 		mi_inst_regs(0),
+@@ -911,7 +959,8 @@ static bool construct(
+ 	int j;
+ 	struct dc_context *ctx = dc->ctx;
+ 	struct irq_service_init_data irq_init_data;
+-	bool harvest_enabled = ASICREV_IS_VEGA20_P(ctx->asic_id.hw_internal_rev);
++	static const struct resource_create_funcs *res_funcs;
++	bool is_vg20 = ASICREV_IS_VEGA20_P(ctx->asic_id.hw_internal_rev);
+ 	uint32_t pipe_fuses;
+ 
+ 	ctx->dc_bios->regs = &bios_regs;
+@@ -975,7 +1024,11 @@ static bool construct(
+ 		}
+ 	}
+ 
+-	pool->base.clk_mgr = dce120_clk_mgr_create(ctx);
++	if (is_vg20)
++		pool->base.clk_mgr = dce121_clk_mgr_create(ctx);
++	else
++		pool->base.clk_mgr = dce120_clk_mgr_create(ctx);
++
+ 	if (pool->base.clk_mgr == NULL) {
+ 		dm_error("DC: failed to create display clock!\n");
+ 		BREAK_TO_DEBUGGER();
+@@ -1008,14 +1061,14 @@ static bool construct(
+ 	if (!pool->base.irqs)
+ 		goto irqs_create_fail;
+ 
+-	/* retrieve valid pipe fuses */
+-	if (harvest_enabled)
++	/* VG20: Pipe harvesting enabled, retrieve valid pipe fuses */
++	if (is_vg20)
+ 		pipe_fuses = read_pipe_fuses(ctx);
+ 
+ 	/* index to valid pipe resource */
+ 	j = 0;
+ 	for (i = 0; i < pool->base.pipe_count; i++) {
+-		if (harvest_enabled) {
++		if (is_vg20) {
+ 			if ((pipe_fuses & (1 << i)) != 0) {
+ 				dm_error("DC: skip invalid pipe %d!\n", i);
+ 				continue;
+@@ -1093,10 +1146,24 @@ static bool construct(
+ 	pool->base.pipe_count = j;
+ 	pool->base.timing_generator_count = j;
+ 
+-	if (!resource_construct(num_virtual_links, dc, &pool->base,
+-			 &res_create_funcs))
++	if (is_vg20)
++		res_funcs = &dce121_res_create_funcs;
++	else
++		res_funcs = &res_create_funcs;
++
++	if (!resource_construct(num_virtual_links, dc, &pool->base, res_funcs))
+ 		goto res_create_fail;
+ 
++	/*
++	 * This is a bit of a hack. The xGMI enabled info is used to determine
++	 * if audio and display clocks need to be adjusted with the WAFL link's
++	 * SS info. This is a responsiblity of the clk_mgr. But since MMHUB is
++	 * under hwseq, and the relevant register is in MMHUB, we have to do it
++	 * here.
++	 */
++	if (is_vg20 && dce121_xgmi_enabled(dc->hwseq))
++		dce121_clock_patch_xgmi_ss_info(pool->base.clk_mgr);
++
+ 	/* Create hardware sequencer */
+ 	if (!dce120_hw_sequencer_create(dc))
+ 		goto controller_create_fail;
+-- 
+2.17.1
+

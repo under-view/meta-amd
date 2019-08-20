@@ -1,0 +1,47 @@
+From d1b6ab61939d3dcf1f9f7641088c4909abae38cd Mon Sep 17 00:00:00 2001
+From: Jack Xiao <Jack.Xiao@amd.com>
+Date: Mon, 20 May 2019 12:16:19 +0800
+Subject: [PATCH 2395/2940] drm/amd: the data retured from PRT is expected to
+ be 0
+
+The dummy page for returning from PRT resides inside system memory,
+need set system flag bit in VM_L2_CNTL.
+
+Signed-off-by: Jack Xiao <Jack.Xiao@amd.com>
+Reviewed-by: Hawking Zhang <Hawking.Zhang@amd.com>
+Signed-off-by: Alex Deucher <alexander.deucher@amd.com>
+---
+ drivers/gpu/drm/amd/amdgpu/gfxhub_v2_0.c | 3 ++-
+ drivers/gpu/drm/amd/amdgpu/mmhub_v2_0.c  | 2 ++
+ 2 files changed, 4 insertions(+), 1 deletion(-)
+
+diff --git a/drivers/gpu/drm/amd/amdgpu/gfxhub_v2_0.c b/drivers/gpu/drm/amd/amdgpu/gfxhub_v2_0.c
+index 231c77aed01b..b7de60a15623 100644
+--- a/drivers/gpu/drm/amd/amdgpu/gfxhub_v2_0.c
++++ b/drivers/gpu/drm/amd/amdgpu/gfxhub_v2_0.c
+@@ -135,7 +135,8 @@ static void gfxhub_v2_0_init_cache_regs(struct amdgpu_device *adev)
+ 	tmp = RREG32_SOC15(GC, 0, mmGCVM_L2_CNTL);
+ 	tmp = REG_SET_FIELD(tmp, GCVM_L2_CNTL, ENABLE_L2_CACHE, 1);
+ 	tmp = REG_SET_FIELD(tmp, GCVM_L2_CNTL, ENABLE_L2_FRAGMENT_PROCESSING, 0);
+-
++	tmp = REG_SET_FIELD(tmp, GCVM_L2_CNTL,
++			    ENABLE_DEFAULT_PAGE_OUT_TO_SYSTEM_MEMORY, 1);
+ 	/* XXX for emulation, Refer to closed source code.*/
+ 	tmp = REG_SET_FIELD(tmp, GCVM_L2_CNTL,
+ 			    L2_PDE0_CACHE_TAG_GENERATION_MODE, 0);
+diff --git a/drivers/gpu/drm/amd/amdgpu/mmhub_v2_0.c b/drivers/gpu/drm/amd/amdgpu/mmhub_v2_0.c
+index f65b9c827970..37a1a318ae63 100644
+--- a/drivers/gpu/drm/amd/amdgpu/mmhub_v2_0.c
++++ b/drivers/gpu/drm/amd/amdgpu/mmhub_v2_0.c
+@@ -121,6 +121,8 @@ static void mmhub_v2_0_init_cache_regs(struct amdgpu_device *adev)
+ 	tmp = RREG32_SOC15(MMHUB, 0, mmMMVM_L2_CNTL);
+ 	tmp = REG_SET_FIELD(tmp, MMVM_L2_CNTL, ENABLE_L2_CACHE, 1);
+ 	tmp = REG_SET_FIELD(tmp, MMVM_L2_CNTL, ENABLE_L2_FRAGMENT_PROCESSING, 0);
++	tmp = REG_SET_FIELD(tmp, MMVM_L2_CNTL,
++			    ENABLE_DEFAULT_PAGE_OUT_TO_SYSTEM_MEMORY, 1);
+ 	/* XXX for emulation, Refer to closed source code.*/
+ 	tmp = REG_SET_FIELD(tmp, MMVM_L2_CNTL, L2_PDE0_CACHE_TAG_GENERATION_MODE,
+ 			    0);
+-- 
+2.17.1
+

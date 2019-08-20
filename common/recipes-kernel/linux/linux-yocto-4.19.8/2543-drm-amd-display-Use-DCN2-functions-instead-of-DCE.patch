@@ -1,0 +1,44 @@
+From 75750b9e1140b065d652ed7278f39ca54ac086ae Mon Sep 17 00:00:00 2001
+From: Wesley Chalmers <Wesley.Chalmers@amd.com>
+Date: Wed, 24 Apr 2019 15:29:06 -0400
+Subject: [PATCH 2543/2940] drm/amd/display: Use DCN2 functions instead of DCE
+
+[WHY]
+DCN code should make as few references to DCE as possible
+
+[HOW]
+Copy DCE110 implementation of find_first_free_match_stream_enc_for_link
+into DCN10
+
+Signed-off-by: Wesley Chalmers <Wesley.Chalmers@amd.com>
+Reviewed-by: Tony Cheng <Tony.Cheng@amd.com>
+Acked-by: Bhawanpreet Lakha <Bhawanpreet.Lakha@amd.com>
+Signed-off-by: Alex Deucher <alexander.deucher@amd.com>
+---
+ drivers/gpu/drm/amd/display/dc/dcn20/dcn20_resource.c | 3 ++-
+ 1 file changed, 2 insertions(+), 1 deletion(-)
+
+diff --git a/drivers/gpu/drm/amd/display/dc/dcn20/dcn20_resource.c b/drivers/gpu/drm/amd/display/dc/dcn20/dcn20_resource.c
+index 8b4853dd4fd4..caebf4746475 100644
+--- a/drivers/gpu/drm/amd/display/dc/dcn20/dcn20_resource.c
++++ b/drivers/gpu/drm/amd/display/dc/dcn20/dcn20_resource.c
+@@ -40,6 +40,7 @@
+ #include "dcn20_optc.h"
+ #include "dcn20_hwseq.h"
+ #include "dce110/dce110_hw_sequencer.h"
++#include "dcn10/dcn10_resource.h"
+ #include "dcn20_opp.h"
+ 
+ #ifdef CONFIG_DRM_AMD_DC_DSC_SUPPORT
+@@ -2448,7 +2449,7 @@ static struct resource_funcs dcn20_res_pool_funcs = {
+ 	.add_dsc_to_stream_resource = dcn20_add_dsc_to_stream_resource,
+ 	.remove_dsc_from_stream_resource = dcn20_remove_dsc_from_stream_resource,
+ #endif
+-	.find_first_free_match_stream_enc_for_link = dce110_find_first_free_match_stream_enc_for_link
++	.find_first_free_match_stream_enc_for_link = dcn10_find_first_free_match_stream_enc_for_link
+ };
+ 
+ bool dcn20_dwbc_create(struct dc_context *ctx, struct resource_pool *pool)
+-- 
+2.17.1
+

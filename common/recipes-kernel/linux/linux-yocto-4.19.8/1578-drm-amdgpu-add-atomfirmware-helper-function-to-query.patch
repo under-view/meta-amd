@@ -1,0 +1,70 @@
+From 0117f9bb2f610e3955776cc0a1ac45c8710cc506 Mon Sep 17 00:00:00 2001
+From: Hawking Zhang <Hawking.Zhang@amd.com>
+Date: Thu, 7 Mar 2019 10:52:43 +0800
+Subject: [PATCH 1578/2940] drm/amdgpu: add atomfirmware helper function to
+ query sram ecc caps
+
+sram ecc capability could be get from firmware_capability field in firmwareinfo table
+
+Signed-off-by: Hawking Zhang <Hawking.Zhang@amd.com>
+Reviewed-by: Alex Deucher <alexander.deucher@amd.com>
+---
+ .../gpu/drm/amd/amdgpu/amdgpu_atomfirmware.c  | 30 +++++++++++++++++++
+ .../gpu/drm/amd/amdgpu/amdgpu_atomfirmware.h  |  1 +
+ 2 files changed, 31 insertions(+)
+
+diff --git a/drivers/gpu/drm/amd/amdgpu/amdgpu_atomfirmware.c b/drivers/gpu/drm/amd/amdgpu/amdgpu_atomfirmware.c
+index 742af0ed94d7..f96d75c6e099 100644
+--- a/drivers/gpu/drm/amd/amdgpu/amdgpu_atomfirmware.c
++++ b/drivers/gpu/drm/amd/amdgpu/amdgpu_atomfirmware.c
+@@ -271,6 +271,36 @@ union firmware_info {
+ 	struct atom_firmware_info_v3_1 v31;
+ };
+ 
++/*
++ * Return true if vbios supports sram ecc or false if not
++ */
++bool amdgpu_atomfirmware_sram_ecc_supported(struct amdgpu_device *adev)
++{
++	struct amdgpu_mode_info *mode_info = &adev->mode_info;
++	int index;
++	u16 data_offset, size;
++	union firmware_info *firmware_info;
++	u8 frev, crev;
++	bool sram_ecc_supported = false;
++
++	index = get_index_into_master_table(atom_master_list_of_data_tables_v2_1,
++			firmwareinfo);
++
++	if (amdgpu_atom_parse_data_header(adev->mode_info.atom_context,
++				index, &size, &frev, &crev, &data_offset)) {
++		/* support firmware_info 3.1 + */
++		if ((frev == 3 && crev >=1) || (frev > 3)) {
++			firmware_info = (union firmware_info *)
++				(mode_info->atom_context->bios + data_offset);
++			sram_ecc_supported =
++				(le32_to_cpu(firmware_info->v31.firmware_capability) &
++				 ATOM_FIRMWARE_CAP_SRAM_ECC) ? true : false;
++		}
++	}
++
++	return sram_ecc_supported;
++}
++
+ union smu_info {
+ 	struct atom_smu_info_v3_1 v31;
+ };
+diff --git a/drivers/gpu/drm/amd/amdgpu/amdgpu_atomfirmware.h b/drivers/gpu/drm/amd/amdgpu/amdgpu_atomfirmware.h
+index 6da079e60619..5ec6f92f353c 100644
+--- a/drivers/gpu/drm/amd/amdgpu/amdgpu_atomfirmware.h
++++ b/drivers/gpu/drm/amd/amdgpu/amdgpu_atomfirmware.h
+@@ -34,5 +34,6 @@ int amdgpu_atomfirmware_get_vram_type(struct amdgpu_device *adev);
+ int amdgpu_atomfirmware_get_clock_info(struct amdgpu_device *adev);
+ int amdgpu_atomfirmware_get_gfx_info(struct amdgpu_device *adev);
+ bool amdgpu_atomfirmware_mem_ecc_supported(struct amdgpu_device *adev);
++bool amdgpu_atomfirmware_sram_ecc_supported(struct amdgpu_device *adev);
+ 
+ #endif
+-- 
+2.17.1
+

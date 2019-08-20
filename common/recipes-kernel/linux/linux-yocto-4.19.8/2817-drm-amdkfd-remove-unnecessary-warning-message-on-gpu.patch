@@ -1,0 +1,31 @@
+From 18adc86aa47e039bd985ba75671fd15ad9d399a4 Mon Sep 17 00:00:00 2001
+From: shaoyunl <shaoyun.liu@amd.com>
+Date: Wed, 26 Jun 2019 13:42:24 -0400
+Subject: [PATCH 2817/2940] drm/amdkfd: remove unnecessary warning message on
+ gpu reset
+
+In XGMI configuration, more than one asic can be reset at same time,
+kfd is able to handle this and no need to trigger the warning
+
+Change-Id: If339503860e86ee1dbeed294ba1c103fcce70b7b
+Signed-off-by: shaoyunl <shaoyun.liu@amd.com>
+Reviewed-by: Andrey Grodzovsky <andrey.grodzovsky@amd.com>
+---
+ drivers/gpu/drm/amd/amdkfd/kfd_device.c | 1 -
+ 1 file changed, 1 deletion(-)
+
+diff --git a/drivers/gpu/drm/amd/amdkfd/kfd_device.c b/drivers/gpu/drm/amd/amdkfd/kfd_device.c
+index 8d447ed72581..9bd16644c25c 100644
+--- a/drivers/gpu/drm/amd/amdkfd/kfd_device.c
++++ b/drivers/gpu/drm/amd/amdkfd/kfd_device.c
+@@ -740,7 +740,6 @@ int kgd2kfd_post_reset(struct kfd_dev *kfd)
+ 	if (ret)
+ 		return ret;
+ 	count = atomic_dec_return(&kfd_locked);
+-	WARN_ONCE(count != 0, "KFD reset ref. error");
+ 
+ 	atomic_set(&kfd->sram_ecc_flag, 0);
+ 
+-- 
+2.17.1
+

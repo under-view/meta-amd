@@ -1,0 +1,38 @@
+From bc1f93e45aa43bfdc6eb4a5ab2faabb2bd1efae7 Mon Sep 17 00:00:00 2001
+From: =?UTF-8?q?Christian=20K=C3=B6nig?= <christian.koenig@amd.com>
+Date: Thu, 7 Feb 2019 11:41:59 +0100
+Subject: [PATCH 1234/2940] drm/amdgpu: fix NULL ptr dref in the VM code
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+The exclusive fence is of course perfectly optional here.
+
+Signed-off-by: Christian König <christian.koenig@amd.com>
+Reviewed-by: Felix Kuehling <Felix.Kuehling@amd.com>
+---
+ drivers/gpu/drm/amd/amdgpu/amdgpu_vm.c | 8 +++++---
+ 1 file changed, 5 insertions(+), 3 deletions(-)
+
+diff --git a/drivers/gpu/drm/amd/amdgpu/amdgpu_vm.c b/drivers/gpu/drm/amd/amdgpu/amdgpu_vm.c
+index 7da1fc2d8eca..3441fdfe6dac 100644
+--- a/drivers/gpu/drm/amd/amdgpu/amdgpu_vm.c
++++ b/drivers/gpu/drm/amd/amdgpu/amdgpu_vm.c
+@@ -1760,9 +1760,11 @@ static int amdgpu_vm_bo_update_mapping(struct amdgpu_device *adev,
+ 			return r;
+ 
+ 		/* Wait for any BO move to be completed */
+-		r = dma_fence_wait(exclusive, true);
+-		if (unlikely(r))
+-			return r;
++		if (exclusive) {
++			r = dma_fence_wait(exclusive, true);
++			if (unlikely(r))
++				return r;
++		}
+ 
+ 		params.func = amdgpu_vm_cpu_set_ptes;
+ 		params.pages_addr = pages_addr;
+-- 
+2.17.1
+

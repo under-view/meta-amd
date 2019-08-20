@@ -1,0 +1,36 @@
+From bec7973540fa976ad77a2cf3776f7c6b46eb293a Mon Sep 17 00:00:00 2001
+From: Xiangliang Yu <Xiangliang.Yu@amd.com>
+Date: Tue, 4 Dec 2018 15:13:28 +0800
+Subject: [PATCH 0916/2940] drm/amdgpu/psp: Get psp fw version through reading
+ register
+
+If PSP FW is running already, driver will not load PSP FW again and skip
+it. So psp fw version is not correct if reading it from FW binary file,
+need to get right version from register.
+
+Signed-off-by: Xiangliang Yu <Xiangliang.Yu@amd.com>
+Acked-by: Alex Deucher <alexander.deucher@amd.com>
+Signed-off-by: Alex Deucher <alexander.deucher@amd.com>
+---
+ drivers/gpu/drm/amd/amdgpu/psp_v11_0.c | 4 +++-
+ 1 file changed, 3 insertions(+), 1 deletion(-)
+
+diff --git a/drivers/gpu/drm/amd/amdgpu/psp_v11_0.c b/drivers/gpu/drm/amd/amdgpu/psp_v11_0.c
+index 13656adc6344..cbf8c1495e1c 100644
+--- a/drivers/gpu/drm/amd/amdgpu/psp_v11_0.c
++++ b/drivers/gpu/drm/amd/amdgpu/psp_v11_0.c
+@@ -181,8 +181,10 @@ static int psp_v11_0_bootloader_load_sysdrv(struct psp_context *psp)
+ 	 * are already been loaded.
+ 	 */
+ 	sol_reg = RREG32_SOC15(MP0, 0, mmMP0_SMN_C2PMSG_81);
+-	if (sol_reg)
++	if (sol_reg) {
++		psp->sos_fw_version = RREG32_SOC15(MP0, 0, mmMP0_SMN_C2PMSG_58);
+ 		return 0;
++	}
+ 
+ 	/* Wait for bootloader to signify that is ready having bit 31 of C2PMSG_35 set to 1 */
+ 	ret = psp_wait_for(psp, SOC15_REG_OFFSET(MP0, 0, mmMP0_SMN_C2PMSG_35),
+-- 
+2.17.1
+

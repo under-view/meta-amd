@@ -1,0 +1,30 @@
+From aac3880ec6ed9a8563314a2bb5aa3c0d9b786c04 Mon Sep 17 00:00:00 2001
+From: Felix Kuehling <Felix.Kuehling@amd.com>
+Date: Thu, 20 Jun 2019 14:54:35 -0400
+Subject: [PATCH 2821/2940] drm/amdkfd: Disable idle optimization for chained
+ runlist
+
+This works around difficult-to-reproduce soft hangs on oversubscribed
+runlists.
+
+Signed-off-by: Felix Kuehling <Felix.Kuehling@amd.com>
+Reviewed-by: Oak Zeng <Oak.Zeng@amd.com>
+---
+ drivers/gpu/drm/amd/amdkfd/kfd_kernel_queue_v9.c | 1 +
+ 1 file changed, 1 insertion(+)
+
+diff --git a/drivers/gpu/drm/amd/amdkfd/kfd_kernel_queue_v9.c b/drivers/gpu/drm/amd/amdkfd/kfd_kernel_queue_v9.c
+index 9222a43adae1..aaf9d620c771 100644
+--- a/drivers/gpu/drm/amd/amdkfd/kfd_kernel_queue_v9.c
++++ b/drivers/gpu/drm/amd/amdkfd/kfd_kernel_queue_v9.c
+@@ -140,6 +140,7 @@ static int pm_runlist_v9(struct packet_manager *pm, uint32_t *buffer,
+ 	packet->bitfields4.ib_size = ib_size_in_dwords;
+ 	packet->bitfields4.chain = chain ? 1 : 0;
+ 	packet->bitfields4.offload_polling = 0;
++	packet->bitfields4.chained_runlist_idle_disable = chain ? 1 : 0;
+ 	packet->bitfields4.valid = 1;
+ 	packet->bitfields4.process_cnt = concurrent_proc_cnt;
+ 	packet->ordinal2 = lower_32_bits(ib);
+-- 
+2.17.1
+

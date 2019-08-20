@@ -1,0 +1,72 @@
+From 9f59d08399698604d67bb818b445a13a9249fc65 Mon Sep 17 00:00:00 2001
+From: Mahesh Kumar <mahesh1.kumar@intel.com>
+Date: Tue, 21 Aug 2018 14:08:56 +0530
+Subject: [PATCH 0632/2940] drm/crc: Cleanup crtc_crc_open function
+
+This patch make changes to allocate crc-entries buffer before
+enabling CRC generation.
+It moves all the failure check early in the function before setting
+the source or memory allocation.
+Now set_crc_source takes only two variable inputs, values_cnt we
+already gets as part of verify_crc_source.
+
+Changes since V1:
+ - refactor code to use single spin lock
+Changes since V2:
+ - rebase
+Changes since V3:
+ - rebase on top of VKMS driver
+
+Signed-off-by: Mahesh Kumar <mahesh1.kumar@intel.com>
+Cc: dri-devel@lists.freedesktop.org
+Cc: Laurent Pinchart <laurent.pinchart@ideasonboard.com>
+Cc: Haneen Mohammed <hamohammed.sa@gmail.com>
+Reviewed-by: Maarten Lankhorst <maarten.lankhorst@linux.intel.com>
+Acked-by: Leo Li <sunpeng.li@amd.com> (V2)
+Reviewed-by: Laurent Pinchart <laurent.pinchart@ideasonboard.com> (V3)
+Signed-off-by: Rodrigo Vivi <rodrigo.vivi@intel.com>
+Link: https://patchwork.freedesktop.org/patch/msgid/20180821083858.26275-3-mahesh1.kumar@intel.com
+---
+ drivers/gpu/drm/amd/display/amdgpu_dm/amdgpu_dm.h     | 3 +--
+ drivers/gpu/drm/amd/display/amdgpu_dm/amdgpu_dm_crc.c | 4 +---
+ 2 files changed, 2 insertions(+), 5 deletions(-)
+
+diff --git a/drivers/gpu/drm/amd/display/amdgpu_dm/amdgpu_dm.h b/drivers/gpu/drm/amd/display/amdgpu_dm/amdgpu_dm.h
+index 186698e509cd..570159e704cf 100644
+--- a/drivers/gpu/drm/amd/display/amdgpu_dm/amdgpu_dm.h
++++ b/drivers/gpu/drm/amd/display/amdgpu_dm/amdgpu_dm.h
+@@ -245,8 +245,7 @@ void amdgpu_dm_update_freesync_caps(struct drm_connector *connector,
+ 
+ /* amdgpu_dm_crc.c */
+ #ifdef CONFIG_DEBUG_FS
+-int amdgpu_dm_crtc_set_crc_source(struct drm_crtc *crtc, const char *src_name,
+-				  size_t *values_cnt);
++int amdgpu_dm_crtc_set_crc_source(struct drm_crtc *crtc, const char *src_name);
+ int amdgpu_dm_crtc_verify_crc_source(struct drm_crtc *crtc,
+ 				     const char *src_name,
+ 				     size_t *values_cnt);
+diff --git a/drivers/gpu/drm/amd/display/amdgpu_dm/amdgpu_dm_crc.c b/drivers/gpu/drm/amd/display/amdgpu_dm/amdgpu_dm_crc.c
+index 16b679faadbd..01fc5717b657 100644
+--- a/drivers/gpu/drm/amd/display/amdgpu_dm/amdgpu_dm_crc.c
++++ b/drivers/gpu/drm/amd/display/amdgpu_dm/amdgpu_dm_crc.c
+@@ -62,8 +62,7 @@ amdgpu_dm_crtc_verify_crc_source(struct drm_crtc *crtc, const char *src_name,
+ 	return 0;
+ }
+ 
+-int amdgpu_dm_crtc_set_crc_source(struct drm_crtc *crtc, const char *src_name,
+-			   size_t *values_cnt)
++int amdgpu_dm_crtc_set_crc_source(struct drm_crtc *crtc, const char *src_name)
+ {
+ 	struct dm_crtc_state *crtc_state = to_dm_crtc_state(crtc->state);
+ 	struct dc_stream_state *stream_state = crtc_state->stream;
+@@ -99,7 +98,6 @@ int amdgpu_dm_crtc_set_crc_source(struct drm_crtc *crtc, const char *src_name,
+ 			return -EINVAL;
+ 	}
+ 
+-	*values_cnt = 3;
+ 	/* Reset crc_skipped on dm state */
+ 	crtc_state->crc_skip_count = 0;
+ 	return 0;
+-- 
+2.17.1
+

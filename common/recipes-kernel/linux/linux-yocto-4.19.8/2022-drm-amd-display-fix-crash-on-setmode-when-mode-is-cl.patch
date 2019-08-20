@@ -1,0 +1,53 @@
+From 79d1998dd23170f18cd3e83690a7fc89332b65e9 Mon Sep 17 00:00:00 2001
+From: Su Sung Chung <Su.Chung@amd.com>
+Date: Fri, 10 May 2019 15:16:45 -0400
+Subject: [PATCH 2022/2940] drm/amd/display: fix crash on setmode when mode is
+ close to bw limit
+
+[why]
+during It's possible to call dcn_validate_bandwidth with no plane.
+In that case, as we are only intersted in if output timing is supported or not,
+even if we cannot support native resolution, we still want to support lower
+resolution if it is valid
+
+[how]
+if there exist no surface, make viewport/rec_out size at max 1080p. It is
+already known that 1080p x 6(max # of pipes) is supported, so if we fail
+validation, it is because of the stream
+
+Signed-off-by: Su Sung Chung <Su.Chung@amd.com>
+Reviewed-by: Dmytro Laktyushkin <Dmytro.Laktyushkin@amd.com>
+Acked-by: Leo Li <sunpeng.li@amd.com>
+---
+ drivers/gpu/drm/amd/display/dc/calcs/dcn_calcs.c | 15 +++++++++++++--
+ 1 file changed, 13 insertions(+), 2 deletions(-)
+
+diff --git a/drivers/gpu/drm/amd/display/dc/calcs/dcn_calcs.c b/drivers/gpu/drm/amd/display/dc/calcs/dcn_calcs.c
+index 0a336c80c7bb..5c1e0adb142b 100644
+--- a/drivers/gpu/drm/amd/display/dc/calcs/dcn_calcs.c
++++ b/drivers/gpu/drm/amd/display/dc/calcs/dcn_calcs.c
+@@ -872,8 +872,19 @@ bool dcn_validate_bandwidth(
+ 			v->lb_bit_per_pixel[input_idx] = 30;
+ 			v->viewport_width[input_idx] = pipe->stream->timing.h_addressable;
+ 			v->viewport_height[input_idx] = pipe->stream->timing.v_addressable;
+-			v->scaler_rec_out_width[input_idx] = pipe->stream->timing.h_addressable;
+-			v->scaler_recout_height[input_idx] = pipe->stream->timing.v_addressable;
++			/*
++			 * for cases where we have no plane, we want to validate up to 1080p
++			 * source size because here we are only interested in if the output
++			 * timing is supported or not. if we cannot support native resolution
++			 * of the high res display, we still want to support lower res up scale
++			 * to native
++			 */
++			if (v->viewport_width[input_idx] > 1920)
++				v->viewport_width[input_idx] = 1920;
++			if (v->viewport_height[input_idx] > 1080)
++				v->viewport_height[input_idx] = 1080;
++			v->scaler_rec_out_width[input_idx] = v->viewport_width[input_idx];
++			v->scaler_recout_height[input_idx] = v->viewport_height[input_idx];
+ 			v->override_hta_ps[input_idx] = 1;
+ 			v->override_vta_ps[input_idx] = 1;
+ 			v->override_hta_pschroma[input_idx] = 1;
+-- 
+2.17.1
+

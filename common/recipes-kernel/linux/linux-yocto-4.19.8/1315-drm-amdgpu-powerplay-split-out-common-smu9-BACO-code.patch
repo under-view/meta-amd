@@ -1,0 +1,323 @@
+From 52a0eb1227b77a74496837395414eae238e9352b Mon Sep 17 00:00:00 2001
+From: Alex Deucher <alexander.deucher@amd.com>
+Date: Fri, 15 Feb 2019 17:34:48 -0500
+Subject: [PATCH 1315/2940] drm/amdgpu/powerplay: split out common smu9 BACO
+ code
+
+Several of the BACO functions are common across smu9-based
+asics.  Split the common code out.
+
+Reviewed-by: Hawking Zhang <Hawking.Zhang@amd.com>
+Signed-off-by: Alex Deucher <alexander.deucher@amd.com>
+Signed-off-by: Chaudhary Amit Kumar <Chaudharyamit.Kumar@amd.com>
+---
+ drivers/gpu/drm/amd/powerplay/hwmgr/Makefile  |  2 +-
+ .../gpu/drm/amd/powerplay/hwmgr/smu9_baco.c   | 66 +++++++++++++++++++
+ .../gpu/drm/amd/powerplay/hwmgr/smu9_baco.h   | 31 +++++++++
+ .../gpu/drm/amd/powerplay/hwmgr/vega10_baco.c | 39 +----------
+ .../gpu/drm/amd/powerplay/hwmgr/vega10_baco.h |  5 +-
+ .../drm/amd/powerplay/hwmgr/vega10_hwmgr.c    |  4 +-
+ .../gpu/drm/amd/powerplay/hwmgr/vega12_baco.c | 39 +----------
+ .../gpu/drm/amd/powerplay/hwmgr/vega12_baco.h |  5 +-
+ .../drm/amd/powerplay/hwmgr/vega12_hwmgr.c    |  4 +-
+ 9 files changed, 106 insertions(+), 89 deletions(-)
+ create mode 100644 drivers/gpu/drm/amd/powerplay/hwmgr/smu9_baco.c
+ create mode 100644 drivers/gpu/drm/amd/powerplay/hwmgr/smu9_baco.h
+
+diff --git a/drivers/gpu/drm/amd/powerplay/hwmgr/Makefile b/drivers/gpu/drm/amd/powerplay/hwmgr/Makefile
+index d1adf68f4c64..cc63705920dc 100644
+--- a/drivers/gpu/drm/amd/powerplay/hwmgr/Makefile
++++ b/drivers/gpu/drm/amd/powerplay/hwmgr/Makefile
+@@ -36,7 +36,7 @@ HARDWARE_MGR = hwmgr.o processpptables.o \
+ 		pp_overdriver.o smu_helper.o \
+ 		vega20_processpptables.o vega20_hwmgr.o vega20_powertune.o \
+ 		vega20_thermal.o common_baco.o vega10_baco.o  vega20_baco.o \
+-		vega12_baco.o
++		vega12_baco.o smu9_baco.o
+ 
+ AMD_PP_HWMGR = $(addprefix $(AMD_PP_PATH)/hwmgr/,$(HARDWARE_MGR))
+ 
+diff --git a/drivers/gpu/drm/amd/powerplay/hwmgr/smu9_baco.c b/drivers/gpu/drm/amd/powerplay/hwmgr/smu9_baco.c
+new file mode 100644
+index 000000000000..de0a37f7c632
+--- /dev/null
++++ b/drivers/gpu/drm/amd/powerplay/hwmgr/smu9_baco.c
+@@ -0,0 +1,66 @@
++/*
++ * Copyright 2018 Advanced Micro Devices, Inc.
++ *
++ * Permission is hereby granted, free of charge, to any person obtaining a
++ * copy of this software and associated documentation files (the "Software"),
++ * to deal in the Software without restriction, including without limitation
++ * the rights to use, copy, modify, merge, publish, distribute, sublicense,
++ * and/or sell copies of the Software, and to permit persons to whom the
++ * Software is furnished to do so, subject to the following conditions:
++ *
++ * The above copyright notice and this permission notice shall be included in
++ * all copies or substantial portions of the Software.
++ *
++ * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
++ * IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
++ * FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.  IN NO EVENT SHALL
++ * THE COPYRIGHT HOLDER(S) OR AUTHOR(S) BE LIABLE FOR ANY CLAIM, DAMAGES OR
++ * OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE,
++ * ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR
++ * OTHER DEALINGS IN THE SOFTWARE.
++ *
++ */
++#include "amdgpu.h"
++#include "soc15.h"
++#include "soc15_hw_ip.h"
++#include "vega10_ip_offset.h"
++#include "soc15_common.h"
++#include "vega10_inc.h"
++#include "smu9_baco.h"
++
++int smu9_baco_get_capability(struct pp_hwmgr *hwmgr, bool *cap)
++{
++	struct amdgpu_device *adev = (struct amdgpu_device *)(hwmgr->adev);
++	uint32_t reg, data;
++
++	*cap = false;
++	if (!phm_cap_enabled(hwmgr->platform_descriptor.platformCaps, PHM_PlatformCaps_BACO))
++		return 0;
++
++	WREG32(0x12074, 0xFFF0003B);
++	data = RREG32(0x12075);
++
++	if (data == 0x1) {
++		reg = RREG32_SOC15(NBIF, 0, mmRCC_BIF_STRAP0);
++
++		if (reg & RCC_BIF_STRAP0__STRAP_PX_CAPABLE_MASK)
++			*cap = true;
++	}
++
++	return 0;
++}
++
++int smu9_baco_get_state(struct pp_hwmgr *hwmgr, enum BACO_STATE *state)
++{
++	struct amdgpu_device *adev = (struct amdgpu_device *)(hwmgr->adev);
++	uint32_t reg;
++
++	reg = RREG32_SOC15(NBIF, 0, mmBACO_CNTL);
++
++	if (reg & BACO_CNTL__BACO_MODE_MASK)
++		/* gfx has already entered BACO state */
++		*state = BACO_STATE_IN;
++	else
++		*state = BACO_STATE_OUT;
++	return 0;
++}
+diff --git a/drivers/gpu/drm/amd/powerplay/hwmgr/smu9_baco.h b/drivers/gpu/drm/amd/powerplay/hwmgr/smu9_baco.h
+new file mode 100644
+index 000000000000..84e90f801ac3
+--- /dev/null
++++ b/drivers/gpu/drm/amd/powerplay/hwmgr/smu9_baco.h
+@@ -0,0 +1,31 @@
++/*
++ * Copyright 2018 Advanced Micro Devices, Inc.
++ *
++ * Permission is hereby granted, free of charge, to any person obtaining a
++ * copy of this software and associated documentation files (the "Software"),
++ * to deal in the Software without restriction, including without limitation
++ * the rights to use, copy, modify, merge, publish, distribute, sublicense,
++ * and/or sell copies of the Software, and to permit persons to whom the
++ * Software is furnished to do so, subject to the following conditions:
++ *
++ * The above copyright notice and this permission notice shall be included in
++ * all copies or substantial portions of the Software.
++ *
++ * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
++ * IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
++ * FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.  IN NO EVENT SHALL
++ * THE COPYRIGHT HOLDER(S) OR AUTHOR(S) BE LIABLE FOR ANY CLAIM, DAMAGES OR
++ * OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE,
++ * ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR
++ * OTHER DEALINGS IN THE SOFTWARE.
++ *
++ */
++#ifndef __SMU9_BACO_H__
++#define __SMU9_BACO_H__
++#include "hwmgr.h"
++#include "common_baco.h"
++
++extern int smu9_baco_get_capability(struct pp_hwmgr *hwmgr, bool *cap);
++extern int smu9_baco_get_state(struct pp_hwmgr *hwmgr, enum BACO_STATE *state);
++
++#endif
+diff --git a/drivers/gpu/drm/amd/powerplay/hwmgr/vega10_baco.c b/drivers/gpu/drm/amd/powerplay/hwmgr/vega10_baco.c
+index 7337be5602e4..d168af4a4d78 100644
+--- a/drivers/gpu/drm/amd/powerplay/hwmgr/vega10_baco.c
++++ b/drivers/gpu/drm/amd/powerplay/hwmgr/vega10_baco.c
+@@ -85,48 +85,11 @@ static const struct soc15_baco_cmd_entry clean_baco_tbl[] =
+ 	{CMD_WRITE, SOC15_REG_ENTRY(NBIF, 0, mmBIOS_SCRATCH_7), 0, 0, 0, 0},
+ };
+ 
+-int vega10_baco_get_capability(struct pp_hwmgr *hwmgr, bool *cap)
+-{
+-	struct amdgpu_device *adev = (struct amdgpu_device *)(hwmgr->adev);
+-	uint32_t reg, data;
+-
+-	*cap = false;
+-	if (!phm_cap_enabled(hwmgr->platform_descriptor.platformCaps, PHM_PlatformCaps_BACO))
+-		return 0;
+-
+-	WREG32(0x12074, 0xFFF0003B);
+-	data = RREG32(0x12075);
+-
+-	if (data == 0x1) {
+-		reg = RREG32_SOC15(NBIF, 0, mmRCC_BIF_STRAP0);
+-
+-		if (reg & RCC_BIF_STRAP0__STRAP_PX_CAPABLE_MASK)
+-			*cap = true;
+-	}
+-
+-	return 0;
+-}
+-
+-int vega10_baco_get_state(struct pp_hwmgr *hwmgr, enum BACO_STATE *state)
+-{
+-	struct amdgpu_device *adev = (struct amdgpu_device *)(hwmgr->adev);
+-	uint32_t reg;
+-
+-	reg = RREG32_SOC15(NBIF, 0, mmBACO_CNTL);
+-
+-	if (reg & BACO_CNTL__BACO_MODE_MASK)
+-		/* gfx has already entered BACO state */
+-		*state = BACO_STATE_IN;
+-	else
+-		*state = BACO_STATE_OUT;
+-	return 0;
+-}
+-
+ int vega10_baco_set_state(struct pp_hwmgr *hwmgr, enum BACO_STATE state)
+ {
+ 	enum BACO_STATE cur_state;
+ 
+-	vega10_baco_get_state(hwmgr, &cur_state);
++	smu9_baco_get_state(hwmgr, &cur_state);
+ 
+ 	if (cur_state == state)
+ 		/* aisc already in the target state */
+diff --git a/drivers/gpu/drm/amd/powerplay/hwmgr/vega10_baco.h b/drivers/gpu/drm/amd/powerplay/hwmgr/vega10_baco.h
+index f7a3ffa744b3..96d793f026a5 100644
+--- a/drivers/gpu/drm/amd/powerplay/hwmgr/vega10_baco.h
++++ b/drivers/gpu/drm/amd/powerplay/hwmgr/vega10_baco.h
+@@ -22,11 +22,8 @@
+  */
+ #ifndef __VEGA10_BACO_H__
+ #define __VEGA10_BACO_H__
+-#include "hwmgr.h"
+-#include "common_baco.h"
++#include "smu9_baco.h"
+ 
+-extern int vega10_baco_get_capability(struct pp_hwmgr *hwmgr, bool *cap);
+-extern int vega10_baco_get_state(struct pp_hwmgr *hwmgr, enum BACO_STATE *state);
+ extern int vega10_baco_set_state(struct pp_hwmgr *hwmgr, enum BACO_STATE state);
+ 
+ #endif
+diff --git a/drivers/gpu/drm/amd/powerplay/hwmgr/vega10_hwmgr.c b/drivers/gpu/drm/amd/powerplay/hwmgr/vega10_hwmgr.c
+index 5a167d19c028..39cc4031b2ab 100644
+--- a/drivers/gpu/drm/amd/powerplay/hwmgr/vega10_hwmgr.c
++++ b/drivers/gpu/drm/amd/powerplay/hwmgr/vega10_hwmgr.c
+@@ -5170,8 +5170,8 @@ static const struct pp_hwmgr_func vega10_hwmgr_funcs = {
+ 	.set_power_limit = vega10_set_power_limit,
+ 	.odn_edit_dpm_table = vega10_odn_edit_dpm_table,
+ 	.get_performance_level = vega10_get_performance_level,
+-	.get_asic_baco_capability = vega10_baco_get_capability,
+-	.get_asic_baco_state = vega10_baco_get_state,
++	.get_asic_baco_capability = smu9_baco_get_capability,
++	.get_asic_baco_state = smu9_baco_get_state,
+ 	.set_asic_baco_state = vega10_baco_set_state,
+         .get_ppfeature_status = vega10_get_ppfeature_status,
+         .set_ppfeature_status = vega10_set_ppfeature_status,
+diff --git a/drivers/gpu/drm/amd/powerplay/hwmgr/vega12_baco.c b/drivers/gpu/drm/amd/powerplay/hwmgr/vega12_baco.c
+index c2cc15385012..9d8ca94a8f0c 100644
+--- a/drivers/gpu/drm/amd/powerplay/hwmgr/vega12_baco.c
++++ b/drivers/gpu/drm/amd/powerplay/hwmgr/vega12_baco.c
+@@ -83,48 +83,11 @@ static const struct soc15_baco_cmd_entry clean_baco_tbl[] =
+ 	{ CMD_WRITE, NBIF_HWID, 0, mmBIOS_SCRATCH_7_BASE_IDX, mmBIOS_SCRATCH_7, 0, 0, 0, 0 }
+ };
+ 
+-int vega12_baco_get_capability(struct pp_hwmgr *hwmgr, bool *cap)
+-{
+-	struct amdgpu_device *adev = (struct amdgpu_device *)(hwmgr->adev);
+-	uint32_t reg, data;
+-
+-	*cap = false;
+-	if (!phm_cap_enabled(hwmgr->platform_descriptor.platformCaps, PHM_PlatformCaps_BACO))
+-		return 0;
+-
+-	WREG32(0x12074, 0xFFF0003B);
+-	data = RREG32(0x12075);
+-
+-	if (data == 0x1) {
+-		reg = RREG32_SOC15(NBIF, 0, mmRCC_BIF_STRAP0);
+-
+-		if (reg & RCC_BIF_STRAP0__STRAP_PX_CAPABLE_MASK)
+-			*cap = true;
+-	}
+-
+-	return 0;
+-}
+-
+-int vega12_baco_get_state(struct pp_hwmgr *hwmgr, enum BACO_STATE *state)
+-{
+-	struct amdgpu_device *adev = (struct amdgpu_device *)(hwmgr->adev);
+-	uint32_t reg;
+-
+-	reg = RREG32_SOC15(NBIF, 0, mmBACO_CNTL);
+-
+-	if (reg & BACO_CNTL__BACO_MODE_MASK)
+-		/* gfx has already entered BACO state */
+-		*state = BACO_STATE_IN;
+-	else
+-		*state = BACO_STATE_OUT;
+-	return 0;
+-}
+-
+ int vega12_baco_set_state(struct pp_hwmgr *hwmgr, enum BACO_STATE state)
+ {
+ 	enum BACO_STATE cur_state;
+ 
+-	vega12_baco_get_state(hwmgr, &cur_state);
++	smu9_baco_get_state(hwmgr, &cur_state);
+ 
+ 	if (cur_state == state)
+ 		/* aisc already in the target state */
+diff --git a/drivers/gpu/drm/amd/powerplay/hwmgr/vega12_baco.h b/drivers/gpu/drm/amd/powerplay/hwmgr/vega12_baco.h
+index 457670ee9dda..57b72e5a95ae 100644
+--- a/drivers/gpu/drm/amd/powerplay/hwmgr/vega12_baco.h
++++ b/drivers/gpu/drm/amd/powerplay/hwmgr/vega12_baco.h
+@@ -22,11 +22,8 @@
+  */
+ #ifndef __VEGA12_BACO_H__
+ #define __VEGA12_BACO_H__
+-#include "hwmgr.h"
+-#include "common_baco.h"
++#include "smu9_baco.h"
+ 
+-extern int vega12_baco_get_capability(struct pp_hwmgr *hwmgr, bool *cap);
+-extern int vega12_baco_get_state(struct pp_hwmgr *hwmgr, enum BACO_STATE *state);
+ extern int vega12_baco_set_state(struct pp_hwmgr *hwmgr, enum BACO_STATE state);
+ 
+ #endif
+diff --git a/drivers/gpu/drm/amd/powerplay/hwmgr/vega12_hwmgr.c b/drivers/gpu/drm/amd/powerplay/hwmgr/vega12_hwmgr.c
+index b78a6c263627..707cd4b0357f 100644
+--- a/drivers/gpu/drm/amd/powerplay/hwmgr/vega12_hwmgr.c
++++ b/drivers/gpu/drm/amd/powerplay/hwmgr/vega12_hwmgr.c
+@@ -2627,8 +2627,8 @@ static const struct pp_hwmgr_func vega12_hwmgr_funcs = {
+ 	.start_thermal_controller = vega12_start_thermal_controller,
+ 	.powergate_gfx = vega12_gfx_off_control,
+ 	.get_performance_level = vega12_get_performance_level,
+-	.get_asic_baco_capability = vega12_baco_get_capability,
+-	.get_asic_baco_state = vega12_baco_get_state,
++	.get_asic_baco_capability = smu9_baco_get_capability,
++	.get_asic_baco_state = smu9_baco_get_state,
+ 	.set_asic_baco_state = vega12_baco_set_state,
+ 	.get_ppfeature_status = vega12_get_ppfeature_status,
+ 	.set_ppfeature_status = vega12_set_ppfeature_status,
+-- 
+2.17.1
+

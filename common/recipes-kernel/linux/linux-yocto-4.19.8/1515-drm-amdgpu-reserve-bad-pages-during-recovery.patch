@@ -1,0 +1,30 @@
+From ee36795f3a2b9af337aaba61d77cbce6a93bd2fd Mon Sep 17 00:00:00 2001
+From: xinhui pan <xinhui.pan@amd.com>
+Date: Mon, 21 Jan 2019 20:33:48 +0800
+Subject: [PATCH 1515/2940] drm/amdgpu: reserve bad pages during recovery
+
+Signed-off-by: xinhui pan <xinhui.pan@amd.com>
+Reviewed-by: Alex Deucher <alexander.deucher@amd.com>
+---
+ drivers/gpu/drm/amd/amdgpu/amdgpu_device.c | 5 +++++
+ 1 file changed, 5 insertions(+)
+
+diff --git a/drivers/gpu/drm/amd/amdgpu/amdgpu_device.c b/drivers/gpu/drm/amd/amdgpu/amdgpu_device.c
+index 04ad6fa85d65..48f816c3a787 100644
+--- a/drivers/gpu/drm/amd/amdgpu/amdgpu_device.c
++++ b/drivers/gpu/drm/amd/amdgpu/amdgpu_device.c
+@@ -3445,6 +3445,11 @@ static int amdgpu_do_asic_reset(struct amdgpu_hive_info *hive,
+ 						break;
+ 				}
+ 			}
++
++			list_for_each_entry(tmp_adev, device_list_handle,
++					gmc.xgmi.head) {
++				amdgpu_ras_reserve_bad_pages(tmp_adev);
++			}
+ 		}
+ 	}
+ 
+-- 
+2.17.1
+

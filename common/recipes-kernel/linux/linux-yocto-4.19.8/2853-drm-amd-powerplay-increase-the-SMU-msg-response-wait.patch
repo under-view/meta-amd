@@ -1,0 +1,33 @@
+From 527087455febc23ff971f83286d299b82faac252 Mon Sep 17 00:00:00 2001
+From: Evan Quan <evan.quan@amd.com>
+Date: Wed, 3 Jul 2019 09:21:37 +0800
+Subject: [PATCH 2853/2940] drm/amd/powerplay: increase the SMU msg response
+ waiting time
+
+This is expected to fix some mode1 reset failures. And this
+affects SMU part only as the timeout setting for other parts
+is controlled by a different macro.
+
+Change-Id: I4c11996628cd40d559c6edea97d092f397122d78
+Signed-off-by: Evan Quan <evan.quan@amd.com>
+Acked-by: Alex Deucher <alexander.deucher@amd.com>
+---
+ drivers/gpu/drm/amd/include/amd_shared.h | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/drivers/gpu/drm/amd/include/amd_shared.h b/drivers/gpu/drm/amd/include/amd_shared.h
+index d352b8d76365..a0a7211438f2 100644
+--- a/drivers/gpu/drm/amd/include/amd_shared.h
++++ b/drivers/gpu/drm/amd/include/amd_shared.h
+@@ -26,7 +26,7 @@
+ #include <drm/amd_asic_type.h>
+ 
+ 
+-#define AMD_MAX_USEC_TIMEOUT		200000  /* 200 ms */
++#define AMD_MAX_USEC_TIMEOUT		1000000  /* 1000 ms */
+ 
+ /*
+  * Chip flags
+-- 
+2.17.1
+

@@ -1,0 +1,54 @@
+From faa1f53e79da396a9d0e45708e353ecb55d65ab8 Mon Sep 17 00:00:00 2001
+From: Sharat Masetty <smasetty@codeaurora.org>
+Date: Mon, 29 Oct 2018 15:02:28 +0530
+Subject: [PATCH 0713/2940] drm/scheduler: Add drm_sched_job_cleanup
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+This patch adds a new API to clean up the scheduler job resources. This
+is primarliy needed in cases the job was created but was not queued to
+the scheduler queue. Additionally with this change, the layer which
+creates the scheduler job also gets to free up the job's resources and
+this entails moving the dma_fence_put(finished_fence) to the drivers
+ops free handler routines.
+
+Signed-off-by: Sharat Masetty <smasetty@codeaurora.org>
+Reviewed-by: Christian König <christian.koenig@amd.com>
+Acked-by: Andrey Grodzovsky <andrey.grodzovsky@amd.com>
+Signed-off-by: Alex Deucher <alexander.deucher@amd.com>
+---
+ drivers/gpu/drm/amd/amdgpu/amdgpu_cs.c  | 3 +--
+ drivers/gpu/drm/amd/amdgpu/amdgpu_job.c | 2 ++
+ 2 files changed, 3 insertions(+), 2 deletions(-)
+
+diff --git a/drivers/gpu/drm/amd/amdgpu/amdgpu_cs.c b/drivers/gpu/drm/amd/amdgpu/amdgpu_cs.c
+index 3c5fbbd65aba..6b740e4adf10 100644
+--- a/drivers/gpu/drm/amd/amdgpu/amdgpu_cs.c
++++ b/drivers/gpu/drm/amd/amdgpu/amdgpu_cs.c
+@@ -1264,8 +1264,7 @@ static int amdgpu_cs_submit(struct amdgpu_cs_parser *p,
+ 	return 0;
+ 
+ error_abort:
+-	dma_fence_put(&job->base.s_fence->finished);
+-	job->base.s_fence = NULL;
++	drm_sched_job_cleanup(&job->base);
+ 	amdgpu_mn_unlock(p->mn);
+ 
+ error_unlock:
+diff --git a/drivers/gpu/drm/amd/amdgpu/amdgpu_job.c b/drivers/gpu/drm/amd/amdgpu/amdgpu_job.c
+index 755f733bf0d9..e0af44fd6a0c 100644
+--- a/drivers/gpu/drm/amd/amdgpu/amdgpu_job.c
++++ b/drivers/gpu/drm/amd/amdgpu/amdgpu_job.c
+@@ -112,6 +112,8 @@ static void amdgpu_job_free_cb(struct drm_sched_job *s_job)
+ 	struct amdgpu_ring *ring = to_amdgpu_ring(s_job->sched);
+ 	struct amdgpu_job *job = to_amdgpu_job(s_job);
+ 
++	drm_sched_job_cleanup(s_job);
++
+ 	amdgpu_ring_priority_put(ring, s_job->s_priority);
+ 	dma_fence_put(job->fence);
+ 	amdgpu_sync_free(&job->sync);
+-- 
+2.17.1
+

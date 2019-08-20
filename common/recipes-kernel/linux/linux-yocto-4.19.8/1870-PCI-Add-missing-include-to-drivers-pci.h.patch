@@ -1,0 +1,31 @@
+From 2b0e3ebd2360c5f41e698a5baae7247eebdd8b55 Mon Sep 17 00:00:00 2001
+From: Alexandru Gagniuc <mr.nuke.me@gmail.com>
+Date: Wed, 28 Nov 2018 16:28:04 -0600
+Subject: [PATCH 1870/2940] PCI: Add missing include to drivers/pci.h
+
+This file makes use of definitions provided in <linux/pci.h>.  This only
+compiles when <linux/pci.h> is included beforehand, and creates a nasty
+include dependency.  Instead, just include the correct file.
+
+Signed-off-by: Alexandru Gagniuc <mr.nuke.me@gmail.com>
+Signed-off-by: Bjorn Helgaas <bhelgaas@google.com>
+---
+ drivers/pci/pci.h | 2 ++
+ 1 file changed, 2 insertions(+)
+
+diff --git a/drivers/pci/pci.h b/drivers/pci/pci.h
+index 6e0d1528d471..4c79172000d1 100644
+--- a/drivers/pci/pci.h
++++ b/drivers/pci/pci.h
+@@ -2,6 +2,8 @@
+ #ifndef DRIVERS_PCI_H
+ #define DRIVERS_PCI_H
+ 
++#include <linux/pci.h>
++
+ #define PCI_FIND_CAP_TTL	48
+ 
+ #define PCI_VSEC_ID_INTEL_TBT	0x1234	/* Thunderbolt */
+-- 
+2.17.1
+

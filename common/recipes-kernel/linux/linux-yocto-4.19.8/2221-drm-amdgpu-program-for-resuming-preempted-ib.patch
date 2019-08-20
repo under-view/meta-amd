@@ -1,0 +1,44 @@
+From a3990baccda5bfa813114a355e39e63ce267569e Mon Sep 17 00:00:00 2001
+From: Jack Xiao <Jack.Xiao@amd.com>
+Date: Tue, 8 Jan 2019 15:28:52 +0800
+Subject: [PATCH 2221/2940] drm/amdgpu: program for resuming preempted ib
+
+For new submission ib, CE/DE metadata should be programmed to 0;
+for partially execution ib, CE/DE metadata should be restored.
+
+Acked-by: Alex Deucher <alexander.deucher@amd.com>
+Reviewed-by: Hawking Zhang <Hawking.Zhang@amd.com>
+Signed-off-by: Jack Xiao <Jack.Xiao@amd.com>
+Signed-off-by: Alex Deucher <alexander.deucher@amd.com>
+---
+ drivers/gpu/drm/amd/amdgpu/amdgpu_csa.c  | 1 +
+ drivers/gpu/drm/amd/amdgpu/amdgpu_virt.h | 1 +
+ 2 files changed, 2 insertions(+)
+
+diff --git a/drivers/gpu/drm/amd/amdgpu/amdgpu_csa.c b/drivers/gpu/drm/amd/amdgpu/amdgpu_csa.c
+index 54dd02a898b9..08047bc4d588 100644
+--- a/drivers/gpu/drm/amd/amdgpu/amdgpu_csa.c
++++ b/drivers/gpu/drm/amd/amdgpu/amdgpu_csa.c
+@@ -47,6 +47,7 @@ int amdgpu_allocate_static_csa(struct amdgpu_device *adev, struct amdgpu_bo **bo
+ 		return -ENOMEM;
+ 
+ 	memset(ptr, 0, size);
++	adev->virt.csa_cpu_addr = ptr;
+ 	return 0;
+ }
+ 
+diff --git a/drivers/gpu/drm/amd/amdgpu/amdgpu_virt.h b/drivers/gpu/drm/amd/amdgpu/amdgpu_virt.h
+index dca25deee75c..f5107731e9c4 100644
+--- a/drivers/gpu/drm/amd/amdgpu/amdgpu_virt.h
++++ b/drivers/gpu/drm/amd/amdgpu/amdgpu_virt.h
+@@ -253,6 +253,7 @@ typedef struct amdgim_vf2pf_info_v2 amdgim_vf2pf_info ;
+ struct amdgpu_virt {
+ 	uint32_t			caps;
+ 	struct amdgpu_bo		*csa_obj;
++	void				*csa_cpu_addr;
+ 	bool chained_ib_support;
+ 	uint32_t			reg_val_offs;
+ 	struct amdgpu_irq_src		ack_irq;
+-- 
+2.17.1
+

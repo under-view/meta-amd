@@ -1,0 +1,55 @@
+From a499d71d6d40d61ebece87bfc87729440518bc5d Mon Sep 17 00:00:00 2001
+From: Kevin Wang <kevin1.wang@amd.com>
+Date: Tue, 23 Apr 2019 13:14:15 +0800
+Subject: [PATCH 2359/2940] drm/amd/powerplay: add function
+ get_fan_speed_percent for navi10
+
+add callback function get_fan_speed_percent for navi10 asic
+
+Signed-off-by: Kevin Wang <kevin1.wang@amd.com>
+Reviewed-by: Huang Rui <ray.huang@amd.com>
+Signed-off-by: Alex Deucher <alexander.deucher@amd.com>
+---
+ drivers/gpu/drm/amd/powerplay/navi10_ppt.c | 19 +++++++++++++++++++
+ 1 file changed, 19 insertions(+)
+
+diff --git a/drivers/gpu/drm/amd/powerplay/navi10_ppt.c b/drivers/gpu/drm/amd/powerplay/navi10_ppt.c
+index fd796322fe35..1219a68e56f2 100644
+--- a/drivers/gpu/drm/amd/powerplay/navi10_ppt.c
++++ b/drivers/gpu/drm/amd/powerplay/navi10_ppt.c
+@@ -819,6 +819,24 @@ static int navi10_set_thermal_fan_table(struct smu_context *smu)
+ 	return ret;
+ }
+ 
++static int navi10_get_fan_speed_percent(struct smu_context *smu,
++					uint32_t *speed)
++{
++	int ret = 0;
++	uint32_t percent = 0;
++	uint32_t current_rpm;
++	PPTable_t *pptable = smu->smu_table.driver_pptable;
++
++	ret = smu_get_current_rpm(smu, &current_rpm);
++	if (ret)
++		return ret;
++
++	percent = current_rpm * 100 / pptable->FanMaximumRpm;
++	*speed = percent > 100 ? 100 : percent;
++
++	return ret;
++}
++
+ static const struct pptable_funcs navi10_ppt_funcs = {
+ 	.tables_init = navi10_tables_init,
+ 	.alloc_dpm_context = navi10_allocate_dpm_context,
+@@ -846,6 +864,7 @@ static const struct pptable_funcs navi10_ppt_funcs = {
+ 	.get_current_activity_percent = navi10_get_current_activity_percent,
+ 	.is_dpm_running = navi10_is_dpm_running,
+ 	.set_thermal_fan_table = navi10_set_thermal_fan_table,
++	.get_fan_speed_percent = navi10_get_fan_speed_percent,
+ };
+ 
+ void navi10_set_ppt_funcs(struct smu_context *smu)
+-- 
+2.17.1
+

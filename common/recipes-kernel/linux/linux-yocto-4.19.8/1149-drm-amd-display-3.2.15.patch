@@ -1,0 +1,29 @@
+From 459d334b151e05568ab544318e437f5d271e124d Mon Sep 17 00:00:00 2001
+From: Steven Chiu <steven.chiu@amd.com>
+Date: Fri, 11 Jan 2019 16:55:54 -0500
+Subject: [PATCH 1149/2940] drm/amd/display: 3.2.15
+
+Signed-off-by: Steven Chiu <steven.chiu@amd.com>
+Reviewed-by: Aric Cyr <Aric.Cyr@amd.com>
+Acked-by: Leo Li <sunpeng.li@amd.com>
+Signed-off-by: Alex Deucher <alexander.deucher@amd.com>
+---
+ drivers/gpu/drm/amd/display/dc/dc.h | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/drivers/gpu/drm/amd/display/dc/dc.h b/drivers/gpu/drm/amd/display/dc/dc.h
+index 7fa8c815a6d0..a794c9331c0f 100644
+--- a/drivers/gpu/drm/amd/display/dc/dc.h
++++ b/drivers/gpu/drm/amd/display/dc/dc.h
+@@ -39,7 +39,7 @@
+ #include "inc/hw/dmcu.h"
+ #include "dml/display_mode_lib.h"
+ 
+-#define DC_VER "3.2.14"
++#define DC_VER "3.2.15"
+ 
+ #define MAX_SURFACES 3
+ #define MAX_STREAMS 6
+-- 
+2.17.1
+

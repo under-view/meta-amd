@@ -1,0 +1,39 @@
+From 4b08a3278f045c0cd524c6d973dee997cceb66ba Mon Sep 17 00:00:00 2001
+From: Huang Rui <ray.huang@amd.com>
+Date: Thu, 31 Jan 2019 21:11:11 +0800
+Subject: [PATCH 2262/2940] drm/amd/powerplay: move bootup value before read
+ pptable from vbios
+
+In navi10, we need read the pp_table_id from bootup value, then decide whether
+use load the soft pptable.
+
+Signed-off-by: Huang Rui <ray.huang@amd.com>
+Reviewed-by: Hawking Zhang <Hawking.Zhang@amd.com>
+Signed-off-by: Alex Deucher <alexander.deucher@amd.com>
+---
+ drivers/gpu/drm/amd/powerplay/amdgpu_smu.c | 6 +++---
+ 1 file changed, 3 insertions(+), 3 deletions(-)
+
+diff --git a/drivers/gpu/drm/amd/powerplay/amdgpu_smu.c b/drivers/gpu/drm/amd/powerplay/amdgpu_smu.c
+index a3a6099ab8cd..88fd79d5aca6 100644
+--- a/drivers/gpu/drm/amd/powerplay/amdgpu_smu.c
++++ b/drivers/gpu/drm/amd/powerplay/amdgpu_smu.c
+@@ -628,12 +628,12 @@ static int smu_smc_table_hw_init(struct smu_context *smu,
+ 		return ret;
+ 
+ 	if (initialize) {
+-		ret = smu_read_pptable_from_vbios(smu);
++		/* get boot_values from vbios to set revision, gfxclk, and etc. */
++		ret = smu_get_vbios_bootup_values(smu);
+ 		if (ret)
+ 			return ret;
+ 
+-		/* get boot_values from vbios to set revision, gfxclk, and etc. */
+-		ret = smu_get_vbios_bootup_values(smu);
++		ret = smu_read_pptable_from_vbios(smu);
+ 		if (ret)
+ 			return ret;
+ 
+-- 
+2.17.1
+

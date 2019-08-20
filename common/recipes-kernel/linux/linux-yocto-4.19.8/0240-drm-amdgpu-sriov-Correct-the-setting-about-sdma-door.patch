@@ -1,0 +1,115 @@
+From 937b8cd17a318ab92fff664d43c364be5ac69f91 Mon Sep 17 00:00:00 2001
+From: Emily Deng <Emily.Deng@amd.com>
+Date: Thu, 9 Aug 2018 15:05:31 +0800
+Subject: [PATCH 0240/2940] drm/amdgpu/sriov: Correct the setting about sdma
+ doorbell offset of Vega10
+
+Correct the format
+
+For vega10 sriov, the sdma doorbell must be fixed as follow to keep the
+same setting with host driver, or it will happen conflicts.
+
+Change-Id: Ibe1a6c0b9c331e4d0b1169807cf45e7e4e5a82f2
+Signed-off-by: Emily Deng <Emily.Deng@amd.com>
+Acked-by: Alex Deucher <alexander.deucher@amd.com>
+Signed-off-by: Kalyan Alle <kalyan.alle@amd.com>
+---
+ drivers/gpu/drm/amd/amdgpu/amdgpu.h        |  8 +++++
+ drivers/gpu/drm/amd/amdgpu/amdgpu_amdkfd.c | 37 ++++++++++++++--------
+ drivers/gpu/drm/amd/amdgpu/sdma_v4_0.c     | 12 +++++--
+ 3 files changed, 41 insertions(+), 16 deletions(-)
+
+diff --git a/drivers/gpu/drm/amd/amdgpu/amdgpu.h b/drivers/gpu/drm/amd/amdgpu/amdgpu.h
+index b215b8b30f22..21bde18dfe7c 100644
+--- a/drivers/gpu/drm/amd/amdgpu/amdgpu.h
++++ b/drivers/gpu/drm/amd/amdgpu/amdgpu.h
+@@ -425,6 +425,14 @@ typedef enum _AMDGPU_DOORBELL64_ASSIGNMENT
+ 	AMDGPU_DOORBELL64_sDMA_ENGINE1            = 0xE8,
+ 	AMDGPU_DOORBELL64_sDMA_HI_PRI_ENGINE1     = 0xE9,
+ 
++	/* For vega10 sriov, the sdma doorbell must be fixed as follow
++	* to keep the same setting with host driver, or it will
++	* happen conflicts */
++	AMDGPU_VEGA10_DOORBELL64_sDMA_ENGINE0            = 0xF0,
++	AMDGPU_VEGA10_DOORBELL64_sDMA_HI_PRI_ENGINE0     = 0xF1,
++	AMDGPU_VEGA10_DOORBELL64_sDMA_ENGINE1            = 0xF2,
++	AMDGPU_VEGA10_DOORBELL64_sDMA_HI_PRI_ENGINE1     = 0xF3,
++
+ 	/* Interrupt handler */
+ 	AMDGPU_DOORBELL64_IH                      = 0xF4,  /* For legacy interrupt ring buffer */
+ 	AMDGPU_DOORBELL64_IH_RING1                = 0xF5,  /* For page migration request log */
+diff --git a/drivers/gpu/drm/amd/amdgpu/amdgpu_amdkfd.c b/drivers/gpu/drm/amd/amdgpu/amdgpu_amdkfd.c
+index 66396da13b6b..55b2dc7277d4 100644
+--- a/drivers/gpu/drm/amd/amdgpu/amdgpu_amdkfd.c
++++ b/drivers/gpu/drm/amd/amdgpu/amdgpu_amdkfd.c
+@@ -193,20 +193,31 @@ void amdgpu_amdkfd_device_init(struct amdgpu_device *adev)
+ 			 * process in case of 64-bit doorbells so we
+ 			 * can use each doorbell assignment twice.
+ 			 */
+-			gpu_resources.sdma_doorbell[0][0] =
+-				AMDGPU_DOORBELL64_sDMA_ENGINE0;
+-			gpu_resources.sdma_doorbell[0][1] =
+-				AMDGPU_DOORBELL64_sDMA_ENGINE0 + 0x200;
+-			gpu_resources.sdma_doorbell[1][0] =
+-				AMDGPU_DOORBELL64_sDMA_ENGINE1;
+-			gpu_resources.sdma_doorbell[1][1] =
+-				AMDGPU_DOORBELL64_sDMA_ENGINE1 + 0x200;
+-			/* Doorbells 0x0f0-0ff and 0x2f0-2ff are reserved for
+-			 * SDMA, IH and VCN. So don't use them for the CP.
+-			 */
+-			gpu_resources.reserved_doorbell_mask = 0x1f0;
+-			gpu_resources.reserved_doorbell_val  = 0x0f0;
++			if (adev->asic_type == CHIP_VEGA10) {
++				gpu_resources.sdma_doorbell[0][i] =
++					AMDGPU_VEGA10_DOORBELL64_sDMA_ENGINE0 + (i >> 1);
++				gpu_resources.sdma_doorbell[0][i+1] =
++					AMDGPU_VEGA10_DOORBELL64_sDMA_ENGINE0 + 0x200 + (i >> 1);
++				gpu_resources.sdma_doorbell[1][i] =
++					AMDGPU_VEGA10_DOORBELL64_sDMA_ENGINE1 + (i >> 1);
++				gpu_resources.sdma_doorbell[1][i+1] =
++					AMDGPU_VEGA10_DOORBELL64_sDMA_ENGINE1 + 0x200 + (i >> 1);
++			} else {
++				gpu_resources.sdma_doorbell[0][i] =
++					AMDGPU_DOORBELL64_sDMA_ENGINE0 + (i >> 1);
++				gpu_resources.sdma_doorbell[0][i+1] =
++					AMDGPU_DOORBELL64_sDMA_ENGINE0 + 0x200 + (i >> 1);
++				gpu_resources.sdma_doorbell[1][i] =
++					AMDGPU_DOORBELL64_sDMA_ENGINE1 + (i >> 1);
++				gpu_resources.sdma_doorbell[1][i+1] =
++					AMDGPU_DOORBELL64_sDMA_ENGINE1 + 0x200 + (i >> 1);
++			}
+ 		}
++		/* Doorbells 0x0f0-0ff and 0x2f0-2ff are reserved for
++		* SDMA, IH and VCN. So don't use them for the CP.
++		*/
++		gpu_resources.reserved_doorbell_mask = 0x1f0;
++		gpu_resources.reserved_doorbell_val  = 0x0f0;
+ 
+ 		kgd2kfd->device_init(adev->kfd, &gpu_resources);
+ 	}
+diff --git a/drivers/gpu/drm/amd/amdgpu/sdma_v4_0.c b/drivers/gpu/drm/amd/amdgpu/sdma_v4_0.c
+index ee0213edca8e..2ffa382b3c11 100644
+--- a/drivers/gpu/drm/amd/amdgpu/sdma_v4_0.c
++++ b/drivers/gpu/drm/amd/amdgpu/sdma_v4_0.c
+@@ -1302,9 +1302,15 @@ static int sdma_v4_0_sw_init(void *handle)
+ 		DRM_INFO("use_doorbell being set to: [%s]\n",
+ 				ring->use_doorbell?"true":"false");
+ 
+-		ring->doorbell_index = (i == 0) ?
+-			(AMDGPU_DOORBELL64_sDMA_ENGINE0 << 1) //get DWORD offset
+-			: (AMDGPU_DOORBELL64_sDMA_ENGINE1 << 1); // get DWORD offset
++		if (adev->asic_type == CHIP_VEGA10)
++			ring->doorbell_index = (i == 0) ?
++				(AMDGPU_VEGA10_DOORBELL64_sDMA_ENGINE0 << 1) //get DWORD offset
++				: (AMDGPU_VEGA10_DOORBELL64_sDMA_ENGINE1 << 1); // get DWORD offset
++		else
++			ring->doorbell_index = (i == 0) ?
++				(AMDGPU_DOORBELL64_sDMA_ENGINE0 << 1) //get DWORD offset
++				: (AMDGPU_DOORBELL64_sDMA_ENGINE1 << 1); // get DWORD offset
++
+ 
+ 		sprintf(ring->name, "sdma%d", i);
+ 		r = amdgpu_ring_init(adev, ring, 1024,
+-- 
+2.17.1
+

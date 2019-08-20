@@ -1,0 +1,29 @@
+From c23eca14ef996845584dc7938807fc24ff9009c4 Mon Sep 17 00:00:00 2001
+From: Tony Cheng <tony.cheng@amd.com>
+Date: Wed, 18 Jul 2018 20:28:54 -0400
+Subject: [PATCH 0049/2940] drm/amd/display: dc 3.1.61
+
+Signed-off-by: Tony Cheng <tony.cheng@amd.com>
+Reviewed-by: Steven Chiu <Steven.Chiu@amd.com>
+Acked-by: Leo Li <sunpeng.li@amd.com>
+Signed-off-by: Alex Deucher <alexander.deucher@amd.com>
+---
+ drivers/gpu/drm/amd/display/dc/dc.h | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/drivers/gpu/drm/amd/display/dc/dc.h b/drivers/gpu/drm/amd/display/dc/dc.h
+index 68bca8dbbdca..10107743c6e5 100644
+--- a/drivers/gpu/drm/amd/display/dc/dc.h
++++ b/drivers/gpu/drm/amd/display/dc/dc.h
+@@ -38,7 +38,7 @@
+ #include "inc/compressor.h"
+ #include "dml/display_mode_lib.h"
+ 
+-#define DC_VER "3.1.60"
++#define DC_VER "3.1.61"
+ 
+ #define MAX_SURFACES 3
+ #define MAX_STREAMS 6
+-- 
+2.17.1
+

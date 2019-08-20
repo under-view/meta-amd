@@ -1,0 +1,148 @@
+From de0423eecd758f893578ed6ecc23500bbe3c2c97 Mon Sep 17 00:00:00 2001
+From: Alex Deucher <alexander.deucher@amd.com>
+Date: Mon, 17 Jun 2019 13:06:19 -0500
+Subject: [PATCH 2123/2940] Revert "drm/amd/display: Add Underflow Asserts to
+ dc"
+
+This reverts commit 6a6a982262b57271d08a9ef552094664c86ec95f.
+
+Signed-off-by: Alex Deucher <alexander.deucher@amd.com>
+---
+ drivers/gpu/drm/amd/display/dc/dc.h           |  1 -
+ .../amd/display/dc/dcn10/dcn10_hw_sequencer.c | 32 +------------------
+ .../amd/display/dc/dcn10/dcn10_hw_sequencer.h |  2 --
+ .../drm/amd/display/dc/dcn10/dcn10_resource.c |  4 +--
+ .../gpu/drm/amd/display/dc/inc/hw_sequencer.h |  1 -
+ 5 files changed, 2 insertions(+), 38 deletions(-)
+
+diff --git a/drivers/gpu/drm/amd/display/dc/dc.h b/drivers/gpu/drm/amd/display/dc/dc.h
+index ac92021aa2c2..780d304adb58 100644
+--- a/drivers/gpu/drm/amd/display/dc/dc.h
++++ b/drivers/gpu/drm/amd/display/dc/dc.h
+@@ -332,7 +332,6 @@ struct dc_debug_options {
+ 	int sr_exit_time_ns;
+ 	int sr_enter_plus_exit_time_ns;
+ 	int urgent_latency_ns;
+-	uint32_t underflow_assert_delay_us;
+ 	int percent_of_ideal_drambw;
+ 	int dram_clock_change_latency_ns;
+ 	bool optimized_watermark;
+diff --git a/drivers/gpu/drm/amd/display/dc/dcn10/dcn10_hw_sequencer.c b/drivers/gpu/drm/amd/display/dc/dcn10/dcn10_hw_sequencer.c
+index 4a3e31e06f34..dfa2b1784c71 100644
+--- a/drivers/gpu/drm/amd/display/dc/dcn10/dcn10_hw_sequencer.c
++++ b/drivers/gpu/drm/amd/display/dc/dcn10/dcn10_hw_sequencer.c
+@@ -360,23 +360,6 @@ void dcn10_log_hw_state(struct dc *dc,
+ 	DTN_INFO_END();
+ }
+ 
+-bool dcn10_did_underflow_occur(struct dc *dc, struct pipe_ctx *pipe_ctx)
+-{
+-	struct hubp *hubp = pipe_ctx->plane_res.hubp;
+-	struct timing_generator *tg = pipe_ctx->stream_res.tg;
+-
+-	if (tg->funcs->is_optc_underflow_occurred(tg)) {
+-		tg->funcs->clear_optc_underflow(tg);
+-		return true;
+-	}
+-
+-	if (hubp->funcs->hubp_get_underflow_status(hubp)) {
+-		hubp->funcs->hubp_clear_underflow(hubp);
+-		return true;
+-	}
+-	return false;
+-}
+-
+ static void enable_power_gating_plane(
+ 	struct dce_hwseq *hws,
+ 	bool enable)
+@@ -2348,7 +2331,6 @@ static void dcn10_apply_ctx_for_surface(
+ {
+ 	int i;
+ 	struct timing_generator *tg;
+-	uint32_t underflow_check_delay_us;
+ 	bool removed_pipe[4] = { false };
+ 	bool interdependent_update = false;
+ 	struct pipe_ctx *top_pipe_to_program =
+@@ -2363,22 +2345,11 @@ static void dcn10_apply_ctx_for_surface(
+ 	interdependent_update = top_pipe_to_program->plane_state &&
+ 		top_pipe_to_program->plane_state->update_flags.bits.full_update;
+ 
+-	underflow_check_delay_us = dc->debug.underflow_assert_delay_us;
+-
+-	if (underflow_check_delay_us != 0xFFFFFFFF && dc->hwss.did_underflow_occur)
+-		ASSERT(dc->hwss.did_underflow_occur(dc, top_pipe_to_program));
+-
+ 	if (interdependent_update)
+ 		lock_all_pipes(dc, context, true);
+ 	else
+ 		dcn10_pipe_control_lock(dc, top_pipe_to_program, true);
+ 
+-	if (underflow_check_delay_us != 0xFFFFFFFF)
+-		udelay(underflow_check_delay_us);
+-
+-	if (underflow_check_delay_us != 0xFFFFFFFF && dc->hwss.did_underflow_occur)
+-		ASSERT(dc->hwss.did_underflow_occur(dc, top_pipe_to_program));
+-
+ 	if (num_planes == 0) {
+ 		/* OTG blank before remove all front end */
+ 		dc->hwss.blank_pixel_data(dc, top_pipe_to_program, true);
+@@ -3050,8 +3021,7 @@ static const struct hw_sequencer_funcs dcn10_funcs = {
+ 	.disable_stream_gating = NULL,
+ 	.enable_stream_gating = NULL,
+ 	.setup_periodic_interrupt = dcn10_setup_periodic_interrupt,
+-	.setup_vupdate_interrupt = dcn10_setup_vupdate_interrupt,
+-	.did_underflow_occur = dcn10_did_underflow_occur
++	.setup_vupdate_interrupt = dcn10_setup_vupdate_interrupt
+ };
+ 
+ 
+diff --git a/drivers/gpu/drm/amd/display/dc/dcn10/dcn10_hw_sequencer.h b/drivers/gpu/drm/amd/display/dc/dcn10/dcn10_hw_sequencer.h
+index d3616b1948cc..ef94d6b15843 100644
+--- a/drivers/gpu/drm/amd/display/dc/dcn10/dcn10_hw_sequencer.h
++++ b/drivers/gpu/drm/amd/display/dc/dcn10/dcn10_hw_sequencer.h
+@@ -71,8 +71,6 @@ void dcn10_get_hdr_visual_confirm_color(
+ 		struct pipe_ctx *pipe_ctx,
+ 		struct tg_color *color);
+ 
+-bool dcn10_did_underflow_occur(struct dc *dc, struct pipe_ctx *pipe_ctx);
+-
+ void update_dchubp_dpp(
+ 	struct dc *dc,
+ 	struct pipe_ctx *pipe_ctx,
+diff --git a/drivers/gpu/drm/amd/display/dc/dcn10/dcn10_resource.c b/drivers/gpu/drm/amd/display/dc/dcn10/dcn10_resource.c
+index 29fd3cb9422b..f6004bc53dce 100644
+--- a/drivers/gpu/drm/amd/display/dc/dcn10/dcn10_resource.c
++++ b/drivers/gpu/drm/amd/display/dc/dcn10/dcn10_resource.c
+@@ -560,7 +560,6 @@ static const struct dc_debug_options debug_defaults_drv = {
+ 		.az_endpoint_mute_only = true,
+ 		.recovery_enabled = false, /*enable this by default after testing.*/
+ 		.max_downscale_src_width = 3840,
+-		.underflow_assert_delay_us = 0xFFFFFFFF,
+ };
+ 
+ static const struct dc_debug_options debug_defaults_diags = {
+@@ -570,8 +569,7 @@ static const struct dc_debug_options debug_defaults_diags = {
+ 		.clock_trace = true,
+ 		.disable_stutter = true,
+ 		.disable_pplib_clock_request = true,
+-		.disable_pplib_wm_range = true,
+-		.underflow_assert_delay_us = 0xFFFFFFFF,
++		.disable_pplib_wm_range = true
+ };
+ 
+ static void dcn10_dpp_destroy(struct dpp **dpp)
+diff --git a/drivers/gpu/drm/amd/display/dc/inc/hw_sequencer.h b/drivers/gpu/drm/amd/display/dc/inc/hw_sequencer.h
+index dab0168cd5cb..eb1c12ed026a 100644
+--- a/drivers/gpu/drm/amd/display/dc/inc/hw_sequencer.h
++++ b/drivers/gpu/drm/amd/display/dc/inc/hw_sequencer.h
+@@ -240,7 +240,6 @@ struct hw_sequencer_funcs {
+ 
+ 	void (*setup_periodic_interrupt)(struct pipe_ctx *pipe_ctx, enum vline_select vline);
+ 	void (*setup_vupdate_interrupt)(struct pipe_ctx *pipe_ctx);
+-	bool (*did_underflow_occur)(struct dc *dc, struct pipe_ctx *pipe_ctx);
+ 
+ };
+ 
+-- 
+2.17.1
+

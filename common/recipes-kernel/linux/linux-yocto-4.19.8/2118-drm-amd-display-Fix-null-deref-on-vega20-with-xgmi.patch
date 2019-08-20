@@ -1,0 +1,106 @@
+From d69d3251a3d201036c04c13050289dc392b2a1a9 Mon Sep 17 00:00:00 2001
+From: Roman Li <Roman.Li@amd.com>
+Date: Tue, 18 Jun 2019 11:25:25 -0400
+Subject: [PATCH 2118/2940] drm/amd/display: Fix null-deref on vega20 with xgmi
+
+[Why]
+After clkmgr rework it gets initialized after resource pool.
+The clkmgr is used in resource pool init for xgmi path.
+That causes driver crash on Vega20 with xgmi due to NULL deref.
+
+[How]
+Move xgmi compensation code to dce121_clk_mgr_construct()
+That also allows to make dce121_clock_patch_xgmi_ss_info()
+internal static function.
+
+Change-Id: Id3fa44bdeb2974b3580a535cc50692bfa8b01e27
+Signed-off-by: Roman Li <Roman.Li@amd.com>
+Reviewed-by: Nicholas Kazlauskas <nicholas.kazlauskas@amd.com>
+---
+ .../amd/display/dc/clk_mgr/dce120/dce120_clk_mgr.c | 14 +++++++++++---
+ .../drm/amd/display/dc/dce120/dce120_resource.c    | 10 ----------
+ drivers/gpu/drm/amd/display/dc/inc/hw/clk_mgr.h    |  2 --
+ 3 files changed, 11 insertions(+), 15 deletions(-)
+
+diff --git a/drivers/gpu/drm/amd/display/dc/clk_mgr/dce120/dce120_clk_mgr.c b/drivers/gpu/drm/amd/display/dc/clk_mgr/dce120/dce120_clk_mgr.c
+index 08f2e253ccb0..906310c3e2eb 100644
+--- a/drivers/gpu/drm/amd/display/dc/clk_mgr/dce120/dce120_clk_mgr.c
++++ b/drivers/gpu/drm/amd/display/dc/clk_mgr/dce120/dce120_clk_mgr.c
+@@ -30,6 +30,7 @@
+ #include "dce110/dce110_clk_mgr.h"
+ #include "dce120_clk_mgr.h"
+ #include "dce100/dce_clk_mgr.h"
++#include "dce120/dce120_hw_sequencer.h"
+ 
+ static const struct state_dependent_clocks dce120_max_clks_by_state[] = {
+ /*ClocksStateInvalid - should not be used*/
+@@ -45,16 +46,15 @@ static const struct state_dependent_clocks dce120_max_clks_by_state[] = {
+ 
+ /**
+  * dce121_clock_patch_xgmi_ss_info() - Save XGMI spread spectrum info
+- * @clk_mgr: clock manager base structure
++ * @clk_mgr_dce: clock manager internal structure
+  *
+  * Reads from VBIOS the XGMI spread spectrum info and saves it within
+  * the dce clock manager. This operation will overwrite the existing dprefclk
+  * SS values if the vBIOS query succeeds. Otherwise, it does nothing. It also
+  * sets the ->xgmi_enabled flag.
+  */
+-void dce121_clock_patch_xgmi_ss_info(struct clk_mgr *clk_mgr_base)
++static void dce121_clock_patch_xgmi_ss_info(struct clk_mgr_internal *clk_mgr_dce)
+ {
+-	struct clk_mgr_internal *clk_mgr_dce = TO_CLK_MGR_INTERNAL(clk_mgr_base);
+ 	enum bp_result result;
+ 	struct spread_spectrum_info info = { { 0 } };
+ 	struct dc_bios *bp = clk_mgr_dce->base.ctx->dc_bios;
+@@ -141,5 +141,13 @@ void dce121_clk_mgr_construct(struct dc_context *ctx, struct clk_mgr_internal *c
+ {
+ 	dce120_clk_mgr_construct(ctx, clk_mgr);
+ 	clk_mgr->base.dprefclk_khz = 625000;
++
++	/*
++	 * The xGMI enabled info is used to determine if audio and display
++	 * clocks need to be adjusted with the WAFL link's SS info.
++	 */
++	if (dce121_xgmi_enabled(ctx->dc->hwseq))
++		dce121_clock_patch_xgmi_ss_info(clk_mgr);
++
+ }
+ 
+diff --git a/drivers/gpu/drm/amd/display/dc/dce120/dce120_resource.c b/drivers/gpu/drm/amd/display/dc/dce120/dce120_resource.c
+index afa1c6029835..719c020cc1f7 100644
+--- a/drivers/gpu/drm/amd/display/dc/dce120/dce120_resource.c
++++ b/drivers/gpu/drm/amd/display/dc/dce120/dce120_resource.c
+@@ -1163,16 +1163,6 @@ static bool construct(
+ 	if (!resource_construct(num_virtual_links, dc, &pool->base, res_funcs))
+ 		goto res_create_fail;
+ 
+-	/*
+-	 * This is a bit of a hack. The xGMI enabled info is used to determine
+-	 * if audio and display clocks need to be adjusted with the WAFL link's
+-	 * SS info. This is a responsiblity of the clk_mgr. But since MMHUB is
+-	 * under hwseq, and the relevant register is in MMHUB, we have to do it
+-	 * here.
+-	 */
+-	if (is_vg20 && dce121_xgmi_enabled(dc->hwseq))
+-		dce121_clock_patch_xgmi_ss_info(dc->clk_mgr);
+-
+ 	/* Create hardware sequencer */
+ 	if (!dce120_hw_sequencer_create(dc))
+ 		goto controller_create_fail;
+diff --git a/drivers/gpu/drm/amd/display/dc/inc/hw/clk_mgr.h b/drivers/gpu/drm/amd/display/dc/inc/hw/clk_mgr.h
+index 721e13135e76..36ebd5bc7863 100644
+--- a/drivers/gpu/drm/amd/display/dc/inc/hw/clk_mgr.h
++++ b/drivers/gpu/drm/amd/display/dc/inc/hw/clk_mgr.h
+@@ -53,8 +53,6 @@ struct clk_mgr_funcs {
+ 	void (*enable_pme_wa) (struct clk_mgr *clk_mgr);
+ };
+ 
+-void dce121_clock_patch_xgmi_ss_info(struct clk_mgr *clk_mgr_base);
+-
+ struct clk_mgr {
+ 	struct dc_context *ctx;
+ 	struct clk_mgr_funcs *funcs;
+-- 
+2.17.1
+

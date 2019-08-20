@@ -1,0 +1,33 @@
+From 152acf37c9af787825ef818d862f51661c62aef1 Mon Sep 17 00:00:00 2001
+From: Evan Quan <evan.quan@amd.com>
+Date: Wed, 28 Nov 2018 16:33:30 +0800
+Subject: [PATCH 0897/2940] drm/amd/powerplay: support new pptable upload on
+ Vega20
+
+New pptable upload through sysfs interface is supported.
+
+Signed-off-by: Evan Quan <evan.quan@amd.com>
+Acked-by: Alex Deucher <alexander.deucher@amd.com>
+Signed-off-by: Alex Deucher <alexander.deucher@amd.com>
+---
+ drivers/gpu/drm/amd/powerplay/hwmgr/hardwaremanager.c | 4 +++-
+ 1 file changed, 3 insertions(+), 1 deletion(-)
+
+diff --git a/drivers/gpu/drm/amd/powerplay/hwmgr/hardwaremanager.c b/drivers/gpu/drm/amd/powerplay/hwmgr/hardwaremanager.c
+index 85119c2bdcc8..a2a7e0e94aa6 100644
+--- a/drivers/gpu/drm/amd/powerplay/hwmgr/hardwaremanager.c
++++ b/drivers/gpu/drm/amd/powerplay/hwmgr/hardwaremanager.c
+@@ -80,7 +80,9 @@ int phm_enable_dynamic_state_management(struct pp_hwmgr *hwmgr)
+ 	PHM_FUNC_CHECK(hwmgr);
+ 	adev = hwmgr->adev;
+ 
+-	if (smum_is_dpm_running(hwmgr) && !amdgpu_passthrough(adev)) {
++	/* Skip for suspend/resume case */
++	if (smum_is_dpm_running(hwmgr) && !amdgpu_passthrough(adev)
++		&& adev->in_suspend) {
+ 		pr_info("dpm has been enabled\n");
+ 		return 0;
+ 	}
+-- 
+2.17.1
+

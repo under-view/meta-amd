@@ -1,0 +1,99 @@
+From cdc905abe2dde45f96c54025bf5160cd8173e575 Mon Sep 17 00:00:00 2001
+From: Gary Kattan <gary.kattan@amd.com>
+Date: Fri, 25 Jan 2019 15:04:14 -0800
+Subject: [PATCH 1262/2940] drm/amd/display: Ungate stream before programming
+ registers
+
+[Why]
+Certain tests fail after a fresh reboot. This is caused by writing to
+registers prior to ungating the stream we're trying to program.
+
+[How]
+Make sure the stream is ungated before writing to its registers.
+This also enables power-gating plane resources before init_hw
+initializes them.
+Additionally, this does some refactoring to move gating/ungating
+from enable/disable_plane functions to where stream resources are
+enabled/disabled.
+
+Signed-off-by: Gary Kattan <gary.kattan@amd.com>
+Reviewed-by: Dmytro Laktyushkin <Dmytro.Laktyushkin@amd.com>
+Acked-by: Leo Li <sunpeng.li@amd.com>
+---
+ .../gpu/drm/amd/display/dc/dce110/dce110_hw_sequencer.c   | 6 ++++++
+ drivers/gpu/drm/amd/display/dc/dcn10/dcn10_hw_sequencer.c | 8 ++++++--
+ drivers/gpu/drm/amd/display/dc/inc/hw_sequencer.h         | 4 ++++
+ 3 files changed, 16 insertions(+), 2 deletions(-)
+
+diff --git a/drivers/gpu/drm/amd/display/dc/dce110/dce110_hw_sequencer.c b/drivers/gpu/drm/amd/display/dc/dce110/dce110_hw_sequencer.c
+index a28fade62752..b5fe3eb3c93c 100644
+--- a/drivers/gpu/drm/amd/display/dc/dce110/dce110_hw_sequencer.c
++++ b/drivers/gpu/drm/amd/display/dc/dce110/dce110_hw_sequencer.c
+@@ -1300,6 +1300,10 @@ static enum dc_status apply_single_controller_ctx_to_hw(
+ 	struct drr_params params = {0};
+ 	unsigned int event_triggers = 0;
+ 
++	if (dc->hwss.disable_stream_gating) {
++		dc->hwss.disable_stream_gating(dc, pipe_ctx);
++	}
++
+ 	if (pipe_ctx->stream_res.audio != NULL) {
+ 		struct audio_output audio_output;
+ 
+@@ -2684,6 +2688,8 @@ static const struct hw_sequencer_funcs dce110_funcs = {
+ 	.set_static_screen_control = set_static_screen_control,
+ 	.reset_hw_ctx_wrap = dce110_reset_hw_ctx_wrap,
+ 	.enable_stream_timing = dce110_enable_stream_timing,
++	.disable_stream_gating = NULL,
++	.enable_stream_gating = NULL,
+ 	.setup_stereo = NULL,
+ 	.set_avmute = dce110_set_avmute,
+ 	.wait_for_mpcc_disconnect = dce110_wait_for_mpcc_disconnect,
+diff --git a/drivers/gpu/drm/amd/display/dc/dcn10/dcn10_hw_sequencer.c b/drivers/gpu/drm/amd/display/dc/dcn10/dcn10_hw_sequencer.c
+index 05e5aa13602f..23b85a3f1b79 100644
+--- a/drivers/gpu/drm/amd/display/dc/dcn10/dcn10_hw_sequencer.c
++++ b/drivers/gpu/drm/amd/display/dc/dcn10/dcn10_hw_sequencer.c
+@@ -1165,11 +1165,13 @@ static void reset_hw_ctx_wrap(
+ 			struct clock_source *old_clk = pipe_ctx_old->clock_source;
+ 
+ 			reset_back_end_for_pipe(dc, pipe_ctx_old, dc->current_state);
++			if (dc->hwss.enable_stream_gating) {
++				dc->hwss.enable_stream_gating(dc, pipe_ctx);
++			}
+ 			if (old_clk)
+ 				old_clk->funcs->cs_power_down(old_clk);
+ 		}
+ 	}
+-
+ }
+ 
+ static bool patch_address_for_sbs_tb_stereo(
+@@ -2785,7 +2787,9 @@ static const struct hw_sequencer_funcs dcn10_funcs = {
+ 	.edp_wait_for_hpd_ready = hwss_edp_wait_for_hpd_ready,
+ 	.set_cursor_position = dcn10_set_cursor_position,
+ 	.set_cursor_attribute = dcn10_set_cursor_attribute,
+-	.set_cursor_sdr_white_level = dcn10_set_cursor_sdr_white_level
++	.set_cursor_sdr_white_level = dcn10_set_cursor_sdr_white_level,
++	.disable_stream_gating = NULL,
++	.enable_stream_gating = NULL
+ };
+ 
+ 
+diff --git a/drivers/gpu/drm/amd/display/dc/inc/hw_sequencer.h b/drivers/gpu/drm/amd/display/dc/inc/hw_sequencer.h
+index 341b4810288c..fc03320c81a1 100644
+--- a/drivers/gpu/drm/amd/display/dc/inc/hw_sequencer.h
++++ b/drivers/gpu/drm/amd/display/dc/inc/hw_sequencer.h
+@@ -68,6 +68,10 @@ struct stream_resource;
+ 
+ struct hw_sequencer_funcs {
+ 
++	void (*disable_stream_gating)(struct dc *dc, struct pipe_ctx *pipe_ctx);
++
++	void (*enable_stream_gating)(struct dc *dc, struct pipe_ctx *pipe_ctx);
++
+ 	void (*init_hw)(struct dc *dc);
+ 
+ 	void (*init_pipes)(struct dc *dc, struct dc_state *context);
+-- 
+2.17.1
+

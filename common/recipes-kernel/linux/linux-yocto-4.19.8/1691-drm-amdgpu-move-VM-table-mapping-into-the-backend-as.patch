@@ -1,0 +1,166 @@
+From 3ef41069cb9052088e5adf115fb74b1be54ac978 Mon Sep 17 00:00:00 2001
+From: =?UTF-8?q?Christian=20K=C3=B6nig?= <christian.koenig@amd.com>
+Date: Thu, 21 Mar 2019 16:34:18 +0100
+Subject: [PATCH 1691/2940] drm/amdgpu: move VM table mapping into the backend
+ as well
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+Clean that up further and also fix another case where the BO
+wasn't kmapped for CPU based updates.
+
+Signed-off-by: Christian König <christian.koenig@amd.com>
+Reviewed-by: Felix Kuehling <Felix.Kuehling@amd.com>
+---
+ drivers/gpu/drm/amd/amdgpu/amdgpu_vm.c      | 30 +++------------------
+ drivers/gpu/drm/amd/amdgpu/amdgpu_vm.h      |  2 +-
+ drivers/gpu/drm/amd/amdgpu/amdgpu_vm_cpu.c  | 11 ++++++++
+ drivers/gpu/drm/amd/amdgpu/amdgpu_vm_sdma.c | 20 ++++++++++++++
+ 4 files changed, 36 insertions(+), 27 deletions(-)
+
+diff --git a/drivers/gpu/drm/amd/amdgpu/amdgpu_vm.c b/drivers/gpu/drm/amd/amdgpu/amdgpu_vm.c
+index 8492a38ffb37..530a42d914e7 100644
+--- a/drivers/gpu/drm/amd/amdgpu/amdgpu_vm.c
++++ b/drivers/gpu/drm/amd/amdgpu/amdgpu_vm.c
+@@ -639,17 +639,7 @@ int amdgpu_vm_validate_pt_bos(struct amdgpu_device *adev, struct amdgpu_vm *vm,
+ 		if (bo->tbo.type != ttm_bo_type_kernel) {
+ 			amdgpu_vm_bo_moved(bo_base);
+ 		} else {
+-			if (vm->use_cpu_for_update)
+-				r = amdgpu_bo_kmap(bo, NULL);
+-			else
+-				r = amdgpu_ttm_alloc_gart(&bo->tbo);
+-			if (r)
+-				break;
+-			if (bo->shadow) {
+-				r = amdgpu_ttm_alloc_gart(&bo->shadow->tbo);
+-				if (r)
+-					break;
+-			}
++			vm->update_funcs->map_table(bo);
+ 			amdgpu_vm_bo_relocated(bo_base);
+ 		}
+ 	}
+@@ -731,22 +721,16 @@ static int amdgpu_vm_clear_bo(struct amdgpu_device *adev,
+ 	if (r)
+ 		return r;
+ 
+-	r = amdgpu_ttm_alloc_gart(&bo->tbo);
+-	if (r)
+-		return r;
+-
+         if (bo->shadow) {
+                 r = ttm_bo_validate(&bo->shadow->tbo, &bo->shadow->placement,
+                                     &ctx);
+                 if (r)
+                         return r;
+-
+-                r = amdgpu_ttm_alloc_gart(&bo->shadow->tbo);
+-                if (r)
+-                        return r;
+-
+         }
+ 
++	r = vm->update_funcs->map_table(bo);
++	if (r)
++		return r;
+         memset(&params, 0, sizeof(params));
+         params.adev = adev;
+         params.vm = vm;
+@@ -857,12 +841,6 @@ static int amdgpu_vm_alloc_pts(struct amdgpu_device *adev,
+ 	if (r)
+ 		return r;
+ 
+-	if (vm->use_cpu_for_update) {
+-		r = amdgpu_bo_kmap(pt, NULL);
+-		if (r)
+-			goto error_free_pt;
+-	}
+-
+ 	/* Keep a reference to the root directory to avoid
+ 	 * freeing them up in the wrong order.
+ 	 */
+diff --git a/drivers/gpu/drm/amd/amdgpu/amdgpu_vm.h b/drivers/gpu/drm/amd/amdgpu/amdgpu_vm.h
+index 0f8d4bcc71ab..65e2f0c3ebf6 100644
+--- a/drivers/gpu/drm/amd/amdgpu/amdgpu_vm.h
++++ b/drivers/gpu/drm/amd/amdgpu/amdgpu_vm.h
+@@ -215,7 +215,7 @@ struct amdgpu_vm_update_params {
+ };
+ 
+ struct amdgpu_vm_update_funcs {
+-
++	int (*map_table)(struct amdgpu_bo *bo);
+ 	int (*prepare)(struct amdgpu_vm_update_params *p, void * owner,
+ 		       struct dma_fence *exclusive);
+ 	int (*update)(struct amdgpu_vm_update_params *p,
+diff --git a/drivers/gpu/drm/amd/amdgpu/amdgpu_vm_cpu.c b/drivers/gpu/drm/amd/amdgpu/amdgpu_vm_cpu.c
+index 9d53982021de..5222d165abfc 100644
+--- a/drivers/gpu/drm/amd/amdgpu/amdgpu_vm_cpu.c
++++ b/drivers/gpu/drm/amd/amdgpu/amdgpu_vm_cpu.c
+@@ -24,6 +24,16 @@
+ #include "amdgpu_object.h"
+ #include "amdgpu_trace.h"
+ 
++/**
++ * amdgpu_vm_cpu_map_table - make sure new PDs/PTs are kmapped
++ *
++ * @table: newly allocated or validated PD/PT
++ */
++static int amdgpu_vm_cpu_map_table(struct amdgpu_bo *table)
++{
++	return amdgpu_bo_kmap(table, NULL);
++}
++
+ /**
+  * amdgpu_vm_cpu_prepare - prepare page table update with the CPU
+  *
+@@ -110,6 +120,7 @@ static int amdgpu_vm_cpu_commit(struct amdgpu_vm_update_params *p,
+ }
+ 
+ const struct amdgpu_vm_update_funcs amdgpu_vm_cpu_funcs = {
++	.map_table = amdgpu_vm_cpu_map_table,
+ 	.prepare = amdgpu_vm_cpu_prepare,
+ 	.update = amdgpu_vm_cpu_update,
+ 	.commit = amdgpu_vm_cpu_commit
+diff --git a/drivers/gpu/drm/amd/amdgpu/amdgpu_vm_sdma.c b/drivers/gpu/drm/amd/amdgpu/amdgpu_vm_sdma.c
+index e4bacdb44c68..4bccd69fe30d 100644
+--- a/drivers/gpu/drm/amd/amdgpu/amdgpu_vm_sdma.c
++++ b/drivers/gpu/drm/amd/amdgpu/amdgpu_vm_sdma.c
+@@ -28,6 +28,25 @@
+ #define AMDGPU_VM_SDMA_MIN_NUM_DW	256u
+ #define AMDGPU_VM_SDMA_MAX_NUM_DW	(16u * 1024u)
+ 
++/**
++ * amdgpu_vm_sdma_map_table - make sure new PDs/PTs are GTT mapped
++ *
++ * @table: newly allocated or validated PD/PT
++ */
++static int amdgpu_vm_sdma_map_table(struct amdgpu_bo *table)
++{
++	int r;
++
++	r = amdgpu_ttm_alloc_gart(&table->tbo);
++	if (r)
++		return r;
++
++	if (table->shadow)
++		r = amdgpu_ttm_alloc_gart(&table->shadow->tbo);
++
++	return r;
++}
++
+ /**
+  * amdgpu_vm_sdma_prepare - prepare SDMA command submission
+  *
+@@ -242,6 +261,7 @@ static int amdgpu_vm_sdma_update(struct amdgpu_vm_update_params *p,
+ }
+ 
+ const struct amdgpu_vm_update_funcs amdgpu_vm_sdma_funcs = {
++	.map_table = amdgpu_vm_sdma_map_table,
+ 	.prepare = amdgpu_vm_sdma_prepare,
+ 	.update = amdgpu_vm_sdma_update,
+ 	.commit = amdgpu_vm_sdma_commit
+-- 
+2.17.1
+

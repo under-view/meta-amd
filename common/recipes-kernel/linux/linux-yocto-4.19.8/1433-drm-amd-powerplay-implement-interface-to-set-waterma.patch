@@ -1,0 +1,195 @@
+From 2a5758149de1801eaada3cfd855dbb47ec03f52d Mon Sep 17 00:00:00 2001
+From: Huang Rui <ray.huang@amd.com>
+Date: Thu, 17 Jan 2019 15:25:37 +0800
+Subject: [PATCH 1433/2940] drm/amd/powerplay: implement interface to set
+ watermarks for clock ranges
+
+This patch implements inteferface to set watermarks table for clock ranges on
+smu 11. It fills watermark table before it is written to SMC.
+
+Signed-off-by: Huang Rui <ray.huang@amd.com>
+Reviewed-by: Kevin Wang <Kevin1.Wang@amd.com>
+Acked-by: Alex Deucher <alexander.deucher@amd.com>
+---
+ .../amd/display/amdgpu_dm/amdgpu_dm_pp_smu.c  | 11 ++-
+ drivers/gpu/drm/amd/powerplay/amdgpu_smu.c    |  1 +
+ .../gpu/drm/amd/powerplay/inc/amdgpu_smu.h    |  9 +++
+ drivers/gpu/drm/amd/powerplay/smu_v11_0.c     | 80 +++++++++++++++++++
+ 4 files changed, 97 insertions(+), 4 deletions(-)
+
+diff --git a/drivers/gpu/drm/amd/display/amdgpu_dm/amdgpu_dm_pp_smu.c b/drivers/gpu/drm/amd/display/amdgpu_dm/amdgpu_dm_pp_smu.c
+index 70763ecf298e..dc0bc544d26c 100644
+--- a/drivers/gpu/drm/amd/display/amdgpu_dm/amdgpu_dm_pp_smu.c
++++ b/drivers/gpu/drm/amd/display/amdgpu_dm/amdgpu_dm_pp_smu.c
+@@ -548,9 +548,6 @@ void pp_rv_set_wm_ranges(struct pp_smu *pp,
+ 	wm_with_clock_ranges.num_wm_dmif_sets = ranges->num_reader_wm_sets;
+ 	wm_with_clock_ranges.num_wm_mcif_sets = ranges->num_writer_wm_sets;
+ 
+-	if (!pp_funcs || !pp_funcs->set_watermarks_for_clocks_ranges)
+-		return;
+-
+ 	for (i = 0; i < wm_with_clock_ranges.num_wm_dmif_sets; i++) {
+ 		if (ranges->reader_wm_sets[i].wm_inst > 3)
+ 			wm_dce_clocks[i].wm_set_id = WM_SET_A;
+@@ -583,7 +580,13 @@ void pp_rv_set_wm_ranges(struct pp_smu *pp,
+ 				ranges->writer_wm_sets[i].min_drain_clk_mhz * 1000;
+ 	}
+ 
+-	pp_funcs->set_watermarks_for_clocks_ranges(pp_handle, &wm_with_clock_ranges);
++	if (pp_funcs && pp_funcs->set_watermarks_for_clocks_ranges)
++		pp_funcs->set_watermarks_for_clocks_ranges(pp_handle,
++							   &wm_with_clock_ranges);
++	else if (adev->smu.funcs &&
++		 adev->smu.funcs->set_watermarks_for_clock_ranges)
++		smu_set_watermarks_for_clock_ranges(&adev->smu,
++						    &wm_with_clock_ranges);
+ }
+ 
+ void pp_rv_set_pme_wa_enable(struct pp_smu *pp)
+diff --git a/drivers/gpu/drm/amd/powerplay/amdgpu_smu.c b/drivers/gpu/drm/amd/powerplay/amdgpu_smu.c
+index 9e60f56853b2..e6915ef55b6a 100644
+--- a/drivers/gpu/drm/amd/powerplay/amdgpu_smu.c
++++ b/drivers/gpu/drm/amd/powerplay/amdgpu_smu.c
+@@ -329,6 +329,7 @@ static int smu_sw_init(void *handle)
+ 	bitmap_zero(smu->smu_feature.supported, SMU_FEATURE_MAX);
+ 	bitmap_zero(smu->smu_feature.enabled, SMU_FEATURE_MAX);
+ 	bitmap_zero(smu->smu_feature.allowed, SMU_FEATURE_MAX);
++	smu->watermarks_bitmap = 0;
+ 
+ 	ret = smu_init_microcode(smu);
+ 	if (ret) {
+diff --git a/drivers/gpu/drm/amd/powerplay/inc/amdgpu_smu.h b/drivers/gpu/drm/amd/powerplay/inc/amdgpu_smu.h
+index 53bdc1c71fcd..97d44a668169 100644
+--- a/drivers/gpu/drm/amd/powerplay/inc/amdgpu_smu.h
++++ b/drivers/gpu/drm/amd/powerplay/inc/amdgpu_smu.h
+@@ -235,6 +235,11 @@ struct smu_context
+ 	uint32_t default_power_limit;
+ 
+ 	bool support_power_containment;
++	bool disable_watermark;
++
++#define WATERMARKS_EXIST	(1 << 0)
++#define WATERMARKS_LOADED	(1 << 1)
++	uint32_t watermarks_bitmap;
+ };
+ 
+ struct pptable_funcs {
+@@ -320,6 +325,8 @@ struct smu_funcs
+ 	int (*get_current_shallow_sleep_clocks)(struct smu_context *smu,
+ 						struct smu_clock_info *clocks);
+ 	int (*notify_smu_enable_pwe)(struct smu_context *smu);
++	int (*set_watermarks_for_clock_ranges)(struct smu_context *smu,
++					       struct dm_pp_wm_sets_with_clock_ranges_soc15 *clock_ranges);
+ };
+ 
+ #define smu_init_microcode(smu) \
+@@ -439,6 +446,8 @@ struct smu_funcs
+ 	((smu)->funcs->get_current_shallow_sleep_clocks ? (smu)->funcs->get_current_shallow_sleep_clocks((smu), (clocks)) : 0)
+ #define smu_notify_smu_enable_pwe(smu) \
+ 	((smu)->funcs->notify_smu_enable_pwe ? (smu)->funcs->notify_smu_enable_pwe((smu)) : 0)
++#define smu_set_watermarks_for_clock_ranges(smu, clock_ranges) \
++	((smu)->funcs->set_watermarks_for_clock_ranges ? (smu)->funcs->set_watermarks_for_clock_ranges((smu), (clock_ranges)) : 0)
+ 
+ 
+ extern int smu_get_atom_data_table(struct smu_context *smu, uint32_t table,
+diff --git a/drivers/gpu/drm/amd/powerplay/smu_v11_0.c b/drivers/gpu/drm/amd/powerplay/smu_v11_0.c
+index 04d949e220d2..e455ed4e09a8 100644
+--- a/drivers/gpu/drm/amd/powerplay/smu_v11_0.c
++++ b/drivers/gpu/drm/amd/powerplay/smu_v11_0.c
+@@ -1167,6 +1167,85 @@ smu_v11_0_display_clock_voltage_request(struct smu_context *smu,
+ 	return ret;
+ }
+ 
++static int smu_v11_0_set_watermarks_table(struct smu_context *smu,
++					  Watermarks_t *table, struct
++					  dm_pp_wm_sets_with_clock_ranges_soc15
++					  *clock_ranges)
++{
++	int i;
++
++	if (!table || !clock_ranges)
++		return -EINVAL;
++
++	if (clock_ranges->num_wm_dmif_sets > 4 ||
++	    clock_ranges->num_wm_mcif_sets > 4)
++                return -EINVAL;
++
++        for (i = 0; i < clock_ranges->num_wm_dmif_sets; i++) {
++		table->WatermarkRow[1][i].MinClock =
++			cpu_to_le16((uint16_t)
++			(clock_ranges->wm_dmif_clocks_ranges[i].wm_min_dcfclk_clk_in_khz /
++			1000));
++		table->WatermarkRow[1][i].MaxClock =
++			cpu_to_le16((uint16_t)
++			(clock_ranges->wm_dmif_clocks_ranges[i].wm_max_dcfclk_clk_in_khz /
++			1000));
++		table->WatermarkRow[1][i].MinUclk =
++			cpu_to_le16((uint16_t)
++			(clock_ranges->wm_dmif_clocks_ranges[i].wm_min_mem_clk_in_khz /
++			1000));
++		table->WatermarkRow[1][i].MaxUclk =
++			cpu_to_le16((uint16_t)
++			(clock_ranges->wm_dmif_clocks_ranges[i].wm_max_mem_clk_in_khz /
++			1000));
++		table->WatermarkRow[1][i].WmSetting = (uint8_t)
++				clock_ranges->wm_dmif_clocks_ranges[i].wm_set_id;
++        }
++
++	for (i = 0; i < clock_ranges->num_wm_mcif_sets; i++) {
++		table->WatermarkRow[0][i].MinClock =
++			cpu_to_le16((uint16_t)
++			(clock_ranges->wm_mcif_clocks_ranges[i].wm_min_socclk_clk_in_khz /
++			1000));
++		table->WatermarkRow[0][i].MaxClock =
++			cpu_to_le16((uint16_t)
++			(clock_ranges->wm_mcif_clocks_ranges[i].wm_max_socclk_clk_in_khz /
++			1000));
++		table->WatermarkRow[0][i].MinUclk =
++			cpu_to_le16((uint16_t)
++			(clock_ranges->wm_mcif_clocks_ranges[i].wm_min_mem_clk_in_khz /
++			1000));
++		table->WatermarkRow[0][i].MaxUclk =
++			cpu_to_le16((uint16_t)
++			(clock_ranges->wm_mcif_clocks_ranges[i].wm_max_mem_clk_in_khz /
++			1000));
++		table->WatermarkRow[0][i].WmSetting = (uint8_t)
++				clock_ranges->wm_mcif_clocks_ranges[i].wm_set_id;
++        }
++
++	return 0;
++}
++
++static int
++smu_v11_0_set_watermarks_for_clock_ranges(struct smu_context *smu, struct
++					  dm_pp_wm_sets_with_clock_ranges_soc15
++					  *clock_ranges)
++{
++	int ret = 0;
++	struct smu_table *watermarks = &smu->smu_table.tables[TABLE_WATERMARKS];
++	Watermarks_t *table = watermarks->cpu_addr;
++
++	if (!smu->disable_watermark &&
++	    smu_feature_is_enabled(smu, FEATURE_DPM_DCEFCLK_BIT) &&
++	    smu_feature_is_enabled(smu, FEATURE_DPM_SOCCLK_BIT)) {
++		smu_v11_0_set_watermarks_table(smu, table, clock_ranges);
++		smu->watermarks_bitmap |= WATERMARKS_EXIST;
++		smu->watermarks_bitmap &= ~WATERMARKS_LOADED;
++	}
++
++	return ret;
++}
++
+ static const struct smu_funcs smu_v11_0_funcs = {
+ 	.init_microcode = smu_v11_0_init_microcode,
+ 	.load_microcode = smu_v11_0_load_microcode,
+@@ -1202,6 +1281,7 @@ static const struct smu_funcs smu_v11_0_funcs = {
+ 	.read_sensor = smu_v11_0_read_sensor,
+ 	.set_deep_sleep_dcefclk = smu_v11_0_set_deep_sleep_dcefclk,
+ 	.display_clock_voltage_request = smu_v11_0_display_clock_voltage_request,
++	.set_watermarks_for_clock_ranges = smu_v11_0_set_watermarks_for_clock_ranges,
+ };
+ 
+ void smu_v11_0_set_smu_funcs(struct smu_context *smu)
+-- 
+2.17.1
+

@@ -1,0 +1,110 @@
+From 188f3314a3cfe38dfab36c176777d709b8cd2606 Mon Sep 17 00:00:00 2001
+From: Vitaly Prosyak <vitaly.prosyak@amd.com>
+Date: Thu, 18 Apr 2019 09:51:12 -0500
+Subject: [PATCH 2537/2940] drm/amd/display: Integrate color transform3x4 with
+ 3dlut tm
+
+[Why & How]
+Reuse existent code path (dcn1+) and in order to do that apply de gamma
+in 1D blender LUT and re use MPC OGAM.
+Follow up is required.
+
+Signed-off-by: Vitaly Prosyak <vitaly.prosyak@amd.com>
+Reviewed-by: Aric Cyr <Aric.Cyr@amd.com>
+Acked-by: Bhawanpreet Lakha <Bhawanpreet.Lakha@amd.com>
+Acked-by: Krunoslav Kovac <Krunoslav.Kovac@amd.com>
+Acked-by: Vitaly Prosyak <Vitaly.Prosyak@amd.com>
+Signed-off-by: Alex Deucher <alexander.deucher@amd.com>
+---
+ drivers/gpu/drm/amd/display/dc/core/dc.c             |  7 +++++++
+ drivers/gpu/drm/amd/display/dc/core/dc_surface.c     | 10 ++++++++++
+ drivers/gpu/drm/amd/display/dc/dc.h                  |  1 +
+ drivers/gpu/drm/amd/display/modules/inc/mod_shared.h |  7 ++++---
+ 4 files changed, 22 insertions(+), 3 deletions(-)
+
+diff --git a/drivers/gpu/drm/amd/display/dc/core/dc.c b/drivers/gpu/drm/amd/display/dc/core/dc.c
+index bcf736416ee3..ddd7899b503e 100644
+--- a/drivers/gpu/drm/amd/display/dc/core/dc.c
++++ b/drivers/gpu/drm/amd/display/dc/core/dc.c
+@@ -1681,6 +1681,13 @@ static void copy_surface_update_to_plane(
+ 			srf_update->lut3d_func))
+ 		memcpy(surface->lut3d_func, srf_update->lut3d_func,
+ 		sizeof(*surface->lut3d_func));
++
++	if (srf_update->blend_tf &&
++			(surface->blend_tf !=
++			srf_update->blend_tf))
++		memcpy(surface->blend_tf, srf_update->blend_tf,
++		sizeof(*surface->blend_tf));
++
+ #endif
+ 	if (srf_update->input_csc_color_matrix)
+ 		surface->input_csc_color_matrix =
+diff --git a/drivers/gpu/drm/amd/display/dc/core/dc_surface.c b/drivers/gpu/drm/amd/display/dc/core/dc_surface.c
+index 60f20d96f9e0..394a87981614 100644
+--- a/drivers/gpu/drm/amd/display/dc/core/dc_surface.c
++++ b/drivers/gpu/drm/amd/display/dc/core/dc_surface.c
+@@ -60,6 +60,11 @@ static void construct(struct dc_context *ctx, struct dc_plane_state *plane_state
+ 		plane_state->lut3d_func->ctx = ctx;
+ 		plane_state->lut3d_func->initialized = false;
+ 	}
++	plane_state->blend_tf = dc_create_transfer_func();
++	if (plane_state->blend_tf != NULL) {
++		plane_state->blend_tf->type = TF_TYPE_BYPASS;
++		plane_state->blend_tf->ctx = ctx;
++	}
+ 
+ #endif
+ }
+@@ -85,6 +90,11 @@ static void destruct(struct dc_plane_state *plane_state)
+ 				plane_state->lut3d_func);
+ 		plane_state->lut3d_func = NULL;
+ 	}
++	if (plane_state->blend_tf != NULL) {
++		dc_transfer_func_release(
++				plane_state->blend_tf);
++		plane_state->blend_tf = NULL;
++	}
+ 
+ #endif
+ }
+diff --git a/drivers/gpu/drm/amd/display/dc/dc.h b/drivers/gpu/drm/amd/display/dc/dc.h
+index 0a0d6e4f03d5..eb8c918dbd3c 100644
+--- a/drivers/gpu/drm/amd/display/dc/dc.h
++++ b/drivers/gpu/drm/amd/display/dc/dc.h
+@@ -775,6 +775,7 @@ struct dc_surface_update {
+ #if defined(CONFIG_DRM_AMD_DC_DCN2_0)
+ 	const struct dc_transfer_func *func_shaper;
+ 	const struct dc_3dlut *lut3d_func;
++	const struct dc_transfer_func *blend_tf;
+ #endif
+ };
+ 
+diff --git a/drivers/gpu/drm/amd/display/modules/inc/mod_shared.h b/drivers/gpu/drm/amd/display/modules/inc/mod_shared.h
+index 6c877eeba429..b45f7d65e76a 100644
+--- a/drivers/gpu/drm/amd/display/modules/inc/mod_shared.h
++++ b/drivers/gpu/drm/amd/display/modules/inc/mod_shared.h
+@@ -64,7 +64,8 @@ union lut3d_control_flags {
+ 		unsigned int use_gamut_map_lib					:1;
+ 		unsigned int chromatic_adaptation_src				:1;
+ 		unsigned int chromatic_adaptation_dst				:1;
+-		unsigned int reseved					:5;
++		unsigned int do_blender_lut_degamma		:1;
++		unsigned int reseved					:4;
+ 	} bits;
+ };
+ 
+@@ -78,8 +79,8 @@ enum lut3d_control_gamut_map {
+ 	lut3d_control_gamut_map_none = 0,
+ 	lut3d_control_gamut_map_tonemap,
+ 	lut3d_control_gamut_map_chto,
+-	lut3d_control_gamut_map_chto_chso,
+-	lut3d_control_gamut_map_chto_chci
++	lut3d_control_gamut_map_chso,
++	lut3d_control_gamut_map_chci
+ };
+ 
+ enum lut3d_control_rotation_mode {
+-- 
+2.17.1
+

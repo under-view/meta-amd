@@ -1,0 +1,29 @@
+From f55459bfa6706fb1a14027be8650004ad8a5a2af Mon Sep 17 00:00:00 2001
+From: Flora Cui <flora.cui@amd.com>
+Date: Fri, 17 May 2019 11:33:56 +0800
+Subject: [PATCH 1984/2940] drm/amdgpu: keep stolen memory on picasso
+
+otherwise screen corrupts during modprobe.
+
+Change-Id: I73bcf3ab0c666077dfe85436a3457a0379382304
+Signed-off-by: Flora Cui <flora.cui@amd.com>
+Reviewed-by: Feifei Xu <Feifei.Xu@amd.com>
+---
+ drivers/gpu/drm/amd/amdgpu/gmc_v9_0.c | 1 +
+ 1 file changed, 1 insertion(+)
+
+diff --git a/drivers/gpu/drm/amd/amdgpu/gmc_v9_0.c b/drivers/gpu/drm/amd/amdgpu/gmc_v9_0.c
+index 8b5ddf6c673d..e04975170f83 100644
+--- a/drivers/gpu/drm/amd/amdgpu/gmc_v9_0.c
++++ b/drivers/gpu/drm/amd/amdgpu/gmc_v9_0.c
+@@ -622,6 +622,7 @@ static bool gmc_v9_0_keep_stolen_memory(struct amdgpu_device *adev)
+ 	case CHIP_VEGA10:
+ 		return true;
+ 	case CHIP_RAVEN:
++		return (adev->pdev->device == 0x15d8);
+ 	case CHIP_VEGA12:
+ 	case CHIP_VEGA20:
+ 	default:
+-- 
+2.17.1
+

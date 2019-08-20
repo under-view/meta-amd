@@ -1,0 +1,57 @@
+From 46db7371562502d96f657d946ee108ba285a6bdf Mon Sep 17 00:00:00 2001
+From: Kevin Wang <kevin1.wang@amd.com>
+Date: Fri, 12 Jul 2019 11:27:50 +0800
+Subject: [PATCH 2859/2940] drm/amd/powerplay: add pstate mclk(uclk) support
+ for navi10
+
+add pstate mclk(uclk) support.
+
+Change-Id: I09652bbf29d3b8fed8970e5761700b16fba58db5
+Signed-off-by: Kevin Wang <kevin1.wang@amd.com>
+Reviewed-by: Evan Quan <evan.quan@amd.com>
+---
+ drivers/gpu/drm/amd/powerplay/amdgpu_smu.c | 1 +
+ drivers/gpu/drm/amd/powerplay/navi10_ppt.c | 8 +++++++-
+ 2 files changed, 8 insertions(+), 1 deletion(-)
+
+diff --git a/drivers/gpu/drm/amd/powerplay/amdgpu_smu.c b/drivers/gpu/drm/amd/powerplay/amdgpu_smu.c
+index de6cc5d489cd..67db2746ec4f 100644
+--- a/drivers/gpu/drm/amd/powerplay/amdgpu_smu.c
++++ b/drivers/gpu/drm/amd/powerplay/amdgpu_smu.c
+@@ -136,6 +136,7 @@ int smu_get_dpm_freq_range(struct smu_context *smu, enum smu_clk_type clk_type,
+ 		return -EINVAL;
+ 
+ 	switch (clk_type) {
++	case SMU_MCLK:
+ 	case SMU_UCLK:
+ 		if (!smu_feature_is_enabled(smu, SMU_FEATURE_DPM_UCLK_BIT)) {
+ 			pr_warn("uclk dpm is not enabled\n");
+diff --git a/drivers/gpu/drm/amd/powerplay/navi10_ppt.c b/drivers/gpu/drm/amd/powerplay/navi10_ppt.c
+index cd32b20a13c1..16a4c1ca98cf 100644
+--- a/drivers/gpu/drm/amd/powerplay/navi10_ppt.c
++++ b/drivers/gpu/drm/amd/powerplay/navi10_ppt.c
+@@ -709,7 +709,7 @@ static int navi10_force_clk_levels(struct smu_context *smu,
+ static int navi10_populate_umd_state_clk(struct smu_context *smu)
+ {
+ 	int ret = 0;
+-	uint32_t min_sclk_freq = 0;
++	uint32_t min_sclk_freq = 0, min_mclk_freq = 0;
+ 
+ 	ret = smu_get_dpm_freq_range(smu, SMU_SCLK, &min_sclk_freq, NULL);
+ 	if (ret)
+@@ -717,6 +717,12 @@ static int navi10_populate_umd_state_clk(struct smu_context *smu)
+ 
+ 	smu->pstate_sclk = min_sclk_freq * 100;
+ 
++	ret = smu_get_dpm_freq_range(smu, SMU_MCLK, &min_mclk_freq, NULL);
++	if (ret)
++		return ret;
++
++	smu->pstate_mclk = min_mclk_freq * 100;
++
+ 	return ret;
+ }
+ 
+-- 
+2.17.1
+

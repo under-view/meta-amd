@@ -1,0 +1,35 @@
+From 1b0908f164d88d80658c227572e79a41c14aa91f Mon Sep 17 00:00:00 2001
+From: =?UTF-8?q?Christian=20K=C3=B6nig?= <christian.koenig@amd.com>
+Date: Fri, 12 Oct 2018 16:32:40 +0200
+Subject: [PATCH 1130/2940] drm/sched: make sure timer is restarted
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+Make sure we always restart the timer after a timeout and remove the
+device specific workarounds.
+
+Signed-off-by: Christian König <christian.koenig@amd.com>
+Reviewed-by: Andrey Grodzovsky <andrey.grodzovsky@amd.com>
+Signed-off-by: Alex Deucher <alexander.deucher@amd.com>
+Signed-off-by: Chaudhary Amit Kumar <Chaudharyamit.Kumar@amd.com>
+---
+ drivers/gpu/drm/scheduler/sched_main.c | 2 ++
+ 1 file changed, 2 insertions(+)
+
+diff --git a/drivers/gpu/drm/scheduler/sched_main.c b/drivers/gpu/drm/scheduler/sched_main.c
+index 581722769b9a..0f9d473d572c 100644
+--- a/drivers/gpu/drm/scheduler/sched_main.c
++++ b/drivers/gpu/drm/scheduler/sched_main.c
+@@ -268,6 +268,8 @@ static void drm_sched_job_timedout(struct work_struct *work)
+ 
+ 	if (job)
+ 		job->sched->ops->timedout_job(job);
++
++	drm_sched_start_timeout(sched);
+ }
+ 
+ /**
+-- 
+2.17.1
+

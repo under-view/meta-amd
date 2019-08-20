@@ -1,0 +1,54 @@
+From e0f191812e2a802984f8368ab0a9441aa2b53591 Mon Sep 17 00:00:00 2001
+From: Evan Quan <evan.quan@amd.com>
+Date: Fri, 17 May 2019 13:39:36 +0800
+Subject: [PATCH 1988/2940] drm/amd/powerplay: fix sw SMU wrong UVD/VCE
+ powergate setting
+
+The UVD/VCE bits are set wrongly. This causes the UVD/VCE clocks
+are not brought back correctly on needed.
+
+Change-Id: I6eda67ea3be45fd5f422cdb78356915bf06ff41e
+Signed-off-by: Evan Quan <evan.quan@amd.com>
+Reviewed-by: Feifei Xu <Feifei.Xu@amd.com>
+---
+ drivers/gpu/drm/amd/powerplay/smu_v11_0.c | 12 ++++++------
+ 1 file changed, 6 insertions(+), 6 deletions(-)
+
+diff --git a/drivers/gpu/drm/amd/powerplay/smu_v11_0.c b/drivers/gpu/drm/amd/powerplay/smu_v11_0.c
+index 940b519686d5..d2eeb6240484 100644
+--- a/drivers/gpu/drm/amd/powerplay/smu_v11_0.c
++++ b/drivers/gpu/drm/amd/powerplay/smu_v11_0.c
+@@ -1835,24 +1835,24 @@ static int smu_v11_0_update_od8_settings(struct smu_context *smu,
+ 
+ static int smu_v11_0_dpm_set_uvd_enable(struct smu_context *smu, bool enable)
+ {
+-	if (!smu_feature_is_supported(smu, FEATURE_DPM_VCE_BIT))
++	if (!smu_feature_is_supported(smu, FEATURE_DPM_UVD_BIT))
+ 		return 0;
+ 
+-	if (enable == smu_feature_is_enabled(smu, FEATURE_DPM_VCE_BIT))
++	if (enable == smu_feature_is_enabled(smu, FEATURE_DPM_UVD_BIT))
+ 		return 0;
+ 
+-	return smu_feature_set_enabled(smu, FEATURE_DPM_VCE_BIT, enable);
++	return smu_feature_set_enabled(smu, FEATURE_DPM_UVD_BIT, enable);
+ }
+ 
+ static int smu_v11_0_dpm_set_vce_enable(struct smu_context *smu, bool enable)
+ {
+-	if (!smu_feature_is_supported(smu, FEATURE_DPM_UVD_BIT))
++	if (!smu_feature_is_supported(smu, FEATURE_DPM_VCE_BIT))
+ 		return 0;
+ 
+-	if (enable == smu_feature_is_enabled(smu, FEATURE_DPM_UVD_BIT))
++	if (enable == smu_feature_is_enabled(smu, FEATURE_DPM_VCE_BIT))
+ 		return 0;
+ 
+-	return smu_feature_set_enabled(smu, FEATURE_DPM_UVD_BIT, enable);
++	return smu_feature_set_enabled(smu, FEATURE_DPM_VCE_BIT, enable);
+ }
+ 
+ static int smu_v11_0_get_current_rpm(struct smu_context *smu,
+-- 
+2.17.1
+

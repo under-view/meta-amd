@@ -1,0 +1,64 @@
+From 384027f4210c739c2840b7bece92b75cd3a6a9f2 Mon Sep 17 00:00:00 2001
+From: Jun Lei <Jun.Lei@amd.com>
+Date: Fri, 3 May 2019 15:59:54 -0400
+Subject: [PATCH 2544/2940] drm/amd/display: always use 4 dp lanes for dml
+
+[why]
+current DML logic uses currently trained setting for number
+of dp lanes in DML calculations.  this is obviously flawed since
+just because 1 lane is in use doesn't mean only 1 lane can be used
+
+this causes mode validation to fail depending on current state,
+which is incorrect
+
+[how]
+DML should always assume 4 lanes are available.  validation of
+bandwidth is not supposed to be handled by DML, since we do
+link validation without DML already
+
+also, DML is expecting there to be a copy of the max state, this
+state is removed when update_bounding_box is called to update
+actual SKU clocks.  fix this as well by duping last state.
+
+Signed-off-by: Jun Lei <Jun.Lei@amd.com>
+Reviewed-by: Dmytro Laktyushkin <Dmytro.Laktyushkin@amd.com>
+Acked-by: Bhawanpreet Lakha <Bhawanpreet.Lakha@amd.com>
+Acked-by: Eric Yang <eric.yang2@amd.com>
+Signed-off-by: Alex Deucher <alexander.deucher@amd.com>
+---
+ .../gpu/drm/amd/display/dc/dcn20/dcn20_resource.c    | 12 +-----------
+ 1 file changed, 1 insertion(+), 11 deletions(-)
+
+diff --git a/drivers/gpu/drm/amd/display/dc/dcn20/dcn20_resource.c b/drivers/gpu/drm/amd/display/dc/dcn20/dcn20_resource.c
+index caebf4746475..266d2ea50882 100644
+--- a/drivers/gpu/drm/amd/display/dc/dcn20/dcn20_resource.c
++++ b/drivers/gpu/drm/amd/display/dc/dcn20/dcn20_resource.c
+@@ -1619,7 +1619,6 @@ int dcn20_populate_dml_pipes_from_context(
+ 
+ 	for (i = 0, pipe_cnt = 0; i < dc->res_pool->pipe_count; i++) {
+ 		struct dc_crtc_timing *timing = &res_ctx->pipe_ctx[i].stream->timing;
+-		struct dc_link *link;
+ 
+ 		if (!res_ctx->pipe_ctx[i].stream)
+ 			continue;
+@@ -1665,16 +1664,7 @@ int dcn20_populate_dml_pipes_from_context(
+ 		if (timing->timing_3d_format == TIMING_3D_FORMAT_HW_FRAME_PACKING)
+ 			pipes[pipe_cnt].pipe.dest.pixel_rate_mhz *= 2;
+ 		pipes[pipe_cnt].pipe.dest.otg_inst = res_ctx->pipe_ctx[i].stream_res.tg->inst;
+-
+-		link = res_ctx->pipe_ctx[i].stream->link;
+-		if (link->cur_link_settings.lane_count != LANE_COUNT_UNKNOWN) {
+-			pipes[pipe_cnt].dout.dp_lanes = link->cur_link_settings.lane_count;
+-		} else if (link->verified_link_cap.lane_count != LANE_COUNT_UNKNOWN) {
+-			pipes[pipe_cnt].dout.dp_lanes = link->verified_link_cap.lane_count;
+-		} else {
+-			/* Unknown link capabilities, so assume max */
+-			pipes[pipe_cnt].dout.dp_lanes = 4;
+-		}
++		pipes[pipe_cnt].dout.dp_lanes = 4;
+ 		pipes[pipe_cnt].pipe.dest.vtotal_min = res_ctx->pipe_ctx[i].stream->adjust.v_total_min;
+ 		pipes[pipe_cnt].pipe.dest.vtotal_max = res_ctx->pipe_ctx[i].stream->adjust.v_total_max;
+ 
+-- 
+2.17.1
+

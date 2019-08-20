@@ -1,0 +1,212 @@
+From 17eb3055b6cfbd26e3ba429892a0b87e8cf34217 Mon Sep 17 00:00:00 2001
+From: Eric Huang <JinhuiEric.Huang@amd.com>
+Date: Fri, 11 Jan 2019 14:38:51 -0500
+Subject: [PATCH 2756/2940] drm/amdkfd: add RAS ECC event support
+
+RAS ECC event will combine with GPU reset event, due to
+ECC interrupts are caused by uncorrectable error that triggers
+GPU reset.
+
+Change-Id: I9072484a24927bb40a76ccbb4b067a624ed4880a
+Signed-off-by: Eric Huang <JinhuiEric.Huang@amd.com>
+Reviewed-by: Felix Kuehling <Felix.Kuehling@amd.com>
+Reviewed-by: Alex Deucher <alexander.deucher@amd.com>
+Signed-off-by: Chaudhary Amit Kumar <Chaudharyamit.Kumar@amd.com>
+---
+ drivers/gpu/drm/amd/amdgpu/amdgpu_amdkfd.c |  4 ++++
+ drivers/gpu/drm/amd/amdgpu/amdgpu_amdkfd.h |  1 +
+ drivers/gpu/drm/amd/amdgpu/gfx_v9_0.c      |  1 +
+ drivers/gpu/drm/amd/amdgpu/gmc_v9_0.c      |  1 +
+ drivers/gpu/drm/amd/amdgpu/sdma_v4_0.c     |  2 ++
+ drivers/gpu/drm/amd/amdkfd/kfd_device.c    | 11 +++++++++++
+ drivers/gpu/drm/amd/amdkfd/kfd_events.c    | 15 +++++++++++++++
+ drivers/gpu/drm/amd/amdkfd/kfd_priv.h      |  3 +++
+ include/uapi/linux/kfd_ioctl.h             | 12 +++++++++++-
+ 9 files changed, 49 insertions(+), 1 deletion(-)
+
+diff --git a/drivers/gpu/drm/amd/amdgpu/amdgpu_amdkfd.c b/drivers/gpu/drm/amd/amdgpu/amdgpu_amdkfd.c
+index 1264c1162074..c8cef41926ce 100644
+--- a/drivers/gpu/drm/amd/amdgpu/amdgpu_amdkfd.c
++++ b/drivers/gpu/drm/amd/amdgpu/amdgpu_amdkfd.c
+@@ -659,4 +659,8 @@ int kgd2kfd_post_reset(struct kfd_dev *kfd)
+ void kgd2kfd_interrupt(struct kfd_dev *kfd, const void *ih_ring_entry)
+ {
+ }
++
++void kgd2kfd_set_sram_ecc_flag(struct kfd_dev *kfd)
++{
++}
+ #endif
+diff --git a/drivers/gpu/drm/amd/amdgpu/amdgpu_amdkfd.h b/drivers/gpu/drm/amd/amdgpu/amdgpu_amdkfd.h
+index 7c4d85f0510b..b4a0ddaabea7 100644
+--- a/drivers/gpu/drm/amd/amdgpu/amdgpu_amdkfd.h
++++ b/drivers/gpu/drm/amd/amdgpu/amdgpu_amdkfd.h
+@@ -242,5 +242,6 @@ int kgd2kfd_quiesce_mm(struct mm_struct *mm);
+ int kgd2kfd_resume_mm(struct mm_struct *mm);
+ int kgd2kfd_schedule_evict_and_restore_process(struct mm_struct *mm,
+ 					       struct dma_fence *fence);
++void kgd2kfd_set_sram_ecc_flag(struct kfd_dev *kfd);
+ 
+ #endif /* AMDGPU_AMDKFD_H_INCLUDED */
+diff --git a/drivers/gpu/drm/amd/amdgpu/gfx_v9_0.c b/drivers/gpu/drm/amd/amdgpu/gfx_v9_0.c
+index 550bd70b2edb..af0160a2fc2e 100644
+--- a/drivers/gpu/drm/amd/amdgpu/gfx_v9_0.c
++++ b/drivers/gpu/drm/amd/amdgpu/gfx_v9_0.c
+@@ -5123,6 +5123,7 @@ static int gfx_v9_0_process_ras_data_cb(struct amdgpu_device *adev,
+ 		struct amdgpu_iv_entry *entry)
+ {
+ 	/* TODO ue will trigger an interrupt. */
++	kgd2kfd_set_sram_ecc_flag(adev->kfd.dev);
+ 	amdgpu_ras_reset_gpu(adev, 0);
+ 	return AMDGPU_RAS_UE;
+ }
+diff --git a/drivers/gpu/drm/amd/amdgpu/gmc_v9_0.c b/drivers/gpu/drm/amd/amdgpu/gmc_v9_0.c
+index 553cc12ab2c1..d1b6d15309d1 100644
+--- a/drivers/gpu/drm/amd/amdgpu/gmc_v9_0.c
++++ b/drivers/gpu/drm/amd/amdgpu/gmc_v9_0.c
+@@ -239,6 +239,7 @@ static int gmc_v9_0_ecc_interrupt_state(struct amdgpu_device *adev,
+ static int gmc_v9_0_process_ras_data_cb(struct amdgpu_device *adev,
+ 		struct amdgpu_iv_entry *entry)
+ {
++	kgd2kfd_set_sram_ecc_flag(adev->kfd.dev);
+ 	amdgpu_ras_reset_gpu(adev, 0);
+ 	return AMDGPU_RAS_UE;
+ }
+diff --git a/drivers/gpu/drm/amd/amdgpu/sdma_v4_0.c b/drivers/gpu/drm/amd/amdgpu/sdma_v4_0.c
+index 240bb14f5402..bf665bd47bf7 100644
+--- a/drivers/gpu/drm/amd/amdgpu/sdma_v4_0.c
++++ b/drivers/gpu/drm/amd/amdgpu/sdma_v4_0.c
+@@ -1876,6 +1876,8 @@ static int sdma_v4_0_process_ras_data_cb(struct amdgpu_device *adev,
+ 		return 0;
+ 	}
+ 
++	kgd2kfd_set_sram_ecc_flag(adev->kfd.dev);
++
+ 	amdgpu_ras_reset_gpu(adev, 0);
+ 
+ 	return AMDGPU_RAS_UE;
+diff --git a/drivers/gpu/drm/amd/amdkfd/kfd_device.c b/drivers/gpu/drm/amd/amdkfd/kfd_device.c
+index 6b2e019b50f5..8c44419f677f 100644
+--- a/drivers/gpu/drm/amd/amdkfd/kfd_device.c
++++ b/drivers/gpu/drm/amd/amdkfd/kfd_device.c
+@@ -482,6 +482,8 @@ struct kfd_dev *kgd2kfd_probe(struct kgd_dev *kgd,
+ 	memset(&kfd->doorbell_available_index, 0,
+ 		sizeof(kfd->doorbell_available_index));
+ 
++	atomic_set(&kfd->sram_ecc_flag, 0);
++
+ 	return kfd;
+ }
+ 
+@@ -679,6 +681,9 @@ int kgd2kfd_post_reset(struct kfd_dev *kfd)
+ 		return ret;
+ 	count = atomic_dec_return(&kfd_locked);
+ 	WARN_ONCE(count != 0, "KFD reset ref. error");
++
++	atomic_set(&kfd->sram_ecc_flag, 0);
++
+ 	return 0;
+ }
+ 
+@@ -1042,6 +1047,12 @@ int kfd_gtt_sa_free(struct kfd_dev *kfd, struct kfd_mem_obj *mem_obj)
+ 	return 0;
+ }
+ 
++void kgd2kfd_set_sram_ecc_flag(struct kfd_dev *kfd)
++{
++	if (kfd)
++		atomic_inc(&kfd->sram_ecc_flag);
++}
++
+ void kfd_inc_compute_active(struct kfd_dev *kfd)
+ {
+ 	if (atomic_inc_return(&kfd->compute_profile) == 1)
+diff --git a/drivers/gpu/drm/amd/amdkfd/kfd_events.c b/drivers/gpu/drm/amd/amdkfd/kfd_events.c
+index fe6e05e8c259..1aa1e05131ee 100644
+--- a/drivers/gpu/drm/amd/amdkfd/kfd_events.c
++++ b/drivers/gpu/drm/amd/amdkfd/kfd_events.c
+@@ -1012,15 +1012,25 @@ void kfd_signal_vm_fault_event(struct kfd_dev *dev, unsigned int pasid,
+ void kfd_signal_reset_event(struct kfd_dev *dev)
+ {
+ 	struct kfd_hsa_hw_exception_data hw_exception_data;
++	struct kfd_hsa_memory_exception_data memory_exception_data;
+ 	struct kfd_process *p;
+ 	struct kfd_event *ev;
+ 	unsigned int temp;
+ 	uint32_t id, idx;
++	int reset_cause = atomic_read(&dev->sram_ecc_flag) ?
++			KFD_HW_EXCEPTION_ECC :
++			KFD_HW_EXCEPTION_GPU_HANG;
+ 
+ 	/* Whole gpu reset caused by GPU hang , and  memory is lost */
+ 	memset(&hw_exception_data, 0, sizeof(hw_exception_data));
+ 	hw_exception_data.gpu_id = dev->id;
+ 	hw_exception_data.memory_lost = 1;
++	hw_exception_data.reset_cause = reset_cause;
++
++	memset(&memory_exception_data, 0, sizeof(memory_exception_data));
++	memory_exception_data.ErrorType = KFD_MEM_ERR_SRAM_ECC;
++	memory_exception_data.gpu_id = dev->id;
++	memory_exception_data.failure.imprecise = true;
+ 
+ 	idx  = srcu_read_lock(&kfd_processes_srcu);
+ 	hash_for_each_rcu(kfd_processes_table, temp, p, kfd_processes) {
+@@ -1031,6 +1041,11 @@ void kfd_signal_reset_event(struct kfd_dev *dev)
+ 				ev->hw_exception_data = hw_exception_data;
+ 				set_event(ev);
+ 			}
++			if (ev->type == KFD_EVENT_TYPE_MEMORY &&
++			    reset_cause == KFD_HW_EXCEPTION_ECC) {
++				ev->memory_exception_data = memory_exception_data;
++				set_event(ev);
++			}
+ 		mutex_unlock(&p->event_mutex);
+ 	}
+ 	srcu_read_unlock(&kfd_processes_srcu, idx);
+diff --git a/drivers/gpu/drm/amd/amdkfd/kfd_priv.h b/drivers/gpu/drm/amd/amdkfd/kfd_priv.h
+index ddee4878418c..4ca628f8bdf4 100644
+--- a/drivers/gpu/drm/amd/amdkfd/kfd_priv.h
++++ b/drivers/gpu/drm/amd/amdkfd/kfd_priv.h
+@@ -325,6 +325,9 @@ struct kfd_dev {
+ 
+ 	bool pci_atomic_requested;
+ 
++	/* SRAM ECC flag */
++	atomic_t sram_ecc_flag;
++
+ 	/* Compute Profile ref. count */
+ 	atomic_t compute_profile;
+ };
+diff --git a/include/uapi/linux/kfd_ioctl.h b/include/uapi/linux/kfd_ioctl.h
+index feeb887ceaac..ba28ac7ae892 100644
+--- a/include/uapi/linux/kfd_ioctl.h
++++ b/include/uapi/linux/kfd_ioctl.h
+@@ -277,6 +277,11 @@ struct kfd_ioctl_dbg_trap_args {
+ #define KFD_HW_EXCEPTION_GPU_HANG	0
+ #define KFD_HW_EXCEPTION_ECC		1
+ 
++/* For kfd_hsa_memory_exception_data.ErrorType */
++#define KFD_MEM_ERR_NO_RAS		0
++#define KFD_MEM_ERR_SRAM_ECC		1
++#define KFD_MEM_ERR_POISON_CONSUMED	2
++#define KFD_MEM_ERR_GPU_HANG		3
+ 
+ struct kfd_ioctl_create_event_args {
+ 	__u64 event_page_offset;	/* from KFD */
+@@ -316,7 +321,12 @@ struct kfd_hsa_memory_exception_data {
+ 	struct kfd_memory_exception_failure failure;
+ 	__u64 va;
+ 	__u32 gpu_id;
+-	__u32 pad;
++	__u32 ErrorType; /* 0 = no RAS error,
++			  * 1 = ECC_SRAM,
++			  * 2 = Link_SYNFLOOD (poison),
++			  * 3 = GPU hang (not attributable to a specific cause),
++			  * other values reserved
++			  */
+ };
+ 
+ /* hw exception data */
+-- 
+2.17.1
+

@@ -1,0 +1,83 @@
+From 0296c0bd9f7d019f24fff717bf4b42ad39c07a25 Mon Sep 17 00:00:00 2001
+From: Kevin Wang <Kevin1.Wang@amd.com>
+Date: Mon, 24 Dec 2018 15:02:50 +0800
+Subject: [PATCH 1390/2940] drm/amd/powerplay: implement smu_init_display for
+ smu11
+
+Add smu_init_display function to send msg to smc to init display.
+
+Signed-off-by: Kevin Wang <Kevin1.Wang@amd.com>
+Reviewed-by: Huang Rui <ray.huang@amd.com>
+Acked-by: Alex Deucher <alexander.deucher@amd.com>
+---
+ drivers/gpu/drm/amd/powerplay/amdgpu_smu.c     | 4 ++++
+ drivers/gpu/drm/amd/powerplay/inc/amdgpu_smu.h | 4 ++++
+ drivers/gpu/drm/amd/powerplay/smu_v11_0.c      | 8 ++++++++
+ 3 files changed, 16 insertions(+)
+
+diff --git a/drivers/gpu/drm/amd/powerplay/amdgpu_smu.c b/drivers/gpu/drm/amd/powerplay/amdgpu_smu.c
+index e4da464655f8..773a388cc8fe 100644
+--- a/drivers/gpu/drm/amd/powerplay/amdgpu_smu.c
++++ b/drivers/gpu/drm/amd/powerplay/amdgpu_smu.c
+@@ -236,6 +236,10 @@ static int smu_smc_table_hw_init(struct smu_context *smu)
+ {
+ 	int ret;
+ 
++	ret = smu_init_display(smu);
++	if (ret)
++		return ret;
++
+ 	ret = smu_read_pptable_from_vbios(smu);
+ 	if (ret)
+ 		return ret;
+diff --git a/drivers/gpu/drm/amd/powerplay/inc/amdgpu_smu.h b/drivers/gpu/drm/amd/powerplay/inc/amdgpu_smu.h
+index bd8af3d4e38f..a6189108e36c 100644
+--- a/drivers/gpu/drm/amd/powerplay/inc/amdgpu_smu.h
++++ b/drivers/gpu/drm/amd/powerplay/inc/amdgpu_smu.h
+@@ -223,6 +223,7 @@ struct smu_funcs
+ 	int (*send_smc_msg)(struct smu_context *smu, uint16_t msg);
+ 	int (*send_smc_msg_with_param)(struct smu_context *smu, uint16_t msg, uint32_t param);
+ 	int (*read_smc_arg)(struct smu_context *smu, uint32_t *arg);
++	int (*init_display)(struct smu_context *smu);
+ 
+ };
+ 
+@@ -276,6 +277,9 @@ struct smu_funcs
+ 	((smu)->funcs->read_smc_arg? (smu)->funcs->read_smc_arg((smu), (arg)) : 0)
+ #define smu_alloc_dpm_context(smu) \
+ 	((smu)->ppt_funcs->alloc_dpm_context ? (smu)->ppt_funcs->alloc_dpm_context((smu)) : 0)
++#define smu_init_display(smu) \
++	((smu)->funcs->init_display ? (smu)->funcs->init_display((smu)) : 0)
++
+ #define smu_store_powerplay_table(smu) \
+ 	((smu)->ppt_funcs->store_powerplay_table ? (smu)->ppt_funcs->store_powerplay_table((smu)) : 0)
+ #define smu_check_powerplay_table(smu) \
+diff --git a/drivers/gpu/drm/amd/powerplay/smu_v11_0.c b/drivers/gpu/drm/amd/powerplay/smu_v11_0.c
+index 9cb1796138a1..d0933040c1e2 100644
+--- a/drivers/gpu/drm/amd/powerplay/smu_v11_0.c
++++ b/drivers/gpu/drm/amd/powerplay/smu_v11_0.c
+@@ -658,6 +658,13 @@ static int smu_v11_0_set_tool_table_location(struct smu_context *smu)
+ 	return ret;
+ }
+ 
++static int smu_v11_0_init_display(struct smu_context *smu)
++{
++	int ret = 0;
++	ret = smu_send_smc_msg_with_param(smu, SMU_MSG_NumOfDisplays, 0);
++	return ret;
++}
++
+ static const struct smu_funcs smu_v11_0_funcs = {
+ 	.init_microcode = smu_v11_0_init_microcode,
+ 	.load_microcode = smu_v11_0_load_microcode,
+@@ -680,6 +687,7 @@ static const struct smu_funcs smu_v11_0_funcs = {
+ 	.write_pptable = smu_v11_0_write_pptable,
+ 	.set_min_dcef_deep_sleep = smu_v11_0_set_min_dcef_deep_sleep,
+ 	.set_tool_table_location = smu_v11_0_set_tool_table_location,
++	.init_display = smu_v11_0_init_display,
+ };
+ 
+ void smu_v11_0_set_smu_funcs(struct smu_context *smu)
+-- 
+2.17.1
+

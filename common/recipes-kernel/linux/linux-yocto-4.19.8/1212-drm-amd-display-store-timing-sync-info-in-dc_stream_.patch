@@ -1,0 +1,85 @@
+From ffe8fcb9e2924195f7c2636fc90edc2269e894f7 Mon Sep 17 00:00:00 2001
+From: Su Sung Chung <Su.Chung@amd.com>
+Date: Mon, 21 Jan 2019 12:01:53 -0500
+Subject: [PATCH 1212/2940] drm/amd/display: store timing sync info in
+ dc_stream_status
+
+in program_timing_sync, after all the pipes are
+grouped, store timing sync info in dc_stream_status
+
+Change-Id: I65590b0a4c74f5edb2a97e5706d6588f3dafbe3a
+Signed-off-by: Su Sung Chung <Su.Chung@amd.com>
+Reviewed-by: Tony Cheng <Tony.Cheng@amd.com>
+Acked-by: Bhawanpreet Lakha <Bhawanpreet.Lakha@amd.com>
+---
+ drivers/gpu/drm/amd/display/dc/core/dc.c   | 16 +++++++++++++++-
+ drivers/gpu/drm/amd/display/dc/dc_stream.h |  6 ++++++
+ 2 files changed, 21 insertions(+), 1 deletion(-)
+
+diff --git a/drivers/gpu/drm/amd/display/dc/core/dc.c b/drivers/gpu/drm/amd/display/dc/core/dc.c
+index 05c91f63d783..e34ab8185555 100644
+--- a/drivers/gpu/drm/amd/display/dc/core/dc.c
++++ b/drivers/gpu/drm/amd/display/dc/core/dc.c
+@@ -869,8 +869,9 @@ static void program_timing_sync(
+ 		struct dc *dc,
+ 		struct dc_state *ctx)
+ {
+-	int i, j;
++	int i, j, k;
+ 	int group_index = 0;
++	int num_group = 0;
+ 	int pipe_count = dc->res_pool->pipe_count;
+ 	struct pipe_ctx *unsynced_pipes[MAX_PIPES] = { NULL };
+ 
+@@ -922,6 +923,18 @@ static void program_timing_sync(
+ 			}
+ 		}
+ 
++
++		for (k = 0; k < group_size; k++) {
++			struct dc_stream_status *status = dc_stream_get_status_from_state(ctx, pipe_set[k]->stream);
++
++			status->timing_sync_info.group_id = num_group;
++			status->timing_sync_info.group_size = group_size;
++			if (k == 0)
++				status->timing_sync_info.master = true;
++			else
++				status->timing_sync_info.master = false;
++
++		}
+ 		/* remove any other pipes with plane as they have already been synced */
+ 		for (j = j + 1; j < group_size; j++) {
+ 			if (pipe_set[j]->plane_state) {
+@@ -936,6 +949,7 @@ static void program_timing_sync(
+ 				dc, group_index, group_size, pipe_set);
+ 			group_index++;
+ 		}
++		num_group++;
+ 	}
+ }
+ 
+diff --git a/drivers/gpu/drm/amd/display/dc/dc_stream.h b/drivers/gpu/drm/amd/display/dc/dc_stream.h
+index 0de6d7f377a6..2d1f2825de09 100644
+--- a/drivers/gpu/drm/amd/display/dc/dc_stream.h
++++ b/drivers/gpu/drm/amd/display/dc/dc_stream.h
+@@ -32,11 +32,17 @@
+ /*******************************************************************************
+  * Stream Interfaces
+  ******************************************************************************/
++struct timing_sync_info {
++	int group_id;
++	int group_size;
++	bool master;
++};
+ 
+ struct dc_stream_status {
+ 	int primary_otg_inst;
+ 	int stream_enc_inst;
+ 	int plane_count;
++	struct timing_sync_info timing_sync_info;
+ 	struct dc_plane_state *plane_states[MAX_SURFACE_NUM];
+ };
+ 
+-- 
+2.17.1
+

@@ -1,0 +1,98 @@
+From 719d2dec9676629aeeabe69f490866673244371c Mon Sep 17 00:00:00 2001
+From: Emily Deng <Emily.Deng@amd.com>
+Date: Wed, 26 Dec 2018 18:09:33 +0800
+Subject: [PATCH 0983/2940] drm/amdgpu/virtual_dce: No need to pin the fb's bo
+
+For virtual display, no need to pin the fb's bo.
+
+Signed-off-by: Emily Deng <Emily.Deng@amd.com>
+Reviewed-by: Huang Rui <ray.huang@amd.com>
+Signed-off-by: Alex Deucher <alexander.deucher@amd.com>
+---
+ drivers/gpu/drm/amd/amdgpu/amdgpu_display.c | 20 ++++++++++++--------
+ drivers/gpu/drm/amd/amdgpu/dce_virtual.c    | 17 +++--------------
+ 2 files changed, 15 insertions(+), 22 deletions(-)
+
+diff --git a/drivers/gpu/drm/amd/amdgpu/amdgpu_display.c b/drivers/gpu/drm/amd/amdgpu/amdgpu_display.c
+index 43b6fbbc23b1..335568f192dd 100644
+--- a/drivers/gpu/drm/amd/amdgpu/amdgpu_display.c
++++ b/drivers/gpu/drm/amd/amdgpu/amdgpu_display.c
+@@ -188,10 +188,12 @@ int amdgpu_display_crtc_page_flip_target(struct drm_crtc *crtc,
+ 		goto cleanup;
+ 	}
+ 
+-	r = amdgpu_bo_pin(new_abo, amdgpu_display_supported_domains(adev));
+-	if (unlikely(r != 0)) {
+-		DRM_ERROR("failed to pin new abo buffer before flip\n");
+-		goto unreserve;
++	if (!adev->enable_virtual_display) {
++		r = amdgpu_bo_pin(new_abo, amdgpu_display_supported_domains(adev));
++		if (unlikely(r != 0)) {
++			DRM_ERROR("failed to pin new abo buffer before flip\n");
++			goto unreserve;
++		}
+ 	}
+ 
+ 	r = amdgpu_ttm_alloc_gart(&new_abo->tbo);
+@@ -211,7 +213,8 @@ int amdgpu_display_crtc_page_flip_target(struct drm_crtc *crtc,
+ 	amdgpu_bo_get_tiling_flags(new_abo, &tiling_flags);
+ 	amdgpu_bo_unreserve(new_abo);
+ 
+-	work->base = amdgpu_bo_gpu_offset(new_abo);
++	if (!adev->enable_virtual_display)
++		work->base = amdgpu_bo_gpu_offset(new_abo);
+ 	work->target_vblank = target - (uint32_t)drm_crtc_vblank_count(crtc) +
+ 		amdgpu_get_vblank_counter_kms(dev, work->crtc_id);
+ 
+@@ -242,9 +245,10 @@ int amdgpu_display_crtc_page_flip_target(struct drm_crtc *crtc,
+ 		goto cleanup;
+ 	}
+ unpin:
+-	if (unlikely(amdgpu_bo_unpin(new_abo) != 0)) {
+-		DRM_ERROR("failed to unpin new abo in error path\n");
+-	}
++	if (!adev->enable_virtual_display)
++		if (unlikely(amdgpu_bo_unpin(new_abo) != 0))
++			DRM_ERROR("failed to unpin new abo in error path\n");
++
+ unreserve:
+ 	amdgpu_bo_unreserve(new_abo);
+ 
+diff --git a/drivers/gpu/drm/amd/amdgpu/dce_virtual.c b/drivers/gpu/drm/amd/amdgpu/dce_virtual.c
+index fdace004544d..e4cc1d48eaab 100644
+--- a/drivers/gpu/drm/amd/amdgpu/dce_virtual.c
++++ b/drivers/gpu/drm/amd/amdgpu/dce_virtual.c
+@@ -167,19 +167,6 @@ static void dce_virtual_crtc_disable(struct drm_crtc *crtc)
+ 	struct amdgpu_crtc *amdgpu_crtc = to_amdgpu_crtc(crtc);
+ 
+ 	dce_virtual_crtc_dpms(crtc, DRM_MODE_DPMS_OFF);
+-	if (crtc->primary->fb) {
+-		int r;
+-		struct amdgpu_bo *abo;
+-
+-		abo = gem_to_amdgpu_bo(crtc->primary->fb->obj[0]);
+-		r = amdgpu_bo_reserve(abo, true);
+-		if (unlikely(r))
+-			DRM_ERROR("failed to reserve abo before unpin\n");
+-		else {
+-			amdgpu_bo_unpin(abo);
+-			amdgpu_bo_unreserve(abo);
+-		}
+-	}
+ 
+ 	amdgpu_crtc->pll_id = ATOM_PPLL_INVALID;
+ 	amdgpu_crtc->encoder = NULL;
+@@ -692,7 +679,9 @@ static int dce_virtual_pageflip(struct amdgpu_device *adev,
+ 	spin_unlock_irqrestore(&adev->ddev->event_lock, flags);
+ 
+ 	drm_crtc_vblank_put(&amdgpu_crtc->base);
+-	schedule_work(&works->unpin_work);
++	amdgpu_bo_unref(&works->old_abo);
++	kfree(works->shared);
++	kfree(works);
+ 
+ 	return 0;
+ }
+-- 
+2.17.1
+

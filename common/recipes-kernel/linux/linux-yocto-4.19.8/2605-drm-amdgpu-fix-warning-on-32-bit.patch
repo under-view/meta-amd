@@ -1,0 +1,34 @@
+From 4fd2acdc15d0ed931ed3fce81718aebdcd2d4018 Mon Sep 17 00:00:00 2001
+From: Alex Deucher <alexander.deucher@amd.com>
+Date: Thu, 27 Jun 2019 08:48:19 -0500
+Subject: [PATCH 2605/2940] drm/amdgpu: fix warning on 32 bit
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+Properly cast pointer to int.
+
+Reviewed-by: Christian König <christian.koenig@amd.com>
+Signed-off-by: Alex Deucher <alexander.deucher@amd.com>
+---
+ drivers/gpu/drm/amd/amdgpu/vcn_v2_0.c | 4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
+
+diff --git a/drivers/gpu/drm/amd/amdgpu/vcn_v2_0.c b/drivers/gpu/drm/amd/amdgpu/vcn_v2_0.c
+index 77f4c631afa0..70c071d52149 100644
+--- a/drivers/gpu/drm/amd/amdgpu/vcn_v2_0.c
++++ b/drivers/gpu/drm/amd/amdgpu/vcn_v2_0.c
+@@ -1010,8 +1010,8 @@ static int vcn_v2_0_start_dpg_mode(struct amdgpu_device *adev, bool indirect)
+ 
+ 	if (indirect)
+ 		psp_update_vcn_sram(adev, 0, adev->vcn.dpg_sram_gpu_addr,
+-			(uint32_t)((uint64_t)adev->vcn.dpg_sram_curr_addr -
+-			(uint64_t)adev->vcn.dpg_sram_cpu_addr));
++				    (uint32_t)((uintptr_t)adev->vcn.dpg_sram_curr_addr -
++					       (uintptr_t)adev->vcn.dpg_sram_cpu_addr));
+ 
+ 	/* force RBC into idle state */
+ 	rb_bufsz = order_base_2(ring->ring_size);
+-- 
+2.17.1
+

@@ -1,0 +1,35 @@
+From e6cd8196277b67430fa5b24860d521e45d3ead22 Mon Sep 17 00:00:00 2001
+From: Markus Elfring <elfring@users.sourceforge.net>
+Date: Mon, 17 Jun 2019 14:24:14 +0200
+Subject: [PATCH 2103/2940] drm/amd/powerplay: Delete a redundant memory
+ setting in vega20_set_default_od8_setttings()
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+The memory was set to zero already by a call of the function “kzalloc”.
+Thus remove an extra call of the function “memset” for this purpose.
+
+This issue was detected by using the Coccinelle software.
+
+Signed-off-by: Markus Elfring <elfring@users.sourceforge.net>
+Signed-off-by: Alex Deucher <alexander.deucher@amd.com>
+---
+ drivers/gpu/drm/amd/powerplay/vega20_ppt.c | 1 -
+ 1 file changed, 1 deletion(-)
+
+diff --git a/drivers/gpu/drm/amd/powerplay/vega20_ppt.c b/drivers/gpu/drm/amd/powerplay/vega20_ppt.c
+index 4aa8f5a69c4c..62497ad66a39 100644
+--- a/drivers/gpu/drm/amd/powerplay/vega20_ppt.c
++++ b/drivers/gpu/drm/amd/powerplay/vega20_ppt.c
+@@ -1295,7 +1295,6 @@ static int vega20_set_default_od8_setttings(struct smu_context *smu)
+ 	if (!table_context->od8_settings)
+ 		return -ENOMEM;
+ 
+-	memset(table_context->od8_settings, 0, sizeof(struct vega20_od8_settings));
+ 	od8_settings = (struct vega20_od8_settings *)table_context->od8_settings;
+ 
+ 	if (smu_feature_is_enabled(smu, FEATURE_DPM_SOCCLK_BIT)) {
+-- 
+2.17.1
+

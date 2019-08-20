@@ -1,0 +1,44 @@
+From 00815a2b5fbef55d4b284ba6355898b21cfc82f7 Mon Sep 17 00:00:00 2001
+From: Philip Yang <Philip.Yang@amd.com>
+Date: Wed, 30 Jan 2019 15:21:16 -0500
+Subject: [PATCH 1179/2940] drm/amdgpu: use spin_lock_irqsave to protect
+ vm_manager.pasid_idr
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+amdgpu_vm_get_task_info is called from interrupt handler and sched timeout
+workqueue, we should use irq version spin_lock to avoid deadlock.
+
+Change-Id: Ifedd4b97535bf0b5d3936edd2d9688957020efd4
+Signed-off-by: Philip Yang <Philip.Yang@amd.com>
+Reviewed-by: Christian König <christian.koenig@amd.com>
+---
+ drivers/gpu/drm/amd/amdgpu/amdgpu_vm.c | 5 +++--
+ 1 file changed, 3 insertions(+), 2 deletions(-)
+
+diff --git a/drivers/gpu/drm/amd/amdgpu/amdgpu_vm.c b/drivers/gpu/drm/amd/amdgpu/amdgpu_vm.c
+index 7b4d4e2cc2ca..c6297e054166 100644
+--- a/drivers/gpu/drm/amd/amdgpu/amdgpu_vm.c
++++ b/drivers/gpu/drm/amd/amdgpu/amdgpu_vm.c
+@@ -3331,14 +3331,15 @@ void amdgpu_vm_get_task_info(struct amdgpu_device *adev, unsigned int pasid,
+ 			 struct amdgpu_task_info *task_info)
+ {
+ 	struct amdgpu_vm *vm;
++	unsigned long flags;
+ 
+-	spin_lock(&adev->vm_manager.pasid_lock);
++	spin_lock_irqsave(&adev->vm_manager.pasid_lock, flags);
+ 
+ 	vm = idr_find(&adev->vm_manager.pasid_idr, pasid);
+ 	if (vm)
+ 		*task_info = vm->task_info;
+ 
+-	spin_unlock(&adev->vm_manager.pasid_lock);
++	spin_unlock_irqrestore(&adev->vm_manager.pasid_lock, flags);
+ }
+ 
+ /**
+-- 
+2.17.1
+

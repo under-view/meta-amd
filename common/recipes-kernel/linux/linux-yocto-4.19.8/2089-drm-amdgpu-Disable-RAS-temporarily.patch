@@ -1,0 +1,31 @@
+From a9db03726cac5638f12da747af68038b746daaac Mon Sep 17 00:00:00 2001
+From: Kent Russell <kent.russell@amd.com>
+Date: Wed, 29 May 2019 08:38:33 -0400
+Subject: [PATCH 2089/2940] drm/amdgpu: Disable RAS temporarily
+
+This is not fully supported, and there are some issues that still need
+to be addressed. Disable this in the kernel parameters for now until we
+get a proper firmware fix
+
+Change-Id: I4c698ff2ab289c167126d73adda41b488c4bed04
+Signed-off-by: Kent Russell <kent.russell@amd.com>
+---
+ drivers/gpu/drm/amd/amdgpu/amdgpu_drv.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/drivers/gpu/drm/amd/amdgpu/amdgpu_drv.c b/drivers/gpu/drm/amd/amdgpu/amdgpu_drv.c
+index 3fae55da7e1e..4cb4f7d0904d 100644
+--- a/drivers/gpu/drm/amd/amdgpu/amdgpu_drv.c
++++ b/drivers/gpu/drm/amd/amdgpu/amdgpu_drv.c
+@@ -144,7 +144,7 @@ uint amdgpu_dc_feature_mask = 0;
+ struct amdgpu_mgpu_info mgpu_info = {
+ 	.mutex = __MUTEX_INITIALIZER(mgpu_info.mutex),
+ };
+-int amdgpu_ras_enable = -1;
++int amdgpu_ras_enable;
+ uint amdgpu_ras_mask = 0xffffffff;
+ 
+ /**
+-- 
+2.17.1
+

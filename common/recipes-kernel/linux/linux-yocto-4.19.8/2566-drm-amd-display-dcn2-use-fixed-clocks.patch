@@ -1,0 +1,96 @@
+From 07885a98ceb5b15ef1463eafe59e48c16afd4b41 Mon Sep 17 00:00:00 2001
+From: Charlene Liu <charlene.liu@amd.com>
+Date: Tue, 28 May 2019 13:52:09 -0400
+Subject: [PATCH 2566/2940] drm/amd/display: dcn2 use fixed clocks.
+
+[Description]
+dcn2 use fixed clocks and not program DPP CLK or Disp_CLK.
+
+Signed-off-by: Charlene Liu <charlene.liu@amd.com>
+Reviewed-by: Dmytro Laktyushkin <Dmytro.Laktyushkin@amd.com>
+Acked-by: Bhawanpreet Lakha <Bhawanpreet.Lakha@amd.com>
+Signed-off-by: Alex Deucher <alexander.deucher@amd.com>
+---
+ .../display/dc/clk_mgr/dcn20/dcn20_clk_mgr.c  | 22 +++++++++----------
+ drivers/gpu/drm/amd/display/dc/dc.h           |  2 ++
+ .../drm/amd/display/dc/dcn20/dcn20_resource.c |  9 +++++++-
+ 3 files changed, 21 insertions(+), 12 deletions(-)
+
+diff --git a/drivers/gpu/drm/amd/display/dc/clk_mgr/dcn20/dcn20_clk_mgr.c b/drivers/gpu/drm/amd/display/dc/clk_mgr/dcn20/dcn20_clk_mgr.c
+index 6f01830fc020..445bbc3bea0e 100644
+--- a/drivers/gpu/drm/amd/display/dc/clk_mgr/dcn20/dcn20_clk_mgr.c
++++ b/drivers/gpu/drm/amd/display/dc/clk_mgr/dcn20/dcn20_clk_mgr.c
+@@ -225,19 +225,19 @@ void dcn2_update_clocks(struct clk_mgr *clk_mgr_base,
+ 
+ 		update_dispclk = true;
+ 	}
+-
+-	if (dpp_clock_lowered) {
+-		// if clock is being lowered, increase DTO before lowering refclk
+-		dcn20_update_clocks_update_dpp_dto(clk_mgr, context);
+-		dcn20_update_clocks_update_dentist(clk_mgr);
+-	} else {
+-		// if clock is being raised, increase refclk before lowering DTO
+-		if (update_dppclk || update_dispclk)
+-			dcn20_update_clocks_update_dentist(clk_mgr);
+-		if (update_dppclk)
++	if (dc->config.forced_clocks == false) {
++		if (dpp_clock_lowered) {
++			// if clock is being lowered, increase DTO before lowering refclk
+ 			dcn20_update_clocks_update_dpp_dto(clk_mgr, context);
++			dcn20_update_clocks_update_dentist(clk_mgr);
++		} else {
++			// if clock is being raised, increase refclk before lowering DTO
++			if (update_dppclk || update_dispclk)
++				dcn20_update_clocks_update_dentist(clk_mgr);
++			if (update_dppclk)
++				dcn20_update_clocks_update_dpp_dto(clk_mgr, context);
++		}
+ 	}
+-
+ 	if (update_dispclk &&
+ 			dmcu && dmcu->funcs->is_dmcu_initialized(dmcu)) {
+ 		/*update dmcu for wait_loop count*/
+diff --git a/drivers/gpu/drm/amd/display/dc/dc.h b/drivers/gpu/drm/amd/display/dc/dc.h
+index b03372598734..260305645f3b 100644
+--- a/drivers/gpu/drm/amd/display/dc/dc.h
++++ b/drivers/gpu/drm/amd/display/dc/dc.h
+@@ -221,6 +221,8 @@ struct dc_config {
+ 	bool allow_seamless_boot_optimization;
+ 	bool power_down_display_on_boot;
+ 	bool edp_not_connected;
++	bool forced_clocks;
++
+ };
+ 
+ enum visual_confirm {
+diff --git a/drivers/gpu/drm/amd/display/dc/dcn20/dcn20_resource.c b/drivers/gpu/drm/amd/display/dc/dcn20/dcn20_resource.c
+index 36bf14332bf5..26af860df7d4 100644
+--- a/drivers/gpu/drm/amd/display/dc/dcn20/dcn20_resource.c
++++ b/drivers/gpu/drm/amd/display/dc/dcn20/dcn20_resource.c
+@@ -2156,7 +2156,10 @@ bool dcn20_validate_bandwidth(struct dc *dc, struct dc_state *context,
+ 		}
+ 		if (force_split && context->bw_ctx.dml.vba.NoOfDPP[vlevel][context->bw_ctx.dml.vba.maxMpcComb][pipe_idx] == 1)
+ 			context->bw_ctx.dml.vba.RequiredDPPCLK[vlevel][context->bw_ctx.dml.vba.maxMpcComb][pipe_idx] /= 2;
+-
++		if (dc->config.forced_clocks == true) {
++			context->bw_ctx.dml.vba.RequiredDPPCLK[vlevel][context->bw_ctx.dml.vba.maxMpcComb][pipe_idx] =
++					context->bw_ctx.dml.soc.clock_limits[0].dppclk_mhz;
++		}
+ 		if (!pipe->top_pipe && !pipe->plane_state && context->bw_ctx.dml.vba.ODMCombineEnabled[pipe_idx]) {
+ 			hsplit_pipe = find_idle_secondary_pipe(&context->res_ctx, dc->res_pool, pipe);
+ 			ASSERT(hsplit_pipe);
+@@ -2258,6 +2261,10 @@ bool dcn20_validate_bandwidth(struct dc *dc, struct dc_state *context,
+ 			else
+ 				pipes[pipe_cnt].pipe.dest.odm_combine = 0;
+ 		}
++		if (dc->config.forced_clocks) {
++			pipes[pipe_cnt].clks_cfg.dispclk_mhz = context->bw_ctx.dml.soc.clock_limits[0].dispclk_mhz;
++			pipes[pipe_cnt].clks_cfg.dppclk_mhz = context->bw_ctx.dml.soc.clock_limits[0].dppclk_mhz;
++		}
+ 		pipe_cnt++;
+ 	}
+ 
+-- 
+2.17.1
+

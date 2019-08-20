@@ -1,0 +1,36 @@
+From 7ee9ac30c3d2d059ed3b3f510a6b7249708758e6 Mon Sep 17 00:00:00 2001
+From: Huang Rui <ray.huang@amd.com>
+Date: Wed, 20 Feb 2019 20:20:00 +0800
+Subject: [PATCH 2270/2940] drm/amd/powerplay: skip od feature on navi10 for
+ the moment
+
+OD feature isn't enabled on navi10 so skip it for the moment.
+
+Signed-off-by: Huang Rui <ray.huang@amd.com>
+Reviewed-by: Hawking Zhang <Hawking.Zhang@amd.com>
+Signed-off-by: Alex Deucher <alexander.deucher@amd.com>
+---
+ drivers/gpu/drm/amd/powerplay/smu_v11_0.c | 7 +++++++
+ 1 file changed, 7 insertions(+)
+
+diff --git a/drivers/gpu/drm/amd/powerplay/smu_v11_0.c b/drivers/gpu/drm/amd/powerplay/smu_v11_0.c
+index 4311ee38a774..7aa6cf3c0dac 100644
+--- a/drivers/gpu/drm/amd/powerplay/smu_v11_0.c
++++ b/drivers/gpu/drm/amd/powerplay/smu_v11_0.c
+@@ -1618,6 +1618,13 @@ static int smu_v11_0_set_od8_default_settings(struct smu_context *smu,
+ 	struct smu_table_context *table_context = &smu->smu_table;
+ 	int ret;
+ 
++	/**
++	 * TODO: Enable overdrive for navi10, that replies on smc/pptable
++	 * support.
++	 */
++	if (smu->adev->asic_type == CHIP_NAVI10)
++		return 0;
++
+ 	if (initialize) {
+ 		if (table_context->overdrive_table)
+ 			return -EINVAL;
+-- 
+2.17.1
+

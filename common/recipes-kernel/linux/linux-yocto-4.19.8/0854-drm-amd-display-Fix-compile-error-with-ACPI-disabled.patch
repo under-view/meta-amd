@@ -1,0 +1,36 @@
+From 2475d8d0e40413d4f1db9901fc581a171ff7a19e Mon Sep 17 00:00:00 2001
+From: David Francis <David.Francis@amd.com>
+Date: Tue, 27 Nov 2018 11:10:07 -0500
+Subject: [PATCH 0854/2940] drm/amd/display: Fix compile error with ACPI
+ disabled
+
+The fallback code for getting default backlight caps was using
+the wrong variable name.  Fix it.
+
+Fixes: https://lists.freedesktop.org/archives/dri-devel/2018-November/197752.html
+Signed-off-by: David Francis <David.Francis@amd.com>
+Acked-by: Alex Deucher <alexander.deucher@amd.com>
+Reviewed-by: Harry Wentland <harry.wentland@amd.com>
+Signed-off-by: Alex Deucher <alexander.deucher@amd.com>
+---
+ drivers/gpu/drm/amd/display/amdgpu_dm/amdgpu_dm.c | 4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
+
+diff --git a/drivers/gpu/drm/amd/display/amdgpu_dm/amdgpu_dm.c b/drivers/gpu/drm/amd/display/amdgpu_dm/amdgpu_dm.c
+index 23f19a964dd1..45031e9257c6 100644
+--- a/drivers/gpu/drm/amd/display/amdgpu_dm/amdgpu_dm.c
++++ b/drivers/gpu/drm/amd/display/amdgpu_dm/amdgpu_dm.c
+@@ -1699,8 +1699,8 @@ static void amdgpu_dm_update_backlight_caps(struct amdgpu_display_manager *dm)
+                                 AMDGPU_DM_DEFAULT_MAX_BACKLIGHT;
+         }
+ #else
+-        dm->backlight_min_input_signal = AMDGPU_DM_DEFAULT_MIN_BACKLIGHT;
+-        dm->backlight_max_input_signal = AMDGPU_DM_DEFAULT_MAX_BACKLIGHT;
++        dm->backlight_caps.min_input_signal = AMDGPU_DM_DEFAULT_MIN_BACKLIGHT;
++        dm->backlight_caps.max_input_signal = AMDGPU_DM_DEFAULT_MAX_BACKLIGHT;
+ #endif
+ }
+ 
+-- 
+2.17.1
+
