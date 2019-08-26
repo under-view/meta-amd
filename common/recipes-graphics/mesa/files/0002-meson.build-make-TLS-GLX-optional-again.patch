@@ -1,0 +1,51 @@
+From d75beb97e470d1a9bd217004a4b0663da24a58bc Mon Sep 17 00:00:00 2001
+From: "Arsalan H. Awan" <Arsalan_Awan@mentor.com>
+Date: Mon, 19 Aug 2019 17:32:48 +0500
+Subject: [PATCH 2/3] meson.build: make TLS GLX optional again
+
+This was optional with autotools, and needs to be disabled
+when using musl C library, for instance.
+
+Signed-off-by: Alexander Kanavin <alex.kanavin@gmail.com>
+Signed-off-by: Fabio Berton <fabio.berton@ossystems.com.br>
+Signed-off-by: Arsalan H. Awan <Arsalan_Awan@mentor.com>
+---
+ meson.build       | 4 +++-
+ meson_options.txt | 6 ++++++
+ 2 files changed, 9 insertions(+), 1 deletion(-)
+
+diff --git a/meson.build b/meson.build
+index 78d0ea47790..bb6e3083c20 100644
+--- a/meson.build
++++ b/meson.build
+@@ -365,7 +365,9 @@ if with_egl and not (with_platform_drm or with_platform_surfaceless or with_plat
+   endif
+ endif
+ 
+-pre_args += '-DGLX_USE_TLS'
++if get_option('glx-tls')
++  pre_args += '-DGLX_USE_TLS'
++endif
+ if with_glx != 'disabled'
+   if not (with_platform_x11 and with_any_opengl)
+     error('Cannot build GLX support without X11 platform support and at least one OpenGL API')
+diff --git a/meson_options.txt b/meson_options.txt
+index 5cbb85658a2..c0ce8d8c8bf 100644
+--- a/meson_options.txt
++++ b/meson_options.txt
+@@ -334,6 +334,12 @@ option(
+   description : 'Enable direct rendering in GLX and EGL for DRI',
+ )
+ option(
++  'glx-tls',
++  type : 'boolean',
++  value : true,
++  description : 'Enable TLS support in GLX',
++)
++option(
+   'I-love-half-baked-turnips',
+   type : 'boolean',
+   value : false,
+-- 
+2.11.1
+

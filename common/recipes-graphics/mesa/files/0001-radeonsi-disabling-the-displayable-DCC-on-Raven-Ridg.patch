@@ -1,0 +1,28 @@
+From 19e44acaf9b1e2609e32ee46fec19dc278188918 Mon Sep 17 00:00:00 2001
+From: Pavan Kumar Ramayanam <pavan.ramayanam@amd.com>
+Date: Mon, 19 Aug 2019 14:31:42 +0530
+Subject: [PATCH] radeonsi: disabling the  displayable DCC on Raven Ridge1 due
+ to           Vaapi-vaapi fullscreen playback causing hard hang Signed-off-by:
+ Pavan Kumar Ramayanam <pavan.ramayanam@amd.com>
+
+---
+ src/amd/common/ac_gpu_info.c | 3 +--
+ 1 file changed, 1 insertion(+), 2 deletions(-)
+
+diff --git a/src/amd/common/ac_gpu_info.c b/src/amd/common/ac_gpu_info.c
+index a501d840b25..9fd792bb4b6 100644
+--- a/src/amd/common/ac_gpu_info.c
++++ b/src/amd/common/ac_gpu_info.c
+@@ -475,8 +475,7 @@ bool ac_query_gpu_info(int fd, void *dev_p,
+ 	info->ib_start_alignment = ib_align;
+ 
+ 	if (info->drm_minor >= 31 &&
+-	    (info->family == CHIP_RAVEN ||
+-	     info->family == CHIP_RAVEN2)) {
++	    (info->family == CHIP_RAVEN2)) {
+ 		if (info->num_render_backends == 1)
+ 			info->use_display_dcc_unaligned = true;
+ 		else
+-- 
+2.17.1
+
