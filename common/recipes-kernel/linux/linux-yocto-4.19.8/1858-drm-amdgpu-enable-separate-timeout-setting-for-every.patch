@@ -1,0 +1,289 @@
+From 5f32122d066bb3eb9665ff556866fcf7759089af Mon Sep 17 00:00:00 2001
+From: Evan Quan <evan.quan@amd.com>
+Date: Mon, 29 Apr 2019 16:51:17 +0800
+Subject: [PATCH 1858/2940] drm/amdgpu: enable separate timeout setting for
+ every ring type V4
+
+Every ring type can have its own timeout setting.
+
+ - V2: update lockup_timeout parameter format and cosmetic fixes
+ - V3: invalidate 0 and negative values
+ - V4: update lockup_timeout parameter format
+
+Change-Id: I992f224f36bb33acd560162bffd2c3e987840a7e
+Signed-off-by: Evan Quan <evan.quan@amd.com>
+Reviewed-by: Alex Deucher <alexander.deucher@amd.com>
+Signed-off-by: Chaudhary Amit Kumar <Chaudharyamit.Kumar@amd.com>
+---
+ drivers/gpu/drm/amd/amdgpu/amdgpu.h        |  7 +-
+ drivers/gpu/drm/amd/amdgpu/amdgpu_device.c | 17 +++--
+ drivers/gpu/drm/amd/amdgpu/amdgpu_drv.c    | 79 ++++++++++++++++++++--
+ drivers/gpu/drm/amd/amdgpu/amdgpu_fence.c  | 35 ++++++++--
+ drivers/gpu/drm/amd/amdgpu/mxgpu_ai.c      |  2 +-
+ 5 files changed, 120 insertions(+), 20 deletions(-)
+
+diff --git a/drivers/gpu/drm/amd/amdgpu/amdgpu.h b/drivers/gpu/drm/amd/amdgpu/amdgpu.h
+index b458019e4cea..6eaaa51484bd 100644
+--- a/drivers/gpu/drm/amd/amdgpu/amdgpu.h
++++ b/drivers/gpu/drm/amd/amdgpu/amdgpu.h
+@@ -118,7 +118,6 @@ extern int amdgpu_disp_priority;
+ extern int amdgpu_hw_i2c;
+ extern int amdgpu_pcie_gen2;
+ extern int amdgpu_msi;
+-extern int amdgpu_lockup_timeout;
+ extern int amdgpu_dpm;
+ extern int amdgpu_fw_load_type;
+ extern int amdgpu_aspm;
+@@ -420,6 +419,7 @@ struct amdgpu_fpriv {
+ };
+ 
+ int amdgpu_file_to_fpriv(struct file *filp, struct amdgpu_fpriv **fpriv);
++int amdgpu_device_get_job_timeout_settings(struct amdgpu_device *adev);
+ 
+ int amdgpu_ib_get(struct amdgpu_device *adev, struct amdgpu_vm *vm,
+ 		  unsigned size, struct amdgpu_ib *ib);
+@@ -983,6 +983,11 @@ struct amdgpu_device {
+ 	struct work_struct		xgmi_reset_work;
+ 
+ 	bool                            in_baco_reset;
++
++	long				gfx_timeout;
++	long				sdma_timeout;
++	long				video_timeout;
++	long				compute_timeout;
+ };
+ 
+ static inline struct amdgpu_device *amdgpu_ttm_adev(struct ttm_bo_device *bdev)
+diff --git a/drivers/gpu/drm/amd/amdgpu/amdgpu_device.c b/drivers/gpu/drm/amd/amdgpu/amdgpu_device.c
+index 0eeb3c0cf911..3f23fe9b9b34 100644
+--- a/drivers/gpu/drm/amd/amdgpu/amdgpu_device.c
++++ b/drivers/gpu/drm/amd/amdgpu/amdgpu_device.c
+@@ -933,10 +933,11 @@ static void amdgpu_device_check_smu_prv_buffer_size(struct amdgpu_device *adev)
+  * Validates certain module parameters and updates
+  * the associated values used by the driver (all asics).
+  */
+-static void amdgpu_device_check_arguments(struct amdgpu_device *adev)
++static int amdgpu_device_check_arguments(struct amdgpu_device *adev)
+ {
+ 	struct sysinfo si;
+ 	int phys_ram_gb, amdgpu_vm_size_aligned;
++	int ret = 0;
+ 
+ 	if (amdgpu_sched_jobs < 4) {
+ 		dev_warn(adev->dev, "sched jobs (%d) must be at least 4\n",
+@@ -1002,14 +1003,16 @@ static void amdgpu_device_check_arguments(struct amdgpu_device *adev)
+ 			 amdgpu_vram_page_split);
+ 		amdgpu_vram_page_split = 1024;
+ 	}
+-
+-	if (amdgpu_lockup_timeout == 0) {
+-		dev_warn(adev->dev, "lockup_timeout msut be > 0, adjusting to 10000\n");
+-		amdgpu_lockup_timeout = 10000;
++        ret = amdgpu_device_get_job_timeout_settings(adev);
++        if (ret) {
++                dev_err(adev->dev, "invalid lockup_timeout parameter syntax\n");
++                return ret;
+ 	}
+ 
+ 	adev->firmware.load_type = amdgpu_ucode_get_load_type(adev, amdgpu_fw_load_type);
+ 	amdgpu_direct_gma_size = min(amdgpu_direct_gma_size, 96);
++
++	return ret;
+ }
+ 
+ /**
+@@ -2522,7 +2525,9 @@ int amdgpu_device_init(struct amdgpu_device *adev,
+ 	mutex_init(&adev->lock_reset);
+ 	mutex_init(&adev->virt.dpm_mutex);
+ 
+-	amdgpu_device_check_arguments(adev);
++	r = amdgpu_device_check_arguments(adev);
++	if (r)
++		return r;
+ 
+ 	spin_lock_init(&adev->mmio_idx_lock);
+ 	spin_lock_init(&adev->smc_idx_lock);
+diff --git a/drivers/gpu/drm/amd/amdgpu/amdgpu_drv.c b/drivers/gpu/drm/amd/amdgpu/amdgpu_drv.c
+index 270e66850449..c99c395a695d 100644
+--- a/drivers/gpu/drm/amd/amdgpu/amdgpu_drv.c
++++ b/drivers/gpu/drm/amd/amdgpu/amdgpu_drv.c
+@@ -83,6 +83,8 @@
+ 
+ #define AMDGPU_VERSION		"18.50.1.418"
+ 
++#define AMDGPU_MAX_TIMEOUT_PARAM_LENTH	256
++
+ int amdgpu_vram_limit = 0;
+ int amdgpu_vis_vram_limit = 0;
+ int amdgpu_gart_size = -1; /* auto */
+@@ -95,7 +97,7 @@ int amdgpu_disp_priority = 0;
+ int amdgpu_hw_i2c = 0;
+ int amdgpu_pcie_gen2 = -1;
+ int amdgpu_msi = -1;
+-int amdgpu_lockup_timeout = 10000;
++char amdgpu_lockup_timeout[AMDGPU_MAX_TIMEOUT_PARAM_LENTH];
+ int amdgpu_dpm = -1;
+ int amdgpu_fw_load_type = -1;
+ int amdgpu_aspm = -1;
+@@ -232,12 +234,21 @@ MODULE_PARM_DESC(msi, "MSI support (1 = enable, 0 = disable, -1 = auto)");
+ module_param_named(msi, amdgpu_msi, int, 0444);
+ 
+ /**
+- * DOC: lockup_timeout (int)
+- * Set GPU scheduler timeout value in ms. Value 0 is invalidated, will be adjusted to 10000.
+- * Negative values mean 'infinite timeout' (MAX_JIFFY_OFFSET). The default is 10000.
++ * DOC: lockup_timeout (string)
++ * Set GPU scheduler timeout value in ms.
++ *
++ * The format can be [Non-Compute] or [GFX,Compute,SDMA,Video]. That is there can be one or
++ * multiple values specified. 0 and negative values are invalidated. They will be adjusted
++ * to default timeout.
++ *  - With one value specified, the setting will apply to all non-compute jobs.
++ *  - With multiple values specified, the first one will be for GFX. The second one is for Compute.
++ *    And the third and fourth ones are for SDMA and Video.
++ * By default(with no lockup_timeout settings), the timeout for all non-compute(GFX, SDMA and Video)
++ * jobs is 10000. And there is no timeout enforced on compute jobs.
+  */
+-MODULE_PARM_DESC(lockup_timeout, "GPU lockup timeout in ms > 0 (default 10000)");
+-module_param_named(lockup_timeout, amdgpu_lockup_timeout, int, 0444);
++MODULE_PARM_DESC(lockup_timeout, "GPU lockup timeout in ms (default: 10000 for non-compute jobs and no timeout for compute jobs), "
++		"format is [Non-Compute] or [GFX,Compute,SDMA,Video]");
++module_param_string(lockup_timeout, amdgpu_lockup_timeout, sizeof(amdgpu_lockup_timeout), 0444);
+ 
+ /**
+  * DOC: dpm (int)
+@@ -1133,6 +1144,62 @@ int amdgpu_file_to_fpriv(struct file *filp, struct amdgpu_fpriv **fpriv)
+ 	return 0;
+ }
+ 
++int amdgpu_device_get_job_timeout_settings(struct amdgpu_device *adev)
++{
++	char *input = amdgpu_lockup_timeout;
++	char *timeout_setting = NULL;
++	int index = 0;
++	long timeout;
++	int ret = 0;
++
++	/*
++	 * By default timeout for non compute jobs is 10000.
++	 * And there is no timeout enforced on compute jobs.
++	 */
++	adev->gfx_timeout = adev->sdma_timeout = adev->video_timeout = 10000;
++	adev->compute_timeout = MAX_SCHEDULE_TIMEOUT;
++
++	if (strnlen(input, AMDGPU_MAX_TIMEOUT_PARAM_LENTH)) {
++		while ((timeout_setting = strsep(&input, ",")) &&
++				strnlen(timeout_setting, AMDGPU_MAX_TIMEOUT_PARAM_LENTH)) {
++			ret = kstrtol(timeout_setting, 0, &timeout);
++			if (ret)
++				return ret;
++
++			/* Invalidate 0 and negative values */
++			if (timeout <= 0) {
++				index++;
++				continue;
++			}
++
++			switch (index++) {
++			case 0:
++				adev->gfx_timeout = timeout;
++				break;
++			case 1:
++				adev->compute_timeout = timeout;
++				break;
++			case 2:
++				adev->sdma_timeout = timeout;
++				break;
++			case 3:
++				adev->video_timeout = timeout;
++				break;
++			default:
++				break;
++			}
++		}
++		/*
++		 * There is only one value specified and
++		 * it should apply to all non-compute jobs.
++		 */
++		if (index == 1)
++			adev->sdma_timeout = adev->video_timeout = adev->gfx_timeout;
++	}
++
++	return ret;
++}
++
+ static bool
+ amdgpu_get_crtc_scanout_position(struct drm_device *dev, unsigned int pipe,
+ 				 bool in_vblank_irq, int *vpos, int *hpos,
+diff --git a/drivers/gpu/drm/amd/amdgpu/amdgpu_fence.c b/drivers/gpu/drm/amd/amdgpu/amdgpu_fence.c
+index 9bc70ed19829..68036aa596c1 100644
+--- a/drivers/gpu/drm/amd/amdgpu/amdgpu_fence.c
++++ b/drivers/gpu/drm/amd/amdgpu/amdgpu_fence.c
+@@ -427,9 +427,13 @@ int amdgpu_fence_driver_start_ring(struct amdgpu_ring *ring,
+ int amdgpu_fence_driver_init_ring(struct amdgpu_ring *ring,
+ 				  unsigned num_hw_submission)
+ {
++	struct amdgpu_device *adev = ring->adev;
+ 	long timeout;
+ 	int r;
+ 
++	if (!adev)
++		return -EINVAL;
++
+ 	/* Check that num_hw_submission is a power of two */
+ 	if ((num_hw_submission & (num_hw_submission - 1)) != 0)
+ 		return -EINVAL;
+@@ -451,12 +455,31 @@ int amdgpu_fence_driver_init_ring(struct amdgpu_ring *ring,
+ 
+ 	/* No need to setup the GPU scheduler for KIQ ring */
+ 	if (ring->funcs->type != AMDGPU_RING_TYPE_KIQ) {
+-		/* for non-sriov case, no timeout enforce on compute ring */
+-		if ((ring->funcs->type == AMDGPU_RING_TYPE_COMPUTE)
+-				&& !amdgpu_sriov_vf(ring->adev))
+-			timeout = MAX_SCHEDULE_TIMEOUT;
+-		else
+-			timeout = msecs_to_jiffies(amdgpu_lockup_timeout);
++		switch (ring->funcs->type) {
++		case AMDGPU_RING_TYPE_GFX:
++			timeout = adev->gfx_timeout;
++			break;
++		case AMDGPU_RING_TYPE_COMPUTE:
++			/*
++			 * For non-sriov case, no timeout enforce
++			 * on compute ring by default. Unless user
++			 * specifies a timeout for compute ring.
++			 *
++			 * For sriov case, always use the timeout
++			 * as gfx ring
++			 */
++			if (!amdgpu_sriov_vf(ring->adev))
++				timeout = adev->compute_timeout;
++			else
++				timeout = adev->gfx_timeout;
++			break;
++		case AMDGPU_RING_TYPE_SDMA:
++			timeout = adev->sdma_timeout;
++			break;
++		default:
++			timeout = adev->video_timeout;
++			break;
++		}
+ 
+ 		r = drm_sched_init(&ring->sched, &amdgpu_sched_ops,
+ 				   num_hw_submission, amdgpu_job_hang_limit,
+diff --git a/drivers/gpu/drm/amd/amdgpu/mxgpu_ai.c b/drivers/gpu/drm/amd/amdgpu/mxgpu_ai.c
+index 8dbad496b29f..089952a1e6b0 100644
+--- a/drivers/gpu/drm/amd/amdgpu/mxgpu_ai.c
++++ b/drivers/gpu/drm/amd/amdgpu/mxgpu_ai.c
+@@ -343,7 +343,7 @@ static void xgpu_ai_mailbox_flr_work(struct work_struct *work)
+ 
+ 	/* Trigger recovery for world switch failure if no TDR */
+ 	if (amdgpu_device_should_recover_gpu(adev)
+-		&& amdgpu_lockup_timeout == MAX_SCHEDULE_TIMEOUT)
++		&& adev->sdma_timeout == MAX_SCHEDULE_TIMEOUT)
+ 		amdgpu_device_gpu_recover(adev, NULL);
+ }
+ 
+-- 
+2.17.1
+

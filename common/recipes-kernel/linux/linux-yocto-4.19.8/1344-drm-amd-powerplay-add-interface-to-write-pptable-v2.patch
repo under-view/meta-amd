@@ -1,0 +1,62 @@
+From 6101c0c2405071230e28d1f878e6232ca0a9ee24 Mon Sep 17 00:00:00 2001
+From: Huang Rui <ray.huang@amd.com>
+Date: Tue, 4 Dec 2018 21:57:05 +0800
+Subject: [PATCH 1344/2940] drm/amd/powerplay: add interface to write pptable
+ (v2)
+
+This patch adds interface to write pptable for smu.
+It's to copy pptable bo in the vram to smc with SMU MSGs such as
+SetDriverDramAddr and TransferTableDram2Smu.
+
+v2: add detailed info to describe this function
+
+Signed-off-by: Huang Rui <ray.huang@amd.com>
+Acked-by: Alex Deucher <alexander.deucher@amd.com>
+---
+ drivers/gpu/drm/amd/powerplay/amdgpu_smu.c     | 8 ++++++++
+ drivers/gpu/drm/amd/powerplay/inc/amdgpu_smu.h | 3 +++
+ 2 files changed, 11 insertions(+)
+
+diff --git a/drivers/gpu/drm/amd/powerplay/amdgpu_smu.c b/drivers/gpu/drm/amd/powerplay/amdgpu_smu.c
+index 519682541cae..747b6b7a7675 100644
+--- a/drivers/gpu/drm/amd/powerplay/amdgpu_smu.c
++++ b/drivers/gpu/drm/amd/powerplay/amdgpu_smu.c
+@@ -192,6 +192,14 @@ static int smu_smc_table_hw_init(struct smu_context *smu)
+ 	if (ret)
+ 		return ret;
+ 
++	/*
++	 * Copy pptable bo in the vram to smc with SMU MSGs such as
++	 * SetDriverDramAddr and TransferTableDram2Smu.
++	 */
++	ret = smu_write_pptable(smu);
++	if (ret)
++		return ret;
++
+ 	return 0;
+ }
+ 
+diff --git a/drivers/gpu/drm/amd/powerplay/inc/amdgpu_smu.h b/drivers/gpu/drm/amd/powerplay/inc/amdgpu_smu.h
+index 95252653a665..e7e9fecbb086 100644
+--- a/drivers/gpu/drm/amd/powerplay/inc/amdgpu_smu.h
++++ b/drivers/gpu/drm/amd/powerplay/inc/amdgpu_smu.h
+@@ -45,6 +45,7 @@ struct smu_funcs
+ 	int (*parse_pptable)(struct smu_context *smu);
+ 	int (*populate_smc_pptable)(struct smu_context *smu);
+ 	int (*check_fw_version)(struct smu_context *smu);
++	int (*write_pptable)(struct smu_context *smu);
+ };
+ 
+ #define smu_init_microcode(smu) \
+@@ -69,6 +70,8 @@ struct smu_funcs
+ 	((smu)->funcs->populate_smc_pptable ? (smu)->funcs->populate_smc_pptable((smu)) : 0)
+ #define smu_check_fw_version(smu) \
+ 	((smu)->funcs->check_fw_version ? (smu)->funcs->check_fw_version((smu)) : 0)
++#define smu_write_pptable(smu) \
++	((smu)->funcs->write_pptable ? (smu)->funcs->write_pptable((smu)) : 0)
+ 
+ 
+ extern const struct amd_ip_funcs smu_ip_funcs;
+-- 
+2.17.1
+

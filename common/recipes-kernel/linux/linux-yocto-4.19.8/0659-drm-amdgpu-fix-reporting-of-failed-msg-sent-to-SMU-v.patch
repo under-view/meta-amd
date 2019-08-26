@@ -1,0 +1,41 @@
+From b0126dee0fc4a074643c97a4f11102427aea7c0c Mon Sep 17 00:00:00 2001
+From: Shirish S <shirish.s@amd.com>
+Date: Fri, 26 Oct 2018 02:38:58 +0530
+Subject: [PATCH 0659/2940] drm/amdgpu: fix reporting of failed msg sent to SMU
+ (v2)
+
+Currently send_msg_to_smc_async() only report which message
+failed, but the actual failing message is the previous one,
+which SMU is unable to service.
+
+This patch reads the contents of register where the SMU is stuck
+and report appropriately.
+
+v2: fix the build (Alex)
+
+Signed-off-by: Shirish S <shirish.s@amd.com>
+Reviewed-by: Rex Zhu <Rex.Zhu@amd.com>
+Signed-off-by: Alex Deucher <alexander.deucher@amd.com>
+---
+ drivers/gpu/drm/amd/powerplay/smumgr/smu8_smumgr.c | 4 ++++
+ 1 file changed, 4 insertions(+)
+
+diff --git a/drivers/gpu/drm/amd/powerplay/smumgr/smu8_smumgr.c b/drivers/gpu/drm/amd/powerplay/smumgr/smu8_smumgr.c
+index f836d30fdd44..09b844ec3eab 100644
+--- a/drivers/gpu/drm/amd/powerplay/smumgr/smu8_smumgr.c
++++ b/drivers/gpu/drm/amd/powerplay/smumgr/smu8_smumgr.c
+@@ -71,7 +71,11 @@ static int smu8_send_msg_to_smc_async(struct pp_hwmgr *hwmgr, uint16_t msg)
+ 	result = PHM_WAIT_FIELD_UNEQUAL(hwmgr,
+ 					SMU_MP1_SRBM2P_RESP_0, CONTENT, 0);
+ 	if (result != 0) {
++		/* Read the last message to SMU, to report actual cause */
++		uint32_t val = cgs_read_register(hwmgr->device,
++						 mmSMU_MP1_SRBM2P_MSG_0);
+ 		pr_err("smu8_send_msg_to_smc_async (0x%04x) failed\n", msg);
++		pr_err("SMU still servicing msg (0x%04x)\n", val);
+ 		return result;
+ 	}
+ 
+-- 
+2.17.1
+

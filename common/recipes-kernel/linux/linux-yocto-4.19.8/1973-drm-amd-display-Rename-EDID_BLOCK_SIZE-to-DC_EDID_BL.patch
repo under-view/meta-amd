@@ -1,0 +1,48 @@
+From 200652761902ec5c33ba9b5c90b60b4bc1f2e01c Mon Sep 17 00:00:00 2001
+From: Joshua Aberback <joshua.aberback@amd.com>
+Date: Thu, 2 May 2019 17:32:14 -0400
+Subject: [PATCH 1973/2940] drm/amd/display: Rename EDID_BLOCK_SIZE to
+ DC_EDID_BLOCK_SIZE
+
+Signed-off-by: Joshua Aberback <joshua.aberback@amd.com>
+Reviewed-by: Abdoulaye Berthe <Abdoulaye.Berthe@amd.com>
+Acked-by: Bhawanpreet Lakha <Bhawanpreet.Lakha@amd.com>
+---
+ drivers/gpu/drm/amd/display/dc/core/dc_link.c | 6 +++---
+ drivers/gpu/drm/amd/display/dc/dc_types.h     | 2 +-
+ 2 files changed, 4 insertions(+), 4 deletions(-)
+
+diff --git a/drivers/gpu/drm/amd/display/dc/core/dc_link.c b/drivers/gpu/drm/amd/display/dc/core/dc_link.c
+index fd8b46df49e5..7a40fd541bee 100644
+--- a/drivers/gpu/drm/amd/display/dc/core/dc_link.c
++++ b/drivers/gpu/drm/amd/display/dc/core/dc_link.c
+@@ -907,10 +907,10 @@ bool dc_link_detect(struct dc_link *link, enum dc_detect_reason reason)
+ 			sink->sink_signal = SIGNAL_TYPE_DVI_SINGLE_LINK;
+ 
+ 		/* Connectivity log: detection */
+-		for (i = 0; i < sink->dc_edid.length / EDID_BLOCK_SIZE; i++) {
++		for (i = 0; i < sink->dc_edid.length / DC_EDID_BLOCK_SIZE; i++) {
+ 			CONN_DATA_DETECT(link,
+-					&sink->dc_edid.raw_edid[i * EDID_BLOCK_SIZE],
+-					EDID_BLOCK_SIZE,
++					&sink->dc_edid.raw_edid[i * DC_EDID_BLOCK_SIZE],
++					DC_EDID_BLOCK_SIZE,
+ 					"%s: [Block %d] ", sink->edid_caps.display_name, i);
+ 		}
+ 
+diff --git a/drivers/gpu/drm/amd/display/dc/dc_types.h b/drivers/gpu/drm/amd/display/dc/dc_types.h
+index 7402f5ada8b6..51a9dc5d9c8e 100644
+--- a/drivers/gpu/drm/amd/display/dc/dc_types.h
++++ b/drivers/gpu/drm/amd/display/dc/dc_types.h
+@@ -113,7 +113,7 @@ struct dc_context {
+ 
+ 
+ #define DC_MAX_EDID_BUFFER_SIZE 1024
+-#define EDID_BLOCK_SIZE 128
++#define DC_EDID_BLOCK_SIZE 128
+ #define MAX_SURFACE_NUM 4
+ #define NUM_PIXEL_FORMATS 10
+ 
+-- 
+2.17.1
+

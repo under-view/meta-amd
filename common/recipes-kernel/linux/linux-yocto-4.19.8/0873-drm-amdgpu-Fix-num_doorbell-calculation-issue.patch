@@ -1,0 +1,41 @@
+From f8ba1d6df88f4d78a40b32984fd9789707406a99 Mon Sep 17 00:00:00 2001
+From: Oak Zeng <ozeng@amd.com>
+Date: Fri, 30 Nov 2018 09:33:02 -0600
+Subject: [PATCH 0873/2940] drm/amdgpu: Fix num_doorbell calculation issue
+
+When paging queue is enabled, it use the second page of doorbell.
+The AMDGPU_DOORBELL64_MAX_ASSIGNMENT definition assumes all the
+kernel doorbells are in the first page. So with paging queue enabled,
+the total kernel doorbell range should be original num_doorbell plus
+one page (0x400 in dword), not *2.
+
+Signed-off-by: Oak Zeng <ozeng@amd.com>
+Reviewed-by: Alex Deucher <alexander.deucher@amd.com>
+Signed-off-by: Alex Deucher <alexander.deucher@amd.com>
+---
+ drivers/gpu/drm/amd/amdgpu/amdgpu_device.c | 7 +++++--
+ 1 file changed, 5 insertions(+), 2 deletions(-)
+
+diff --git a/drivers/gpu/drm/amd/amdgpu/amdgpu_device.c b/drivers/gpu/drm/amd/amdgpu/amdgpu_device.c
+index 3fbd191402f8..8812dce453ad 100644
+--- a/drivers/gpu/drm/amd/amdgpu/amdgpu_device.c
++++ b/drivers/gpu/drm/amd/amdgpu/amdgpu_device.c
+@@ -539,10 +539,13 @@ static int amdgpu_device_doorbell_init(struct amdgpu_device *adev)
+ 		return -EINVAL;
+ 
+ 	/* For Vega, reserve and map two pages on doorbell BAR since SDMA
+-	 * paging queue doorbell use the second page
++	 * paging queue doorbell use the second page. The
++	 * AMDGPU_DOORBELL64_MAX_ASSIGNMENT definition assumes all the
++	 * doorbells are in the first page. So with paging queue enabled,
++	 * the max num_doorbells should + 1 page (0x400 in dword)
+ 	 */
+ 	if (adev->asic_type >= CHIP_VEGA10)
+-		adev->doorbell.num_doorbells *= 2;
++		adev->doorbell.num_doorbells += 0x400;
+ 
+ 	adev->doorbell.ptr = ioremap(adev->doorbell.base,
+ 				     adev->doorbell.num_doorbells *
+-- 
+2.17.1
+

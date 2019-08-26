@@ -1,0 +1,80 @@
+From d75d1074d81030fb1d0ba996d182e6e11c7d9894 Mon Sep 17 00:00:00 2001
+From: Kevin Wang <kevin1.wang@amd.com>
+Date: Thu, 4 Jul 2019 10:56:18 +0800
+Subject: [PATCH 2829/2940] drm/amd/powerplay: add temperature sensor support
+ for navi10
+
+the hwmon interface need temperature sensor type support.
+1. SENSOR_HOTSPOT_TEMP
+2. SENSOR_EDGE_TEMP(SENSOR_GPU_TEMP)
+3. SENSOR_MEM_TEMP
+
+Change-Id: I9b518a7a2b6ab04dfeb5ce03c915edad2a7fdd6c
+Signed-off-by: Kevin Wang <kevin1.wang@amd.com>
+Reviewed-by: Alex Deucher <alexander.deucher@amd.com>
+---
+ drivers/gpu/drm/amd/powerplay/navi10_ppt.c | 41 ++++++++++++++++++++++
+ 1 file changed, 41 insertions(+)
+
+diff --git a/drivers/gpu/drm/amd/powerplay/navi10_ppt.c b/drivers/gpu/drm/amd/powerplay/navi10_ppt.c
+index 7574a02350c6..9bb06591bed7 100644
+--- a/drivers/gpu/drm/amd/powerplay/navi10_ppt.c
++++ b/drivers/gpu/drm/amd/powerplay/navi10_ppt.c
+@@ -1255,6 +1255,41 @@ static int navi10_set_watermarks_table(struct smu_context *smu,
+ 	return 0;
+ }
+ 
++static int navi10_thermal_get_temperature(struct smu_context *smu,
++					     enum amd_pp_sensors sensor,
++					     uint32_t *value)
++{
++	SmuMetrics_t metrics;
++	int ret = 0;
++
++	if (!value)
++		return -EINVAL;
++
++	ret = smu_update_table(smu, SMU_TABLE_SMU_METRICS, (void *)&metrics, false);
++	if (ret)
++		return ret;
++
++	switch (sensor) {
++	case AMDGPU_PP_SENSOR_HOTSPOT_TEMP:
++		*value = metrics.TemperatureHotspot *
++			SMU_TEMPERATURE_UNITS_PER_CENTIGRADES;
++		break;
++	case AMDGPU_PP_SENSOR_EDGE_TEMP:
++		*value = metrics.TemperatureEdge *
++			SMU_TEMPERATURE_UNITS_PER_CENTIGRADES;
++		break;
++	case AMDGPU_PP_SENSOR_MEM_TEMP:
++		*value = metrics.TemperatureMem *
++			SMU_TEMPERATURE_UNITS_PER_CENTIGRADES;
++		break;
++	default:
++		pr_err("Invalid sensor for retrieving temp\n");
++		return -EINVAL;
++	}
++
++	return 0;
++}
++
+ static int navi10_read_sensor(struct smu_context *smu,
+ 				 enum amd_pp_sensors sensor,
+ 				 void *data, uint32_t *size)
+@@ -1276,6 +1311,12 @@ static int navi10_read_sensor(struct smu_context *smu,
+ 		ret = navi10_get_gpu_power(smu, (uint32_t *)data);
+ 		*size = 4;
+ 		break;
++	case AMDGPU_PP_SENSOR_HOTSPOT_TEMP:
++	case AMDGPU_PP_SENSOR_EDGE_TEMP:
++	case AMDGPU_PP_SENSOR_MEM_TEMP:
++		ret = navi10_thermal_get_temperature(smu, sensor, (uint32_t *)data);
++		*size = 4;
++		break;
+ 	default:
+ 		return -EINVAL;
+ 	}
+-- 
+2.17.1
+

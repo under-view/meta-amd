@@ -1,0 +1,36 @@
+From 6fa3d55bcbe5e06ea1d6db7972b35d9ee15a2097 Mon Sep 17 00:00:00 2001
+From: Rex Zhu <Rex.Zhu@amd.com>
+Date: Sun, 29 Jul 2018 18:53:02 +0800
+Subject: [PATCH 0006/2940] drm/amgpu/acp: Implement set_powergating_state for
+ acp
+
+so driver can powergate acp block after asic initialized
+to save power.
+
+Reviewed-by: Alex Deucher <alexander.deucher@amd.com>
+Signed-off-by: Rex Zhu <Rex.Zhu@amd.com>
+Signed-off-by: Alex Deucher <alexander.deucher@amd.com>
+---
+ drivers/gpu/drm/amd/amdgpu/amdgpu_acp.c | 6 ++++++
+ 1 file changed, 6 insertions(+)
+
+diff --git a/drivers/gpu/drm/amd/amdgpu/amdgpu_acp.c b/drivers/gpu/drm/amd/amdgpu/amdgpu_acp.c
+index b5b66c3d1b43..297a5490ad8c 100644
+--- a/drivers/gpu/drm/amd/amdgpu/amdgpu_acp.c
++++ b/drivers/gpu/drm/amd/amdgpu/amdgpu_acp.c
+@@ -514,6 +514,12 @@ static int acp_set_clockgating_state(void *handle,
+ static int acp_set_powergating_state(void *handle,
+ 				     enum amd_powergating_state state)
+ {
++	struct amdgpu_device *adev = (struct amdgpu_device *)handle;
++	bool enable = state == AMD_PG_STATE_GATE ? true : false;
++
++	if (adev->powerplay.pp_funcs->set_powergating_by_smu)
++		amdgpu_dpm_set_powergating_by_smu(adev, AMD_IP_BLOCK_TYPE_ACP, enable);
++
+ 	return 0;
+ }
+ 
+-- 
+2.17.1
+

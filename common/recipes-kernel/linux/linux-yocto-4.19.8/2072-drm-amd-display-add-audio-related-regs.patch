@@ -1,0 +1,70 @@
+From 07309cdfe0b78df2799239fbe00ecc567e7e7c23 Mon Sep 17 00:00:00 2001
+From: Charlene Liu <charlene.liu@amd.com>
+Date: Thu, 23 May 2019 15:27:43 -0400
+Subject: [PATCH 2072/2940] drm/amd/display: add audio related regs
+
+Signed-off-by: Charlene Liu <charlene.liu@amd.com>
+Reviewed-by: Chris Park <Chris.Park@amd.com>
+Acked-by: Bhawanpreet Lakha <Bhawanpreet.Lakha@amd.com>
+---
+ drivers/gpu/drm/amd/display/dc/dce/dce_audio.c | 4 +---
+ drivers/gpu/drm/amd/display/dc/dce/dce_audio.h | 7 +++++++
+ 2 files changed, 8 insertions(+), 3 deletions(-)
+
+diff --git a/drivers/gpu/drm/amd/display/dc/dce/dce_audio.c b/drivers/gpu/drm/amd/display/dc/dce/dce_audio.c
+index 7f6d724686f1..d43d5d924c19 100644
+--- a/drivers/gpu/drm/amd/display/dc/dce/dce_audio.c
++++ b/drivers/gpu/drm/amd/display/dc/dce/dce_audio.c
+@@ -22,7 +22,7 @@
+  * Authors: AMD
+  *
+  */
+-
++#include "../dc.h"
+ #include "reg_helper.h"
+ #include "dce_audio.h"
+ #include "dce/dce_11_0_d.h"
+@@ -841,8 +841,6 @@ void dce_aud_wall_dto_setup(
+ 		REG_UPDATE(DCCG_AUDIO_DTO_SOURCE,
+ 				DCCG_AUDIO_DTO_SEL, 1);
+ 
+-		REG_UPDATE(DCCG_AUDIO_DTO_SOURCE,
+-			DCCG_AUDIO_DTO_SEL, 1);
+ 			/* DCCG_AUDIO_DTO2_USE_512FBR_DTO, 1)
+ 			 * Select 512fs for DP TODO: web register definition
+ 			 * does not match register header file
+diff --git a/drivers/gpu/drm/amd/display/dc/dce/dce_audio.h b/drivers/gpu/drm/amd/display/dc/dce/dce_audio.h
+index 0dc5ff137c7a..a0d5724aab31 100644
+--- a/drivers/gpu/drm/amd/display/dc/dce/dce_audio.h
++++ b/drivers/gpu/drm/amd/display/dc/dce/dce_audio.h
+@@ -49,6 +49,8 @@
+ 		SF(DCCG_AUDIO_DTO_SOURCE, DCCG_AUDIO_DTO0_SOURCE_SEL, mask_sh),\
+ 		SF(DCCG_AUDIO_DTO_SOURCE, DCCG_AUDIO_DTO_SEL, mask_sh),\
+ 		SF(DCCG_AUDIO_DTO_SOURCE, DCCG_AUDIO_DTO2_USE_512FBR_DTO, mask_sh),\
++		SF(DCCG_AUDIO_DTO_SOURCE, DCCG_AUDIO_DTO0_USE_512FBR_DTO, mask_sh),\
++		SF(DCCG_AUDIO_DTO_SOURCE, DCCG_AUDIO_DTO1_USE_512FBR_DTO, mask_sh),\
+ 		SF(DCCG_AUDIO_DTO0_MODULE, DCCG_AUDIO_DTO0_MODULE, mask_sh),\
+ 		SF(DCCG_AUDIO_DTO0_PHASE, DCCG_AUDIO_DTO0_PHASE, mask_sh),\
+ 		SF(DCCG_AUDIO_DTO1_MODULE, DCCG_AUDIO_DTO1_MODULE, mask_sh),\
+@@ -95,6 +97,8 @@ struct dce_audio_shift {
+ 	uint8_t DCCG_AUDIO_DTO1_MODULE;
+ 	uint8_t DCCG_AUDIO_DTO1_PHASE;
+ 	uint8_t DCCG_AUDIO_DTO2_USE_512FBR_DTO;
++	uint32_t DCCG_AUDIO_DTO0_USE_512FBR_DTO;
++	uint32_t DCCG_AUDIO_DTO1_USE_512FBR_DTO;
+ };
+ 
+ struct dce_aduio_mask {
+@@ -112,6 +116,9 @@ struct dce_aduio_mask {
+ 	uint32_t DCCG_AUDIO_DTO1_MODULE;
+ 	uint32_t DCCG_AUDIO_DTO1_PHASE;
+ 	uint32_t DCCG_AUDIO_DTO2_USE_512FBR_DTO;
++	uint32_t DCCG_AUDIO_DTO0_USE_512FBR_DTO;
++	uint32_t DCCG_AUDIO_DTO1_USE_512FBR_DTO;
++
+ };
+ 
+ struct dce_audio {
+-- 
+2.17.1
+

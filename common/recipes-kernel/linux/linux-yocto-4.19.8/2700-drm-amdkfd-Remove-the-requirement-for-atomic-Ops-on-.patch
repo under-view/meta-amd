@@ -1,0 +1,34 @@
+From bfe07c9a68824785065640a81dbf86d51ffddae5 Mon Sep 17 00:00:00 2001
+From: Shaoyun Liu <Shaoyun.Liu@amd.com>
+Date: Mon, 18 Jun 2018 14:47:21 -0400
+Subject: [PATCH 2700/2940] drm/amdkfd: Remove the requirement for atomic Ops
+ on vg20
+
+Firmware have the workaround to replace the atomic Ops with read-modify-write on CP side.
+User should not expect atomic Ops on system memory works normally if system didn't not
+support it.
+
+Signed-off-by: Shaoyun Liu <Shaoyun.Liu@amd.com>
+Acked-by: Alex Deucher <alexander.deucher@amd.com>
+Reviewed-By: Felix Kuehling <Felix.Kuehling@amd.com>
+Signed-off-by: Alex Deucher <alexander.deucher@amd.com>
+---
+ drivers/gpu/drm/amd/amdkfd/kfd_device.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/drivers/gpu/drm/amd/amdkfd/kfd_device.c b/drivers/gpu/drm/amd/amdkfd/kfd_device.c
+index cb96bdfc8f3e..a9f18ea7e354 100644
+--- a/drivers/gpu/drm/amd/amdkfd/kfd_device.c
++++ b/drivers/gpu/drm/amd/amdkfd/kfd_device.c
+@@ -247,7 +247,7 @@ static const struct kfd_device_info vega20_device_info = {
+ 	.mqd_size_aligned = MQD_SIZE_ALIGNED,
+ 	.supports_cwsr = true,
+ 	.needs_iommu_device = false,
+-	.needs_pci_atomics = true,
++	.needs_pci_atomics = false,
+ 	.num_sdma_engines = 2,
+ 	.num_sdma_queues_per_engine = 8,
+ };
+-- 
+2.17.1
+

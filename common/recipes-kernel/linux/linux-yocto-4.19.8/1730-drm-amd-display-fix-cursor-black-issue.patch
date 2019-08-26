@@ -1,0 +1,37 @@
+From e7ae4d4ac8dfa3305b2a0a15da32e2db4da9d52d Mon Sep 17 00:00:00 2001
+From: tiancyin <tianci.yin@amd.com>
+Date: Mon, 1 Apr 2019 10:15:31 +0800
+Subject: [PATCH 1730/2940] drm/amd/display: fix cursor black issue
+
+[Why]
+the member sdr_white_level of struct dc_cursor_attributes was not
+initialized, then the random value result that
+dcn10_set_cursor_sdr_white_level() set error hw_scale value 0x20D9(normal
+value is 0x3c00), this cause the black cursor issue.
+
+[how]
+just initilize the obj of struct dc_cursor_attributes to zero to avoid
+the random value.
+
+Change-Id: I07a53a48a33940cfb6006ed3738583f9703c7993
+Reviewed-by: Nicholas Kazlauskas <nicholas.kazlauskas@amd.com>
+Signed-off-by: Tianci Yin <tianci.yin@amd.com>
+---
+ drivers/gpu/drm/amd/display/amdgpu_dm/amdgpu_dm.c | 1 +
+ 1 file changed, 1 insertion(+)
+
+diff --git a/drivers/gpu/drm/amd/display/amdgpu_dm/amdgpu_dm.c b/drivers/gpu/drm/amd/display/amdgpu_dm/amdgpu_dm.c
+index 82f5d1449efc..762545109b60 100644
+--- a/drivers/gpu/drm/amd/display/amdgpu_dm/amdgpu_dm.c
++++ b/drivers/gpu/drm/amd/display/amdgpu_dm/amdgpu_dm.c
+@@ -4892,6 +4892,7 @@ static void handle_cursor_update(struct drm_plane *plane,
+ 	amdgpu_crtc->cursor_width = plane->state->crtc_w;
+ 	amdgpu_crtc->cursor_height = plane->state->crtc_h;
+ 
++	memset(&attributes, 0, sizeof(attributes));
+ 	attributes.address.high_part = upper_32_bits(address);
+ 	attributes.address.low_part  = lower_32_bits(address);
+ 	attributes.width             = plane->state->crtc_w;
+-- 
+2.17.1
+

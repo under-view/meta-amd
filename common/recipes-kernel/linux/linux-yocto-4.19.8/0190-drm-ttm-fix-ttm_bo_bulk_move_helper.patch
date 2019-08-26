@@ -1,0 +1,50 @@
+From 11457fe88f0fc0cb435e6fb2e402e3dafc35bdb6 Mon Sep 17 00:00:00 2001
+From: =?UTF-8?q?Christian=20K=C3=B6nig?= <christian.koenig@amd.com>
+Date: Fri, 31 Aug 2018 15:06:35 +0200
+Subject: [PATCH 0190/2940] drm/ttm: fix ttm_bo_bulk_move_helper
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+Staring at the function for six hours, just to essentially move one line
+of code. The problem was that the first list_cut_position call could result
+in list2 pointing to la-la-land.
+
+Change-Id: Icdf874edf62881f88dd24a2d457a937f384d519a
+Signed-off-by: Christian König <christian.koenig@amd.com>
+Tested-by: Michel Dänzer <michel.daenzer@amd.com>
+---
+ drivers/gpu/drm/ttm/ttm_bo.c | 13 ++++++++-----
+ 1 file changed, 8 insertions(+), 5 deletions(-)
+
+diff --git a/drivers/gpu/drm/ttm/ttm_bo.c b/drivers/gpu/drm/ttm/ttm_bo.c
+index dc33b3b5975e..b2a7ff5c704d 100644
+--- a/drivers/gpu/drm/ttm/ttm_bo.c
++++ b/drivers/gpu/drm/ttm/ttm_bo.c
+@@ -250,15 +250,18 @@ EXPORT_SYMBOL(ttm_bo_move_to_lru_tail);
+ static void ttm_bo_bulk_move_helper(struct ttm_lru_bulk_move_pos *pos,
+ 				    struct list_head *lru, bool is_swap)
+ {
++	struct list_head *list;
+ 	LIST_HEAD(entries);
+ 	LIST_HEAD(before);
+-	struct list_head *list1, *list2;
+ 
+-	list1 = is_swap ? &pos->last->swap : &pos->last->lru;
+-	list2 = is_swap ? pos->first->swap.prev : pos->first->lru.prev;
++	reservation_object_assert_held(pos->last->resv);
++	list = is_swap ? &pos->last->swap : &pos->last->lru;
++	list_cut_position(&entries, lru, list);
++
++	reservation_object_assert_held(pos->first->resv);
++	list = is_swap ? pos->first->swap.prev : pos->first->lru.prev;
++	list_cut_position(&before, &entries, list);
+ 
+-	list_cut_position(&entries, lru, list1);
+-	list_cut_position(&before, &entries, list2);
+ 	list_splice(&before, lru);
+ 	list_splice_tail(&entries, lru);
+ }
+-- 
+2.17.1
+

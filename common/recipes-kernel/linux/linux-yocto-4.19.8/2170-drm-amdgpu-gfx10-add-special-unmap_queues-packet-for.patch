@@ -1,0 +1,63 @@
+From 24b156d5d6c234d9525bdb529144e5d10c357306 Mon Sep 17 00:00:00 2001
+From: Jack Xiao <Jack.Xiao@amd.com>
+Date: Tue, 8 Jan 2019 13:33:46 +0800
+Subject: [PATCH 2170/2940] drm/amdgpu/gfx10: add special unmap_queues packet
+ for preemption
+
+CP introduced a special unmap_queues packet for gfx preemtion.
+
+Acked-by: Alex Deucher <alexander.deucher@amd.com>
+Reviewed-by: Hawking Zhang <Hawking.Zhang@amd.com>
+Signed-off-by: Jack Xiao <Jack.Xiao@amd.com>
+Signed-off-by: Alex Deucher <alexander.deucher@amd.com>
+---
+ drivers/gpu/drm/amd/amdgpu/amdgpu_gfx.c |  3 ++-
+ drivers/gpu/drm/amd/amdgpu/amdgpu_gfx.h | 11 ++++++++++-
+ 2 files changed, 12 insertions(+), 2 deletions(-)
+
+diff --git a/drivers/gpu/drm/amd/amdgpu/amdgpu_gfx.c b/drivers/gpu/drm/amd/amdgpu/amdgpu_gfx.c
+index c793b6914957..0b595b63520b 100644
+--- a/drivers/gpu/drm/amd/amdgpu/amdgpu_gfx.c
++++ b/drivers/gpu/drm/amd/amdgpu/amdgpu_gfx.c
+@@ -445,7 +445,8 @@ int amdgpu_gfx_disable_kcq(struct amdgpu_device *adev)
+ 		return -ENOMEM;
+ 
+ 	for (i = 0; i < adev->gfx.num_compute_rings; i++)
+-		kiq->pmf->kiq_unmap_queues(kiq_ring, &adev->gfx.compute_ring[i], true);
++		kiq->pmf->kiq_unmap_queues(kiq_ring, &adev->gfx.compute_ring[i],
++					   RESET_QUEUES, 0, 0);
+ 
+ 	return amdgpu_ring_test_ring(kiq_ring);
+ }
+diff --git a/drivers/gpu/drm/amd/amdgpu/amdgpu_gfx.h b/drivers/gpu/drm/amd/amdgpu/amdgpu_gfx.h
+index 42730adbefcf..f96407ba9770 100644
+--- a/drivers/gpu/drm/amd/amdgpu/amdgpu_gfx.h
++++ b/drivers/gpu/drm/amd/amdgpu/amdgpu_gfx.h
+@@ -55,6 +55,13 @@ struct amdgpu_mec {
+ 	DECLARE_BITMAP(queue_bitmap, AMDGPU_MAX_COMPUTE_QUEUES);
+ };
+ 
++enum amdgpu_unmap_queues_action {
++	PREEMPT_QUEUES = 0,
++	RESET_QUEUES,
++	DISABLE_PROCESS_QUEUES,
++	PREEMPT_QUEUES_NO_UNMAP,
++};
++
+ struct kiq_pm4_funcs {
+ 	/* Support ASIC-specific kiq pm4 packets*/
+ 	void (*kiq_set_resources)(struct amdgpu_ring *kiq_ring,
+@@ -62,7 +69,9 @@ struct kiq_pm4_funcs {
+ 	void (*kiq_map_queues)(struct amdgpu_ring *kiq_ring,
+ 					struct amdgpu_ring *ring);
+ 	void (*kiq_unmap_queues)(struct amdgpu_ring *kiq_ring,
+-				 struct amdgpu_ring *ring, bool reset);
++				 struct amdgpu_ring *ring,
++				 enum amdgpu_unmap_queues_action action,
++				 u64 gpu_addr, u64 seq);
+ 	void (*kiq_query_status)(struct amdgpu_ring *kiq_ring,
+ 					struct amdgpu_ring *ring,
+ 					u64 addr,
+-- 
+2.17.1
+

@@ -1,0 +1,80 @@
+From 577f639e5e2fde253d04d16b0d7e09370f73d5bc Mon Sep 17 00:00:00 2001
+From: Samson Tam <Samson.Tam@amd.com>
+Date: Fri, 12 Apr 2019 18:23:11 -0400
+Subject: [PATCH 1889/2940] drm/amd/display: block passive dongle EDID
+ Emulation for USB-C ports
+
+[Why]
+Emulating passive dongle on USB-C port causes issue on some asics.
+
+[How]
+Check for DP_IS_USB_C flag in bios parser and propagate it to
+encoder features flags. If DP_IS_USB_C flag is set and it is trying to
+emulate passive dongle, then return fail.
+
+Change-Id: I32fde1170622fb3acd8b1fe8b86b3755e98b0c68
+Signed-off-by: Samson Tam <Samson.Tam@amd.com>
+Reviewed-by: Tony Cheng <Tony.Cheng@amd.com>
+Acked-by: Bhawanpreet Lakha <Bhawanpreet Lakha@amd.com>
+---
+ drivers/gpu/drm/amd/display/dc/bios/bios_parser2.c        | 2 ++
+ drivers/gpu/drm/amd/display/dc/dcn10/dcn10_link_encoder.c | 2 ++
+ drivers/gpu/drm/amd/display/dc/inc/hw/link_encoder.h      | 1 +
+ drivers/gpu/drm/amd/display/include/bios_parser_types.h   | 3 ++-
+ 4 files changed, 7 insertions(+), 1 deletion(-)
+
+diff --git a/drivers/gpu/drm/amd/display/dc/bios/bios_parser2.c b/drivers/gpu/drm/amd/display/dc/bios/bios_parser2.c
+index fd5266a58297..12bc7ee66b18 100644
+--- a/drivers/gpu/drm/amd/display/dc/bios/bios_parser2.c
++++ b/drivers/gpu/drm/amd/display/dc/bios/bios_parser2.c
+@@ -1313,6 +1313,8 @@ static enum bp_result bios_parser_get_encoder_cap_info(
+ 			ATOM_ENCODER_CAP_RECORD_HBR3_EN) ? 1 : 0;
+ 	info->HDMI_6GB_EN = (record->encodercaps &
+ 			ATOM_ENCODER_CAP_RECORD_HDMI6Gbps_EN) ? 1 : 0;
++	info->DP_IS_USB_C = (record->encodercaps &
++			ATOM_ENCODER_CAP_RECORD_USB_C_TYPE) ? 1 : 0;
+ 
+ 	return BP_RESULT_OK;
+ }
+diff --git a/drivers/gpu/drm/amd/display/dc/dcn10/dcn10_link_encoder.c b/drivers/gpu/drm/amd/display/dc/dcn10/dcn10_link_encoder.c
+index 0126a44ba012..e25ae43f8d32 100644
+--- a/drivers/gpu/drm/amd/display/dc/dcn10/dcn10_link_encoder.c
++++ b/drivers/gpu/drm/amd/display/dc/dcn10/dcn10_link_encoder.c
+@@ -726,6 +726,8 @@ void dcn10_link_encoder_construct(
+ 		enc10->base.features.flags.bits.IS_HBR3_CAPABLE =
+ 				bp_cap_info.DP_HBR3_EN;
+ 		enc10->base.features.flags.bits.HDMI_6GB_EN = bp_cap_info.HDMI_6GB_EN;
++		enc10->base.features.flags.bits.DP_IS_USB_C =
++				bp_cap_info.DP_IS_USB_C;
+ 	} else {
+ 		DC_LOG_WARNING("%s: Failed to get encoder_cap_info from VBIOS with error code %d!\n",
+ 				__func__,
+diff --git a/drivers/gpu/drm/amd/display/dc/inc/hw/link_encoder.h b/drivers/gpu/drm/amd/display/dc/inc/hw/link_encoder.h
+index c9d3e37e9531..ca162079a41b 100644
+--- a/drivers/gpu/drm/amd/display/dc/inc/hw/link_encoder.h
++++ b/drivers/gpu/drm/amd/display/dc/inc/hw/link_encoder.h
+@@ -59,6 +59,7 @@ struct encoder_feature_support {
+ 			uint32_t IS_TPS3_CAPABLE:1;
+ 			uint32_t IS_TPS4_CAPABLE:1;
+ 			uint32_t HDMI_6GB_EN:1;
++			uint32_t DP_IS_USB_C:1;
+ 		} bits;
+ 		uint32_t raw;
+ 	} flags;
+diff --git a/drivers/gpu/drm/amd/display/include/bios_parser_types.h b/drivers/gpu/drm/amd/display/include/bios_parser_types.h
+index 01bf01a34a08..c30437ae8395 100644
+--- a/drivers/gpu/drm/amd/display/include/bios_parser_types.h
++++ b/drivers/gpu/drm/amd/display/include/bios_parser_types.h
+@@ -307,7 +307,8 @@ struct bp_encoder_cap_info {
+ 	uint32_t DP_HBR2_EN:1;
+ 	uint32_t DP_HBR3_EN:1;
+ 	uint32_t HDMI_6GB_EN:1;
+-	uint32_t RESERVED:30;
++	uint32_t DP_IS_USB_C:1;
++	uint32_t RESERVED:27;
+ };
+ 
+ #endif /*__DAL_BIOS_PARSER_TYPES_H__ */
+-- 
+2.17.1
+

@@ -1,0 +1,70 @@
+From 01d1cfb7c2a32603663c35d8b694c6299c82b682 Mon Sep 17 00:00:00 2001
+From: Yang Wei <yang.wei9@zte.com.cn>
+Date: Thu, 28 Feb 2019 22:48:04 +0800
+Subject: [PATCH 1546/2940] drm/amd/powerplay: fix semicolon code style issue
+
+Delete superfluous semicolons.
+
+Signed-off-by: Yang Wei <yang.wei9@zte.com.cn>
+Signed-off-by: Alex Deucher <alexander.deucher@amd.com>
+---
+ drivers/gpu/drm/amd/powerplay/amd_powerplay.c         | 8 ++++----
+ drivers/gpu/drm/amd/powerplay/hwmgr/hardwaremanager.c | 2 +-
+ 2 files changed, 5 insertions(+), 5 deletions(-)
+
+diff --git a/drivers/gpu/drm/amd/powerplay/amd_powerplay.c b/drivers/gpu/drm/amd/powerplay/amd_powerplay.c
+index a66917d971df..bea1587d352d 100644
+--- a/drivers/gpu/drm/amd/powerplay/amd_powerplay.c
++++ b/drivers/gpu/drm/amd/powerplay/amd_powerplay.c
+@@ -1304,7 +1304,7 @@ static int pp_notify_smu_enable_pwe(void *handle)
+ 
+ 	if (hwmgr->hwmgr_func->smus_notify_pwe == NULL) {
+ 		pr_info_ratelimited("%s was not implemented.\n", __func__);
+-		return -EINVAL;;
++		return -EINVAL;
+ 	}
+ 
+ 	mutex_lock(&hwmgr->smu_lock);
+@@ -1341,7 +1341,7 @@ static int pp_set_min_deep_sleep_dcefclk(void *handle, uint32_t clock)
+ 
+ 	if (hwmgr->hwmgr_func->set_min_deep_sleep_dcefclk == NULL) {
+ 		pr_debug("%s was not implemented.\n", __func__);
+-		return -EINVAL;;
++		return -EINVAL;
+ 	}
+ 
+ 	mutex_lock(&hwmgr->smu_lock);
+@@ -1360,7 +1360,7 @@ static int pp_set_hard_min_dcefclk_by_freq(void *handle, uint32_t clock)
+ 
+ 	if (hwmgr->hwmgr_func->set_hard_min_dcefclk_by_freq == NULL) {
+ 		pr_debug("%s was not implemented.\n", __func__);
+-		return -EINVAL;;
++		return -EINVAL;
+ 	}
+ 
+ 	mutex_lock(&hwmgr->smu_lock);
+@@ -1379,7 +1379,7 @@ static int pp_set_hard_min_fclk_by_freq(void *handle, uint32_t clock)
+ 
+ 	if (hwmgr->hwmgr_func->set_hard_min_fclk_by_freq == NULL) {
+ 		pr_debug("%s was not implemented.\n", __func__);
+-		return -EINVAL;;
++		return -EINVAL;
+ 	}
+ 
+ 	mutex_lock(&hwmgr->smu_lock);
+diff --git a/drivers/gpu/drm/amd/powerplay/hwmgr/hardwaremanager.c b/drivers/gpu/drm/amd/powerplay/hwmgr/hardwaremanager.c
+index c1c51c115e57..70f7f47a2fcf 100644
+--- a/drivers/gpu/drm/amd/powerplay/hwmgr/hardwaremanager.c
++++ b/drivers/gpu/drm/amd/powerplay/hwmgr/hardwaremanager.c
+@@ -76,7 +76,7 @@ int phm_set_power_state(struct pp_hwmgr *hwmgr,
+ int phm_enable_dynamic_state_management(struct pp_hwmgr *hwmgr)
+ {
+ 	struct amdgpu_device *adev = NULL;
+-	int ret = -EINVAL;;
++	int ret = -EINVAL;
+ 	PHM_FUNC_CHECK(hwmgr);
+ 	adev = hwmgr->adev;
+ 
+-- 
+2.17.1
+

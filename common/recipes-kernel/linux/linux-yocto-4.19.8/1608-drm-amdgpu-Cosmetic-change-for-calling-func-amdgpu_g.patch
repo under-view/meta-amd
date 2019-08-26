@@ -1,0 +1,74 @@
+From b1d0e3383f9b8dce171c16c5cf48097de3ff7f88 Mon Sep 17 00:00:00 2001
+From: Oak Zeng <Oak.Zeng@amd.com>
+Date: Thu, 7 Mar 2019 17:00:20 -0600
+Subject: [PATCH 1608/2940] drm/amdgpu: Cosmetic change for calling func
+ amdgpu_gmc_vram_location
+
+Use function parameter mc as the second parameter of amdgpu_gmc_vram_location,
+so codes look more consistent.
+
+Change-Id: Ib5b06d188ebc6e82eb0d4d2a57d995149bf5f7a5
+Signed-off-by: Oak Zeng <Oak.Zeng@amd.com>
+Reviewed-by: Christian Konig <christian.koenig@amd.com>
+---
+ drivers/gpu/drm/amd/amdgpu/gmc_v6_0.c | 2 +-
+ drivers/gpu/drm/amd/amdgpu/gmc_v7_0.c | 2 +-
+ drivers/gpu/drm/amd/amdgpu/gmc_v8_0.c | 2 +-
+ drivers/gpu/drm/amd/amdgpu/gmc_v9_0.c | 2 +-
+ 4 files changed, 4 insertions(+), 4 deletions(-)
+
+diff --git a/drivers/gpu/drm/amd/amdgpu/gmc_v6_0.c b/drivers/gpu/drm/amd/amdgpu/gmc_v6_0.c
+index 5e3b5952c397..38abcefda4e9 100644
+--- a/drivers/gpu/drm/amd/amdgpu/gmc_v6_0.c
++++ b/drivers/gpu/drm/amd/amdgpu/gmc_v6_0.c
+@@ -225,7 +225,7 @@ static void gmc_v6_0_vram_gtt_location(struct amdgpu_device *adev,
+ 	u64 base = RREG32(mmMC_VM_FB_LOCATION) & 0xFFFF;
+ 	base <<= 24;
+ 
+-	amdgpu_gmc_vram_location(adev, &adev->gmc, base);
++	amdgpu_gmc_vram_location(adev, mc, base);
+ 	amdgpu_gmc_gart_location(adev, mc);
+ }
+ 
+diff --git a/drivers/gpu/drm/amd/amdgpu/gmc_v7_0.c b/drivers/gpu/drm/amd/amdgpu/gmc_v7_0.c
+index 7a0979eb2d6e..3796cf6e8bc5 100644
+--- a/drivers/gpu/drm/amd/amdgpu/gmc_v7_0.c
++++ b/drivers/gpu/drm/amd/amdgpu/gmc_v7_0.c
+@@ -242,7 +242,7 @@ static void gmc_v7_0_vram_gtt_location(struct amdgpu_device *adev,
+ 	u64 base = RREG32(mmMC_VM_FB_LOCATION) & 0xFFFF;
+ 	base <<= 24;
+ 
+-	amdgpu_gmc_vram_location(adev, &adev->gmc, base);
++	amdgpu_gmc_vram_location(adev, mc, base);
+ 	amdgpu_gmc_gart_location(adev, mc);
+ }
+ 
+diff --git a/drivers/gpu/drm/amd/amdgpu/gmc_v8_0.c b/drivers/gpu/drm/amd/amdgpu/gmc_v8_0.c
+index c12b939a0273..c188238e6bc1 100644
+--- a/drivers/gpu/drm/amd/amdgpu/gmc_v8_0.c
++++ b/drivers/gpu/drm/amd/amdgpu/gmc_v8_0.c
+@@ -433,7 +433,7 @@ static void gmc_v8_0_vram_gtt_location(struct amdgpu_device *adev,
+ 		base = RREG32(mmMC_VM_FB_LOCATION) & 0xFFFF;
+ 	base <<= 24;
+ 
+-	amdgpu_gmc_vram_location(adev, &adev->gmc, base);
++	amdgpu_gmc_vram_location(adev, mc, base);
+ 	amdgpu_gmc_gart_location(adev, mc);
+ }
+ 
+diff --git a/drivers/gpu/drm/amd/amdgpu/gmc_v9_0.c b/drivers/gpu/drm/amd/amdgpu/gmc_v9_0.c
+index a991d8bcdc4e..ad5de0e99794 100644
+--- a/drivers/gpu/drm/amd/amdgpu/gmc_v9_0.c
++++ b/drivers/gpu/drm/amd/amdgpu/gmc_v9_0.c
+@@ -889,7 +889,7 @@ static void gmc_v9_0_vram_gtt_location(struct amdgpu_device *adev,
+ 		base = mmhub_v1_0_get_fb_location(adev);
+ 	/* add the xgmi offset of the physical node */
+ 	base += adev->gmc.xgmi.physical_node_id * adev->gmc.xgmi.node_segment_size;
+-	amdgpu_gmc_vram_location(adev, &adev->gmc, base);
++	amdgpu_gmc_vram_location(adev, mc, base);
+ 	amdgpu_gmc_gart_location(adev, mc);
+ 	if (!amdgpu_sriov_vf(adev))
+ 		amdgpu_gmc_agp_location(adev, mc);
+-- 
+2.17.1
+

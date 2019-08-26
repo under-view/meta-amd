@@ -1,0 +1,293 @@
+From 4ce907e7505c2ffd227eedf51ad838f43fa9f979 Mon Sep 17 00:00:00 2001
+From: Kevin Wang <Kevin1.Wang@amd.com>
+Date: Fri, 11 Jan 2019 14:51:24 +0800
+Subject: [PATCH 1408/2940] drm/amd/powerplay: implement sysfs of
+ amdgpu_get_busy_percent for smu11
+
+add interface amdgpu_get_busy_percent for smu11
+
+v2: convert data pointer type to uint32_t *.
+
+Signed-off-by: Kevin Wang <Kevin1.Wang@amd.com>
+Reviewed-by: Huang Rui <ray.huang@amd.com>
+Acked-by: Alex Deucher <alexander.deucher@amd.com>
+---
+ drivers/gpu/drm/amd/amdgpu/amdgpu_debugfs.c   |  7 +--
+ drivers/gpu/drm/amd/amdgpu/amdgpu_dpm.h       |  5 +-
+ drivers/gpu/drm/amd/amdgpu/amdgpu_pm.c        | 62 +++++++------------
+ .../gpu/drm/amd/powerplay/inc/amdgpu_smu.h    |  5 ++
+ drivers/gpu/drm/amd/powerplay/smu_v11_0.c     | 41 ++++++++++++
+ 5 files changed, 74 insertions(+), 46 deletions(-)
+
+diff --git a/drivers/gpu/drm/amd/amdgpu/amdgpu_debugfs.c b/drivers/gpu/drm/amd/amdgpu/amdgpu_debugfs.c
+index 4ae3ff9a1d4c..8930d66f2204 100644
+--- a/drivers/gpu/drm/amd/amdgpu/amdgpu_debugfs.c
++++ b/drivers/gpu/drm/amd/amdgpu/amdgpu_debugfs.c
+@@ -568,10 +568,9 @@ static ssize_t amdgpu_debugfs_sensor_read(struct file *f, char __user *buf,
+ 	idx = *pos >> 2;
+ 
+ 	valuesize = sizeof(values);
+-	if (adev->powerplay.pp_funcs && adev->powerplay.pp_funcs->read_sensor)
+-		r = amdgpu_dpm_read_sensor(adev, idx, &values[0], &valuesize);
+-	else
+-		return -EINVAL;
++	r = amdgpu_dpm_read_sensor(adev, idx, &values[0], &valuesize);
++	if (r)
++		return r;
+ 
+ 	if (size > valuesize)
+ 		return -EINVAL;
+diff --git a/drivers/gpu/drm/amd/amdgpu/amdgpu_dpm.h b/drivers/gpu/drm/amd/amdgpu/amdgpu_dpm.h
+index e871e022c129..cc3f27e314e8 100644
+--- a/drivers/gpu/drm/amd/amdgpu/amdgpu_dpm.h
++++ b/drivers/gpu/drm/amd/amdgpu/amdgpu_dpm.h
+@@ -260,9 +260,6 @@ enum amdgpu_pcie_gen {
+ #define amdgpu_dpm_enable_bapm(adev, e) \
+ 		((adev)->powerplay.pp_funcs->enable_bapm((adev)->powerplay.pp_handle, (e)))
+ 
+-#define amdgpu_dpm_read_sensor(adev, idx, value, size) \
+-		((adev)->powerplay.pp_funcs->read_sensor((adev)->powerplay.pp_handle, (idx), (value), (size)))
+-
+ #define amdgpu_dpm_set_fan_control_mode(adev, m) \
+ 		((adev)->powerplay.pp_funcs->set_fan_control_mode((adev)->powerplay.pp_handle, (m)))
+ 
+@@ -486,6 +483,8 @@ void amdgpu_dpm_print_ps_status(struct amdgpu_device *adev,
+ u32 amdgpu_dpm_get_vblank_time(struct amdgpu_device *adev);
+ u32 amdgpu_dpm_get_vrefresh(struct amdgpu_device *adev);
+ void amdgpu_dpm_get_active_displays(struct amdgpu_device *adev);
++int amdgpu_dpm_read_sensor(struct amdgpu_device *adev, enum amd_pp_sensors sensor,
++			   void *data, uint32_t *size);
+ 
+ bool amdgpu_is_internal_thermal_sensor(enum amdgpu_int_thermal_type sensor);
+ 
+diff --git a/drivers/gpu/drm/amd/amdgpu/amdgpu_pm.c b/drivers/gpu/drm/amd/amdgpu/amdgpu_pm.c
+index a5ca9c4ccbf5..e2d423528135 100644
+--- a/drivers/gpu/drm/amd/amdgpu/amdgpu_pm.c
++++ b/drivers/gpu/drm/amd/amdgpu/amdgpu_pm.c
+@@ -81,6 +81,27 @@ void amdgpu_pm_acpi_event_handler(struct amdgpu_device *adev)
+ 	}
+ }
+ 
++int amdgpu_dpm_read_sensor(struct amdgpu_device *adev, enum amd_pp_sensors sensor,
++			   void *data, uint32_t *size)
++{
++	int ret = 0;
++
++	if (!data || !size)
++		return -EINVAL;
++
++	if (is_support_sw_smu(adev))
++		ret = smu_read_sensor(&adev->smu, sensor, data, size);
++	else {
++		if (adev->powerplay.pp_funcs && adev->powerplay.pp_funcs->read_sensor)
++			ret = adev->powerplay.pp_funcs->read_sensor((adev)->powerplay.pp_handle,
++								    sensor, data, size);
++		else
++			ret = -EINVAL;
++	}
++
++	return ret;
++}
++
+ /**
+  * DOC: power_dpm_state
+  *
+@@ -1151,14 +1172,10 @@ static ssize_t amdgpu_get_busy_percent(struct device *dev,
+ 	struct amdgpu_device *adev = ddev->dev_private;
+ 	int r, value, size = sizeof(value);
+ 
+-	/* sanity check PP is enabled */
+-	if (!(adev->powerplay.pp_funcs &&
+-	      adev->powerplay.pp_funcs->read_sensor))
+-		return -EINVAL;
+-
+ 	/* read the IP busy sensor */
+ 	r = amdgpu_dpm_read_sensor(adev, AMDGPU_PP_SENSOR_GPU_LOAD,
+ 				   (void *)&value, &size);
++
+ 	if (r)
+ 		return r;
+ 
+@@ -1252,11 +1269,6 @@ static ssize_t amdgpu_hwmon_show_temp(struct device *dev,
+ 	     (ddev->switch_power_state != DRM_SWITCH_POWER_ON))
+ 		return -EINVAL;
+ 
+-	/* sanity check PP is enabled */
+-	if (!(adev->powerplay.pp_funcs &&
+-	      adev->powerplay.pp_funcs->read_sensor))
+-		return -EINVAL;
+-
+ 	/* get the temperature */
+ 	r = amdgpu_dpm_read_sensor(adev, AMDGPU_PP_SENSOR_GPU_TEMP,
+ 				   (void *)&temp, &size);
+@@ -1427,9 +1439,6 @@ static ssize_t amdgpu_hwmon_get_fan1_min(struct device *dev,
+ 	u32 size = sizeof(min_rpm);
+ 	int r;
+ 
+-	if (!adev->powerplay.pp_funcs->read_sensor)
+-		return -EINVAL;
+-
+ 	r = amdgpu_dpm_read_sensor(adev, AMDGPU_PP_SENSOR_MIN_FAN_RPM,
+ 				   (void *)&min_rpm, &size);
+ 	if (r)
+@@ -1447,9 +1456,6 @@ static ssize_t amdgpu_hwmon_get_fan1_max(struct device *dev,
+ 	u32 size = sizeof(max_rpm);
+ 	int r;
+ 
+-	if (!adev->powerplay.pp_funcs->read_sensor)
+-		return -EINVAL;
+-
+ 	r = amdgpu_dpm_read_sensor(adev, AMDGPU_PP_SENSOR_MAX_FAN_RPM,
+ 				   (void *)&max_rpm, &size);
+ 	if (r)
+@@ -1574,11 +1580,6 @@ static ssize_t amdgpu_hwmon_show_vddgfx(struct device *dev,
+ 	     (ddev->switch_power_state != DRM_SWITCH_POWER_ON))
+ 		return -EINVAL;
+ 
+-	/* sanity check PP is enabled */
+-	if (!(adev->powerplay.pp_funcs &&
+-	      adev->powerplay.pp_funcs->read_sensor))
+-	      return -EINVAL;
+-
+ 	/* get the voltage */
+ 	r = amdgpu_dpm_read_sensor(adev, AMDGPU_PP_SENSOR_VDDGFX,
+ 				   (void *)&vddgfx, &size);
+@@ -1613,11 +1614,6 @@ static ssize_t amdgpu_hwmon_show_vddnb(struct device *dev,
+ 	     (ddev->switch_power_state != DRM_SWITCH_POWER_ON))
+ 		return -EINVAL;
+ 
+-	/* sanity check PP is enabled */
+-	if (!(adev->powerplay.pp_funcs &&
+-	      adev->powerplay.pp_funcs->read_sensor))
+-	      return -EINVAL;
+-
+ 	/* get the voltage */
+ 	r = amdgpu_dpm_read_sensor(adev, AMDGPU_PP_SENSOR_VDDNB,
+ 				   (void *)&vddnb, &size);
+@@ -1649,11 +1645,6 @@ static ssize_t amdgpu_hwmon_show_power_avg(struct device *dev,
+ 	     (ddev->switch_power_state != DRM_SWITCH_POWER_ON))
+ 		return -EINVAL;
+ 
+-	/* sanity check PP is enabled */
+-	if (!(adev->powerplay.pp_funcs &&
+-	      adev->powerplay.pp_funcs->read_sensor))
+-	      return -EINVAL;
+-
+ 	/* get the voltage */
+ 	r = amdgpu_dpm_read_sensor(adev, AMDGPU_PP_SENSOR_GPU_POWER,
+ 				   (void *)&query, &size);
+@@ -2044,9 +2035,7 @@ void amdgpu_dpm_thermal_work_handler(struct work_struct *work)
+ 	if (!adev->pm.dpm_enabled)
+ 		return;
+ 
+-	if (adev->powerplay.pp_funcs &&
+-	    adev->powerplay.pp_funcs->read_sensor &&
+-	    !amdgpu_dpm_read_sensor(adev, AMDGPU_PP_SENSOR_GPU_TEMP,
++	if (!amdgpu_dpm_read_sensor(adev, AMDGPU_PP_SENSOR_GPU_TEMP,
+ 				    (void *)&temp, &size)) {
+ 		if (temp < adev->pm.dpm.thermal.min_temp)
+ 			/* switch back the user state */
+@@ -2558,11 +2547,6 @@ static int amdgpu_debugfs_pm_info_pp(struct seq_file *m, struct amdgpu_device *a
+ 	uint32_t query = 0;
+ 	int size;
+ 
+-	/* sanity check PP is enabled */
+-	if (!(adev->powerplay.pp_funcs &&
+-	      adev->powerplay.pp_funcs->read_sensor))
+-	      return -EINVAL;
+-
+ 	/* GPU Clocks */
+ 	size = sizeof(value);
+ 	seq_printf(m, "GFX Clocks and Power:\n");
+diff --git a/drivers/gpu/drm/amd/powerplay/inc/amdgpu_smu.h b/drivers/gpu/drm/amd/powerplay/inc/amdgpu_smu.h
+index 51fb1f9b2abf..43c2b9e981f5 100644
+--- a/drivers/gpu/drm/amd/powerplay/inc/amdgpu_smu.h
++++ b/drivers/gpu/drm/amd/powerplay/inc/amdgpu_smu.h
+@@ -23,6 +23,7 @@
+ #define __AMDGPU_SMU_H__
+ 
+ #include "amdgpu.h"
++#include "kgd_pp_interface.h"
+ 
+ enum smu_message_type
+ {
+@@ -258,6 +259,8 @@ struct smu_funcs
+ 	int (*get_current_clk_freq)(struct smu_context *smu, uint32_t clk_id, uint32_t *value);
+ 	int (*init_max_sustainable_clocks)(struct smu_context *smu);
+ 	int (*start_thermal_control)(struct smu_context *smu);
++	int (*read_sensor)(struct smu_context *smu, enum amd_pp_sensors sensor,
++			   void *data, uint32_t *size);
+ };
+ 
+ #define smu_init_microcode(smu) \
+@@ -342,6 +345,8 @@ struct smu_funcs
+ 	((smu)->ppt_funcs->print_clk_levels ? (smu)->ppt_funcs->print_clk_levels((smu), (type), (buf)) : 0)
+ #define smu_start_thermal_control(smu) \
+ 	((smu)->funcs->start_thermal_control? (smu)->funcs->start_thermal_control((smu)) : 0)
++#define smu_read_sensor(smu, sensor, data, size) \
++	((smu)->funcs->read_sensor? (smu)->funcs->read_sensor((smu), (sensor), (data), (size)) : 0)
+ 
+ #define smu_msg_get_index(smu, msg) \
+ 	((smu)->ppt_funcs? ((smu)->ppt_funcs->get_smu_msg_index? (smu)->ppt_funcs->get_smu_msg_index((smu), (msg)) : -EINVAL) : -EINVAL)
+diff --git a/drivers/gpu/drm/amd/powerplay/smu_v11_0.c b/drivers/gpu/drm/amd/powerplay/smu_v11_0.c
+index 8ba6b9f71fdd..e6b16b64a778 100644
+--- a/drivers/gpu/drm/amd/powerplay/smu_v11_0.c
++++ b/drivers/gpu/drm/amd/powerplay/smu_v11_0.c
+@@ -990,6 +990,46 @@ static int smu_v11_0_start_thermal_control(struct smu_context *smu)
+ 	return ret;
+ }
+ 
++static int smu_v11_0_get_current_activity_percent(struct smu_context *smu,
++						  uint32_t *value)
++{
++	int ret = 0;
++	SmuMetrics_t metrics;
++
++	if (!value)
++		return -EINVAL;
++
++	ret = smu_update_table(smu, TABLE_SMU_METRICS, (void *)&metrics, false);
++	if (ret)
++		return ret;
++
++	*value = metrics.AverageGfxActivity;
++
++	return 0;
++}
++
++static int smu_v11_0_read_sensor(struct smu_context *smu,
++				 enum amd_pp_sensors sensor,
++				 void *data, uint32_t *size)
++{
++	int ret = 0;
++	switch (sensor) {
++	case AMDGPU_PP_SENSOR_GPU_LOAD:
++		ret = smu_v11_0_get_current_activity_percent(smu,
++							     (uint32_t *)data);
++		*size = 4;
++		break;
++	default:
++		ret = -EINVAL;
++		break;
++	}
++
++	if (ret)
++		*size = 0;
++
++	return ret;
++}
++
+ static const struct smu_funcs smu_v11_0_funcs = {
+ 	.init_microcode = smu_v11_0_init_microcode,
+ 	.load_microcode = smu_v11_0_load_microcode,
+@@ -1022,6 +1062,7 @@ static const struct smu_funcs smu_v11_0_funcs = {
+ 	.get_current_clk_freq = smu_v11_0_get_current_clk_freq,
+ 	.init_max_sustainable_clocks = smu_v11_0_init_max_sustainable_clocks,
+ 	.start_thermal_control = smu_v11_0_start_thermal_control,
++	.read_sensor = smu_v11_0_read_sensor,
+ };
+ 
+ void smu_v11_0_set_smu_funcs(struct smu_context *smu)
+-- 
+2.17.1
+

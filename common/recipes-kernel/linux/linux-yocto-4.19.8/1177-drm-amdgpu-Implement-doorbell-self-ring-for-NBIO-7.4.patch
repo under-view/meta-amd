@@ -1,0 +1,43 @@
+From ba6eaa352fd43abe2e19da207bbfa5216c3ff39b Mon Sep 17 00:00:00 2001
+From: Jay Cornwall <Jay.Cornwall@amd.com>
+Date: Wed, 30 Jan 2019 12:53:29 -0600
+Subject: [PATCH 1177/2940] drm/amdgpu: Implement doorbell self-ring for NBIO
+ 7.4
+
+Fixes doorbell reflection on Vega20.
+
+Change-Id: I0495139d160a9032dff5977289b1eec11c16f781
+Signed-off-by: Jay Cornwall <Jay.Cornwall@amd.com>
+Reviewed-by: Alex Deucher <alexander.deucher@amd.com>
+---
+ drivers/gpu/drm/amd/amdgpu/nbio_v7_4.c | 13 +++++++++++++
+ 1 file changed, 13 insertions(+)
+
+diff --git a/drivers/gpu/drm/amd/amdgpu/nbio_v7_4.c b/drivers/gpu/drm/amd/amdgpu/nbio_v7_4.c
+index e347b407bd03..221f26e50322 100644
+--- a/drivers/gpu/drm/amd/amdgpu/nbio_v7_4.c
++++ b/drivers/gpu/drm/amd/amdgpu/nbio_v7_4.c
+@@ -90,7 +90,20 @@ static void nbio_v7_4_enable_doorbell_aperture(struct amdgpu_device *adev,
+ static void nbio_v7_4_enable_doorbell_selfring_aperture(struct amdgpu_device *adev,
+ 							bool enable)
+ {
++	u32 tmp = 0;
+ 
++	if (enable) {
++		tmp = REG_SET_FIELD(tmp, DOORBELL_SELFRING_GPA_APER_CNTL, DOORBELL_SELFRING_GPA_APER_EN, 1) |
++		      REG_SET_FIELD(tmp, DOORBELL_SELFRING_GPA_APER_CNTL, DOORBELL_SELFRING_GPA_APER_MODE, 1) |
++		      REG_SET_FIELD(tmp, DOORBELL_SELFRING_GPA_APER_CNTL, DOORBELL_SELFRING_GPA_APER_SIZE, 0);
++
++		WREG32_SOC15(NBIO, 0, mmDOORBELL_SELFRING_GPA_APER_BASE_LOW,
++			     lower_32_bits(adev->doorbell.base));
++		WREG32_SOC15(NBIO, 0, mmDOORBELL_SELFRING_GPA_APER_BASE_HIGH,
++			     upper_32_bits(adev->doorbell.base));
++	}
++
++	WREG32_SOC15(NBIO, 0, mmDOORBELL_SELFRING_GPA_APER_CNTL, tmp);
+ }
+ 
+ static void nbio_v7_4_ih_doorbell_range(struct amdgpu_device *adev,
+-- 
+2.17.1
+

@@ -1,0 +1,79 @@
+From f8f7a79410ab5478b405945bf92ae9fe3b218393 Mon Sep 17 00:00:00 2001
+From: Alex Deucher <alexander.deucher@amd.com>
+Date: Wed, 8 May 2019 22:43:48 -0500
+Subject: [PATCH 2808/2940] drm/amdkfd: Allocate hiq and sdma mqd from mqd
+ trunk for gfx10
+
+Instead of allocat hiq and sdma mqd from sub-allocator, allocate
+them from a mqd trunk pool. This is done for all asics
+
+Signed-off-by: Alex Deucher <alexander.deucher@amd.com>
+---
+ .../gpu/drm/amd/amdkfd/kfd_mqd_manager_v10.c  | 22 +++++++------------
+ 1 file changed, 8 insertions(+), 14 deletions(-)
+
+diff --git a/drivers/gpu/drm/amd/amdkfd/kfd_mqd_manager_v10.c b/drivers/gpu/drm/amd/amdkfd/kfd_mqd_manager_v10.c
+index 5ecc6d3a1b09..0650999c15f4 100644
+--- a/drivers/gpu/drm/amd/amdkfd/kfd_mqd_manager_v10.c
++++ b/drivers/gpu/drm/amd/amdkfd/kfd_mqd_manager_v10.c
+@@ -72,6 +72,9 @@ static struct kfd_mem_obj *allocate_mqd(struct kfd_dev *kfd,
+ 	int retval;
+ 	struct kfd_mem_obj *mqd_mem_obj = NULL;
+ 
++	if (q->type == KFD_QUEUE_TYPE_HIQ)
++		return allocate_hiq_mqd(kfd);
++
+ 	/* From V9,  for CWSR, the control stack is located on the next page
+ 	 * boundary after the mqd, we will use the gtt allocation function
+ 	 * instead of sub-allocation function.
+@@ -346,13 +349,10 @@ static int init_mqd_sdma(struct mqd_manager *mm, void **mqd,
+ {
+ 	int retval;
+ 	struct v10_sdma_mqd *m;
++	struct kfd_dev *dev = mm->dev;
+ 
+-
+-	retval = kfd_gtt_sa_allocate(mm->dev,
+-			sizeof(struct v10_sdma_mqd),
+-			mqd_mem_obj);
+-
+-	if (retval != 0)
++	*mqd_mem_obj = allocate_sdma_mqd(dev, q);
++	if (!*mqd_mem_obj)
+ 		return -ENOMEM;
+ 
+ 	m = (struct v10_sdma_mqd *) (*mqd_mem_obj)->cpu_ptr;
+@@ -368,12 +368,6 @@ static int init_mqd_sdma(struct mqd_manager *mm, void **mqd,
+ 	return retval;
+ }
+ 
+-static void uninit_mqd_sdma(struct mqd_manager *mm, void *mqd,
+-		struct kfd_mem_obj *mqd_mem_obj)
+-{
+-	kfd_gtt_sa_free(mm->dev, mqd_mem_obj);
+-}
+-
+ static int load_mqd_sdma(struct mqd_manager *mm, void *mqd,
+ 		uint32_t pipe_id, uint32_t queue_id,
+ 		struct queue_properties *p, struct mm_struct *mms)
+@@ -488,7 +482,7 @@ struct mqd_manager *mqd_manager_init_v10(enum KFD_MQD_TYPE type,
+ 	case KFD_MQD_TYPE_HIQ:
+ 		pr_debug("%s@%i\n", __func__, __LINE__);
+ 		mqd->init_mqd = init_mqd_hiq;
+-		mqd->uninit_mqd = uninit_mqd;
++		mqd->uninit_mqd = uninit_mqd_hiq_sdma;
+ 		mqd->load_mqd = load_mqd;
+ 		mqd->update_mqd = update_mqd_hiq;
+ 		mqd->destroy_mqd = destroy_mqd;
+@@ -514,7 +508,7 @@ struct mqd_manager *mqd_manager_init_v10(enum KFD_MQD_TYPE type,
+ 	case KFD_MQD_TYPE_SDMA:
+ 		pr_debug("%s@%i\n", __func__, __LINE__);
+ 		mqd->init_mqd = init_mqd_sdma;
+-		mqd->uninit_mqd = uninit_mqd_sdma;
++		mqd->uninit_mqd = uninit_mqd_hiq_sdma;
+ 		mqd->load_mqd = load_mqd_sdma;
+ 		mqd->update_mqd = update_mqd_sdma;
+ 		mqd->destroy_mqd = destroy_mqd_sdma;
+-- 
+2.17.1
+

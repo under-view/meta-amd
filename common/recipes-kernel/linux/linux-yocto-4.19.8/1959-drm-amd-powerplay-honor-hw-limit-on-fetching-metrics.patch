@@ -1,0 +1,106 @@
+From e241123140d38c79a7c82083e95c0bd6f0205bb4 Mon Sep 17 00:00:00 2001
+From: Evan Quan <evan.quan@amd.com>
+Date: Mon, 13 May 2019 17:31:03 +0800
+Subject: [PATCH 1959/2940] drm/amd/powerplay: honor hw limit on fetching
+ metrics data
+
+Request too frequently may get corrupt data.
+
+Change-Id: Ided23ab7dd0143575479644c5030cea71bdc53fd
+Signed-off-by: Evan Quan <evan.quan@amd.com>
+Reviewed-by: Feifei Xu <Feifei.Xu@amd.com>
+---
+ .../gpu/drm/amd/powerplay/inc/amdgpu_smu.h    |  3 ++
+ drivers/gpu/drm/amd/powerplay/smu_v11_0.c     | 33 +++++++++++++++++--
+ 2 files changed, 34 insertions(+), 2 deletions(-)
+
+diff --git a/drivers/gpu/drm/amd/powerplay/inc/amdgpu_smu.h b/drivers/gpu/drm/amd/powerplay/inc/amdgpu_smu.h
+index 3a9c253759dc..2cb4cc2a8208 100644
+--- a/drivers/gpu/drm/amd/powerplay/inc/amdgpu_smu.h
++++ b/drivers/gpu/drm/amd/powerplay/inc/amdgpu_smu.h
+@@ -403,6 +403,9 @@ struct smu_context
+ 	uint32_t default_power_profile_mode;
+ 
+ 	uint32_t smc_if_version;
++
++	unsigned long metrics_time;
++	void *metrics_table;
+ };
+ 
+ struct pptable_funcs {
+diff --git a/drivers/gpu/drm/amd/powerplay/smu_v11_0.c b/drivers/gpu/drm/amd/powerplay/smu_v11_0.c
+index cd36c4272659..c139f5f75464 100644
+--- a/drivers/gpu/drm/amd/powerplay/smu_v11_0.c
++++ b/drivers/gpu/drm/amd/powerplay/smu_v11_0.c
+@@ -369,6 +369,13 @@ static int smu_v11_0_init_power(struct smu_context *smu)
+ 		return -ENOMEM;
+ 	smu_power->power_context_size = sizeof(struct smu_11_0_dpm_context);
+ 
++	smu->metrics_time = 0;
++	smu->metrics_table = kzalloc(sizeof(SmuMetrics_t), GFP_KERNEL);
++	if (!smu->metrics_table) {
++		kfree(smu_power->power_context);
++		return -ENOMEM;
++	}
++
+ 	return 0;
+ }
+ 
+@@ -379,7 +386,9 @@ static int smu_v11_0_fini_power(struct smu_context *smu)
+ 	if (!smu_power->power_context || smu_power->power_context_size == 0)
+ 		return -EINVAL;
+ 
++	kfree(smu->metrics_table);
+ 	kfree(smu_power->power_context);
++	smu->metrics_table = NULL;
+ 	smu_power->power_context = NULL;
+ 	smu_power->power_context_size = 0;
+ 
+@@ -1093,6 +1102,26 @@ static int smu_v11_0_start_thermal_control(struct smu_context *smu)
+ 	return ret;
+ }
+ 
++static int smu_v11_0_get_metrics_table(struct smu_context *smu,
++		SmuMetrics_t *metrics_table)
++{
++	int ret = 0;
++
++	if (!smu->metrics_time || time_after(jiffies, smu->metrics_time + HZ / 1000)) {
++		ret = smu_update_table(smu, TABLE_SMU_METRICS,
++				(void *)metrics_table, false);
++		if (ret) {
++			pr_info("Failed to export SMU metrics table!\n");
++			return ret;
++		}
++		memcpy(smu->metrics_table, metrics_table, sizeof(SmuMetrics_t));
++		smu->metrics_time = jiffies;
++	} else
++		memcpy(metrics_table, smu->metrics_table, sizeof(SmuMetrics_t));
++
++	return ret;
++}
++
+ static int smu_v11_0_get_current_activity_percent(struct smu_context *smu,
+ 						  uint32_t *value)
+ {
+@@ -1102,7 +1131,7 @@ static int smu_v11_0_get_current_activity_percent(struct smu_context *smu,
+ 	if (!value)
+ 		return -EINVAL;
+ 
+-	ret = smu_update_table(smu, TABLE_SMU_METRICS, (void *)&metrics, false);
++	ret = smu_v11_0_get_metrics_table(smu, &metrics);
+ 	if (ret)
+ 		return ret;
+ 
+@@ -1139,7 +1168,7 @@ static int smu_v11_0_get_gpu_power(struct smu_context *smu, uint32_t *value)
+ 	if (!value)
+ 		return -EINVAL;
+ 
+-	ret = smu_update_table(smu, TABLE_SMU_METRICS, (void *)&metrics, false);
++	ret = smu_v11_0_get_metrics_table(smu, &metrics);
+ 	if (ret)
+ 		return ret;
+ 
+-- 
+2.17.1
+

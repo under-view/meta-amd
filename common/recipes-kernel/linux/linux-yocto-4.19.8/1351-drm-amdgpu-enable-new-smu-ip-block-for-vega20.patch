@@ -1,0 +1,43 @@
+From 6d21d77992511ab08048b117919c67aed241de1e Mon Sep 17 00:00:00 2001
+From: Huang Rui <ray.huang@amd.com>
+Date: Thu, 29 Nov 2018 18:46:54 +0800
+Subject: [PATCH 1351/2940] drm/amdgpu: enable new smu ip block for vega20
+
+Switch to new smu ip block since vega20.
+
+Signed-off-by: Huang Rui <ray.huang@amd.com>
+Acked-by: Alex Deucher <alexander.deucher@amd.com>
+---
+ drivers/gpu/drm/amd/amdgpu/soc15.c | 9 +++++++--
+ 1 file changed, 7 insertions(+), 2 deletions(-)
+
+diff --git a/drivers/gpu/drm/amd/amdgpu/soc15.c b/drivers/gpu/drm/amd/amdgpu/soc15.c
+index 22252e195b1c..21f920b3c4b7 100644
+--- a/drivers/gpu/drm/amd/amdgpu/soc15.c
++++ b/drivers/gpu/drm/amd/amdgpu/soc15.c
+@@ -63,6 +63,7 @@
+ #include "vcn_v1_0.h"
+ #include "dce_virtual.h"
+ #include "mxgpu_ai.h"
++#include "amdgpu_smu.h"
+ 
+ #define mmMP0_MISC_CGTT_CTRL0                                                                   0x01b9
+ #define mmMP0_MISC_CGTT_CTRL0_BASE_IDX                                                          0
+@@ -603,8 +604,12 @@ int soc15_set_ip_blocks(struct amdgpu_device *adev)
+ 		}
+ 		amdgpu_device_ip_block_add(adev, &gfx_v9_0_ip_block);
+ 		amdgpu_device_ip_block_add(adev, &sdma_v4_0_ip_block);
+-		if (!amdgpu_sriov_vf(adev))
+-			amdgpu_device_ip_block_add(adev, &pp_smu_ip_block);
++		if (!amdgpu_sriov_vf(adev)) {
++			if (amdgpu_dpm == 1 && adev->asic_type >= CHIP_VEGA20)
++				amdgpu_device_ip_block_add(adev, &smu_v11_0_ip_block);
++			else
++				amdgpu_device_ip_block_add(adev, &pp_smu_ip_block);
++		}
+ 		if (adev->enable_virtual_display || amdgpu_sriov_vf(adev))
+ 			amdgpu_device_ip_block_add(adev, &dce_virtual_ip_block);
+ #if defined(CONFIG_DRM_AMD_DC)
+-- 
+2.17.1
+

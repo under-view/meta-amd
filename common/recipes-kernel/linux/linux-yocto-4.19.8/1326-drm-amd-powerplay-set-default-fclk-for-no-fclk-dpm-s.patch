@@ -1,0 +1,84 @@
+From fb443a59f3f5231109d5f01258733ad41b5afa81 Mon Sep 17 00:00:00 2001
+From: Evan Quan <evan.quan@amd.com>
+Date: Wed, 20 Feb 2019 17:20:40 +0800
+Subject: [PATCH 1326/2940] drm/amd/powerplay: set default fclk for no fclk dpm
+ support case
+
+Set the default fclk as what we got from VBIOS.
+
+Change-Id: If1c54dc854a5ebe0cdb439bad8fefc26e80f0511
+Signed-off-by: Evan Quan <evan.quan@amd.com>
+Acked-by: Alex Deucher <alexander.deucher@amd.com>
+---
+ drivers/gpu/drm/amd/powerplay/hwmgr/ppatomfwctrl.c | 3 +++
+ drivers/gpu/drm/amd/powerplay/hwmgr/ppatomfwctrl.h | 1 +
+ drivers/gpu/drm/amd/powerplay/hwmgr/vega20_hwmgr.c | 7 +++++--
+ drivers/gpu/drm/amd/powerplay/hwmgr/vega20_hwmgr.h | 1 +
+ 4 files changed, 10 insertions(+), 2 deletions(-)
+
+diff --git a/drivers/gpu/drm/amd/powerplay/hwmgr/ppatomfwctrl.c b/drivers/gpu/drm/amd/powerplay/hwmgr/ppatomfwctrl.c
+index a28192bfb035..615cf2c09e54 100644
+--- a/drivers/gpu/drm/amd/powerplay/hwmgr/ppatomfwctrl.c
++++ b/drivers/gpu/drm/amd/powerplay/hwmgr/ppatomfwctrl.c
+@@ -545,6 +545,9 @@ static void pp_atomfwctrl_copy_vbios_bootup_values_3_2(struct pp_hwmgr *hwmgr,
+ 
+ 	if (!pp_atomfwctrl_get_clk_information_by_clkid(hwmgr, SMU11_SYSPLL0_DCLK_ID, SMU11_SYSPLL0_ID, &frequency))
+ 		boot_values->ulDClk     = frequency;
++
++	if (!pp_atomfwctrl_get_clk_information_by_clkid(hwmgr, SMU11_SYSPLL1_0_FCLK_ID, SMU11_SYSPLL1_2_ID, &frequency))
++		boot_values->ulFClk     = frequency;
+ }
+ 
+ static void pp_atomfwctrl_copy_vbios_bootup_values_3_1(struct pp_hwmgr *hwmgr,
+diff --git a/drivers/gpu/drm/amd/powerplay/hwmgr/ppatomfwctrl.h b/drivers/gpu/drm/amd/powerplay/hwmgr/ppatomfwctrl.h
+index 9bafd00324a9..b7e2651b570b 100644
+--- a/drivers/gpu/drm/amd/powerplay/hwmgr/ppatomfwctrl.h
++++ b/drivers/gpu/drm/amd/powerplay/hwmgr/ppatomfwctrl.h
+@@ -139,6 +139,7 @@ struct pp_atomfwctrl_bios_boot_up_values {
+ 	uint32_t   ulEClk;
+ 	uint32_t   ulVClk;
+ 	uint32_t   ulDClk;
++	uint32_t   ulFClk;
+ 	uint16_t   usVddc;
+ 	uint16_t   usVddci;
+ 	uint16_t   usMvddc;
+diff --git a/drivers/gpu/drm/amd/powerplay/hwmgr/vega20_hwmgr.c b/drivers/gpu/drm/amd/powerplay/hwmgr/vega20_hwmgr.c
+index ea79417958ec..d7350bbadafa 100644
+--- a/drivers/gpu/drm/amd/powerplay/hwmgr/vega20_hwmgr.c
++++ b/drivers/gpu/drm/amd/powerplay/hwmgr/vega20_hwmgr.c
+@@ -711,8 +711,10 @@ static int vega20_setup_default_dpm_tables(struct pp_hwmgr *hwmgr)
+ 		PP_ASSERT_WITH_CODE(!ret,
+ 				"[SetupDefaultDpmTable] failed to get fclk dpm levels!",
+ 				return ret);
+-	} else
+-		dpm_table->count = 0;
++	} else {
++		dpm_table->count = 1;
++		dpm_table->dpm_levels[0].value = data->vbios_boot_state.fclock / 100;
++	}
+ 	vega20_init_dpm_state(&(dpm_table->dpm_state));
+ 
+ 	/* save a copy of the default DPM table */
+@@ -754,6 +756,7 @@ static int vega20_init_smc_table(struct pp_hwmgr *hwmgr)
+ 	data->vbios_boot_state.eclock = boot_up_values.ulEClk;
+ 	data->vbios_boot_state.vclock = boot_up_values.ulVClk;
+ 	data->vbios_boot_state.dclock = boot_up_values.ulDClk;
++	data->vbios_boot_state.fclock = boot_up_values.ulFClk;
+ 	data->vbios_boot_state.uc_cooling_id = boot_up_values.ucCoolingID;
+ 
+ 	smum_send_msg_to_smc_with_parameter(hwmgr,
+diff --git a/drivers/gpu/drm/amd/powerplay/hwmgr/vega20_hwmgr.h b/drivers/gpu/drm/amd/powerplay/hwmgr/vega20_hwmgr.h
+index 37f5f5e657da..4a4cad35dc8f 100644
+--- a/drivers/gpu/drm/amd/powerplay/hwmgr/vega20_hwmgr.h
++++ b/drivers/gpu/drm/amd/powerplay/hwmgr/vega20_hwmgr.h
+@@ -219,6 +219,7 @@ struct vega20_vbios_boot_state {
+ 	uint32_t    eclock;
+ 	uint32_t    dclock;
+ 	uint32_t    vclock;
++	uint32_t    fclock;
+ };
+ 
+ #define DPMTABLE_OD_UPDATE_SCLK     0x00000001
+-- 
+2.17.1
+

@@ -1,0 +1,29 @@
+From 9ac6f36fd937f43b36f561b8f63713a421ca95b8 Mon Sep 17 00:00:00 2001
+From: Brajeswar Ghosh <brajeswar.linux@gmail.com>
+Date: Wed, 21 Nov 2018 12:41:03 +0530
+Subject: [PATCH 0831/2940] drm/amd/amdgpu/vce_v3_0.c: Remove duplicate header
+
+Remove gca/gfx_8_0_d.h which is included more than once
+
+Reviewed-by: Junwei Zhang <Jerry.Zhang@amd.com>
+Signed-off-by: Brajeswar Ghosh <brajeswar.linux@gmail.com>
+Signed-off-by: Alex Deucher <alexander.deucher@amd.com>
+---
+ drivers/gpu/drm/amd/amdgpu/vce_v3_0.c | 1 -
+ 1 file changed, 1 deletion(-)
+
+diff --git a/drivers/gpu/drm/amd/amdgpu/vce_v3_0.c b/drivers/gpu/drm/amd/amdgpu/vce_v3_0.c
+index 3e84840859a7..2668effadd27 100644
+--- a/drivers/gpu/drm/amd/amdgpu/vce_v3_0.c
++++ b/drivers/gpu/drm/amd/amdgpu/vce_v3_0.c
+@@ -37,7 +37,6 @@
+ #include "gca/gfx_8_0_d.h"
+ #include "smu/smu_7_1_2_d.h"
+ #include "smu/smu_7_1_2_sh_mask.h"
+-#include "gca/gfx_8_0_d.h"
+ #include "gca/gfx_8_0_sh_mask.h"
+ #include "ivsrcid/ivsrcid_vislands30.h"
+ 
+-- 
+2.17.1
+

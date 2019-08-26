@@ -1,0 +1,144 @@
+From 50301df71f4f87db17b3895ecafce1d4921f91be Mon Sep 17 00:00:00 2001
+From: Prike Liang <Prike.Liang@amd.com>
+Date: Mon, 27 May 2019 16:05:50 +0800
+Subject: [PATCH 2054/2940] drm/amd/amdgpu: add RLC firmware to support raven1
+ refresh
+
+Use SMU firmware version to indentify the raven1 refresh device and
+then load homologous RLC FW.
+
+Change-Id: I7aaa67d8b59cfec03355d9199f7fb2c30ce39856
+Signed-off-by: Prike Liang <Prike.Liang@amd.com>
+Suggested-by: Huang Rui<Ray.Huang@amd.com>
+Reviewed-by: Huang Rui <ray.huang@amd.com>
+Reviewed-by: Evan Quan <evan.quan@amd.com>
+---
+ drivers/gpu/drm/amd/amdgpu/amdgpu_device.c | 12 +++---------
+ drivers/gpu/drm/amd/amdgpu/amdgpu_pm.c     | 15 +++++++++++++++
+ drivers/gpu/drm/amd/amdgpu/amdgpu_pm.h     |  1 +
+ drivers/gpu/drm/amd/amdgpu/gfx_v9_0.c      | 12 +++++++++++-
+ 4 files changed, 30 insertions(+), 10 deletions(-)
+
+diff --git a/drivers/gpu/drm/amd/amdgpu/amdgpu_device.c b/drivers/gpu/drm/amd/amdgpu/amdgpu_device.c
+index 84a9f0745d77..10ff0cce4f27 100644
+--- a/drivers/gpu/drm/amd/amdgpu/amdgpu_device.c
++++ b/drivers/gpu/drm/amd/amdgpu/amdgpu_device.c
+@@ -1666,6 +1666,7 @@ static int amdgpu_device_fw_loading(struct amdgpu_device *adev)
+ {
+ 	int r = 0;
+ 	int i;
++	uint32_t smu_version;
+ 
+ 	if (adev->asic_type >= CHIP_VEGA10) {
+ 		for (i = 0; i < adev->num_ip_blocks; i++) {
+@@ -1691,16 +1692,9 @@ static int amdgpu_device_fw_loading(struct amdgpu_device *adev)
+ 			}
+ 		}
+ 	}
++	r = amdgpu_pm_load_smu_firmware(adev, &smu_version);
+ 
+-	if (adev->powerplay.pp_funcs && adev->powerplay.pp_funcs->load_firmware) {
+-		r = adev->powerplay.pp_funcs->load_firmware(adev->powerplay.pp_handle);
+-		if (r) {
+-			pr_err("firmware loading failed\n");
+-			return r;
+-		}
+-	}
+-
+-	return 0;
++	return r;
+ }
+ 
+ /**
+diff --git a/drivers/gpu/drm/amd/amdgpu/amdgpu_pm.c b/drivers/gpu/drm/amd/amdgpu/amdgpu_pm.c
+index a73e1903d29b..21b5be1ac8ef 100644
+--- a/drivers/gpu/drm/amd/amdgpu/amdgpu_pm.c
++++ b/drivers/gpu/drm/amd/amdgpu/amdgpu_pm.c
+@@ -2698,6 +2698,21 @@ void amdgpu_pm_print_power_states(struct amdgpu_device *adev)
+ 
+ }
+ 
++int amdgpu_pm_load_smu_firmware(struct amdgpu_device *adev, uint32_t *smu_version)
++{
++	int r = -EINVAL;
++
++	if (adev->powerplay.pp_funcs && adev->powerplay.pp_funcs->load_firmware) {
++		r = adev->powerplay.pp_funcs->load_firmware(adev->powerplay.pp_handle);
++		if (r) {
++			pr_err("smu firmware loading failed\n");
++			return r;
++		}
++		*smu_version = adev->pm.fw_version;
++	}
++	return r;
++}
++
+ int amdgpu_pm_sysfs_init(struct amdgpu_device *adev)
+ {
+ 	struct pp_hwmgr *hwmgr = adev->powerplay.pp_handle;
+diff --git a/drivers/gpu/drm/amd/amdgpu/amdgpu_pm.h b/drivers/gpu/drm/amd/amdgpu/amdgpu_pm.h
+index f21a7716b90e..7ff0e7621fff 100644
+--- a/drivers/gpu/drm/amd/amdgpu/amdgpu_pm.h
++++ b/drivers/gpu/drm/amd/amdgpu/amdgpu_pm.h
+@@ -34,6 +34,7 @@ void amdgpu_pm_acpi_event_handler(struct amdgpu_device *adev);
+ int amdgpu_pm_sysfs_init(struct amdgpu_device *adev);
+ void amdgpu_pm_sysfs_fini(struct amdgpu_device *adev);
+ void amdgpu_pm_print_power_states(struct amdgpu_device *adev);
++int amdgpu_pm_load_smu_firmware(struct amdgpu_device *adev, uint32_t *smu_version);
+ void amdgpu_pm_compute_clocks(struct amdgpu_device *adev);
+ void amdgpu_dpm_thermal_work_handler(struct work_struct *work);
+ void amdgpu_dpm_enable_uvd(struct amdgpu_device *adev, bool enable);
+diff --git a/drivers/gpu/drm/amd/amdgpu/gfx_v9_0.c b/drivers/gpu/drm/amd/amdgpu/gfx_v9_0.c
+index 0377bb021a43..a95d5ea489da 100644
+--- a/drivers/gpu/drm/amd/amdgpu/gfx_v9_0.c
++++ b/drivers/gpu/drm/amd/amdgpu/gfx_v9_0.c
+@@ -28,6 +28,7 @@
+ #include "soc15.h"
+ #include "soc15d.h"
+ #include "amdgpu_atomfirmware.h"
++#include "amdgpu_pm.h"
+ 
+ #include "gc/gc_9_0_offset.h"
+ #include "gc/gc_9_0_sh_mask.h"
+@@ -97,6 +98,7 @@ MODULE_FIRMWARE("amdgpu/raven2_me.bin");
+ MODULE_FIRMWARE("amdgpu/raven2_mec.bin");
+ MODULE_FIRMWARE("amdgpu/raven2_mec2.bin");
+ MODULE_FIRMWARE("amdgpu/raven2_rlc.bin");
++MODULE_FIRMWARE("amdgpu/raven_kicker_rlc.bin");
+ 
+ static const struct soc15_reg_golden golden_settings_gc_9_0[] =
+ {
+@@ -591,7 +593,8 @@ static void gfx_v9_0_check_if_need_gfxoff(struct amdgpu_device *adev)
+ 	case CHIP_RAVEN:
+ 		if (adev->rev_id >= 0x8 || adev->pdev->device == 0x15d8)
+ 			break;
+-		if ((adev->gfx.rlc_fw_version < 531) ||
++		if ((adev->gfx.rlc_fw_version != 106 &&
++		     adev->gfx.rlc_fw_version < 531) ||
+ 		    (adev->gfx.rlc_fw_version == 53815) ||
+ 		    (adev->gfx.rlc_feature_version < 1) ||
+ 		    !adev->gfx.rlc.is_rlc_v2_1)
+@@ -615,6 +618,7 @@ static int gfx_v9_0_init_microcode(struct amdgpu_device *adev)
+ 	unsigned int i = 0;
+ 	uint16_t version_major;
+ 	uint16_t version_minor;
++	uint32_t smu_version;
+ 
+ 	DRM_DEBUG("\n");
+ 
+@@ -685,6 +689,12 @@ static int gfx_v9_0_init_microcode(struct amdgpu_device *adev)
+ 		(((adev->pdev->revision >= 0xC8) && (adev->pdev->revision <= 0xCF)) ||
+ 		((adev->pdev->revision >= 0xD8) && (adev->pdev->revision <= 0xDF))))
+ 		snprintf(fw_name, sizeof(fw_name), "amdgpu/%s_rlc_am4.bin", chip_name);
++	else if (!strcmp(chip_name, "raven") && (amdgpu_pm_load_smu_firmware(adev, &smu_version) == 0) &&
++		(smu_version >= 0x41e2b))
++		/**
++		*SMC is loaded by SBIOS on APU and it's able to get the SMU version directly.
++		*/
++		snprintf(fw_name, sizeof(fw_name), "amdgpu/%s_kicker_rlc.bin", chip_name);
+ 	else
+ 		snprintf(fw_name, sizeof(fw_name), "amdgpu/%s_rlc.bin", chip_name);
+ 	err = request_firmware(&adev->gfx.rlc_fw, fw_name, adev->dev);
+-- 
+2.17.1
+

@@ -1,0 +1,176 @@
+From a7e99d1b3c921a92bb31f7fda9803e607ae7bdde Mon Sep 17 00:00:00 2001
+From: Kevin Wang <Kevin1.Wang@amd.com>
+Date: Fri, 14 Dec 2018 17:43:57 +0800
+Subject: [PATCH 1364/2940] drm/amd/powerplay: implement
+ smu_init[fini]_smc_tables for smu11
+
+Each SMU IP may have a different number of SMU tables, so these tables
+are allocated using dynamic memory
+
+Signed-off-by: Kevin Wang <Kevin1.Wang@amd.com>
+Reviewed-by: Huang Rui <ray.huang@amd.com>
+Acked-by: Alex Deucher <alexander.deucher@amd.com>
+---
+ drivers/gpu/drm/amd/powerplay/amdgpu_smu.c    | 21 +++++++++
+ .../gpu/drm/amd/powerplay/inc/amdgpu_smu.h    | 22 ++++++++++
+ drivers/gpu/drm/amd/powerplay/smu_v11_0.c     | 43 +++++++++++++++++++
+ 3 files changed, 86 insertions(+)
+
+diff --git a/drivers/gpu/drm/amd/powerplay/amdgpu_smu.c b/drivers/gpu/drm/amd/powerplay/amdgpu_smu.c
+index 901c99fea26f..f79a125a91bc 100644
+--- a/drivers/gpu/drm/amd/powerplay/amdgpu_smu.c
++++ b/drivers/gpu/drm/amd/powerplay/amdgpu_smu.c
+@@ -115,6 +115,19 @@ static int smu_smc_table_sw_init(struct smu_context *smu)
+ 	return 0;
+ }
+ 
++static int smu_smc_table_sw_fini(struct smu_context *smu)
++{
++	int ret;
++
++	ret = smu_fini_smc_tables(smu);
++	if (ret) {
++		pr_err("Failed to smu_fini_smc_tables!\n");
++		return ret;
++	}
++
++	return 0;
++}
++
+ static int smu_sw_init(void *handle)
+ {
+ 	struct amdgpu_device *adev = (struct amdgpu_device *)handle;
+@@ -142,10 +155,18 @@ static int smu_sw_init(void *handle)
+ static int smu_sw_fini(void *handle)
+ {
+ 	struct amdgpu_device *adev = (struct amdgpu_device *)handle;
++	struct smu_context *smu = &adev->smu;
++	int ret;
+ 
+ 	if (adev->asic_type < CHIP_VEGA20)
+ 		return -EINVAL;
+ 
++	ret = smu_smc_table_sw_fini(smu);
++	if (ret) {
++		pr_err("Failed to sw fini smc table!\n");
++		return ret;
++	}
++
+ 	return 0;
+ }
+ 
+diff --git a/drivers/gpu/drm/amd/powerplay/inc/amdgpu_smu.h b/drivers/gpu/drm/amd/powerplay/inc/amdgpu_smu.h
+index 88eee63364f1..16f11a41eac6 100644
+--- a/drivers/gpu/drm/amd/powerplay/inc/amdgpu_smu.h
++++ b/drivers/gpu/drm/amd/powerplay/inc/amdgpu_smu.h
+@@ -24,10 +24,29 @@
+ 
+ #include "amdgpu.h"
+ 
++#define SMU_TABLE_INIT(tables, table_id, s, a, d)	\
++	do {						\
++		tables[table_id].size = s;		\
++		tables[table_id].align = a;		\
++		tables[table_id].domain = d;		\
++	} while (0)
++
++struct smu_table {
++	uint64_t size;
++	uint32_t align;
++	uint8_t domain;
++	uint64_t mc_address;
++	void *cpu_addr;
++	struct amdgpu_bo *bo;
++
++};
++
+ struct smu_table_context
+ {
+ 	void				*power_play_table;
+ 	uint32_t			power_play_table_size;
++	struct smu_table		*tables;
++	uint32_t			table_count;
+ };
+ 
+ struct smu_context
+@@ -44,6 +63,7 @@ struct smu_funcs
+ {
+ 	int (*init_microcode)(struct smu_context *smu);
+ 	int (*init_smc_tables)(struct smu_context *smu);
++	int (*fini_smc_tables)(struct smu_context *smu);
+ 	int (*init_power)(struct smu_context *smu);
+ 	int (*load_microcode)(struct smu_context *smu);
+ 	int (*check_fw_status)(struct smu_context *smu);
+@@ -69,6 +89,8 @@ struct smu_funcs
+ 	((smu)->funcs->init_microcode ? (smu)->funcs->init_microcode((smu)) : 0)
+ #define smu_init_smc_tables(smu) \
+ 	((smu)->funcs->init_smc_tables ? (smu)->funcs->init_smc_tables((smu)) : 0)
++#define smu_fini_smc_tables(smu) \
++	((smu)->funcs->fini_smc_tables ? (smu)->funcs->fini_smc_tables((smu)) : 0)
+ #define smu_init_power(smu) \
+ 	((smu)->funcs->init_power ? (smu)->funcs->init_power((smu)) : 0)
+ #define smu_load_microcode(smu) \
+diff --git a/drivers/gpu/drm/amd/powerplay/smu_v11_0.c b/drivers/gpu/drm/amd/powerplay/smu_v11_0.c
+index efc3e4bcb41d..a2794ce0be0d 100644
+--- a/drivers/gpu/drm/amd/powerplay/smu_v11_0.c
++++ b/drivers/gpu/drm/amd/powerplay/smu_v11_0.c
+@@ -234,6 +234,47 @@ static int smu_v11_0_read_pptable_from_vbios(struct smu_context *smu)
+ 	return 0;
+ }
+ 
++static int smu_v11_0_init_smc_tables(struct smu_context *smu)
++{
++	struct smu_table_context *smu_table = &smu->smu_table;
++	struct smu_table *tables = NULL;
++
++	if (smu_table->tables || smu_table->table_count != 0)
++		return -EINVAL;
++
++	tables = kcalloc(TABLE_COUNT, sizeof(struct smu_table), GFP_KERNEL);
++	if (!tables)
++		return -ENOMEM;
++
++	smu_table->tables = tables;
++	smu_table->table_count = TABLE_COUNT;
++
++	SMU_TABLE_INIT(tables, TABLE_PPTABLE, sizeof(PPTable_t),
++		       PAGE_SIZE, AMDGPU_GEM_DOMAIN_VRAM);
++	SMU_TABLE_INIT(tables, TABLE_WATERMARKS, sizeof(Watermarks_t),
++		       PAGE_SIZE, AMDGPU_GEM_DOMAIN_VRAM);
++	SMU_TABLE_INIT(tables, TABLE_SMU_METRICS, sizeof(SmuMetrics_t),
++		       PAGE_SIZE, AMDGPU_GEM_DOMAIN_VRAM);
++	SMU_TABLE_INIT(tables, TABLE_OVERDRIVE, sizeof(OverDriveTable_t),
++		       PAGE_SIZE, AMDGPU_GEM_DOMAIN_VRAM);
++
++	return 0;
++}
++
++static int smu_v11_0_fini_smc_tables(struct smu_context *smu)
++{
++	struct smu_table_context *smu_table = &smu->smu_table;
++
++	if (!smu_table->tables || smu_table->table_count == 0)
++		return -EINVAL;
++
++	kfree(smu_table->tables);
++	smu_table->tables = NULL;
++	smu_table->table_count = 0;
++
++	return 0;
++
++}
+ static const struct smu_funcs smu_v11_0_funcs = {
+ 	.init_microcode = smu_v11_0_init_microcode,
+ 	.load_microcode = smu_v11_0_load_microcode,
+@@ -242,6 +283,8 @@ static const struct smu_funcs smu_v11_0_funcs = {
+ 	.send_smc_msg = smu_v11_0_send_msg,
+ 	.send_smc_msg_with_param = smu_v11_0_send_msg_with_param,
+ 	.read_pptable_from_vbios = smu_v11_0_read_pptable_from_vbios,
++	.init_smc_tables = smu_v11_0_init_smc_tables,
++	.fini_smc_tables = smu_v11_0_fini_smc_tables,
+ };
+ 
+ void smu_v11_0_set_smu_funcs(struct smu_context *smu)
+-- 
+2.17.1
+

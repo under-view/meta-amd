@@ -1,0 +1,79 @@
+From 91a07a26a35e388c56d475a7fddb7b5e77837c08 Mon Sep 17 00:00:00 2001
+From: Dmytro Laktyushkin <Dmytro.Laktyushkin@amd.com>
+Date: Mon, 8 Apr 2019 15:04:43 -0400
+Subject: [PATCH 1897/2940] drm/amd/display: move signal type out of otg dlg
+ params
+
+It makes no logical sense being there
+
+Change-Id: I55fe8eca7613be81132680a2a58bd58d874eb2b6
+Signed-off-by: Dmytro Laktyushkin <Dmytro.Laktyushkin@amd.com>
+Reviewed-by: Eric Bernstein <Eric.Bernstein@amd.com>
+Acked-by: Bhawanpreet Lakha <Bhawanpreet Lakha@amd.com>
+---
+ drivers/gpu/drm/amd/display/dc/dcn10/dcn10_hw_sequencer.c | 3 +--
+ drivers/gpu/drm/amd/display/dc/dcn10/dcn10_optc.c         | 6 +++---
+ drivers/gpu/drm/amd/display/dc/inc/hw/timing_generator.h  | 2 +-
+ 3 files changed, 5 insertions(+), 6 deletions(-)
+
+diff --git a/drivers/gpu/drm/amd/display/dc/dcn10/dcn10_hw_sequencer.c b/drivers/gpu/drm/amd/display/dc/dcn10/dcn10_hw_sequencer.c
+index 590122156783..44a7a6c379c4 100644
+--- a/drivers/gpu/drm/amd/display/dc/dcn10/dcn10_hw_sequencer.c
++++ b/drivers/gpu/drm/amd/display/dc/dcn10/dcn10_hw_sequencer.c
+@@ -663,7 +663,7 @@ static enum dc_status dcn10_enable_stream_timing(
+ 	pipe_ctx->stream_res.tg->dlg_otg_param.vupdate_offset = pipe_ctx->pipe_dlg_param.vupdate_offset;
+ 	pipe_ctx->stream_res.tg->dlg_otg_param.vupdate_width = pipe_ctx->pipe_dlg_param.vupdate_width;
+ 
+-	pipe_ctx->stream_res.tg->dlg_otg_param.signal =  pipe_ctx->stream->signal;
++	pipe_ctx->stream_res.tg->signal =  pipe_ctx->stream->signal;
+ 
+ 	pipe_ctx->stream_res.tg->funcs->program_timing(
+ 			pipe_ctx->stream_res.tg,
+@@ -2282,7 +2282,6 @@ static void program_all_pipe_in_tree(
+ 		pipe_ctx->stream_res.tg->dlg_otg_param.vstartup_start = pipe_ctx->pipe_dlg_param.vstartup_start;
+ 		pipe_ctx->stream_res.tg->dlg_otg_param.vupdate_offset = pipe_ctx->pipe_dlg_param.vupdate_offset;
+ 		pipe_ctx->stream_res.tg->dlg_otg_param.vupdate_width = pipe_ctx->pipe_dlg_param.vupdate_width;
+-		pipe_ctx->stream_res.tg->dlg_otg_param.signal =  pipe_ctx->stream->signal;
+ 
+ 		pipe_ctx->stream_res.tg->funcs->program_global_sync(
+ 				pipe_ctx->stream_res.tg);
+diff --git a/drivers/gpu/drm/amd/display/dc/dcn10/dcn10_optc.c b/drivers/gpu/drm/amd/display/dc/dcn10/dcn10_optc.c
+index c3e32051085b..5bc5ab0b48b9 100644
+--- a/drivers/gpu/drm/amd/display/dc/dcn10/dcn10_optc.c
++++ b/drivers/gpu/drm/amd/display/dc/dcn10/dcn10_optc.c
+@@ -243,9 +243,9 @@ void optc1_program_timing(
+ 		OTG_V_SYNC_A_POL, v_sync_polarity);
+ 
+ 	v_init = asic_blank_start;
+-	if (optc->dlg_otg_param.signal == SIGNAL_TYPE_DISPLAY_PORT ||
+-		optc->dlg_otg_param.signal == SIGNAL_TYPE_DISPLAY_PORT_MST ||
+-		optc->dlg_otg_param.signal == SIGNAL_TYPE_EDP) {
++	if (optc->signal == SIGNAL_TYPE_DISPLAY_PORT ||
++		optc->signal == SIGNAL_TYPE_DISPLAY_PORT_MST ||
++		optc->signal == SIGNAL_TYPE_EDP) {
+ 		start_point = 1;
+ 		if (patched_crtc_timing.flags.INTERLACE == 1)
+ 			field_num = 1;
+diff --git a/drivers/gpu/drm/amd/display/dc/inc/hw/timing_generator.h b/drivers/gpu/drm/amd/display/dc/inc/hw/timing_generator.h
+index 067d53caf28a..4eee1add8e64 100644
+--- a/drivers/gpu/drm/amd/display/dc/inc/hw/timing_generator.h
++++ b/drivers/gpu/drm/amd/display/dc/inc/hw/timing_generator.h
+@@ -75,7 +75,6 @@ struct _dlg_otg_param {
+ 	int vupdate_offset;
+ 	int vupdate_width;
+ 	int vready_offset;
+-	enum signal_type signal;
+ };
+ 
+ struct vupdate_keepout_params {
+@@ -127,6 +126,7 @@ struct timing_generator {
+ 	struct dc_bios *bp;
+ 	struct dc_context *ctx;
+ 	struct _dlg_otg_param dlg_otg_param;
++	enum signal_type signal;
+ 	int inst;
+ };
+ 
+-- 
+2.17.1
+

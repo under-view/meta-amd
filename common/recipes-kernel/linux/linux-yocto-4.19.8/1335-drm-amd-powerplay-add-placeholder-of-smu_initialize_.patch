@@ -1,0 +1,60 @@
+From 6dcd037b203c17b86d9502f41348242d7c175a7c Mon Sep 17 00:00:00 2001
+From: Huang Rui <ray.huang@amd.com>
+Date: Tue, 4 Dec 2018 17:27:10 +0800
+Subject: [PATCH 1335/2940] drm/amd/powerplay: add placeholder of
+ smu_initialize_pptable
+
+This patch adds placeholder of smu_initialize_pptable for smu.
+
+Signed-off-by: Huang Rui <ray.huang@amd.com>
+Acked-by: Alex Deucher <alexander.deucher@amd.com>
+---
+ drivers/gpu/drm/amd/powerplay/amdgpu_smu.c | 25 ++++++++++++++++++++++
+ 1 file changed, 25 insertions(+)
+
+diff --git a/drivers/gpu/drm/amd/powerplay/amdgpu_smu.c b/drivers/gpu/drm/amd/powerplay/amdgpu_smu.c
+index 145435f05bc2..d6ecd6337ba4 100644
+--- a/drivers/gpu/drm/amd/powerplay/amdgpu_smu.c
++++ b/drivers/gpu/drm/amd/powerplay/amdgpu_smu.c
+@@ -59,6 +59,25 @@ static int smu_early_init(void *handle)
+ 	return 0;
+ }
+ 
++static int smu_initialize_pptable(struct smu_context *smu)
++{
++	/* TODO */
++	return 0;
++}
++
++static int smu_smc_table_sw_init(struct smu_context *smu)
++{
++	int ret;
++
++	ret = smu_initialize_pptable(smu);
++	if (ret) {
++		pr_err("Failed to init smu_initialize_pptable!\n");
++		return ret;
++	}
++
++	return 0;
++}
++
+ static int smu_sw_init(void *handle)
+ {
+ 	struct amdgpu_device *adev = (struct amdgpu_device *)handle;
+@@ -74,6 +93,12 @@ static int smu_sw_init(void *handle)
+ 		return ret;
+ 	}
+ 
++	ret = smu_smc_table_sw_init(smu);
++	if (ret) {
++		pr_err("Failed to sw init smc table!\n");
++		return ret;
++	}
++
+ 	return 0;
+ }
+ 
+-- 
+2.17.1
+

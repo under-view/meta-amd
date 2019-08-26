@@ -1,0 +1,67 @@
+From ee5c693f920922860c02f50e88164fa7e49882e8 Mon Sep 17 00:00:00 2001
+From: Oak Zeng <Oak.Zeng@amd.com>
+Date: Tue, 28 May 2019 14:51:49 -0500
+Subject: [PATCH 2788/2940] drm/amdkfd: Return proper error code for gws alloc
+ API
+
+Change-Id: Iaa81c6aa5f97e888291771e1aa70b02fccdcb9e0
+Signed-off-by: Oak Zeng <Oak.Zeng@amd.com>
+Reviewed-by: Alex Deucher <alexander.deucher@amd.com>
+---
+ drivers/gpu/drm/amd/amdgpu/amdgpu_amdkfd_gpuvm.c       | 2 +-
+ drivers/gpu/drm/amd/amdkfd/kfd_chardev.c               | 6 +++---
+ drivers/gpu/drm/amd/amdkfd/kfd_process_queue_manager.c | 2 +-
+ 3 files changed, 5 insertions(+), 5 deletions(-)
+
+diff --git a/drivers/gpu/drm/amd/amdgpu/amdgpu_amdkfd_gpuvm.c b/drivers/gpu/drm/amd/amdgpu/amdgpu_amdkfd_gpuvm.c
+index eba2d1bd08f5..97bd545045f2 100644
+--- a/drivers/gpu/drm/amd/amdgpu/amdgpu_amdkfd_gpuvm.c
++++ b/drivers/gpu/drm/amd/amdgpu/amdgpu_amdkfd_gpuvm.c
+@@ -2544,7 +2544,7 @@ int amdgpu_amdkfd_add_gws_to_process(void *info, void *gws, struct kgd_mem **mem
+ 
+ 	*mem = kzalloc(sizeof(struct kgd_mem), GFP_KERNEL);
+ 	if (!*mem)
+-		return -EINVAL;
++		return -ENOMEM;
+ 
+ 	mutex_init(&(*mem)->lock);
+ 	(*mem)->bo = amdgpu_bo_ref(gws_bo);
+diff --git a/drivers/gpu/drm/amd/amdkfd/kfd_chardev.c b/drivers/gpu/drm/amd/amdkfd/kfd_chardev.c
+index aa321bad7cca..33381ae358fb 100644
+--- a/drivers/gpu/drm/amd/amdkfd/kfd_chardev.c
++++ b/drivers/gpu/drm/amd/amdkfd/kfd_chardev.c
+@@ -1614,15 +1614,15 @@ static int kfd_ioctl_alloc_queue_gws(struct file *filep,
+ 	struct kfd_dev *dev;
+ 
+ 	if (!hws_gws_support)
+-		return -EINVAL;
++		return -ENODEV;
+ 
+ 	dev = kfd_device_by_id(args->gpu_id);
+ 	if (!dev) {
+ 		pr_debug("Could not find gpu id 0x%x\n", args->gpu_id);
+-		return -EINVAL;
++		return -ENODEV;
+ 	}
+ 	if (dev->dqm->sched_policy == KFD_SCHED_POLICY_NO_HWS)
+-		return -EINVAL;
++		return -ENODEV;
+ 
+ 	mutex_lock(&p->mutex);
+ 	retval = pqm_set_gws(&p->pqm, args->queue_id, args->num_gws ? dev->gws : NULL);
+diff --git a/drivers/gpu/drm/amd/amdkfd/kfd_process_queue_manager.c b/drivers/gpu/drm/amd/amdkfd/kfd_process_queue_manager.c
+index c2c570e6e54f..da0958625861 100644
+--- a/drivers/gpu/drm/amd/amdkfd/kfd_process_queue_manager.c
++++ b/drivers/gpu/drm/amd/amdkfd/kfd_process_queue_manager.c
+@@ -103,7 +103,7 @@ int pqm_set_gws(struct process_queue_manager *pqm, unsigned int qid,
+ 
+ 	/* Only allow one queue per process can have GWS assigned */
+ 	if (gws && pdd->qpd.num_gws)
+-		return -EINVAL;
++		return -EBUSY;
+ 
+ 	if (!gws && pdd->qpd.num_gws == 0)
+ 		return -EINVAL;
+-- 
+2.17.1
+

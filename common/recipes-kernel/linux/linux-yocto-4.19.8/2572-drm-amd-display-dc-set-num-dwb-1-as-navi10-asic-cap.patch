@@ -1,0 +1,36 @@
+From 32003f343ff8f06c3539f3b921be681146b6aca2 Mon Sep 17 00:00:00 2001
+From: hersen wu <hersenxs.wu@amd.com>
+Date: Thu, 23 May 2019 18:49:39 -0400
+Subject: [PATCH 2572/2940] drm/amd/display/dc: set num-dwb = 1 as navi10 asic
+ cap
+
+during navi10 bring up, dwb causes system hang.
+to continue debug major issue, disable dwb by
+set num-dwb = 0. the hang issue is not reproduced now
+by enable num-dwb =1. dc source is shared by all os.
+win needs num-dwb = 1.
+
+Signed-off-by: hersen wu <hersenxs.wu@amd.com>
+Acked-by: Alex Deucher <alexander.deucher@amd.com>
+Reviewed-by: Roman Li <Roman.Li@amd.com>
+Signed-off-by: Alex Deucher <alexander.deucher@amd.com>
+---
+ drivers/gpu/drm/amd/display/dc/dcn20/dcn20_resource.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/drivers/gpu/drm/amd/display/dc/dcn20/dcn20_resource.c b/drivers/gpu/drm/amd/display/dc/dcn20/dcn20_resource.c
+index 6d9fd93ece85..c5ac25980f19 100644
+--- a/drivers/gpu/drm/amd/display/dc/dcn20/dcn20_resource.c
++++ b/drivers/gpu/drm/amd/display/dc/dcn20/dcn20_resource.c
+@@ -661,7 +661,7 @@ static const struct resource_caps res_cap_nv10 = {
+ 		.num_audio = 7,
+ 		.num_stream_encoder = 6,
+ 		.num_pll = 6,
+-		.num_dwb = 0,
++		.num_dwb = 1,
+ 		.num_ddc = 6,
+ 		.num_vmid = 16,
+ #ifdef CONFIG_DRM_AMD_DC_DSC_SUPPORT
+-- 
+2.17.1
+

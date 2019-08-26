@@ -1,0 +1,43 @@
+From 3cb414a92f15b0cdefb5d9bf3dc1499463e7424d Mon Sep 17 00:00:00 2001
+From: Jack Xiao <Jack.Xiao@amd.com>
+Date: Wed, 3 Jul 2019 11:56:07 +0800
+Subject: [PATCH 2618/2940] drm/amd/powerplay: increase waiting time for smu
+ response
+
+We observed some SMU commands take more time for execution,
+so increase waiting time for response.
+
+Signed-off-by: Jack Xiao <Jack.Xiao@amd.com>
+Reviewed-by: Hawking Zhang <Hawking.Zhang@amd.com>
+---
+ drivers/gpu/drm/amd/powerplay/smu_v11_0.c | 6 +++---
+ 1 file changed, 3 insertions(+), 3 deletions(-)
+
+diff --git a/drivers/gpu/drm/amd/powerplay/smu_v11_0.c b/drivers/gpu/drm/amd/powerplay/smu_v11_0.c
+index bc396908e7b3..88d3127d5bcb 100644
+--- a/drivers/gpu/drm/amd/powerplay/smu_v11_0.c
++++ b/drivers/gpu/drm/amd/powerplay/smu_v11_0.c
+@@ -64,9 +64,9 @@ static int smu_v11_0_read_arg(struct smu_context *smu, uint32_t *arg)
+ static int smu_v11_0_wait_for_response(struct smu_context *smu)
+ {
+ 	struct amdgpu_device *adev = smu->adev;
+-	uint32_t cur_value, i;
++	uint32_t cur_value, i, timeout = adev->usec_timeout * 10;
+ 
+-	for (i = 0; i < adev->usec_timeout; i++) {
++	for (i = 0; i < timeout; i++) {
+ 		cur_value = RREG32_SOC15(MP1, 0, mmMP1_SMN_C2PMSG_90);
+ 		if ((cur_value & MP1_C2PMSG_90__CONTENT_MASK) != 0)
+ 			break;
+@@ -74,7 +74,7 @@ static int smu_v11_0_wait_for_response(struct smu_context *smu)
+ 	}
+ 
+ 	/* timeout means wrong logic */
+-	if (i == adev->usec_timeout)
++	if (i == timeout)
+ 		return -ETIME;
+ 
+ 	return RREG32_SOC15(MP1, 0, mmMP1_SMN_C2PMSG_90) == 0x1 ? 0 : -EIO;
+-- 
+2.17.1
+

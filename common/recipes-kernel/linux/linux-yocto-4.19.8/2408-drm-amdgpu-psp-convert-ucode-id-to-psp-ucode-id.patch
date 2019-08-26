@@ -1,0 +1,33 @@
+From 829a6d72efc3eb273bf271f25caaa520e5ab8f3b Mon Sep 17 00:00:00 2001
+From: Jack Xiao <Jack.Xiao@amd.com>
+Date: Tue, 14 May 2019 11:53:57 +0800
+Subject: [PATCH 2408/2940] drm/amdgpu/psp: convert ucode id to psp ucode id
+
+Convert ucode id to the corresponding psp ucode id.
+
+Signed-off-by: Jack Xiao <Jack.Xiao@amd.com>
+Signed-off-by: Alex Deucher <alexander.deucher@amd.com>
+---
+ drivers/gpu/drm/amd/amdgpu/amdgpu_psp.c | 6 ++++++
+ 1 file changed, 6 insertions(+)
+
+diff --git a/drivers/gpu/drm/amd/amdgpu/amdgpu_psp.c b/drivers/gpu/drm/amd/amdgpu/amdgpu_psp.c
+index 32509c8c3227..f73dfa9303d9 100644
+--- a/drivers/gpu/drm/amd/amdgpu/amdgpu_psp.c
++++ b/drivers/gpu/drm/amd/amdgpu/amdgpu_psp.c
+@@ -894,6 +894,12 @@ static int psp_get_fw_type(struct amdgpu_firmware_info *ucode,
+ 	case AMDGPU_UCODE_ID_DMCU_INTV:
+ 		*type = GFX_FW_TYPE_DMCU_ISR;
+ 		break;
++	case AMDGPU_UCODE_ID_VCN0_RAM:
++		*type = GFX_FW_TYPE_VCN0_RAM;
++		break;
++	case AMDGPU_UCODE_ID_VCN1_RAM:
++		*type = GFX_FW_TYPE_VCN1_RAM;
++		break;
+ 	case AMDGPU_UCODE_ID_MAXIMUM:
+ 	default:
+ 		return -EINVAL;
+-- 
+2.17.1
+

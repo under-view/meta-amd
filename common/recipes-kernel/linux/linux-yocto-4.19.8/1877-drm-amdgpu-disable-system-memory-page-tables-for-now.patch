@@ -1,0 +1,36 @@
+From f6093e1c100f2fa2f0946336be875d6260feb3bf Mon Sep 17 00:00:00 2001
+From: =?UTF-8?q?Christian=20K=C3=B6nig?= <christian.koenig@amd.com>
+Date: Mon, 7 Jan 2019 14:43:55 +0100
+Subject: [PATCH 1877/2940] drm/amdgpu: disable system memory page tables for
+ now
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+We hit a problem with IOMMU with that. Disable until we have time to
+debug further.
+
+Signed-off-by: Christian König <christian.koenig@amd.com>
+Reviewed-by: Michel Dänzer <michel.daenzer@amd.com>
+Signed-off-by: Alex Deucher <alexander.deucher@amd.com>
+---
+ drivers/gpu/drm/amd/amdgpu/amdgpu_vm.c | 3 ---
+ 1 file changed, 3 deletions(-)
+
+diff --git a/drivers/gpu/drm/amd/amdgpu/amdgpu_vm.c b/drivers/gpu/drm/amd/amdgpu/amdgpu_vm.c
+index 2ca2dbaf7e3a..33d1de502eba 100644
+--- a/drivers/gpu/drm/amd/amdgpu/amdgpu_vm.c
++++ b/drivers/gpu/drm/amd/amdgpu/amdgpu_vm.c
+@@ -799,9 +799,6 @@ static void amdgpu_vm_bo_param(struct amdgpu_device *adev, struct amdgpu_vm *vm,
+ 	bp->size = amdgpu_vm_bo_size(adev, level);
+ 	bp->byte_align = AMDGPU_GPU_PAGE_SIZE;
+ 	bp->domain = AMDGPU_GEM_DOMAIN_VRAM;
+-	if (bp->size <= PAGE_SIZE && adev->asic_type >= CHIP_VEGA10 &&
+-	    adev->flags & AMD_IS_APU)
+-		bp->domain |= AMDGPU_GEM_DOMAIN_GTT;
+ 	bp->domain = amdgpu_bo_get_preferred_pin_domain(adev, bp->domain);
+ 	bp->flags = AMDGPU_GEM_CREATE_VRAM_CONTIGUOUS |
+ 		AMDGPU_GEM_CREATE_CPU_GTT_USWC;
+-- 
+2.17.1
+

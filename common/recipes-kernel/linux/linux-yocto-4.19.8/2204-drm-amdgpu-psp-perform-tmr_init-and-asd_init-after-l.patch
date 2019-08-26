@@ -1,0 +1,72 @@
+From bee0ae5e817a8edf1f9f843c650bcaaa3e149bed Mon Sep 17 00:00:00 2001
+From: Hawking Zhang <Hawking.Zhang@amd.com>
+Date: Mon, 12 Nov 2018 16:33:08 +0800
+Subject: [PATCH 2204/2940] drm/amdgpu/psp: perform tmr_init and asd_init after
+ loading sysdrv/sos
+
+Since from navi10, the tmr_size should be decided by psp sos according to
+toc header. Driver should issue LOAD_TOC to psp sos to get the tmr_size needed.
+The allocation of tmr_size then should be done only when sos/sysdrv loading
+completed
+
+Accordingly, asd_init also move to psp_hw_start after sos fw loading to make
+calling sequence consistent.
+
+Signed-off-by: Hawking Zhang <Hawking.Zhang@amd.com>
+Acked-by: Alex Deucher <alexander.deucher@amd.com>
+Signed-off-by: Alex Deucher <alexander.deucher@amd.com>
+---
+ drivers/gpu/drm/amd/amdgpu/amdgpu_psp.c | 24 ++++++++++++------------
+ 1 file changed, 12 insertions(+), 12 deletions(-)
+
+diff --git a/drivers/gpu/drm/amd/amdgpu/amdgpu_psp.c b/drivers/gpu/drm/amd/amdgpu/amdgpu_psp.c
+index 853437adf2a5..a6eee2f94f08 100644
+--- a/drivers/gpu/drm/amd/amdgpu/amdgpu_psp.c
++++ b/drivers/gpu/drm/amd/amdgpu/amdgpu_psp.c
+@@ -779,12 +779,24 @@ static int psp_hw_start(struct psp_context *psp)
+ 		return ret;
+ 	}
+ 
++	ret = psp_tmr_init(psp);
++	if (ret) {
++		DRM_ERROR("PSP tmr init failed!\n");
++		return ret;
++	}
++
+ 	ret = psp_tmr_load(psp);
+ 	if (ret) {
+ 		DRM_ERROR("PSP load tmr failed!\n");
+ 		return ret;
+ 	}
+ 
++	ret = psp_asd_init(psp);
++	if (ret) {
++		DRM_ERROR("PSP asd init failed!\n");
++		return ret;
++	}
++
+ 	ret = psp_asd_load(psp);
+ 	if (ret) {
+ 		DRM_ERROR("PSP load asd failed!\n");
+@@ -1000,18 +1012,6 @@ static int psp_load_fw(struct amdgpu_device *adev)
+ 		goto failed;
+ 	}
+ 
+-	ret = psp_tmr_init(psp);
+-	if (ret) {
+-		DRM_ERROR("PSP tmr init failed!\n");
+-		goto failed;
+-	}
+-
+-	ret = psp_asd_init(psp);
+-	if (ret) {
+-		DRM_ERROR("PSP asd init failed!\n");
+-		goto failed;
+-	}
+-
+ skip_memalloc:
+ 	ret = psp_hw_start(psp);
+ 	if (ret)
+-- 
+2.17.1
+

@@ -1,0 +1,32 @@
+From 964ab71d7ac3a2c8d50407394938c3a149fff7de Mon Sep 17 00:00:00 2001
+From: Hawking Zhang <Hawking.Zhang@amd.com>
+Date: Tue, 12 Jun 2018 17:05:59 +0800
+Subject: [PATCH 2147/2940] drm/amdgpu: add gfx10 specific config in
+ amdgpu_gfx_config
+
+The two members are used to cache the values from gpu_info fw accordingly
+
+Signed-off-by: Hawking Zhang <Hawking.Zhang@amd.com>
+Reviewed-by: Alex Deucher <alexander.deucher@amd.com>
+Signed-off-by: Alex Deucher <alexander.deucher@amd.com>
+---
+ drivers/gpu/drm/amd/amdgpu/amdgpu_gfx.h | 3 +++
+ 1 file changed, 3 insertions(+)
+
+diff --git a/drivers/gpu/drm/amd/amdgpu/amdgpu_gfx.h b/drivers/gpu/drm/amd/amdgpu/amdgpu_gfx.h
+index 09fc53af3d35..9f55d428adb0 100644
+--- a/drivers/gpu/drm/amd/amdgpu/amdgpu_gfx.h
++++ b/drivers/gpu/drm/amd/amdgpu/amdgpu_gfx.h
+@@ -131,6 +131,9 @@ struct amdgpu_gfx_config {
+ 	uint32_t double_offchip_lds_buf;
+ 	/* cached value of DB_DEBUG2 */
+ 	uint32_t db_debug2;
++	/* gfx10 specific config */
++	uint32_t num_sc_per_sh;
++	uint32_t num_packer_per_sc;
+ };
+ 
+ struct amdgpu_cu_info {
+-- 
+2.17.1
+

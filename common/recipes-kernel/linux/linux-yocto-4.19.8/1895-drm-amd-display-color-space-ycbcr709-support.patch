@@ -1,0 +1,147 @@
+From 24342f561cd33657e7a6aa22586bec75447ef212 Mon Sep 17 00:00:00 2001
+From: Charlene Liu <charlene.liu@amd.com>
+Date: Wed, 17 Apr 2019 19:15:15 -0400
+Subject: [PATCH 1895/2940] drm/amd/display: color space ycbcr709 support
+
+Change-Id: I7ca5ff67a2d2f701e7e974cae7a93e7622669ac5
+Signed-off-by: Charlene Liu <charlene.liu@amd.com>
+Reviewed-by: Duke Du <Duke.Du@amd.com>
+Acked-by: Bhawanpreet Lakha <Bhawanpreet Lakha@amd.com>
+---
+ .../drm/amd/display/dc/core/dc_hw_sequencer.c | 29 +++++++++++++++++--
+ .../gpu/drm/amd/display/dc/core/dc_stream.c   |  4 +--
+ drivers/gpu/drm/amd/display/dc/dc_hw_types.h  |  1 +
+ .../amd/display/dc/dce/dce_stream_encoder.c   |  1 +
+ .../display/dc/dcn10/dcn10_stream_encoder.c   |  1 +
+ 5 files changed, 31 insertions(+), 5 deletions(-)
+
+diff --git a/drivers/gpu/drm/amd/display/dc/core/dc_hw_sequencer.c b/drivers/gpu/drm/amd/display/dc/core/dc_hw_sequencer.c
+index 83d121510ef5..ca50ede37183 100644
+--- a/drivers/gpu/drm/amd/display/dc/core/dc_hw_sequencer.c
++++ b/drivers/gpu/drm/amd/display/dc/core/dc_hw_sequencer.c
+@@ -45,8 +45,10 @@ enum dc_color_space_type {
+ 	COLOR_SPACE_RGB_LIMITED_TYPE,
+ 	COLOR_SPACE_YCBCR601_TYPE,
+ 	COLOR_SPACE_YCBCR709_TYPE,
++	COLOR_SPACE_YCBCR2020_TYPE,
+ 	COLOR_SPACE_YCBCR601_LIMITED_TYPE,
+-	COLOR_SPACE_YCBCR709_LIMITED_TYPE
++	COLOR_SPACE_YCBCR709_LIMITED_TYPE,
++	COLOR_SPACE_YCBCR709_BLACK_TYPE,
+ };
+ 
+ static const struct tg_color black_color_format[] = {
+@@ -80,7 +82,6 @@ static const struct out_csc_color_matrix_type output_csc_matrix[] = {
+ 	{ COLOR_SPACE_YCBCR709_TYPE,
+ 		{ 0xE04, 0xF345, 0xFEB7, 0x1004, 0x5D3, 0x1399, 0x1FA,
+ 				0x201, 0xFCCA, 0xF533, 0xE04, 0x1004} },
+-
+ 	/* TODO: correct values below */
+ 	{ COLOR_SPACE_YCBCR601_LIMITED_TYPE,
+ 		{ 0xE00, 0xF447, 0xFDB9, 0x1000, 0x991,
+@@ -88,6 +89,12 @@ static const struct out_csc_color_matrix_type output_csc_matrix[] = {
+ 	{ COLOR_SPACE_YCBCR709_LIMITED_TYPE,
+ 		{ 0xE00, 0xF349, 0xFEB7, 0x1000, 0x6CE, 0x16E3,
+ 				0x24F, 0x200, 0xFCCB, 0xF535, 0xE00, 0x1000} },
++	{ COLOR_SPACE_YCBCR2020_TYPE,
++		{ 0x1000, 0xF149, 0xFEB7, 0x0000, 0x0868, 0x15B2,
++				0x01E6, 0x0000, 0xFB88, 0xF478, 0x1000, 0x0000} },
++	{ COLOR_SPACE_YCBCR709_BLACK_TYPE,
++		{ 0x0000, 0x0000, 0x0000, 0x1000, 0x0000, 0x0000,
++				0x0000, 0x0200, 0x0000, 0x0000, 0x0000, 0x1000} },
+ };
+ 
+ static bool is_rgb_type(
+@@ -149,6 +156,16 @@ static bool is_ycbcr709_type(
+ 	return ret;
+ }
+ 
++static bool is_ycbcr2020_type(
++	enum dc_color_space color_space)
++{
++	bool ret = false;
++
++	if (color_space == COLOR_SPACE_2020_YCBCR)
++		ret = true;
++	return ret;
++}
++
+ static bool is_ycbcr709_limited_type(
+ 		enum dc_color_space color_space)
+ {
+@@ -174,7 +191,12 @@ enum dc_color_space_type get_color_space_type(enum dc_color_space color_space)
+ 		type = COLOR_SPACE_YCBCR601_LIMITED_TYPE;
+ 	else if (is_ycbcr709_limited_type(color_space))
+ 		type = COLOR_SPACE_YCBCR709_LIMITED_TYPE;
+-
++	else if (is_ycbcr2020_type(color_space))
++		type = COLOR_SPACE_YCBCR2020_TYPE;
++	else if (color_space == COLOR_SPACE_YCBCR709)
++		type = COLOR_SPACE_YCBCR709_BLACK_TYPE;
++	else if (color_space == COLOR_SPACE_YCBCR709_BLACK)
++		type = COLOR_SPACE_YCBCR709_BLACK_TYPE;
+ 	return type;
+ }
+ 
+@@ -206,6 +228,7 @@ void color_space_to_black_color(
+ 	switch (colorspace) {
+ 	case COLOR_SPACE_YCBCR601:
+ 	case COLOR_SPACE_YCBCR709:
++	case COLOR_SPACE_YCBCR709_BLACK:
+ 	case COLOR_SPACE_YCBCR601_LIMITED:
+ 	case COLOR_SPACE_YCBCR709_LIMITED:
+ 	case COLOR_SPACE_2020_YCBCR:
+diff --git a/drivers/gpu/drm/amd/display/dc/core/dc_stream.c b/drivers/gpu/drm/amd/display/dc/core/dc_stream.c
+index 96e97d25d639..a79f608b2f79 100644
+--- a/drivers/gpu/drm/amd/display/dc/core/dc_stream.c
++++ b/drivers/gpu/drm/amd/display/dc/core/dc_stream.c
+@@ -47,8 +47,8 @@ void update_stream_signal(struct dc_stream_state *stream, struct dc_sink *sink)
+ 
+ 	if (dc_is_dvi_signal(stream->signal)) {
+ 		if (stream->ctx->dc->caps.dual_link_dvi &&
+-		    (stream->timing.pix_clk_100hz / 10) > TMDS_MAX_PIXEL_CLOCK &&
+-		    sink->sink_signal != SIGNAL_TYPE_DVI_SINGLE_LINK)
++			(stream->timing.pix_clk_100hz / 10) > TMDS_MAX_PIXEL_CLOCK &&
++			sink->sink_signal != SIGNAL_TYPE_DVI_SINGLE_LINK)
+ 			stream->signal = SIGNAL_TYPE_DVI_DUAL_LINK;
+ 		else
+ 			stream->signal = SIGNAL_TYPE_DVI_SINGLE_LINK;
+diff --git a/drivers/gpu/drm/amd/display/dc/dc_hw_types.h b/drivers/gpu/drm/amd/display/dc/dc_hw_types.h
+index da55d623647a..c91b8aad78c9 100644
+--- a/drivers/gpu/drm/amd/display/dc/dc_hw_types.h
++++ b/drivers/gpu/drm/amd/display/dc/dc_hw_types.h
+@@ -534,6 +534,7 @@ enum dc_color_space {
+ 	COLOR_SPACE_DOLBYVISION,
+ 	COLOR_SPACE_APPCTRL,
+ 	COLOR_SPACE_CUSTOMPOINTS,
++	COLOR_SPACE_YCBCR709_BLACK,
+ };
+ 
+ enum dc_dither_option {
+diff --git a/drivers/gpu/drm/amd/display/dc/dce/dce_stream_encoder.c b/drivers/gpu/drm/amd/display/dc/dce/dce_stream_encoder.c
+index d612e544d4a5..da4671df57d8 100644
+--- a/drivers/gpu/drm/amd/display/dc/dce/dce_stream_encoder.c
++++ b/drivers/gpu/drm/amd/display/dc/dce/dce_stream_encoder.c
+@@ -418,6 +418,7 @@ static void dce110_stream_encoder_dp_set_stream_attribute(
+ 			break;
+ 		case COLOR_SPACE_YCBCR709:
+ 		case COLOR_SPACE_YCBCR709_LIMITED:
++		case COLOR_SPACE_YCBCR709_BLACK:
+ 			misc0 = misc0 | 0x18; /* bit3=1, bit4=1 */
+ 			misc1 = misc1 & ~0x80; /* bit7 = 0*/
+ 			dynamic_range_ycbcr = 1; /*bt709*/
+diff --git a/drivers/gpu/drm/amd/display/dc/dcn10/dcn10_stream_encoder.c b/drivers/gpu/drm/amd/display/dc/dcn10/dcn10_stream_encoder.c
+index 8ee9f6dc1d62..c259c51dff9a 100644
+--- a/drivers/gpu/drm/amd/display/dc/dcn10/dcn10_stream_encoder.c
++++ b/drivers/gpu/drm/amd/display/dc/dcn10/dcn10_stream_encoder.c
+@@ -415,6 +415,7 @@ void enc1_stream_encoder_dp_set_stream_attribute(
+ 	case COLOR_SPACE_APPCTRL:
+ 	case COLOR_SPACE_CUSTOMPOINTS:
+ 	case COLOR_SPACE_UNKNOWN:
++	case COLOR_SPACE_YCBCR709_BLACK:
+ 		/* do nothing */
+ 		break;
+ 	}
+-- 
+2.17.1
+

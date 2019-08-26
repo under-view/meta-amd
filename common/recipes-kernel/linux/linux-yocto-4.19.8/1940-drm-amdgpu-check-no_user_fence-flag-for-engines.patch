@@ -1,0 +1,38 @@
+From 5e915c3479cfc4dfa2b9ff3b11d566fa9349986a Mon Sep 17 00:00:00 2001
+From: Leo Liu <leo.liu@amd.com>
+Date: Wed, 8 May 2019 11:13:53 -0400
+Subject: [PATCH 1940/2940] drm/amdgpu: check no_user_fence flag for engines
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+To replace checking ring type and make them generic
+
+Signed-off-by: Leo Liu <leo.liu@amd.com>
+Reviewed-by: Alex Deucher <alexander.deucher@amd.com>
+Reviewed-by: Christian König <christian.koenig@amd.com>
+---
+ drivers/gpu/drm/amd/amdgpu/amdgpu_cs.c | 6 ++----
+ 1 file changed, 2 insertions(+), 4 deletions(-)
+
+diff --git a/drivers/gpu/drm/amd/amdgpu/amdgpu_cs.c b/drivers/gpu/drm/amd/amdgpu/amdgpu_cs.c
+index e68dde501f44..64131626b5bc 100644
+--- a/drivers/gpu/drm/amd/amdgpu/amdgpu_cs.c
++++ b/drivers/gpu/drm/amd/amdgpu/amdgpu_cs.c
+@@ -1009,11 +1009,9 @@ static int amdgpu_cs_ib_fill(struct amdgpu_device *adev,
+ 		j++;
+ 	}
+ 
+-	/* UVD & VCE fw doesn't support user fences */
++	/* MM engine doesn't support user fences */
+ 	ring = to_amdgpu_ring(parser->entity->rq->sched);
+-	if (parser->job->uf_addr && (
+-	    ring->funcs->type == AMDGPU_RING_TYPE_UVD ||
+-	    ring->funcs->type == AMDGPU_RING_TYPE_VCE))
++	if (parser->job->uf_addr && ring->funcs->no_user_fence)
+ 		return -EINVAL;
+ 
+ 	return amdgpu_ctx_wait_prev_fence(parser->ctx, parser->entity);
+-- 
+2.17.1
+

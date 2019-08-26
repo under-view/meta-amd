@@ -1,0 +1,63 @@
+From 2d8e03c20965d21ae49aec762162e063a305615b Mon Sep 17 00:00:00 2001
+From: Huang Rui <ray.huang@amd.com>
+Date: Wed, 16 Jan 2019 14:22:16 +0800
+Subject: [PATCH 1429/2940] drm/amd/powerplay: add interface to get performance
+ level
+
+This patch adds interface to get performance level for display and in smu v11
+didn't have this implementation.
+
+Signed-off-by: Huang Rui <ray.huang@amd.com>
+Reviewed-by: Kevin Wang <Kevin1.Wang@amd.com>
+Acked-by: Alex Deucher <alexander.deucher@amd.com>
+---
+ .../gpu/drm/amd/powerplay/inc/amdgpu_smu.h    | 19 +++++++++++++++++++
+ 1 file changed, 19 insertions(+)
+
+diff --git a/drivers/gpu/drm/amd/powerplay/inc/amdgpu_smu.h b/drivers/gpu/drm/amd/powerplay/inc/amdgpu_smu.h
+index a8a150109529..8dce824611e8 100644
+--- a/drivers/gpu/drm/amd/powerplay/inc/amdgpu_smu.h
++++ b/drivers/gpu/drm/amd/powerplay/inc/amdgpu_smu.h
+@@ -140,6 +140,20 @@ struct smu_table {
+ 	struct amdgpu_bo *bo;
+ };
+ 
++enum smu_perf_level_designation {
++	PERF_LEVEL_ACTIVITY,
++	PERF_LEVEL_POWER_CONTAINMENT,
++};
++
++struct smu_performance_level {
++	uint32_t core_clock;
++	uint32_t memory_clock;
++	uint32_t vddc;
++	uint32_t vddci;
++	uint32_t non_local_mem_freq;
++	uint32_t non_local_mem_width;
++};
++
+ struct smu_bios_boot_up_values
+ {
+ 	uint32_t			revision;
+@@ -289,6 +303,9 @@ struct smu_funcs
+ 					     *clock_req);
+ 	int (*get_dal_power_level)(struct smu_context *smu,
+ 				   struct amd_pp_simple_clock_info *clocks);
++	int (*get_perf_level)(struct smu_context *smu,
++			      enum smu_perf_level_designation designation,
++			      struct smu_performance_level *level);
+ };
+ 
+ #define smu_init_microcode(smu) \
+@@ -402,6 +419,8 @@ struct smu_funcs
+ 	((smu)->funcs->display_clock_voltage_request ? (smu)->funcs->display_clock_voltage_request((smu), (clock_req)) : 0)
+ #define smu_get_dal_power_level(smu, clocks) \
+ 	((smu)->funcs->get_dal_power_level ? (smu)->funcs->get_dal_power_level((smu), (clocks)) : 0)
++#define smu_get_perf_level(smu, designation, level) \
++	((smu)->funcs->get_perf_level ? (smu)->funcs->get_perf_level((smu), (designation), (level)) : 0)
+ 
+ 
+ extern int smu_get_atom_data_table(struct smu_context *smu, uint32_t table,
+-- 
+2.17.1
+

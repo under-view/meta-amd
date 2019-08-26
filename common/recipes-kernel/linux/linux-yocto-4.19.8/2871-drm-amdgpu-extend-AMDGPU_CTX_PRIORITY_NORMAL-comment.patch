@@ -1,0 +1,59 @@
+From 07c8b2d3598b1eb7d9af90be24659fa84bae993a Mon Sep 17 00:00:00 2001
+From: Emil Velikov <emil.velikov@collabora.com>
+Date: Fri, 14 Jun 2019 18:33:35 +0100
+Subject: [PATCH 2871/2940] drm/amdgpu: extend AMDGPU_CTX_PRIORITY_NORMAL
+ comment
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+Currently the AMDGPU_CTX_PRIORITY_* defines are used in both
+drm_amdgpu_ctx_in::priority and drm_amdgpu_sched_in::priority.
+
+Extend the comment to mention the CAP_SYS_NICE or DRM_MASTER requirement
+is only applicable with the former.
+
+Cc: Bas Nieuwenhuizen <bas@basnieuwenhuizen.nl>
+Cc: Christian König <christian.koenig@amd.com>
+Cc: Alex Deucher <alexander.deucher@amd.com>
+Signed-off-by: Emil Velikov <emil.velikov@collabora.com>
+Reviewed-by: Christian König <christian.koenig@amd.com>
+---
+ include/uapi/drm/amdgpu_drm.h | 7 ++++++-
+ 1 file changed, 6 insertions(+), 1 deletion(-)
+
+diff --git a/include/uapi/drm/amdgpu_drm.h b/include/uapi/drm/amdgpu_drm.h
+index 84715fef5322..66b00e41fbcd 100644
+--- a/include/uapi/drm/amdgpu_drm.h
++++ b/include/uapi/drm/amdgpu_drm.h
+@@ -239,7 +239,10 @@ union drm_amdgpu_bo_list {
+ #define AMDGPU_CTX_PRIORITY_VERY_LOW    -1023
+ #define AMDGPU_CTX_PRIORITY_LOW         -512
+ #define AMDGPU_CTX_PRIORITY_NORMAL      0
+-/* Selecting a priority above NORMAL requires CAP_SYS_NICE or DRM_MASTER */
++/*
++ * When used in struct drm_amdgpu_ctx_in, a priority above NORMAL requires
++ * CAP_SYS_NICE or DRM_MASTER
++*/
+ #define AMDGPU_CTX_PRIORITY_HIGH        512
+ #define AMDGPU_CTX_PRIORITY_VERY_HIGH   1023
+ 
+@@ -249,6 +252,7 @@ struct drm_amdgpu_ctx_in {
+ 	/** For future use, no flags defined so far */
+ 	__u32	flags;
+ 	__u32	ctx_id;
++	/** AMDGPU_CTX_PRIORITY_* */
+ 	__s32	priority;
+ };
+ 
+@@ -330,6 +334,7 @@ struct drm_amdgpu_sched_in {
+ 	/* AMDGPU_SCHED_OP_* */
+ 	__u32	op;
+ 	__u32	fd;
++	/** AMDGPU_CTX_PRIORITY_* */
+ 	__s32	priority;
+ 	__u32   ctx_id;
+ };
+-- 
+2.17.1
+

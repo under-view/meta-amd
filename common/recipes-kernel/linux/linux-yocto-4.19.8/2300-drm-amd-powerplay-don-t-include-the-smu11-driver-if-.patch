@@ -1,0 +1,76 @@
+From 7605821cc5483e0a19e899ebde931c531f27e5bf Mon Sep 17 00:00:00 2001
+From: Huang Rui <ray.huang@amd.com>
+Date: Sun, 31 Mar 2019 16:08:21 +0800
+Subject: [PATCH 2300/2940] drm/amd/powerplay: don't include the smu11 driver
+ if header in smu v11 (v2)
+
+This header is actually for each asic, so we should not include in smu_v11_0.c.
+And rename the one for navi10.
+
+v2: add hack for XGMI (Alex)
+
+Signed-off-by: Huang Rui <ray.huang@amd.com>
+Reviewed-by: Kevin Wang <kevin1.wang@amd.com>
+Reviewed-by: Alex Deucher <alexander.deucher@amd.com>
+Reviewed-by: Hawking Zhang <Hawking.Zhang@amd.com>
+Signed-off-by: Alex Deucher <alexander.deucher@amd.com>
+---
+ .../inc/{smu_11_0_driver_if.h => smu11_driver_if_navi10.h}    | 4 ++--
+ drivers/gpu/drm/amd/powerplay/navi10_ppt.c                    | 2 +-
+ drivers/gpu/drm/amd/powerplay/smu_v11_0.c                     | 4 +++-
+ 3 files changed, 6 insertions(+), 4 deletions(-)
+ rename drivers/gpu/drm/amd/powerplay/inc/{smu_11_0_driver_if.h => smu11_driver_if_navi10.h} (99%)
+
+diff --git a/drivers/gpu/drm/amd/powerplay/inc/smu_11_0_driver_if.h b/drivers/gpu/drm/amd/powerplay/inc/smu11_driver_if_navi10.h
+similarity index 99%
+rename from drivers/gpu/drm/amd/powerplay/inc/smu_11_0_driver_if.h
+rename to drivers/gpu/drm/amd/powerplay/inc/smu11_driver_if_navi10.h
+index 1ab6e4eca09f..25b7c8c496f7 100644
+--- a/drivers/gpu/drm/amd/powerplay/inc/smu_11_0_driver_if.h
++++ b/drivers/gpu/drm/amd/powerplay/inc/smu11_driver_if_navi10.h
+@@ -1,5 +1,5 @@
+-#ifndef __SMU11_DRIVER_IF_H__
+-#define __SMU11_DRIVER_IF_H__
++#ifndef __SMU11_DRIVER_IF_NAVI10_H__
++#define __SMU11_DRIVER_IF_NAVI10_H__
+ 
+ // *** IMPORTANT ***
+ // SMU TEAM: Always increment the interface version if 
+diff --git a/drivers/gpu/drm/amd/powerplay/navi10_ppt.c b/drivers/gpu/drm/amd/powerplay/navi10_ppt.c
+index 98c1798e59d1..6d1b01a5228a 100644
+--- a/drivers/gpu/drm/amd/powerplay/navi10_ppt.c
++++ b/drivers/gpu/drm/amd/powerplay/navi10_ppt.c
+@@ -28,7 +28,7 @@
+ #include "atomfirmware.h"
+ #include "amdgpu_atomfirmware.h"
+ #include "smu_v11_0.h"
+-#include "smu_11_0_driver_if.h"
++#include "smu11_driver_if_navi10.h"
+ #include "soc15_common.h"
+ #include "atom.h"
+ #include "navi10_ppt.h"
+diff --git a/drivers/gpu/drm/amd/powerplay/smu_v11_0.c b/drivers/gpu/drm/amd/powerplay/smu_v11_0.c
+index e4fbf8dd57b2..564b61af6c30 100644
+--- a/drivers/gpu/drm/amd/powerplay/smu_v11_0.c
++++ b/drivers/gpu/drm/amd/powerplay/smu_v11_0.c
+@@ -27,7 +27,6 @@
+ #include "atomfirmware.h"
+ #include "amdgpu_atomfirmware.h"
+ #include "smu_v11_0.h"
+-#include "smu_11_0_driver_if.h"
+ #include "soc15_common.h"
+ #include "atom.h"
+ #include "vega20_ppt.h"
+@@ -1739,6 +1738,9 @@ static int smu_v11_0_set_fan_speed_rpm(struct smu_context *smu,
+ 	return ret;
+ }
+ 
++#define XGMI_STATE_D0 1
++#define XGMI_STATE_D3 0
++
+ static int smu_v11_0_set_xgmi_pstate(struct smu_context *smu,
+ 				     uint32_t pstate)
+ {
+-- 
+2.17.1
+

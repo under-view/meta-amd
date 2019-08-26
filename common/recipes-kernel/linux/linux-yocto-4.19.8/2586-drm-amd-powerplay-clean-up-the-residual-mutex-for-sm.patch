@@ -1,0 +1,32 @@
+From 164db5b31e3fcc8e0be1a22822b4803e67b9b87d Mon Sep 17 00:00:00 2001
+From: Prike Liang <Prike.Liang@amd.com>
+Date: Mon, 24 Jun 2019 17:25:26 +0800
+Subject: [PATCH 2586/2940] drm/amd/powerplay:clean up the residual mutex for
+ smu_hw_init
+
+The mutex for procting SMU during hw_init was removed as system
+will be deadlock when smu_populate_umd_state_clk try get SMU mutex.
+Therefore need remove the residual mutex from failed path.
+
+Change-Id: Id8019c01b9496c067efda4817a46983e4da3b6e4
+Signed-off-by: Prike Liang <Prike.Liang@amd.com>
+Reviewed-by: Evan Quan <evan.quan@amd.com>
+---
+ drivers/gpu/drm/amd/powerplay/amdgpu_smu.c | 1 -
+ 1 file changed, 1 deletion(-)
+
+diff --git a/drivers/gpu/drm/amd/powerplay/amdgpu_smu.c b/drivers/gpu/drm/amd/powerplay/amdgpu_smu.c
+index f61ecbfec9bb..fe83c5e3111f 100644
+--- a/drivers/gpu/drm/amd/powerplay/amdgpu_smu.c
++++ b/drivers/gpu/drm/amd/powerplay/amdgpu_smu.c
+@@ -1044,7 +1044,6 @@ static int smu_hw_init(void *handle)
+ 	return 0;
+ 
+ failed:
+-	mutex_unlock(&smu->mutex);
+ 	return ret;
+ }
+ 
+-- 
+2.17.1
+

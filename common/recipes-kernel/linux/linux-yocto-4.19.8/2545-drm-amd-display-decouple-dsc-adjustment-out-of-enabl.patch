@@ -1,0 +1,226 @@
+From 7fc3a13276b2dfddc8f9f276dd865c10fdebf211 Mon Sep 17 00:00:00 2001
+From: Wenjing Liu <Wenjing.Liu@amd.com>
+Date: Mon, 6 May 2019 14:22:39 -0400
+Subject: [PATCH 2545/2940] drm/amd/display: decouple dsc adjustment out of
+ enablement
+
+[why]
+dsc adjustment is allowed via stream update sequence.
+dsc enablement is only allowed via commit stream sequence.
+with the current unified dsc set function, it is hard
+to determine which sequence it is called by.
+The solution is to decouple dsc adjustment out of enablement
+sequence so we can handle them separately.
+
+[how]
+decouple dsc adjustment out of enablement.
+
+Signed-off-by: Wenjing Liu <Wenjing.Liu@amd.com>
+Reviewed-by: Nikola Cornij <Nikola.Cornij@amd.com>
+Acked-by: Leo Li <sunpeng.li@amd.com>
+Signed-off-by: Alex Deucher <alexander.deucher@amd.com>
+---
+ drivers/gpu/drm/amd/display/dc/core/dc.c      |  7 +---
+ drivers/gpu/drm/amd/display/dc/core/dc_link.c |  2 +-
+ .../drm/amd/display/dc/core/dc_link_hwss.c    | 35 +++++++++----------
+ .../drm/amd/display/dc/dcn20/dcn20_resource.c | 12 +++----
+ .../drm/amd/display/dc/dcn20/dcn20_resource.h |  2 --
+ .../gpu/drm/amd/display/dc/inc/core_types.h   |  9 -----
+ .../gpu/drm/amd/display/dc/inc/dc_link_dp.h   |  1 +
+ 7 files changed, 24 insertions(+), 44 deletions(-)
+
+diff --git a/drivers/gpu/drm/amd/display/dc/core/dc.c b/drivers/gpu/drm/amd/display/dc/core/dc.c
+index 02539f20d510..81fda0a93abb 100644
+--- a/drivers/gpu/drm/amd/display/dc/core/dc.c
++++ b/drivers/gpu/drm/amd/display/dc/core/dc.c
+@@ -1758,14 +1758,9 @@ static void commit_planes_do_stream_update(struct dc *dc,
+ 
+ #if defined(CONFIG_DRM_AMD_DC_DSC_SUPPORT)
+ 			if (stream_update->dsc_config && dc->hwss.pipe_control_lock_global) {
+-				bool enable_dsc = (stream_update->dsc_config->num_slices_h && stream_update->dsc_config->num_slices_v);
+-
+ 				dc->hwss.pipe_control_lock_global(dc, pipe_ctx, true);
+-				dp_set_dsc_enable(pipe_ctx, enable_dsc);
++				dp_update_dsc_config(pipe_ctx);
+ 				dc->hwss.pipe_control_lock_global(dc, pipe_ctx, false);
+-
+-				if (!stream->is_dsc_enabled)
+-					dc->res_pool->funcs->remove_dsc_from_stream_resource(dc, context, stream);
+ 			}
+ #endif
+ 			/* Full fe update*/
+diff --git a/drivers/gpu/drm/amd/display/dc/core/dc_link.c b/drivers/gpu/drm/amd/display/dc/core/dc_link.c
+index 8c7c183d616d..943792729e15 100644
+--- a/drivers/gpu/drm/amd/display/dc/core/dc_link.c
++++ b/drivers/gpu/drm/amd/display/dc/core/dc_link.c
+@@ -2817,7 +2817,7 @@ void core_link_disable_stream(struct pipe_ctx *pipe_ctx, int option)
+ 
+ 	disable_link(pipe_ctx->stream->link, pipe_ctx->stream->signal);
+ #ifdef CONFIG_DRM_AMD_DC_DSC_SUPPORT
+-	if (pipe_ctx->stream->is_dsc_enabled &&
++	if (pipe_ctx->stream->timing.flags.DSC &&
+ 			dc_is_dp_signal(pipe_ctx->stream->signal)) {
+ 		dp_set_dsc_enable(pipe_ctx, false);
+ 	}
+diff --git a/drivers/gpu/drm/amd/display/dc/core/dc_link_hwss.c b/drivers/gpu/drm/amd/display/dc/core/dc_link_hwss.c
+index 8b22af9085e4..2d019e1f6135 100644
+--- a/drivers/gpu/drm/amd/display/dc/core/dc_link_hwss.c
++++ b/drivers/gpu/drm/amd/display/dc/core/dc_link_hwss.c
+@@ -467,41 +467,40 @@ static void dp_set_dsc_on_stream(struct pipe_ctx *pipe_ctx, bool enable)
+ 
+ bool dp_set_dsc_enable(struct pipe_ctx *pipe_ctx, bool enable)
+ {
+-	struct dc_stream_state *stream = pipe_ctx->stream;
+ 	struct display_stream_compressor *dsc = pipe_ctx->stream_res.dsc;
+ 	bool result = false;
+ 
++	if (!pipe_ctx->stream->timing.flags.DSC)
++		goto out;
+ 	if (!dsc)
+ 		goto out;
+ 
+-	if (enable && stream->is_dsc_enabled) {
+-		/* update dsc stream */
+-		dp_set_dsc_on_stream(pipe_ctx, true);
+-		stream->is_dsc_enabled = true;
+-		result = true;
+-	} else if (enable && !stream->is_dsc_enabled) {
+-		/* enable dsc on non dsc stream */
++	if (enable) {
+ 		if (dp_set_dsc_on_rx(pipe_ctx, true)) {
+ 			dp_set_dsc_on_stream(pipe_ctx, true);
+-			stream->is_dsc_enabled = true;
+ 			result = true;
+-		} else {
+-			stream->is_dsc_enabled = false;
+-			result = false;
+ 		}
+-	} else if (!enable && stream->is_dsc_enabled) {
+-		/* disable dsc on dsc stream */
++	} else {
+ 		dp_set_dsc_on_rx(pipe_ctx, false);
+ 		dp_set_dsc_on_stream(pipe_ctx, false);
+-		stream->is_dsc_enabled = false;
+-		result = true;
+-	} else {
+-		/* disable dsc on non dsc stream */
+ 		result = true;
+ 	}
+ out:
+ 	return result;
+ }
+ 
++bool dp_update_dsc_config(struct pipe_ctx *pipe_ctx)
++{
++	struct display_stream_compressor *dsc = pipe_ctx->stream_res.dsc;
++
++	if (!pipe_ctx->stream->timing.flags.DSC)
++		return false;
++	if (!dsc)
++		return false;
++
++	dp_set_dsc_on_stream(pipe_ctx, true);
++	return true;
++}
++
+ #endif
+ 
+diff --git a/drivers/gpu/drm/amd/display/dc/dcn20/dcn20_resource.c b/drivers/gpu/drm/amd/display/dc/dcn20/dcn20_resource.c
+index 266d2ea50882..f2c2cbf4114b 100644
+--- a/drivers/gpu/drm/amd/display/dc/dcn20/dcn20_resource.c
++++ b/drivers/gpu/drm/amd/display/dc/dcn20/dcn20_resource.c
+@@ -1318,7 +1318,7 @@ static void release_dsc(struct resource_context *res_ctx,
+ 
+ 
+ #ifdef CONFIG_DRM_AMD_DC_DSC_SUPPORT
+-enum dc_status dcn20_add_dsc_to_stream_resource(struct dc *dc,
++static enum dc_status add_dsc_to_stream_resource(struct dc *dc,
+ 		struct dc_state *dc_ctx,
+ 		struct dc_stream_state *dc_stream)
+ {
+@@ -1348,7 +1348,7 @@ enum dc_status dcn20_add_dsc_to_stream_resource(struct dc *dc,
+ }
+ 
+ 
+-enum dc_status dcn20_remove_dsc_from_stream_resource(struct dc *dc,
++static enum dc_status remove_dsc_from_stream_resource(struct dc *dc,
+ 		struct dc_state *new_ctx,
+ 		struct dc_stream_state *dc_stream)
+ {
+@@ -1390,7 +1390,7 @@ enum dc_status dcn20_add_stream_to_ctx(struct dc *dc, struct dc_state *new_ctx,
+ #ifdef CONFIG_DRM_AMD_DC_DSC_SUPPORT
+ 	/* Get a DSC if required and available */
+ 	if (result == DC_OK && dc_stream->timing.flags.DSC)
+-		result = dcn20_add_dsc_to_stream_resource(dc, new_ctx, dc_stream);
++		result = add_dsc_to_stream_resource(dc, new_ctx, dc_stream);
+ #endif
+ 
+ 	if (result == DC_OK)
+@@ -1405,7 +1405,7 @@ enum dc_status dcn20_remove_stream_from_ctx(struct dc *dc, struct dc_state *new_
+ 	enum dc_status result = DC_OK;
+ 
+ #ifdef CONFIG_DRM_AMD_DC_DSC_SUPPORT
+-	result = dcn20_remove_dsc_from_stream_resource(dc, new_ctx, dc_stream);
++	result = remove_dsc_from_stream_resource(dc, new_ctx, dc_stream);
+ #endif
+ 
+ 	return result;
+@@ -2435,10 +2435,6 @@ static struct resource_funcs dcn20_res_pool_funcs = {
+ 	.populate_dml_writeback_from_context = dcn20_populate_dml_writeback_from_context,
+ 	.get_default_swizzle_mode = dcn20_get_default_swizzle_mode,
+ 	.set_mcif_arb_params = dcn20_set_mcif_arb_params,
+-#ifdef CONFIG_DRM_AMD_DC_DSC_SUPPORT
+-	.add_dsc_to_stream_resource = dcn20_add_dsc_to_stream_resource,
+-	.remove_dsc_from_stream_resource = dcn20_remove_dsc_from_stream_resource,
+-#endif
+ 	.find_first_free_match_stream_enc_for_link = dcn10_find_first_free_match_stream_enc_for_link
+ };
+ 
+diff --git a/drivers/gpu/drm/amd/display/dc/dcn20/dcn20_resource.h b/drivers/gpu/drm/amd/display/dc/dcn20/dcn20_resource.h
+index 018224518011..b5a75289f444 100644
+--- a/drivers/gpu/drm/amd/display/dc/dcn20/dcn20_resource.h
++++ b/drivers/gpu/drm/amd/display/dc/dcn20/dcn20_resource.h
+@@ -121,8 +121,6 @@ enum dc_status dcn20_build_mapped_resource(const struct dc *dc, struct dc_state
+ enum dc_status dcn20_add_stream_to_ctx(struct dc *dc, struct dc_state *new_ctx, struct dc_stream_state *dc_stream);
+ enum dc_status dcn20_remove_stream_from_ctx(struct dc *dc, struct dc_state *new_ctx, struct dc_stream_state *dc_stream);
+ enum dc_status dcn20_get_default_swizzle_mode(struct dc_plane_state *plane_state);
+-enum dc_status dcn20_add_dsc_to_stream_resource(struct dc *dc, struct dc_state *dc_ctx, struct dc_stream_state *dc_stream);
+-enum dc_status dcn20_remove_dsc_from_stream_resource(struct dc *dc, struct dc_state *new_ctx, struct dc_stream_state *dc_stream);
+ 
+ void dcn20_patch_bounding_box(
+ 		struct dc *dc,
+diff --git a/drivers/gpu/drm/amd/display/dc/inc/core_types.h b/drivers/gpu/drm/amd/display/dc/inc/core_types.h
+index acb3104f5eeb..c89393c19232 100644
+--- a/drivers/gpu/drm/amd/display/dc/inc/core_types.h
++++ b/drivers/gpu/drm/amd/display/dc/inc/core_types.h
+@@ -148,15 +148,6 @@ struct resource_funcs {
+ 			int pipe_cnt);
+ #endif
+ 
+-#ifdef CONFIG_DRM_AMD_DC_DSC_SUPPORT
+-enum dc_status (*add_dsc_to_stream_resource)(struct dc *dc,
+-			struct dc_state *dc_ctx,
+-			struct dc_stream_state *dc_stream);
+-
+-enum dc_status (*remove_dsc_from_stream_resource)(struct dc *dc,
+-			struct dc_state *new_ctx,
+-			struct dc_stream_state *dc_stream);
+-#endif
+ };
+ 
+ struct audio_support{
+diff --git a/drivers/gpu/drm/amd/display/dc/inc/dc_link_dp.h b/drivers/gpu/drm/amd/display/dc/inc/dc_link_dp.h
+index 6c822a69b35b..2d95eff94239 100644
+--- a/drivers/gpu/drm/amd/display/dc/inc/dc_link_dp.h
++++ b/drivers/gpu/drm/amd/display/dc/inc/dc_link_dp.h
+@@ -66,6 +66,7 @@ void dp_enable_mst_on_sink(struct dc_link *link, bool enable);
+ void dp_set_fec_ready(struct dc_link *link, bool ready);
+ void dp_set_fec_enable(struct dc_link *link, bool enable);
+ bool dp_set_dsc_enable(struct pipe_ctx *pipe_ctx, bool enable);
++bool dp_update_dsc_config(struct pipe_ctx *pipe_ctx);
+ #endif
+ 
+ #endif /* __DC_LINK_DP_H__ */
+-- 
+2.17.1
+

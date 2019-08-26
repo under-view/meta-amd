@@ -1,0 +1,40 @@
+From d8226875c11385248e158b88ebd123391b0c3d30 Mon Sep 17 00:00:00 2001
+From: Philip Yang <Philip.Yang@amd.com>
+Date: Mon, 4 Mar 2019 10:37:55 -0500
+Subject: [PATCH 1624/2940] drm/amdgpu: more descriptive message if HMM not
+ enabled
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+If using old kernel config file, CONFIG_ZONE_DEVICE is not selected,
+so CONFIG_HMM and CONFIG_HMM_MIRROR is not enabled, the current driver
+error message "Failed to register MMU notifier" is not clear. Inform
+user with more descriptive message on how to fix the missing kernel
+config option.
+
+Bugzilla: https://bugs.freedesktop.org/show_bug.cgi?id=109808
+
+Change-Id: Idfebaeababa4c37c1ef093c2b91a26910a167585
+Signed-off-by: Philip Yang <Philip.Yang@amd.com>
+Reviewed-by: Michel Dänzer <michel.daenzer@amd.com>
+---
+ drivers/gpu/drm/amd/amdgpu/amdgpu_mn.h | 2 ++
+ 1 file changed, 2 insertions(+)
+
+diff --git a/drivers/gpu/drm/amd/amdgpu/amdgpu_mn.h b/drivers/gpu/drm/amd/amdgpu/amdgpu_mn.h
+index 4803e216e174..f5b67c63ed6b 100644
+--- a/drivers/gpu/drm/amd/amdgpu/amdgpu_mn.h
++++ b/drivers/gpu/drm/amd/amdgpu/amdgpu_mn.h
+@@ -53,6 +53,8 @@ static inline struct amdgpu_mn *amdgpu_mn_get(struct amdgpu_device *adev,
+ }
+ static inline int amdgpu_mn_register(struct amdgpu_bo *bo, unsigned long addr)
+ {
++	DRM_WARN_ONCE("HMM_MIRROR kernel config option is not enabled, "
++		      "add CONFIG_ZONE_DEVICE=y in config file to fix this\n");
+ 	return -ENODEV;
+ }
+ static inline void amdgpu_mn_unregister(struct amdgpu_bo *bo) {}
+-- 
+2.17.1
+

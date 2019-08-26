@@ -1,0 +1,46 @@
+From 342bf2edcddbc0bba42988d40cf031651a976b5e Mon Sep 17 00:00:00 2001
+From: Yongqiang Sun <yongqiang.sun@amd.com>
+Date: Tue, 8 Jan 2019 11:30:23 -0500
+Subject: [PATCH 1528/2940] drm/amd/display: Change header path to relative.
+
+Change-Id: I5157a6b8a16d15edcab7e0df3a1a688ba85e5b37
+Signed-off-by: Yongqiang Sun <yongqiang.sun@amd.com>
+Reviewed-by: Tony Cheng <Tony.Cheng@amd.com>
+Acked-by: Bhawanpreet Lakha <Bhawanpreet.Lakha@amd.com>
+---
+ drivers/gpu/drm/amd/display/dc/dmub_cmd.h                    | 5 +++++
+ drivers/gpu/drm/amd/display/dmub_fw/src/common/dmub_common.h | 1 +
+ 2 files changed, 6 insertions(+)
+
+diff --git a/drivers/gpu/drm/amd/display/dc/dmub_cmd.h b/drivers/gpu/drm/amd/display/dc/dmub_cmd.h
+index 399ae71457f2..eb9c68657d1d 100644
+--- a/drivers/gpu/drm/amd/display/dc/dmub_cmd.h
++++ b/drivers/gpu/drm/amd/display/dc/dmub_cmd.h
+@@ -26,7 +26,12 @@
+ #ifndef DMUB_CMD__H
+ #define DMUB_CMD__H
+ 
++
++#ifdef CONFIG_DRM_AMD_DC_DMUB
+ #include "os_types.h"
++#else
++#include "dmub_types.h"
++#endif
+ /*
+  * DMUB command definition
+  */
+diff --git a/drivers/gpu/drm/amd/display/dmub_fw/src/common/dmub_common.h b/drivers/gpu/drm/amd/display/dmub_fw/src/common/dmub_common.h
+index b7aa38890a7b..edecbba394c7 100644
+--- a/drivers/gpu/drm/amd/display/dmub_fw/src/common/dmub_common.h
++++ b/drivers/gpu/drm/amd/display/dmub_fw/src/common/dmub_common.h
+@@ -30,6 +30,7 @@ extern "C" {
+ #endif
+ 
+ #ifdef CONFIG_DRM_AMD_DC_DMUB
++#include "os_types.h"
+ struct dmub_dc_cmd;
+ 
+ struct dmub {
+-- 
+2.17.1
+

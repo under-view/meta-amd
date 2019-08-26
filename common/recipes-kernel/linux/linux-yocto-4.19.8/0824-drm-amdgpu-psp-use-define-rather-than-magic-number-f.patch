@@ -1,0 +1,34 @@
+From 9b4a803ff5e045751b4eb1740513b02cf336d50e Mon Sep 17 00:00:00 2001
+From: Alex Deucher <alexander.deucher@amd.com>
+Date: Fri, 16 Nov 2018 13:22:38 -0500
+Subject: [PATCH 0824/2940] drm/amdgpu/psp: use define rather than magic number
+ for mode1 reset
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+Use the define rather than hardcoded value.
+
+Acked-by: Christian König <christian.koenig@amd.com>
+Reviewed-by: Huang Rui <ray.huang@amd.com>
+Signed-off-by: Alex Deucher <alexander.deucher@amd.com>
+---
+ drivers/gpu/drm/amd/amdgpu/psp_v3_1.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/drivers/gpu/drm/amd/amdgpu/psp_v3_1.c b/drivers/gpu/drm/amd/amdgpu/psp_v3_1.c
+index 64c267f37d4b..7efb823dd3b1 100644
+--- a/drivers/gpu/drm/amd/amdgpu/psp_v3_1.c
++++ b/drivers/gpu/drm/amd/amdgpu/psp_v3_1.c
+@@ -590,7 +590,7 @@ static int psp_v3_1_mode1_reset(struct psp_context *psp)
+ 	}
+ 
+ 	/*send the mode 1 reset command*/
+-	WREG32(offset, 0x70000);
++	WREG32(offset, GFX_CTRL_CMD_ID_MODE1_RST);
+ 
+ 	mdelay(1000);
+ 
+-- 
+2.17.1
+

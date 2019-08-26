@@ -1,0 +1,36 @@
+From 3f08dd8aa57995cc7b84130aefa052f051c5b235 Mon Sep 17 00:00:00 2001
+From: Murton Liu <murton.liu@amd.com>
+Date: Wed, 19 Sep 2018 14:31:12 -0400
+Subject: [PATCH 0457/2940] drm/amd/display: HLK Periodic Frame Notification
+ test failed
+
+[Why]
+Due to a small pre-fetch window, the active vline timing is a couple
+of lines off when compared to what it should be.
+
+[How]
+Changed the calculation for the start vline to account for this window.
+
+Signed-off-by: Murton Liu <murton.liu@amd.com>
+Reviewed-by: Aric Cyr <Aric.Cyr@amd.com>
+Acked-by: Leo Li <sunpeng.li@amd.com>
+---
+ drivers/gpu/drm/amd/display/dc/dcn10/dcn10_optc.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/drivers/gpu/drm/amd/display/dc/dcn10/dcn10_optc.c b/drivers/gpu/drm/amd/display/dc/dcn10/dcn10_optc.c
+index ad46294dff63..54626682bab2 100644
+--- a/drivers/gpu/drm/amd/display/dc/dcn10/dcn10_optc.c
++++ b/drivers/gpu/drm/amd/display/dc/dcn10/dcn10_optc.c
+@@ -150,7 +150,7 @@ void optc1_program_vline_interrupt(
+ 		req_delta_lines--;
+ 
+ 	if (req_delta_lines > vsync_line)
+-		start_line = dc_crtc_timing->v_total - (req_delta_lines - vsync_line) - 1;
++		start_line = dc_crtc_timing->v_total - (req_delta_lines - vsync_line) + 2;
+ 	else
+ 		start_line = vsync_line - req_delta_lines;
+ 
+-- 
+2.17.1
+

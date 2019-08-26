@@ -1,0 +1,76 @@
+From f2e1bfbfbb3e9349507db9812c1b10917f51ff84 Mon Sep 17 00:00:00 2001
+From: Andrey Grodzovsky <andrey.grodzovsky@amd.com>
+Date: Thu, 29 Nov 2018 12:21:53 -0500
+Subject: [PATCH 0895/2940] drm/amdgpu: Handle xgmi device removal.
+
+XGMI hive has some resources allocted on device init which
+needs to be deallocated when the device is unregistered.
+
+v2: Remove creation of dedicated wq for XGMI hive reset.
+v3: Use the gmc.xgmi.supported flag
+
+Signed-off-by: Andrey Grodzovsky <andrey.grodzovsky@amd.com>
+Reviewed-by: Alex Deucher <alexander.deucher@amd.com>
+Signed-off-by: Alex Deucher <alexander.deucher@amd.com>
+---
+ drivers/gpu/drm/amd/amdgpu/amdgpu_device.c |  3 +++
+ drivers/gpu/drm/amd/amdgpu/amdgpu_xgmi.c   | 20 ++++++++++++++++++++
+ drivers/gpu/drm/amd/amdgpu/amdgpu_xgmi.h   |  1 +
+ 3 files changed, 24 insertions(+)
+
+diff --git a/drivers/gpu/drm/amd/amdgpu/amdgpu_device.c b/drivers/gpu/drm/amd/amdgpu/amdgpu_device.c
+index 8812dce453ad..372b2a0131b1 100644
+--- a/drivers/gpu/drm/amd/amdgpu/amdgpu_device.c
++++ b/drivers/gpu/drm/amd/amdgpu/amdgpu_device.c
+@@ -1912,6 +1912,9 @@ static int amdgpu_device_ip_fini(struct amdgpu_device *adev)
+ {
+ 	int i, r;
+ 
++	if (adev->gmc.xgmi.num_physical_nodes > 1)
++		amdgpu_xgmi_remove_device(adev);
++
+ 	amdgpu_amdkfd_device_fini(adev);
+ 
+ 	amdgpu_device_set_pg_state(adev, AMD_PG_STATE_UNGATE);
+diff --git a/drivers/gpu/drm/amd/amdgpu/amdgpu_xgmi.c b/drivers/gpu/drm/amd/amdgpu/amdgpu_xgmi.c
+index f8c86d0593dd..1b15ff3266b1 100644
+--- a/drivers/gpu/drm/amd/amdgpu/amdgpu_xgmi.c
++++ b/drivers/gpu/drm/amd/amdgpu/amdgpu_xgmi.c
+@@ -135,3 +135,23 @@ int amdgpu_xgmi_add_device(struct amdgpu_device *adev)
+ 	mutex_unlock(&xgmi_mutex);
+ 	return ret;
+ }
++
++void amdgpu_xgmi_remove_device(struct amdgpu_device *adev)
++{
++	struct amdgpu_hive_info *hive;
++
++	if (!adev->gmc.xgmi.supported)
++		return;
++
++	mutex_lock(&xgmi_mutex);
++
++	hive = amdgpu_get_xgmi_hive(adev);
++	if (!hive)
++		goto exit;
++
++	if (!(hive->number_devices--))
++		mutex_destroy(&hive->hive_lock);
++
++exit:
++	mutex_unlock(&xgmi_mutex);
++}
+diff --git a/drivers/gpu/drm/amd/amdgpu/amdgpu_xgmi.h b/drivers/gpu/drm/amd/amdgpu/amdgpu_xgmi.h
+index 6335bfdcc51d..6151eb9c8ad3 100644
+--- a/drivers/gpu/drm/amd/amdgpu/amdgpu_xgmi.h
++++ b/drivers/gpu/drm/amd/amdgpu/amdgpu_xgmi.h
+@@ -35,5 +35,6 @@ struct amdgpu_hive_info {
+ struct amdgpu_hive_info *amdgpu_get_xgmi_hive(struct amdgpu_device *adev);
+ int amdgpu_xgmi_update_topology(struct amdgpu_hive_info *hive, struct amdgpu_device *adev);
+ int amdgpu_xgmi_add_device(struct amdgpu_device *adev);
++void amdgpu_xgmi_remove_device(struct amdgpu_device *adev);
+ 
+ #endif
+-- 
+2.17.1
+

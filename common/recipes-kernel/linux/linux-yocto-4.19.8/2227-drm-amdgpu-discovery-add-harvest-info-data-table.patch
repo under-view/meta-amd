@@ -1,0 +1,51 @@
+From be6503756e0cb86206d50a31e21dd2bc278292e9 Mon Sep 17 00:00:00 2001
+From: Xiaojie Yuan <xiaojie.yuan@amd.com>
+Date: Thu, 21 Feb 2019 17:55:30 +0800
+Subject: [PATCH 2227/2940] drm/amdgpu/discovery: add harvest info data table
+
+Signed-off-by: Xiaojie Yuan <xiaojie.yuan@amd.com>
+Reviewed-by: Jack Xiao <Jack.Xiao@amd.com>
+Signed-off-by: Alex Deucher <alexander.deucher@amd.com>
+---
+ drivers/gpu/drm/amd/include/discovery.h | 18 +++++++++++++++++-
+ 1 file changed, 17 insertions(+), 1 deletion(-)
+
+diff --git a/drivers/gpu/drm/amd/include/discovery.h b/drivers/gpu/drm/amd/include/discovery.h
+index 93a8ae0aacda..e01d4cd9f2cb 100644
+--- a/drivers/gpu/drm/amd/include/discovery.h
++++ b/drivers/gpu/drm/amd/include/discovery.h
+@@ -33,7 +33,7 @@ typedef enum
+ {
+ 	IP_DISCOVERY = 0,
+ 	GC,
+-	TABLE_3,
++	HARVEST_INFO,
+ 	TABLE_4,
+ 	RESERVED_1,
+ 	RESERVED_2,
+@@ -144,6 +144,22 @@ struct gc_info_v1_0 {
+ 	uint32_t gc_num_gl2a;
+ };
+ 
++typedef struct harvest_info_header {
++	uint32_t signature; /* Table Signature */
++	uint32_t version;   /* Table Version */
++} harvest_info_header;
++
++typedef struct harvest_info {
++	uint16_t hw_id;          /* Hardware ID */
++	uint8_t number_instance; /* Instance of the IP */
++	uint8_t reserved;        /* Reserved for alignment */
++} harvest_info;
++
++typedef struct harvest_table {
++	harvest_info_header header;
++	harvest_info list[32];
++} harvest_table;
++
+ #pragma pack()
+ 
+ #endif
+-- 
+2.17.1
+

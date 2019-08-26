@@ -1,0 +1,41 @@
+From 02a63e0cc8cbad356b3ca8988e7d293706c27991 Mon Sep 17 00:00:00 2001
+From: Nicholas Kazlauskas <nicholas.kazlauskas@amd.com>
+Date: Wed, 1 May 2019 10:26:09 -0400
+Subject: [PATCH 2031/2940] drm/amd/display: Reset planes for color management
+ changes
+
+[Why]
+For commits with allow_modeset=false and CRTC degamma changes the planes
+aren't reset. This results in incorrect rendering.
+
+[How]
+Reset the planes when color management has changed on the CRTC.
+Technically this will include regamma changes as well, but it doesn't
+really after legacy userspace since those commit with
+allow_modeset=true.
+
+Signed-off-by: Nicholas Kazlauskas <nicholas.kazlauskas@amd.com>
+Reviewed-by: Harry Wentland <Harry.Wentland@amd.com>
+Acked-by: Leo Li <sunpeng.li@amd.com>
+---
+ drivers/gpu/drm/amd/display/amdgpu_dm/amdgpu_dm.c | 4 ++++
+ 1 file changed, 4 insertions(+)
+
+diff --git a/drivers/gpu/drm/amd/display/amdgpu_dm/amdgpu_dm.c b/drivers/gpu/drm/amd/display/amdgpu_dm/amdgpu_dm.c
+index 27f2618c58aa..1219dad58fe1 100644
+--- a/drivers/gpu/drm/amd/display/amdgpu_dm/amdgpu_dm.c
++++ b/drivers/gpu/drm/amd/display/amdgpu_dm/amdgpu_dm.c
+@@ -6458,6 +6458,10 @@ static bool should_reset_plane(struct drm_atomic_state *state,
+ 	if (!new_crtc_state)
+ 		return true;
+ 
++	/* CRTC Degamma changes currently require us to recreate planes. */
++	if (new_crtc_state->color_mgmt_changed)
++		return true;
++
+ 	if (drm_atomic_crtc_needs_modeset(new_crtc_state))
+ 		return true;
+ 
+-- 
+2.17.1
+

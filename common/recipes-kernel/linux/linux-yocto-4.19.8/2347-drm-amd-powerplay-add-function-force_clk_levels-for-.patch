@@ -1,0 +1,245 @@
+From cd9806c5b8194e18aefb33f6aa5474d1d5de7387 Mon Sep 17 00:00:00 2001
+From: Kevin Wang <kevin1.wang@amd.com>
+Date: Fri, 19 Apr 2019 10:31:18 +0800
+Subject: [PATCH 2347/2940] drm/amd/powerplay: add function force_clk_levels
+ for navi10
+
+add sysfs interface of force_clk_levels sysfs for navi10.
+
+Signed-off-by: Kevin Wang <kevin1.wang@amd.com>
+Reviewed-by: Huang Rui <ray.huang@amd.com>
+Signed-off-by: Alex Deucher <alexander.deucher@amd.com>
+---
+ drivers/gpu/drm/amd/amdgpu/amdgpu_pm.c        | 16 ++++----
+ .../gpu/drm/amd/powerplay/inc/amdgpu_smu.h    |  6 +--
+ drivers/gpu/drm/amd/powerplay/navi10_ppt.c    | 37 +++++++++++++++++++
+ drivers/gpu/drm/amd/powerplay/vega20_ppt.c    | 16 ++++----
+ 4 files changed, 56 insertions(+), 19 deletions(-)
+
+diff --git a/drivers/gpu/drm/amd/amdgpu/amdgpu_pm.c b/drivers/gpu/drm/amd/amdgpu/amdgpu_pm.c
+index ae9eeaf5d0e4..49f0539fbf6c 100644
+--- a/drivers/gpu/drm/amd/amdgpu/amdgpu_pm.c
++++ b/drivers/gpu/drm/amd/amdgpu/amdgpu_pm.c
+@@ -901,7 +901,7 @@ static ssize_t amdgpu_set_pp_dpm_sclk(struct device *dev,
+ 		return ret;
+ 
+ 	if (is_support_sw_smu(adev))
+-		ret = smu_force_clk_levels(&adev->smu, PP_SCLK, mask);
++		ret = smu_force_clk_levels(&adev->smu, SMU_SCLK, mask);
+ 	else if (adev->powerplay.pp_funcs->force_clock_level)
+ 		ret = amdgpu_dpm_force_clock_level(adev, PP_SCLK, mask);
+ 
+@@ -948,7 +948,7 @@ static ssize_t amdgpu_set_pp_dpm_mclk(struct device *dev,
+ 		return ret;
+ 
+ 	if (is_support_sw_smu(adev))
+-		ret = smu_force_clk_levels(&adev->smu, PP_MCLK, mask);
++		ret = smu_force_clk_levels(&adev->smu, SMU_MCLK, mask);
+ 	else if (adev->powerplay.pp_funcs->force_clock_level)
+ 		ret = amdgpu_dpm_force_clock_level(adev, PP_MCLK, mask);
+ 
+@@ -988,7 +988,7 @@ static ssize_t amdgpu_set_pp_dpm_socclk(struct device *dev,
+ 		return ret;
+ 
+ 	if (is_support_sw_smu(adev))
+-		ret = smu_force_clk_levels(&adev->smu, PP_SOCCLK, mask);
++		ret = smu_force_clk_levels(&adev->smu, SMU_SOCCLK, mask);
+ 	else if (adev->powerplay.pp_funcs->force_clock_level)
+ 		ret = amdgpu_dpm_force_clock_level(adev, PP_SOCCLK, mask);
+ 
+@@ -1028,7 +1028,7 @@ static ssize_t amdgpu_set_pp_dpm_fclk(struct device *dev,
+ 		return ret;
+ 
+ 	if (is_support_sw_smu(adev))
+-		ret = smu_force_clk_levels(&adev->smu, PP_FCLK, mask);
++		ret = smu_force_clk_levels(&adev->smu, SMU_FCLK, mask);
+ 	else if (adev->powerplay.pp_funcs->force_clock_level)
+ 		ret = amdgpu_dpm_force_clock_level(adev, PP_FCLK, mask);
+ 
+@@ -1068,7 +1068,7 @@ static ssize_t amdgpu_set_pp_dpm_dcefclk(struct device *dev,
+ 		return ret;
+ 
+ 	if (is_support_sw_smu(adev))
+-		ret = smu_force_clk_levels(&adev->smu, PP_DCEFCLK, mask);
++		ret = smu_force_clk_levels(&adev->smu, SMU_DCEFCLK, mask);
+ 	else if (adev->powerplay.pp_funcs->force_clock_level)
+ 		ret = amdgpu_dpm_force_clock_level(adev, PP_DCEFCLK, mask);
+ 
+@@ -1108,7 +1108,7 @@ static ssize_t amdgpu_set_pp_dpm_pcie(struct device *dev,
+ 		return ret;
+ 
+ 	if (is_support_sw_smu(adev))
+-		ret = smu_force_clk_levels(&adev->smu, PP_PCIE, mask);
++		ret = smu_force_clk_levels(&adev->smu, SMU_PCIE, mask);
+ 	else if (adev->powerplay.pp_funcs->force_clock_level)
+ 		ret = amdgpu_dpm_force_clock_level(adev, PP_PCIE, mask);
+ 
+@@ -1152,7 +1152,7 @@ static ssize_t amdgpu_set_pp_sclk_od(struct device *dev,
+ 	}
+ 
+ 	if (is_support_sw_smu(adev)) {
+-		value = smu_set_od_percentage(&(adev->smu), OD_SCLK, (uint32_t)value);
++		value = smu_set_od_percentage(&(adev->smu), SMU_OD_SCLK, (uint32_t)value);
+ 	} else {
+ 		if (adev->powerplay.pp_funcs->set_sclk_od)
+ 			amdgpu_dpm_set_sclk_od(adev, (uint32_t)value);
+@@ -1203,7 +1203,7 @@ static ssize_t amdgpu_set_pp_mclk_od(struct device *dev,
+ 	}
+ 
+ 	if (is_support_sw_smu(adev)) {
+-		value = smu_set_od_percentage(&(adev->smu), OD_MCLK, (uint32_t)value);
++		value = smu_set_od_percentage(&(adev->smu), SMU_OD_MCLK, (uint32_t)value);
+ 	} else {
+ 		if (adev->powerplay.pp_funcs->set_mclk_od)
+ 			amdgpu_dpm_set_mclk_od(adev, (uint32_t)value);
+diff --git a/drivers/gpu/drm/amd/powerplay/inc/amdgpu_smu.h b/drivers/gpu/drm/amd/powerplay/inc/amdgpu_smu.h
+index 5289453f9422..8a4618084358 100644
+--- a/drivers/gpu/drm/amd/powerplay/inc/amdgpu_smu.h
++++ b/drivers/gpu/drm/amd/powerplay/inc/amdgpu_smu.h
+@@ -539,7 +539,7 @@ struct pptable_funcs {
+ 	int (*set_power_state)(struct smu_context *smu);
+ 	int (*populate_umd_state_clk)(struct smu_context *smu);
+ 	int (*print_clk_levels)(struct smu_context *smu, enum smu_clk_type clk_type, char *buf);
+-	int (*force_clk_levels)(struct smu_context *smu, enum pp_clock_type type, uint32_t mask);
++	int (*force_clk_levels)(struct smu_context *smu, enum smu_clk_type clk_type, uint32_t mask);
+ 	int (*set_default_od8_settings)(struct smu_context *smu);
+ 	int (*update_specified_od8_value)(struct smu_context *smu,
+ 					  uint32_t index,
+@@ -776,8 +776,8 @@ struct smu_funcs
+ 	((smu)->funcs->get_current_clk_freq? (smu)->funcs->get_current_clk_freq((smu), (clk_id), (value)) : 0)
+ #define smu_print_clk_levels(smu, clk_type, buf) \
+ 	((smu)->ppt_funcs->print_clk_levels ? (smu)->ppt_funcs->print_clk_levels((smu), (clk_type), (buf)) : 0)
+-#define smu_force_clk_levels(smu, type, level) \
+-	((smu)->ppt_funcs->force_clk_levels ? (smu)->ppt_funcs->force_clk_levels((smu), (type), (level)) : 0)
++#define smu_force_clk_levels(smu, clk_type, level) \
++	((smu)->ppt_funcs->force_clk_levels ? (smu)->ppt_funcs->force_clk_levels((smu), (clk_type), (level)) : 0)
+ #define smu_get_od_percentage(smu, type) \
+ 	((smu)->ppt_funcs->get_od_percentage ? (smu)->ppt_funcs->get_od_percentage((smu), (type)) : 0)
+ #define smu_set_od_percentage(smu, type, value) \
+diff --git a/drivers/gpu/drm/amd/powerplay/navi10_ppt.c b/drivers/gpu/drm/amd/powerplay/navi10_ppt.c
+index 5863fa691a91..311a85613001 100644
+--- a/drivers/gpu/drm/amd/powerplay/navi10_ppt.c
++++ b/drivers/gpu/drm/amd/powerplay/navi10_ppt.c
+@@ -566,6 +566,42 @@ static int navi10_print_clk_levels(struct smu_context *smu,
+ 	return size;
+ }
+ 
++static int navi10_force_clk_levels(struct smu_context *smu,
++				   enum smu_clk_type clk_type, uint32_t mask)
++{
++
++	int ret = 0, size = 0;
++	uint32_t soft_min_level = 0, soft_max_level = 0, min_freq = 0, max_freq = 0;
++
++	soft_min_level = mask ? (ffs(mask) - 1) : 0;
++	soft_max_level = mask ? (fls(mask) - 1) : 0;
++
++	switch (clk_type) {
++	case SMU_GFXCLK:
++	case SMU_SOCCLK:
++	case SMU_MCLK:
++	case SMU_UCLK:
++	case SMU_DCEFCLK:
++	case SMU_FCLK:
++		ret = smu_get_dpm_freq_by_index(smu, clk_type, soft_min_level, &min_freq);
++		if (ret)
++			return size;
++
++		ret = smu_get_dpm_freq_by_index(smu, clk_type, soft_max_level, &max_freq);
++		if (ret)
++			return size;
++
++		ret = smu_set_soft_freq_range(smu, clk_type, min_freq, max_freq);
++		if (ret)
++			return size;
++		break;
++	default:
++		break;
++	}
++
++	return size;
++}
++
+ static const struct pptable_funcs navi10_ppt_funcs = {
+ 	.tables_init = navi10_tables_init,
+ 	.alloc_dpm_context = navi10_allocate_dpm_context,
+@@ -582,6 +618,7 @@ static const struct pptable_funcs navi10_ppt_funcs = {
+ 	.dpm_set_uvd_enable = navi10_dpm_set_uvd_enable,
+ 	.get_current_clk_freq_by_table = navi10_get_current_clk_freq_by_table,
+ 	.print_clk_levels = navi10_print_clk_levels,
++	.force_clk_levels = navi10_force_clk_levels,
+ };
+ 
+ void navi10_set_ppt_funcs(struct smu_context *smu)
+diff --git a/drivers/gpu/drm/amd/powerplay/vega20_ppt.c b/drivers/gpu/drm/amd/powerplay/vega20_ppt.c
+index a68801d05cc1..7ed8c7c36037 100644
+--- a/drivers/gpu/drm/amd/powerplay/vega20_ppt.c
++++ b/drivers/gpu/drm/amd/powerplay/vega20_ppt.c
+@@ -1223,7 +1223,7 @@ static int vega20_upload_dpm_level(struct smu_context *smu, bool max,
+ }
+ 
+ static int vega20_force_clk_levels(struct smu_context *smu,
+-			enum pp_clock_type type, uint32_t mask)
++			enum  smu_clk_type clk_type, uint32_t mask)
+ {
+ 	struct vega20_dpm_table *dpm_table;
+ 	struct vega20_single_dpm_table *single_dpm_table;
+@@ -1243,8 +1243,8 @@ static int vega20_force_clk_levels(struct smu_context *smu,
+ 
+ 	dpm_table = smu->smu_dpm.dpm_context;
+ 
+-	switch (type) {
+-	case PP_SCLK:
++	switch (clk_type) {
++	case SMU_SCLK:
+ 		single_dpm_table = &(dpm_table->gfx_table);
+ 
+ 		if (soft_max_level >= single_dpm_table->count) {
+@@ -1271,7 +1271,7 @@ static int vega20_force_clk_levels(struct smu_context *smu,
+ 
+ 		break;
+ 
+-	case PP_MCLK:
++	case SMU_MCLK:
+ 		single_dpm_table = &(dpm_table->mem_table);
+ 
+ 		if (soft_max_level >= single_dpm_table->count) {
+@@ -1298,7 +1298,7 @@ static int vega20_force_clk_levels(struct smu_context *smu,
+ 
+ 		break;
+ 
+-	case PP_SOCCLK:
++	case SMU_SOCCLK:
+ 		single_dpm_table = &(dpm_table->soc_table);
+ 
+ 		if (soft_max_level >= single_dpm_table->count) {
+@@ -1325,7 +1325,7 @@ static int vega20_force_clk_levels(struct smu_context *smu,
+ 
+ 		break;
+ 
+-	case PP_FCLK:
++	case SMU_FCLK:
+ 		single_dpm_table = &(dpm_table->fclk_table);
+ 
+ 		if (soft_max_level >= single_dpm_table->count) {
+@@ -1352,7 +1352,7 @@ static int vega20_force_clk_levels(struct smu_context *smu,
+ 
+ 		break;
+ 
+-	case PP_DCEFCLK:
++	case SMU_DCEFCLK:
+ 		hard_min_level = soft_min_level;
+ 		single_dpm_table = &(dpm_table->dcef_table);
+ 
+@@ -1372,7 +1372,7 @@ static int vega20_force_clk_levels(struct smu_context *smu,
+ 
+ 		break;
+ 
+-	case PP_PCIE:
++	case SMU_PCIE:
+ 		if (soft_min_level >= NUM_LINK_LEVELS ||
+ 		    soft_max_level >= NUM_LINK_LEVELS) {
+ 			ret = -EINVAL;
+-- 
+2.17.1
+

@@ -1,0 +1,41 @@
+From 1fc62f17e5cae4ece540866a0aa5b5ed0267ad46 Mon Sep 17 00:00:00 2001
+From: Nicholas Kazlauskas <nicholas.kazlauskas@amd.com>
+Date: Tue, 16 Apr 2019 10:30:29 -0400
+Subject: [PATCH 1891/2940] drm/amd/display: Fill prescale_params->scale for
+ RGB565
+
+[Why]
+An assertion is thrown when using SURFACE_PIXEL_FORMAT_GRPH_RGB565
+formats on DCE since the prescale_params->scale wasn't being filled.
+
+Found by a dmesg-fail when running the
+igt@kms_plane@pixel-format-pipe-a-planes test on Baffin.
+
+[How]
+Fill in the scale parameter.
+
+Change-Id: I658250a469c6663bae91bd7afbd2cb9ee75d1ed0
+Signed-off-by: Nicholas Kazlauskas <nicholas.kazlauskas@amd.com>
+Reviewed-by: Roman Li <Roman.Li@amd.com>
+Acked-by: Bhawanpreet Lakha <Bhawanpreet Lakha@amd.com>
+---
+ drivers/gpu/drm/amd/display/dc/dce110/dce110_hw_sequencer.c | 3 +++
+ 1 file changed, 3 insertions(+)
+
+diff --git a/drivers/gpu/drm/amd/display/dc/dce110/dce110_hw_sequencer.c b/drivers/gpu/drm/amd/display/dc/dce110/dce110_hw_sequencer.c
+index 7ac50ab1b762..7d7e93c87c28 100644
+--- a/drivers/gpu/drm/amd/display/dc/dce110/dce110_hw_sequencer.c
++++ b/drivers/gpu/drm/amd/display/dc/dce110/dce110_hw_sequencer.c
+@@ -242,6 +242,9 @@ static void build_prescale_params(struct ipp_prescale_params *prescale_params,
+ 	prescale_params->mode = IPP_PRESCALE_MODE_FIXED_UNSIGNED;
+ 
+ 	switch (plane_state->format) {
++	case SURFACE_PIXEL_FORMAT_GRPH_RGB565:
++		prescale_params->scale = 0x2082;
++		break;
+ 	case SURFACE_PIXEL_FORMAT_GRPH_ARGB8888:
+ 	case SURFACE_PIXEL_FORMAT_GRPH_ABGR8888:
+ 		prescale_params->scale = 0x2020;
+-- 
+2.17.1
+

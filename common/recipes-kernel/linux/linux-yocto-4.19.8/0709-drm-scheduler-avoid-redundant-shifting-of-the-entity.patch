@@ -1,0 +1,36 @@
+From 749853275a78273fb2b8541acb5c1cad4c1242a3 Mon Sep 17 00:00:00 2001
+From: Nayan Deshmukh <nayan26deshmukh@gmail.com>
+Date: Tue, 21 Aug 2018 18:59:08 +0530
+Subject: [PATCH 0709/2940] drm/scheduler: avoid redundant shifting of the
+ entity v2
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+do not remove entity from the rq if the current rq is from
+the least loaded scheduler.
+
+Signed-off-by: Nayan Deshmukh <nayan26deshmukh@gmail.com>
+Reviewed-by: Christian König <christian.koenig@amd.com>
+Signed-off-by: Alex Deucher <alexander.deucher@amd.com>
+---
+ drivers/gpu/drm/scheduler/sched_entity.c | 3 +++
+ 1 file changed, 3 insertions(+)
+
+diff --git a/drivers/gpu/drm/scheduler/sched_entity.c b/drivers/gpu/drm/scheduler/sched_entity.c
+index 812e3530ea25..4e5e95c0cab5 100644
+--- a/drivers/gpu/drm/scheduler/sched_entity.c
++++ b/drivers/gpu/drm/scheduler/sched_entity.c
+@@ -476,6 +476,9 @@ void drm_sched_entity_select_rq(struct drm_sched_entity *entity)
+ 		return;
+ 
+ 	rq = drm_sched_entity_get_free_sched(entity);
++	if (rq == entity->rq)
++		return;
++
+ 	spin_lock(&entity->rq_lock);
+ 	drm_sched_rq_remove_entity(entity->rq, entity);
+ 	entity->rq = rq;
+-- 
+2.17.1
+

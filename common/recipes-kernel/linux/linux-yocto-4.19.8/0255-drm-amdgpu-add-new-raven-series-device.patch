@@ -1,0 +1,31 @@
+From 29ff72f7b6282b2db2811f76328241d71c43d50f Mon Sep 17 00:00:00 2001
+From: Huang Rui <ray.huang@amd.com>
+Date: Mon, 9 Jul 2018 19:51:19 +0800
+Subject: [PATCH 0255/2940] drm/amdgpu: add new raven series device
+
+This patch is to add new pci device for raven series.
+
+Signed-off-by: Huang Rui <ray.huang@amd.com>
+Signed-off-by: Likun Gao <Likun.Gao@amd.com>
+Reviewed-by: Alex Deucher <alexander.deucher@amd.com>
+Signed-off-by: Alex Deucher <alexander.deucher@amd.com>
+---
+ drivers/gpu/drm/amd/amdgpu/amdgpu_drv.c | 2 ++
+ 1 file changed, 2 insertions(+)
+
+diff --git a/drivers/gpu/drm/amd/amdgpu/amdgpu_drv.c b/drivers/gpu/drm/amd/amdgpu/amdgpu_drv.c
+index 336323838280..3e49c3e97ead 100644
+--- a/drivers/gpu/drm/amd/amdgpu/amdgpu_drv.c
++++ b/drivers/gpu/drm/amd/amdgpu/amdgpu_drv.c
+@@ -791,6 +791,8 @@ static const struct pci_device_id pciidlist[] = {
+ 	{0x1002, 0x66AF, PCI_ANY_ID, PCI_ANY_ID, 0, 0, CHIP_VEGA20},
+ 	/* Raven */
+ 	{0x1002, 0x15dd, PCI_ANY_ID, PCI_ANY_ID, 0, 0, CHIP_RAVEN|AMD_IS_APU},
++	/* Picasso */
++	{0x1002, 0x15d8, PCI_ANY_ID, PCI_ANY_ID, 0, 0, CHIP_PICASSO|AMD_IS_APU},
+ 
+ 	{0, 0, 0}
+ };
+-- 
+2.17.1
+

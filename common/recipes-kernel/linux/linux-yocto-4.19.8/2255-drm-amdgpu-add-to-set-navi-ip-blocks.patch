@@ -1,0 +1,42 @@
+From ce3b3811d3fad76c4c416f208b7af4dab3bc5d83 Mon Sep 17 00:00:00 2001
+From: Huang Rui <ray.huang@amd.com>
+Date: Wed, 19 Jul 2017 09:45:26 +0800
+Subject: [PATCH 2255/2940] drm/amdgpu: add to set navi ip blocks
+
+Signed-off-by: Huang Rui <ray.huang@amd.com>
+Reviewed-by: Alex Deucher <alexander.deucher@amd.com>
+Reviewed-by: Hawking Zhang <Hawking.Zhang@amd.com>
+Signed-off-by: Alex Deucher <alexander.deucher@amd.com>
+---
+ drivers/gpu/drm/amd/amdgpu/amdgpu_device.c | 8 ++++++++
+ 1 file changed, 8 insertions(+)
+
+diff --git a/drivers/gpu/drm/amd/amdgpu/amdgpu_device.c b/drivers/gpu/drm/amd/amdgpu/amdgpu_device.c
+index ae40f4c35325..6e0a8ee492a5 100644
+--- a/drivers/gpu/drm/amd/amdgpu/amdgpu_device.c
++++ b/drivers/gpu/drm/amd/amdgpu/amdgpu_device.c
+@@ -51,6 +51,7 @@
+ #endif
+ #include "vi.h"
+ #include "soc15.h"
++#include "nv.h"
+ #include "bif/bif_4_1_d.h"
+ #include <linux/pci.h>
+ #include <linux/firmware.h>
+@@ -1528,6 +1529,13 @@ static int amdgpu_device_ip_early_init(struct amdgpu_device *adev)
+ 		if (r)
+ 			return r;
+ 		break;
++	case  CHIP_NAVI10:
++		adev->family = AMDGPU_FAMILY_NV;
++
++		r = nv_set_ip_blocks(adev);
++		if (r)
++			return r;
++		break;
+ 	default:
+ 		/* FIXME: not supported yet */
+ 		return -EINVAL;
+-- 
+2.17.1
+

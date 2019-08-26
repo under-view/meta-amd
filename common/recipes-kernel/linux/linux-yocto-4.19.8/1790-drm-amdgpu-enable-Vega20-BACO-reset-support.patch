@@ -1,0 +1,34 @@
+From da45d1c8b7bca55d5adb403cbc7e2516aebf062e Mon Sep 17 00:00:00 2001
+From: Evan Quan <evan.quan@amd.com>
+Date: Mon, 15 Apr 2019 12:07:28 +0800
+Subject: [PATCH 1790/2940] drm/amdgpu: enable Vega20 BACO reset support
+
+PSP SOS firmware needs to be 0x80067 or later.
+
+Change-Id: Ia56509c427258e0931dfe55faeac547e96911dd0
+Signed-off-by: Evan Quan <evan.quan@amd.com>
+Acked-by: Alex Deucher <alexander.deucher@amd.com>
+---
+ drivers/gpu/drm/amd/amdgpu/soc15.c | 6 ++++++
+ 1 file changed, 6 insertions(+)
+
+diff --git a/drivers/gpu/drm/amd/amdgpu/soc15.c b/drivers/gpu/drm/amd/amdgpu/soc15.c
+index 6a7b0f198ce2..a95eb8e76e53 100644
+--- a/drivers/gpu/drm/amd/amdgpu/soc15.c
++++ b/drivers/gpu/drm/amd/amdgpu/soc15.c
+@@ -470,6 +470,12 @@ static int soc15_asic_reset(struct amdgpu_device *adev)
+ 	case CHIP_VEGA12:
+ 		soc15_asic_get_baco_capability(adev, &baco_reset);
+ 		break;
++	case CHIP_VEGA20:
++		if (adev->psp.sos_fw_version >= 0x80067)
++			soc15_asic_get_baco_capability(adev, &baco_reset);
++		else
++			baco_reset = false;
++		break;
+ 	default:
+ 		baco_reset = false;
+ 		break;
+-- 
+2.17.1
+

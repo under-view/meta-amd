@@ -1,0 +1,120 @@
+From 927534c0c946dd5c9f143b73b6943261ce1c881a Mon Sep 17 00:00:00 2001
+From: Nicholas Kazlauskas <nicholas.kazlauskas@amd.com>
+Date: Fri, 18 Jan 2019 13:57:14 -0500
+Subject: [PATCH 1533/2940] drm/amd/display: Create overlay planes
+
+[Why]
+Raven has support for combining pipes for DRM_PLANE_TYPE_OVERLAY use
+but no overlays are exposed to userspace.
+
+[How]
+Expose overlay planes based on DC plane caps.
+
+If all the pipes are in use then the atomic commits can fail, but this
+is expected behavior for userspace.
+
+Only support RGB on overlays for now.
+
+Change-Id: Idca78fafefd7ccb2bd5f1a05901d1c9da1a2decb
+Signed-off-by: Nicholas Kazlauskas <nicholas.kazlauskas@amd.com>
+Reviewed-by: Tony Cheng <Tony.Cheng@amd.com>
+Acked-by: Bhawanpreet Lakha <Bhawanpreet.Lakha@amd.com>
+Signed-off-by: Chaudhary Amit Kumar <Chaudharyamit.Kumar@amd.com>
+---
+ .../gpu/drm/amd/display/amdgpu_dm/amdgpu_dm.c | 50 ++++++++++++++++---
+ 1 file changed, 43 insertions(+), 7 deletions(-)
+
+diff --git a/drivers/gpu/drm/amd/display/amdgpu_dm/amdgpu_dm.c b/drivers/gpu/drm/amd/display/amdgpu_dm/amdgpu_dm.c
+index e88a75a870f4..710d9dd18abc 100644
+--- a/drivers/gpu/drm/amd/display/amdgpu_dm/amdgpu_dm.c
++++ b/drivers/gpu/drm/amd/display/amdgpu_dm/amdgpu_dm.c
+@@ -1897,7 +1897,7 @@ static int amdgpu_dm_initialize_drm_device(struct amdgpu_device *adev)
+ 	struct amdgpu_encoder *aencoder = NULL;
+ 	struct amdgpu_mode_info *mode_info = &adev->mode_info;
+ 	uint32_t link_cnt;
+-	int32_t primary_planes;
++	int32_t overlay_planes, primary_planes, total_planes;
+ 	enum dc_connection_type new_connection_type = dc_connection_none;
+ 
+ 	link_cnt = dm->dc->caps.max_links;
+@@ -1906,9 +1906,28 @@ static int amdgpu_dm_initialize_drm_device(struct amdgpu_device *adev)
+ 		return -EINVAL;
+ 	}
+ 
++        /*
++         * Determine the number of overlay planes supported.
++         * Only support DCN for now, and cap so we don't encourage
++         * userspace to use up all the planes.
++         */
++        overlay_planes = 0;
++
++        for (i = 0; i < dm->dc->caps.max_planes; ++i) {
++                struct dc_plane_cap *plane = &dm->dc->caps.planes[i];
++
++                if (plane->type == DC_PLANE_TYPE_DCN_UNIVERSAL &&
++                    plane->blends_with_above && plane->blends_with_below &&
++                    plane->supports_argb8888)
++                        overlay_planes += 1;
++        }
++
++        overlay_planes = min(overlay_planes, 1);
++
+         /* There is one primary plane per CRTC */
+         primary_planes = dm->dc->caps.max_streams;
+-        ASSERT(primary_planes < AMDGPU_MAX_PLANES);
++        total_planes = primary_planes + overlay_planes;
++        ASSERT(total_planes < AMDGPU_MAX_PLANES);
+ 
+         /*
+          * Initialize primary planes, implicit planes for legacy IOCTLS.
+@@ -1923,6 +1942,20 @@ static int amdgpu_dm_initialize_drm_device(struct amdgpu_device *adev)
+ 		}
+ 	}
+ 
++	/*
++	 * Initialize overlay planes, index starting after primary planes.
++	 * These planes have a higher DRM index than the primary planes since
++	 * they should be considered as having a higher z-order.
++	 * Order is reversed to match iteration order in atomic check.
++	 */
++	for (i = (overlay_planes - 1); i >= 0; i--) {
++		if (initialize_plane(dm, mode_info, primary_planes + i,
++				     DRM_PLANE_TYPE_OVERLAY)) {
++			DRM_ERROR("KMS: Failed to initialize overlay plane\n");
++			goto fail;
++		}
++	}
++
+ 	for (i = 0; i < dm->dc->caps.max_streams; i++)
+ 		if (amdgpu_dm_crtc_init(dm, mode_info->planes[i], i)) {
+ 			DRM_ERROR("KMS: Failed to initialize crtc\n");
+@@ -3911,9 +3944,12 @@ static const uint32_t rgb_formats[] = {
+ 	DRM_FORMAT_ABGR8888,
+ };
+ 
+-static const uint32_t yuv_formats[] = {
+-	DRM_FORMAT_NV12,
+-	DRM_FORMAT_NV21,
++static const uint32_t overlay_formats[] = {
++	DRM_FORMAT_XRGB8888,
++	DRM_FORMAT_ARGB8888,
++	DRM_FORMAT_RGBA8888,
++	DRM_FORMAT_XBGR8888,
++	DRM_FORMAT_ABGR8888,
+ };
+ 
+ static const u32 cursor_formats[] = {
+@@ -3943,8 +3979,8 @@ static int amdgpu_dm_plane_init(struct amdgpu_display_manager *dm,
+ 				plane,
+ 				possible_crtcs,
+ 				&dm_plane_funcs,
+-				yuv_formats,
+-				ARRAY_SIZE(yuv_formats),
++				overlay_formats,
++				ARRAY_SIZE(overlay_formats),
+ 				NULL, plane->type, NULL);
+ 		break;
+ 	case DRM_PLANE_TYPE_CURSOR:
+-- 
+2.17.1
+

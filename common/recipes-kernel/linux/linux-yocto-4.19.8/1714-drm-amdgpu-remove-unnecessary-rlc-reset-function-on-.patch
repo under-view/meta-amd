@@ -1,0 +1,33 @@
+From df9be86aaf655bed7642adaf06a116bbd1ea3025 Mon Sep 17 00:00:00 2001
+From: Le Ma <le.ma@amd.com>
+Date: Mon, 1 Apr 2019 18:08:30 +0800
+Subject: [PATCH 1714/2940] drm/amdgpu: remove unnecessary rlc reset function
+ on gfx9
+
+The rlc reset function is not necessary during gfx9 initialization/resume phase.
+And this function would even cause rlc fw loading failed on some gfx9 ASIC.
+Remove this function safely with verification well on Vega/Raven platform.
+
+Change-Id: I38bf0bbaf7183b7e6a53a1b63dba770de8e47d9e
+Signed-off-by: Le Ma <le.ma@amd.com>
+Reviewed-by: Feifei Xu <Feifei.Xu@amd.com>
+---
+ drivers/gpu/drm/amd/amdgpu/gfx_v9_0.c | 2 --
+ 1 file changed, 2 deletions(-)
+
+diff --git a/drivers/gpu/drm/amd/amdgpu/gfx_v9_0.c b/drivers/gpu/drm/amd/amdgpu/gfx_v9_0.c
+index 5d6004710b7a..1e8b09813280 100644
+--- a/drivers/gpu/drm/amd/amdgpu/gfx_v9_0.c
++++ b/drivers/gpu/drm/amd/amdgpu/gfx_v9_0.c
+@@ -2459,8 +2459,6 @@ static int gfx_v9_0_rlc_resume(struct amdgpu_device *adev)
+ 	/* disable CG */
+ 	WREG32_SOC15(GC, 0, mmRLC_CGCG_CGLS_CTRL, 0);
+ 
+-	adev->gfx.rlc.funcs->reset(adev);
+-
+ 	gfx_v9_0_init_pg(adev);
+ 
+ 	if (adev->firmware.load_type != AMDGPU_FW_LOAD_PSP) {
+-- 
+2.17.1
+

@@ -1,0 +1,74 @@
+From 969a8251a07ba7d77907f2f10a04bacb9618d257 Mon Sep 17 00:00:00 2001
+From: Huang Rui <ray.huang@amd.com>
+Date: Fri, 29 Mar 2019 18:07:23 +0800
+Subject: [PATCH 2290/2940] drm/amd/powerplay: init table_count for smu tables
+ on asic level
+
+TABLE_COUNT should be inited in asic level. Because the value may be different
+on each asic even on the same ip.
+
+Signed-off-by: Huang Rui <ray.huang@amd.com>
+Reviewed-by: Kevin Wang <kevin1.wang@amd.com>
+Reviewed-by: Alex Deucher <alexander.deucher@amd.com>
+Reviewed-by: Hawking Zhang <Hawking.Zhang@amd.com>
+Signed-off-by: Alex Deucher <alexander.deucher@amd.com>
+---
+ drivers/gpu/drm/amd/powerplay/navi10_ppt.c | 3 +++
+ drivers/gpu/drm/amd/powerplay/smu_v11_0.c  | 6 +++---
+ drivers/gpu/drm/amd/powerplay/vega20_ppt.c | 3 +++
+ 3 files changed, 9 insertions(+), 3 deletions(-)
+
+diff --git a/drivers/gpu/drm/amd/powerplay/navi10_ppt.c b/drivers/gpu/drm/amd/powerplay/navi10_ppt.c
+index 7c78251ed944..5ab35fff88ba 100644
+--- a/drivers/gpu/drm/amd/powerplay/navi10_ppt.c
++++ b/drivers/gpu/drm/amd/powerplay/navi10_ppt.c
+@@ -447,6 +447,9 @@ static const struct pptable_funcs navi10_ppt_funcs = {
+ 
+ void navi10_set_ppt_funcs(struct smu_context *smu)
+ {
++	struct smu_table_context *smu_table = &smu->smu_table;
++
+ 	smu->ppt_funcs = &navi10_ppt_funcs;
+ 	smu->smc_if_version = SMU11_DRIVER_IF_VERSION;
++	smu_table->table_count = TABLE_COUNT;
+ }
+diff --git a/drivers/gpu/drm/amd/powerplay/smu_v11_0.c b/drivers/gpu/drm/amd/powerplay/smu_v11_0.c
+index 8c60cdcba4ef..d05e263859a0 100644
+--- a/drivers/gpu/drm/amd/powerplay/smu_v11_0.c
++++ b/drivers/gpu/drm/amd/powerplay/smu_v11_0.c
+@@ -400,15 +400,15 @@ static int smu_v11_0_init_smc_tables(struct smu_context *smu)
+ 	struct smu_table *tables = NULL;
+ 	int ret = 0;
+ 
+-	if (smu_table->tables || smu_table->table_count != 0)
++	if (smu_table->tables || smu_table->table_count == 0)
+ 		return -EINVAL;
+ 
+-	tables = kcalloc(TABLE_COUNT, sizeof(struct smu_table), GFP_KERNEL);
++	tables = kcalloc(SMU_TABLE_COUNT, sizeof(struct smu_table),
++			 GFP_KERNEL);
+ 	if (!tables)
+ 		return -ENOMEM;
+ 
+ 	smu_table->tables = tables;
+-	smu_table->table_count = TABLE_COUNT;
+ 
+ 	SMU_TABLE_INIT(tables, TABLE_PPTABLE, sizeof(PPTable_t),
+ 		       PAGE_SIZE, AMDGPU_GEM_DOMAIN_VRAM);
+diff --git a/drivers/gpu/drm/amd/powerplay/vega20_ppt.c b/drivers/gpu/drm/amd/powerplay/vega20_ppt.c
+index 7cafbc942b2a..17a954bd5aa4 100644
+--- a/drivers/gpu/drm/amd/powerplay/vega20_ppt.c
++++ b/drivers/gpu/drm/amd/powerplay/vega20_ppt.c
+@@ -2989,6 +2989,9 @@ static const struct pptable_funcs vega20_ppt_funcs = {
+ 
+ void vega20_set_ppt_funcs(struct smu_context *smu)
+ {
++	struct smu_table_context *smu_table = &smu->smu_table;
++
+ 	smu->ppt_funcs = &vega20_ppt_funcs;
+ 	smu->smc_if_version = SMU11_DRIVER_IF_VERSION;
++	smu_table->table_count = TABLE_COUNT;
+ }
+-- 
+2.17.1
+

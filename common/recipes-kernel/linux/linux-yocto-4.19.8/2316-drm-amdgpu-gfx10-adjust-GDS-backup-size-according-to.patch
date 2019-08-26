@@ -1,0 +1,33 @@
+From 0ed576306e2b5b86866a57cd116a5d90bbdfe2aa Mon Sep 17 00:00:00 2001
+From: Jack Xiao <Jack.Xiao@amd.com>
+Date: Tue, 9 Apr 2019 14:40:48 +0800
+Subject: [PATCH 2316/2940] drm/amdgpu/gfx10: adjust GDS backup size according
+ to real size
+
+Adjust GDS backup size in metadata according to its real size in
+chip.
+
+Signed-off-by: Jack Xiao <Jack.Xiao@amd.com>
+Reviewed-by: Alex Deucher <alexander.deucher@amd.com>
+Signed-off-by: Alex Deucher <alexander.deucher@amd.com>
+---
+ drivers/gpu/drm/amd/amdgpu/gfx_v10_0.c | 3 ++-
+ 1 file changed, 2 insertions(+), 1 deletion(-)
+
+diff --git a/drivers/gpu/drm/amd/amdgpu/gfx_v10_0.c b/drivers/gpu/drm/amd/amdgpu/gfx_v10_0.c
+index fae07603e121..014697f6bd10 100644
+--- a/drivers/gpu/drm/amd/amdgpu/gfx_v10_0.c
++++ b/drivers/gpu/drm/amd/amdgpu/gfx_v10_0.c
+@@ -4512,7 +4512,8 @@ static void gfx_v10_0_ring_emit_de_meta(struct amdgpu_ring *ring, bool resume)
+ 	int cnt;
+ 
+ 	csa_addr = amdgpu_csa_vaddr(ring->adev);
+-	gds_addr = csa_addr + 4096;
++	gds_addr = ALIGN(csa_addr + AMDGPU_CSA_SIZE - adev->gds.mem.total_size,
++			 PAGE_SIZE);
+ 	de_payload.gds_backup_addrlo = lower_32_bits(gds_addr);
+ 	de_payload.gds_backup_addrhi = upper_32_bits(gds_addr);
+ 
+-- 
+2.17.1
+

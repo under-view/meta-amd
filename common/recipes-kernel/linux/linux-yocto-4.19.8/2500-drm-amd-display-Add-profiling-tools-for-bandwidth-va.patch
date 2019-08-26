@@ -1,0 +1,90 @@
+From ea98e96e457ce2c57ae7c46076e365677b63d87a Mon Sep 17 00:00:00 2001
+From: Joshua Aberback <joshua.aberback@amd.com>
+Date: Mon, 1 Apr 2019 15:21:24 -0400
+Subject: [PATCH 2500/2940] drm/amd/display: Add profiling tools for bandwidth
+ validation
+
+[Why]
+We used this change to investigate the performance of bandwidth validation,
+it will be useful to have if we need to investigate further.
+
+[How]
+We use performance counter tick numbers to profile performance, they live
+at dc->debug.bw_val_profile (set .enable in debugger to turn on measuring).
+
+Signed-off-by: Joshua Aberback <joshua.aberback@amd.com>
+Reviewed-by: Tony Cheng <Tony.Cheng@amd.com>
+Acked-by: Bhawanpreet Lakha <Bhawanpreet.Lakha@amd.com>
+Signed-off-by: Alex Deucher <alexander.deucher@amd.com>
+---
+ .../gpu/drm/amd/display/dc/dcn20/dcn20_resource.c   | 13 +++++++++++++
+ 1 file changed, 13 insertions(+)
+
+diff --git a/drivers/gpu/drm/amd/display/dc/dcn20/dcn20_resource.c b/drivers/gpu/drm/amd/display/dc/dcn20/dcn20_resource.c
+index 371d96290d86..c9b7340c9601 100644
+--- a/drivers/gpu/drm/amd/display/dc/dcn20/dcn20_resource.c
++++ b/drivers/gpu/drm/amd/display/dc/dcn20/dcn20_resource.c
+@@ -1912,6 +1912,8 @@ bool dcn20_validate_bandwidth(struct dc *dc, struct dc_state *context,
+ {
+ 	bool out = false;
+ 
++	BW_VAL_TRACE_SETUP();
++
+ 	int pipe_cnt, i, pipe_idx, vlevel, vlevel_unsplit;
+ 	int pipe_split_from[MAX_PIPES];
+ 	bool odm_capable = context->bw_ctx.dml.ip.odm_capable;
+@@ -1924,6 +1926,8 @@ bool dcn20_validate_bandwidth(struct dc *dc, struct dc_state *context,
+ 	display_e2e_pipe_params_st *pipes = kzalloc(dc->res_pool->pipe_count * sizeof(display_e2e_pipe_params_st), GFP_KERNEL);
+ 	DC_LOGGER_INIT(dc->ctx->logger);
+ 
++	BW_VAL_TRACE_COUNT();
++
+ 	ASSERT(pipes);
+ 	if (!pipes)
+ 		return false;
+@@ -1957,6 +1961,7 @@ bool dcn20_validate_bandwidth(struct dc *dc, struct dc_state *context,
+ 	pipe_cnt = dcn20_populate_dml_pipes_from_context(dc, &context->res_ctx, pipes);
+ 
+ 	if (!pipe_cnt) {
++		BW_VAL_TRACE_SKIP(pass);
+ 		out = true;
+ 		goto validate_out;
+ 	}
+@@ -2117,7 +2122,10 @@ bool dcn20_validate_bandwidth(struct dc *dc, struct dc_state *context,
+ 	}
+ #endif
+ 
++	BW_VAL_TRACE_END_VOLTAGE_LEVEL();
++
+ 	if (fast_validate) {
++		BW_VAL_TRACE_SKIP(fast);
+ 		out = true;
+ 		goto validate_out;
+ 	}
+@@ -2213,6 +2221,8 @@ bool dcn20_validate_bandwidth(struct dc *dc, struct dc_state *context,
+ 							!= dm_dram_clock_change_unsupported;
+ 	context->bw_ctx.bw.dcn.clk.dppclk_khz = 0;
+ 
++	BW_VAL_TRACE_END_WATERMARKS();
++
+ 	for (i = 0, pipe_idx = 0; i < dc->res_pool->pipe_count; i++) {
+ 		if (!context->res_ctx.pipe_ctx[i].stream)
+ 			continue;
+@@ -2261,11 +2271,14 @@ bool dcn20_validate_bandwidth(struct dc *dc, struct dc_state *context,
+ 	DC_LOG_WARNING("Mode Validation Warning: %s failed validation.\n",
+ 		dml_get_status_message(context->bw_ctx.dml.vba.ValidationStatus[context->bw_ctx.dml.vba.soc.num_states]));
+ 
++	BW_VAL_TRACE_SKIP(fail);
+ 	out = false;
+ 
+ validate_out:
+ 	kfree(pipes);
+ 
++	BW_VAL_TRACE_FINISH();
++
+ 	return out;
+ }
+ 
+-- 
+2.17.1
+

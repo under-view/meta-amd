@@ -1,0 +1,51 @@
+From 96461e9d2f0f7a0e4669272f7012d3e6bd1ce064 Mon Sep 17 00:00:00 2001
+From: Hawking Zhang <Hawking.Zhang@amd.com>
+Date: Tue, 11 Dec 2018 05:20:12 +0800
+Subject: [PATCH 2156/2940] drm/amdgpu: query vram type from atomfirmware
+ vram_info
+
+vram_type is saved in member vram_module[0].memory_type
+
+Signed-off-by: Hawking Zhang <Hawking.Zhang@amd.com>
+Reviewed-by: Alex Deucher <alexander.deucher@amd.com>
+Reviewed-by: Jack Xiao <Jack.Xiao@amd.com>
+Signed-off-by: Alex Deucher <alexander.deucher@amd.com>
+---
+ drivers/gpu/drm/amd/amdgpu/amdgpu_atomfirmware.c | 7 +++++++
+ 1 file changed, 7 insertions(+)
+
+diff --git a/drivers/gpu/drm/amd/amdgpu/amdgpu_atomfirmware.c b/drivers/gpu/drm/amd/amdgpu/amdgpu_atomfirmware.c
+index f96d75c6e099..410118df16ed 100644
+--- a/drivers/gpu/drm/amd/amdgpu/amdgpu_atomfirmware.c
++++ b/drivers/gpu/drm/amd/amdgpu/amdgpu_atomfirmware.c
+@@ -118,6 +118,7 @@ union umc_info {
+ 
+ union vram_info {
+ 	struct atom_vram_info_header_v2_3 v23;
++	struct atom_vram_info_header_v2_4 v24;
+ };
+ /*
+  * Return vram width from integrated system info table, if available,
+@@ -179,6 +180,9 @@ static int convert_atom_mem_type_to_vram_type (struct amdgpu_device *adev,
+ 		case ATOM_DGPU_VRAM_TYPE_HBM2:
+ 			vram_type = AMDGPU_VRAM_TYPE_HBM;
+ 			break;
++		case ATOM_DGPU_VRAM_TYPE_GDDR6:
++			vram_type = AMDGPU_VRAM_TYPE_GDDR6;
++			break;
+ 		default:
+ 			vram_type = AMDGPU_VRAM_TYPE_UNKNOWN;
+ 			break;
+@@ -227,6 +231,9 @@ int amdgpu_atomfirmware_get_vram_type(struct amdgpu_device *adev)
+ 			case 3:
+ 				mem_type = vram_info->v23.vram_module[0].memory_type;
+ 				return convert_atom_mem_type_to_vram_type(adev, mem_type);
++			case 4:
++				mem_type = vram_info->v24.vram_module[0].memory_type;
++				return convert_atom_mem_type_to_vram_type(adev, mem_type);
+ 			default:
+ 				return 0;
+ 			}
+-- 
+2.17.1
+

@@ -1,0 +1,122 @@
+From ec56860a378a102c0eb442e07f5cfcedbdc109ee Mon Sep 17 00:00:00 2001
+From: Eryk Brol <eryk.brol@amd.com>
+Date: Tue, 23 Apr 2019 11:53:52 -0400
+Subject: [PATCH 2459/2940] drm/amd/display: Ensure DRR triggers in BP
+
+[Why]
+In the previous implementation DRR event sometimes came
+in during FP2 region which is a keep-out zone. This
+would cause the frame not to latch until the next frame
+which resulted in heavy flicker. To fix this we need
+to make sure that it triggers in the BP.
+
+[How]
+1. Remove DRR programming during flip
+2. Setup manual trigger for DRR event and trigger it
+after surface programming is complete
+
+Signed-off-by: Eryk Brol <eryk.brol@amd.com>
+Reviewed-by: Aric Cyr <Aric.Cyr@amd.com>
+Acked-by: Leo Li <sunpeng.li@amd.com>
+Signed-off-by: Alex Deucher <alexander.deucher@amd.com>
+---
+ .../gpu/drm/amd/display/dc/dcn20/dcn20_optc.c | 31 +++++++++++++++++++
+ .../gpu/drm/amd/display/dc/dcn20/dcn20_optc.h |  7 +++--
+ .../amd/display/dc/inc/hw/timing_generator.h  |  1 +
+ 3 files changed, 37 insertions(+), 2 deletions(-)
+
+diff --git a/drivers/gpu/drm/amd/display/dc/dcn20/dcn20_optc.c b/drivers/gpu/drm/amd/display/dc/dcn20/dcn20_optc.c
+index cee1ed11ffe3..724b5a9e47d0 100644
+--- a/drivers/gpu/drm/amd/display/dc/dcn20/dcn20_optc.c
++++ b/drivers/gpu/drm/amd/display/dc/dcn20/dcn20_optc.c
+@@ -381,6 +381,35 @@ void optc2_lock(struct timing_generator *optc)
+ 				1, 10);
+ }
+ 
++void optc2_setup_manual_trigger(struct timing_generator *optc)
++{
++	struct optc *optc1 = DCN10TG_FROM_TG(optc);
++
++	REG_SET(OTG_MANUAL_FLOW_CONTROL, 0,
++			MANUAL_FLOW_CONTROL, 1);
++
++	REG_SET(OTG_GLOBAL_CONTROL2, 0,
++			MANUAL_FLOW_CONTROL_SEL, optc->inst);
++
++	REG_SET_8(OTG_TRIGA_CNTL, 0,
++			OTG_TRIGA_SOURCE_SELECT, 22,
++			OTG_TRIGA_SOURCE_PIPE_SELECT, optc->inst,
++			OTG_TRIGA_RISING_EDGE_DETECT_CNTL, 1,
++			OTG_TRIGA_FALLING_EDGE_DETECT_CNTL, 0,
++			OTG_TRIGA_POLARITY_SELECT, 0,
++			OTG_TRIGA_FREQUENCY_SELECT, 0,
++			OTG_TRIGA_DELAY, 0,
++			OTG_TRIGA_CLEAR, 1);
++}
++
++void optc2_program_manual_trigger(struct timing_generator *optc)
++{
++	struct optc *optc1 = DCN10TG_FROM_TG(optc);
++
++	REG_SET(OTG_TRIGA_MANUAL_TRIG, 0,
++			OTG_TRIGA_MANUAL_TRIG, 1);
++}
++
+ static struct timing_generator_funcs dcn20_tg_funcs = {
+ 		.validate_timing = optc1_validate_timing,
+ 		.program_timing = optc1_program_timing,
+@@ -435,6 +464,8 @@ static struct timing_generator_funcs dcn20_tg_funcs = {
+ 		.set_gsl = optc2_set_gsl,
+ 		.set_gsl_source_select = optc2_set_gsl_source_select,
+ 		.set_vtg_params = optc1_set_vtg_params,
++		.program_manual_trigger = optc2_program_manual_trigger,
++		.setup_manual_trigger = optc2_setup_manual_trigger
+ };
+ 
+ void dcn20_timing_generator_init(struct optc *optc1)
+diff --git a/drivers/gpu/drm/amd/display/dc/dcn20/dcn20_optc.h b/drivers/gpu/drm/amd/display/dc/dcn20/dcn20_optc.h
+index b936a4da1583..a00bb0d92a49 100644
+--- a/drivers/gpu/drm/amd/display/dc/dcn20/dcn20_optc.h
++++ b/drivers/gpu/drm/amd/display/dc/dcn20/dcn20_optc.h
+@@ -40,7 +40,8 @@
+ 	SRI(OPTC_BYTES_PER_PIXEL, ODM, inst),\
+ 	SRI(OPTC_WIDTH_CONTROL, ODM, inst),\
+ 	SRI(OPTC_MEMORY_CONFIG, ODM, inst),\
+-	SR(DWB_SOURCE_SELECT)
++	SR(DWB_SOURCE_SELECT),\
++	SRI(OTG_MANUAL_FLOW_CONTROL, OTG, inst)
+ 
+ #define TG_COMMON_MASK_SH_LIST_DCN2_0(mask_sh)\
+ 	TG_COMMON_MASK_SH_LIST_DCN(mask_sh),\
+@@ -70,7 +71,8 @@
+ 	SF(ODM0_OPTC_WIDTH_CONTROL, OPTC_DSC_SLICE_WIDTH, mask_sh),\
+ 	SF(ODM0_OPTC_WIDTH_CONTROL, OPTC_SEGMENT_WIDTH, mask_sh),\
+ 	SF(DWB_SOURCE_SELECT, OPTC_DWB0_SOURCE_SELECT, mask_sh),\
+-	SF(DWB_SOURCE_SELECT, OPTC_DWB1_SOURCE_SELECT, mask_sh)
++	SF(DWB_SOURCE_SELECT, OPTC_DWB1_SOURCE_SELECT, mask_sh),\
++	SF(OTG0_OTG_MANUAL_FLOW_CONTROL, MANUAL_FLOW_CONTROL, mask_sh)
+ 
+ void dcn20_timing_generator_init(struct optc *optc);
+ 
+@@ -105,5 +107,6 @@ void optc2_triplebuffer_unlock(struct timing_generator *optc);
+ void optc2_lock(struct timing_generator *optc);
+ void optc2_lock_global(struct timing_generator *optc);
+ void optc2_setup_global_lock(struct timing_generator *optc);
++void optc2_program_manual_trigger(struct timing_generator *optc);
+ 
+ #endif /* __DC_OPTC_DCN20_H__ */
+diff --git a/drivers/gpu/drm/amd/display/dc/inc/hw/timing_generator.h b/drivers/gpu/drm/amd/display/dc/inc/hw/timing_generator.h
+index eced6ec05899..251baebe5386 100644
+--- a/drivers/gpu/drm/amd/display/dc/inc/hw/timing_generator.h
++++ b/drivers/gpu/drm/amd/display/dc/inc/hw/timing_generator.h
+@@ -257,6 +257,7 @@ struct timing_generator_funcs {
+ 
+ 	void (*set_vtg_params)(struct timing_generator *optc,
+ 			const struct dc_crtc_timing *dc_crtc_timing);
++
+ #ifdef CONFIG_DRM_AMD_DC_DCN2_0
+ #ifdef CONFIG_DRM_AMD_DC_DSC_SUPPORT
+ 	void (*set_dsc_config)(struct timing_generator *optc,
+-- 
+2.17.1
+

@@ -1,0 +1,235 @@
+From 63353e963ea9c49910149940d6fe2755443712c0 Mon Sep 17 00:00:00 2001
+From: Evan Quan <evan.quan@amd.com>
+Date: Mon, 14 Jan 2019 15:44:44 +0800
+Subject: [PATCH 1108/2940] drm/amd/powerplay: support retrieving and adjusting
+ fclock power levels V2
+
+User can use "pp_dpm_fclk" to retrieve and adjust fclock power
+levels.
+
+V2: expose this interface for Vega20 and later ASICs only
+
+Signed-off-by: Evan Quan <evan.quan@amd.com>
+Reviewed-by: Alex Deucher <alexander.deucher@amd.com>
+Signed-off-by: Alex Deucher <alexander.deucher@amd.com>
+---
+ drivers/gpu/drm/amd/amdgpu/amdgpu_pm.c        | 53 ++++++++++++++-
+ .../gpu/drm/amd/include/kgd_pp_interface.h    |  1 +
+ .../drm/amd/powerplay/hwmgr/vega20_hwmgr.c    | 64 +++++++++++++++++++
+ 3 files changed, 116 insertions(+), 2 deletions(-)
+
+diff --git a/drivers/gpu/drm/amd/amdgpu/amdgpu_pm.c b/drivers/gpu/drm/amd/amdgpu/amdgpu_pm.c
+index 4bdb1d082bea..23eb6f61da13 100644
+--- a/drivers/gpu/drm/amd/amdgpu/amdgpu_pm.c
++++ b/drivers/gpu/drm/amd/amdgpu/amdgpu_pm.c
+@@ -680,13 +680,14 @@ static ssize_t amdgpu_get_ppfeature_status(struct device *dev,
+ }
+ 
+ /**
+- * DOC: pp_dpm_sclk pp_dpm_mclk pp_dpm_socclk pp_dpm_pcie
++ * DOC: pp_dpm_sclk pp_dpm_mclk pp_dpm_socclk pp_dpm_fclk pp_dpm_pcie
+  *
+  * The amdgpu driver provides a sysfs API for adjusting what power levels
+  * are enabled for a given power state.  The files pp_dpm_sclk, pp_dpm_mclk,
+- * pp_dpm_socclk and pp_dpm_pcie are used for this.
++ * pp_dpm_socclk, pp_dpm_fclk and pp_dpm_pcie are used for this.
+  *
+  * pp_dpm_socclk interface is only available for Vega10 and later ASICs.
++ * pp_dpm_fclk interface is only available for Vega20 and later ASICs.
+  *
+  * Reading back the files will show you the available power levels within
+  * the power state and the clock information for those levels.
+@@ -842,6 +843,42 @@ static ssize_t amdgpu_set_pp_dpm_socclk(struct device *dev,
+ 	return count;
+ }
+ 
++static ssize_t amdgpu_get_pp_dpm_fclk(struct device *dev,
++		struct device_attribute *attr,
++		char *buf)
++{
++	struct drm_device *ddev = dev_get_drvdata(dev);
++	struct amdgpu_device *adev = ddev->dev_private;
++
++	if (adev->powerplay.pp_funcs->print_clock_levels)
++		return amdgpu_dpm_print_clock_levels(adev, PP_FCLK, buf);
++	else
++		return snprintf(buf, PAGE_SIZE, "\n");
++}
++
++static ssize_t amdgpu_set_pp_dpm_fclk(struct device *dev,
++		struct device_attribute *attr,
++		const char *buf,
++		size_t count)
++{
++	struct drm_device *ddev = dev_get_drvdata(dev);
++	struct amdgpu_device *adev = ddev->dev_private;
++	int ret;
++	uint32_t mask = 0;
++
++	ret = amdgpu_read_mask(buf, count, &mask);
++	if (ret)
++		return ret;
++
++	if (adev->powerplay.pp_funcs->force_clock_level)
++		ret = amdgpu_dpm_force_clock_level(adev, PP_FCLK, mask);
++
++	if (ret)
++		return -EINVAL;
++
++	return count;
++}
++
+ static ssize_t amdgpu_get_pp_dpm_pcie(struct device *dev,
+ 		struct device_attribute *attr,
+ 		char *buf)
+@@ -1128,6 +1165,9 @@ static DEVICE_ATTR(pp_dpm_mclk, S_IRUGO | S_IWUSR,
+ static DEVICE_ATTR(pp_dpm_socclk, S_IRUGO | S_IWUSR,
+ 		amdgpu_get_pp_dpm_socclk,
+ 		amdgpu_set_pp_dpm_socclk);
++static DEVICE_ATTR(pp_dpm_fclk, S_IRUGO | S_IWUSR,
++		amdgpu_get_pp_dpm_fclk,
++		amdgpu_set_pp_dpm_fclk);
+ static DEVICE_ATTR(pp_dpm_pcie, S_IRUGO | S_IWUSR,
+ 		amdgpu_get_pp_dpm_pcie,
+ 		amdgpu_set_pp_dpm_pcie);
+@@ -2294,6 +2334,13 @@ int amdgpu_pm_sysfs_init(struct amdgpu_device *adev)
+ 			return ret;
+ 		}
+ 	}
++	if (adev->asic_type >= CHIP_VEGA20) {
++		ret = device_create_file(adev->dev, &dev_attr_pp_dpm_fclk);
++		if (ret) {
++			DRM_ERROR("failed to create device file pp_dpm_fclk\n");
++			return ret;
++		}
++	}
+ 	ret = device_create_file(adev->dev, &dev_attr_pp_dpm_pcie);
+ 	if (ret) {
+ 		DRM_ERROR("failed to create device file pp_dpm_pcie\n");
+@@ -2384,6 +2431,8 @@ void amdgpu_pm_sysfs_fini(struct amdgpu_device *adev)
+ 	if (adev->asic_type >= CHIP_VEGA10)
+ 		device_remove_file(adev->dev, &dev_attr_pp_dpm_socclk);
+ 	device_remove_file(adev->dev, &dev_attr_pp_dpm_pcie);
++	if (adev->asic_type >= CHIP_VEGA20)
++		device_remove_file(adev->dev, &dev_attr_pp_dpm_fclk);
+ 	device_remove_file(adev->dev, &dev_attr_pp_sclk_od);
+ 	device_remove_file(adev->dev, &dev_attr_pp_mclk_od);
+ 	device_remove_file(adev->dev,
+diff --git a/drivers/gpu/drm/amd/include/kgd_pp_interface.h b/drivers/gpu/drm/amd/include/kgd_pp_interface.h
+index f5ec25a6ab54..f82de14f6560 100644
+--- a/drivers/gpu/drm/amd/include/kgd_pp_interface.h
++++ b/drivers/gpu/drm/amd/include/kgd_pp_interface.h
+@@ -93,6 +93,7 @@ enum pp_clock_type {
+ 	PP_MCLK,
+ 	PP_PCIE,
+ 	PP_SOCCLK,
++	PP_FCLK,
+ 	OD_SCLK,
+ 	OD_MCLK,
+ 	OD_VDDC_CURVE,
+diff --git a/drivers/gpu/drm/amd/powerplay/hwmgr/vega20_hwmgr.c b/drivers/gpu/drm/amd/powerplay/hwmgr/vega20_hwmgr.c
+index e7c890f036fa..4e7399c310e2 100644
+--- a/drivers/gpu/drm/amd/powerplay/hwmgr/vega20_hwmgr.c
++++ b/drivers/gpu/drm/amd/powerplay/hwmgr/vega20_hwmgr.c
+@@ -1736,6 +1736,17 @@ static int vega20_upload_dpm_min_level(struct pp_hwmgr *hwmgr, uint32_t feature_
+ 					return ret);
+ 	}
+ 
++	if (data->smu_features[GNLD_DPM_FCLK].enabled &&
++	   (feature_mask & FEATURE_DPM_FCLK_MASK)) {
++		min_freq = data->dpm_table.fclk_table.dpm_state.soft_min_level;
++
++		PP_ASSERT_WITH_CODE(!(ret = smum_send_msg_to_smc_with_parameter(
++					hwmgr, PPSMC_MSG_SetSoftMinByFreq,
++					(PPCLK_FCLK << 16) | (min_freq & 0xffff))),
++					"Failed to set soft min fclk!",
++					return ret);
++	}
++
+ 	return ret;
+ }
+ 
+@@ -1808,6 +1819,17 @@ static int vega20_upload_dpm_max_level(struct pp_hwmgr *hwmgr, uint32_t feature_
+ 					return ret);
+ 	}
+ 
++	if (data->smu_features[GNLD_DPM_FCLK].enabled &&
++	   (feature_mask & FEATURE_DPM_FCLK_MASK)) {
++		max_freq = data->dpm_table.fclk_table.dpm_state.soft_max_level;
++
++		PP_ASSERT_WITH_CODE(!(ret = smum_send_msg_to_smc_with_parameter(
++					hwmgr, PPSMC_MSG_SetSoftMaxByFreq,
++					(PPCLK_FCLK << 16) | (max_freq & 0xffff))),
++					"Failed to set soft max fclk!",
++					return ret);
++	}
++
+ 	return ret;
+ }
+ 
+@@ -2324,6 +2346,34 @@ static int vega20_force_clock_level(struct pp_hwmgr *hwmgr,
+ 
+ 		break;
+ 
++	case PP_FCLK:
++		soft_min_level = mask ? (ffs(mask) - 1) : 0;
++		soft_max_level = mask ? (fls(mask) - 1) : 0;
++
++		if (soft_max_level >= data->dpm_table.fclk_table.count) {
++			pr_err("Clock level specified %d is over max allowed %d\n",
++					soft_max_level,
++					data->dpm_table.fclk_table.count - 1);
++			return -EINVAL;
++		}
++
++		data->dpm_table.fclk_table.dpm_state.soft_min_level =
++			data->dpm_table.fclk_table.dpm_levels[soft_min_level].value;
++		data->dpm_table.fclk_table.dpm_state.soft_max_level =
++			data->dpm_table.fclk_table.dpm_levels[soft_max_level].value;
++
++		ret = vega20_upload_dpm_min_level(hwmgr, FEATURE_DPM_FCLK_MASK);
++		PP_ASSERT_WITH_CODE(!ret,
++			"Failed to upload boot level to lowest!",
++			return ret);
++
++		ret = vega20_upload_dpm_max_level(hwmgr, FEATURE_DPM_FCLK_MASK);
++		PP_ASSERT_WITH_CODE(!ret,
++			"Failed to upload dpm max level to highest!",
++			return ret);
++
++		break;
++
+ 	case PP_PCIE:
+ 		soft_min_level = mask ? (ffs(mask) - 1) : 0;
+ 		soft_max_level = mask ? (fls(mask) - 1) : 0;
+@@ -2920,6 +2970,8 @@ static int vega20_print_clock_levels(struct pp_hwmgr *hwmgr,
+ 	PPTable_t *pptable = (PPTable_t *)pptable_information->smc_pptable;
+ 	struct amdgpu_device *adev = hwmgr->adev;
+ 	struct pp_clock_levels_with_latency clocks;
++	struct vega20_single_dpm_table *fclk_dpm_table =
++			&(data->dpm_table.fclk_table);
+ 	int i, now, size = 0;
+ 	int ret = 0;
+ 	uint32_t gen_speed, lane_width;
+@@ -2976,6 +3028,18 @@ static int vega20_print_clock_levels(struct pp_hwmgr *hwmgr,
+ 				(clocks.data[i].clocks_in_khz == now * 10) ? "*" : "");
+ 		break;
+ 
++	case PP_FCLK:
++		ret = vega20_get_current_clk_freq(hwmgr, PPCLK_FCLK, &now);
++		PP_ASSERT_WITH_CODE(!ret,
++				"Attempt to get current fclk freq Failed!",
++				return ret);
++
++		for (i = 0; i < fclk_dpm_table->count; i++)
++			size += sprintf(buf + size, "%d: %uMhz %s\n",
++				i, fclk_dpm_table->dpm_levels[i].value,
++				fclk_dpm_table->dpm_levels[i].value == (now / 100) ? "*" : "");
++		break;
++
+ 	case PP_PCIE:
+ 		gen_speed = (RREG32_PCIE(smnPCIE_LC_SPEED_CNTL) &
+ 			     PSWUSP0_PCIE_LC_SPEED_CNTL__LC_CURRENT_DATA_RATE_MASK)
+-- 
+2.17.1
+

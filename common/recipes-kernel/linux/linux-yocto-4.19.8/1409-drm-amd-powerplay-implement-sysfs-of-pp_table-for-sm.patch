@@ -1,0 +1,201 @@
+From a1220536a263badf6ebb67ddc1ab788f6b40e68b Mon Sep 17 00:00:00 2001
+From: Kevin Wang <Kevin1.Wang@amd.com>
+Date: Fri, 11 Jan 2019 15:07:52 +0800
+Subject: [PATCH 1409/2940] drm/amd/powerplay: implement sysfs of pp_table for
+ smu11 (v2)
+
+add pp_table sysfs interface for new sw-smu.
+get: return pptable raw data
+set: write pptable raw data to pptable, then reset smu (hw_fini -> hw_init)
+
+v2: fix mutex lock issue
+
+Signed-off-by: Kevin Wang <Kevin1.Wang@amd.com>
+Reviewed-by: Huang Rui <ray.huang@amd.com>
+Acked-by: Alex Deucher <alexander.deucher@amd.com>
+---
+ drivers/gpu/drm/amd/amdgpu/amdgpu_pm.c        | 14 +++-
+ drivers/gpu/drm/amd/powerplay/amdgpu_smu.c    | 73 ++++++++++++++++++-
+ .../gpu/drm/amd/powerplay/inc/amdgpu_smu.h    |  4 +
+ drivers/gpu/drm/amd/powerplay/smu_v11_0.c     |  6 +-
+ 4 files changed, 89 insertions(+), 8 deletions(-)
+
+diff --git a/drivers/gpu/drm/amd/amdgpu/amdgpu_pm.c b/drivers/gpu/drm/amd/amdgpu/amdgpu_pm.c
+index e2d423528135..7a9e658c42ad 100644
+--- a/drivers/gpu/drm/amd/amdgpu/amdgpu_pm.c
++++ b/drivers/gpu/drm/amd/amdgpu/amdgpu_pm.c
+@@ -464,7 +464,12 @@ static ssize_t amdgpu_get_pp_table(struct device *dev,
+ 	char *table = NULL;
+ 	int size;
+ 
+-	if (adev->powerplay.pp_funcs->get_pp_table)
++	if (is_support_sw_smu(adev)) {
++		size = smu_sys_get_pp_table(&adev->smu, (void **)&table);
++		if (size < 0)
++			return size;
++	}
++	else if (adev->powerplay.pp_funcs->get_pp_table)
+ 		size = amdgpu_dpm_get_pp_table(adev, &table);
+ 	else
+ 		return 0;
+@@ -484,8 +489,13 @@ static ssize_t amdgpu_set_pp_table(struct device *dev,
+ {
+ 	struct drm_device *ddev = dev_get_drvdata(dev);
+ 	struct amdgpu_device *adev = ddev->dev_private;
++	int ret = 0;
+ 
+-	if (adev->powerplay.pp_funcs->set_pp_table)
++	if (is_support_sw_smu(adev)) {
++		ret = smu_sys_set_pp_table(&adev->smu, (void *)buf, count);
++		if (ret)
++			return ret;
++	} else if (adev->powerplay.pp_funcs->set_pp_table)
+ 		amdgpu_dpm_set_pp_table(adev, buf, count);
+ 
+ 	return count;
+diff --git a/drivers/gpu/drm/amd/powerplay/amdgpu_smu.c b/drivers/gpu/drm/amd/powerplay/amdgpu_smu.c
+index f35c2177d13d..f17c85fc61e9 100644
+--- a/drivers/gpu/drm/amd/powerplay/amdgpu_smu.c
++++ b/drivers/gpu/drm/amd/powerplay/amdgpu_smu.c
+@@ -76,6 +76,54 @@ bool is_support_sw_smu(struct amdgpu_device *adev)
+ 	return false;
+ }
+ 
++int smu_sys_get_pp_table(struct smu_context *smu, void **table)
++{
++	struct smu_table_context *smu_table = &smu->smu_table;
++
++	if (!smu_table->power_play_table && !smu_table->hardcode_pptable)
++		return -EINVAL;
++
++	if (smu_table->hardcode_pptable)
++		*table = smu_table->hardcode_pptable;
++	else
++		*table = smu_table->power_play_table;
++
++	return smu_table->power_play_table_size;
++}
++
++int smu_sys_set_pp_table(struct smu_context *smu,  void *buf, size_t size)
++{
++	struct smu_table_context *smu_table = &smu->smu_table;
++	ATOM_COMMON_TABLE_HEADER *header = (ATOM_COMMON_TABLE_HEADER *)buf;
++	int ret = 0;
++
++	if (header->usStructureSize != size) {
++		pr_err("pp table size not matched !\n");
++		return -EIO;
++	}
++
++	mutex_lock(&smu->mutex);
++	if (!smu_table->hardcode_pptable)
++		smu_table->hardcode_pptable = kzalloc(size, GFP_KERNEL);
++	if (!smu_table->hardcode_pptable) {
++		ret = -ENOMEM;
++		goto failed;
++	}
++
++	memcpy(smu_table->hardcode_pptable, buf, size);
++	smu_table->power_play_table = smu_table->hardcode_pptable;
++	smu_table->power_play_table_size = size;
++	mutex_unlock(&smu->mutex);
++
++	ret = smu_reset(smu);
++	if (ret)
++		pr_info("smu reset failed, ret = %d\n", ret);
++
++failed:
++	mutex_unlock(&smu->mutex);
++	return ret;
++}
++
+ int smu_feature_init_dpm(struct smu_context *smu)
+ {
+ 	struct smu_feature *feature = &smu->smu_feature;
+@@ -328,7 +376,7 @@ static int smu_fini_fb_allocations(struct smu_context *smu)
+ 	uint32_t i = 0;
+ 
+ 	if (table_count == 0 || tables == NULL)
+-		return -EINVAL;
++		return 0;
+ 
+ 	for (i = 0 ; i < table_count; i++) {
+ 		if (tables[i].size == 0)
+@@ -590,9 +638,10 @@ static int smu_hw_fini(void *handle)
+ 	if (!is_support_sw_smu(adev))
+ 		return -EINVAL;
+ 
+-	if (!table_context->driver_pptable)
+-		return -EINVAL;
+-	kfree(table_context->driver_pptable);
++	if (table_context->driver_pptable) {
++		kfree(table_context->driver_pptable);
++		table_context->driver_pptable = NULL;
++	}
+ 
+ 	if (table_context->max_sustainable_clocks) {
+ 		kfree(table_context->max_sustainable_clocks);
+@@ -610,6 +659,22 @@ static int smu_hw_fini(void *handle)
+ 	return 0;
+ }
+ 
++int smu_reset(struct smu_context *smu)
++{
++	struct amdgpu_device *adev = smu->adev;
++	int ret = 0;
++
++	ret = smu_hw_fini(adev);
++	if (ret)
++		return ret;
++
++	ret = smu_hw_init(adev);
++	if (ret)
++		return ret;
++
++	return ret;
++}
++
+ static int smu_suspend(void *handle)
+ {
+ 	struct amdgpu_device *adev = (struct amdgpu_device *)handle;
+diff --git a/drivers/gpu/drm/amd/powerplay/inc/amdgpu_smu.h b/drivers/gpu/drm/amd/powerplay/inc/amdgpu_smu.h
+index 43c2b9e981f5..11e7797e2fae 100644
+--- a/drivers/gpu/drm/amd/powerplay/inc/amdgpu_smu.h
++++ b/drivers/gpu/drm/amd/powerplay/inc/amdgpu_smu.h
+@@ -158,6 +158,7 @@ struct smu_table_context
+ {
+ 	void				*power_play_table;
+ 	uint32_t			power_play_table_size;
++	void				*hardcode_pptable;
+ 
+ 	void				*max_sustainable_clocks;
+ 	struct smu_bios_boot_up_values	boot_values;
+@@ -372,5 +373,8 @@ extern int smu_feature_set_supported(struct smu_context *smu, int feature_id, bo
+ int smu_update_table(struct smu_context *smu, uint32_t table_id,
+ 		     void *table_data, bool drv2smu);
+ bool is_support_sw_smu(struct amdgpu_device *adev);
++int smu_reset(struct smu_context *smu);
++int smu_sys_get_pp_table(struct smu_context *smu, void **table);
++int smu_sys_set_pp_table(struct smu_context *smu,  void *buf, size_t size);
+ 
+ #endif
+diff --git a/drivers/gpu/drm/amd/powerplay/smu_v11_0.c b/drivers/gpu/drm/amd/powerplay/smu_v11_0.c
+index e6b16b64a778..7ea19eb5896d 100644
+--- a/drivers/gpu/drm/amd/powerplay/smu_v11_0.c
++++ b/drivers/gpu/drm/amd/powerplay/smu_v11_0.c
+@@ -241,8 +241,10 @@ static int smu_v11_0_read_pptable_from_vbios(struct smu_context *smu)
+ 	if (ret)
+ 		return ret;
+ 
+-	smu->smu_table.power_play_table = table;
+-	smu->smu_table.power_play_table_size = size;
++	if (!smu->smu_table.power_play_table)
++		smu->smu_table.power_play_table = table;
++	if (!smu->smu_table.power_play_table_size)
++		smu->smu_table.power_play_table_size = size;
+ 
+ 	return 0;
+ }
+-- 
+2.17.1
+

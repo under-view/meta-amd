@@ -1,0 +1,68 @@
+From b9bc4e315d80a3459608bf872190b9ac1b630046 Mon Sep 17 00:00:00 2001
+From: Jun Lei <Jun.Lei@amd.com>
+Date: Thu, 7 Feb 2019 18:54:35 -0500
+Subject: [PATCH 1308/2940] drm/amd/display: Add ability to override bounding
+ box in DC construct
+
+Add a dc_bounding_box_overrides struct to define bb overrides. It is
+loaded in during DC init.
+
+Signed-off-by: Jun Lei <Jun.Lei@amd.com>
+Reviewed-by: Tony Cheng <Tony.Cheng@amd.com>
+Acked-by: Leo Li <sunpeng.li@amd.com>
+---
+ drivers/gpu/drm/amd/display/dc/core/dc.c |  2 ++
+ drivers/gpu/drm/amd/display/dc/dc.h      | 10 ++++++++++
+ 2 files changed, 12 insertions(+)
+
+diff --git a/drivers/gpu/drm/amd/display/dc/core/dc.c b/drivers/gpu/drm/amd/display/dc/core/dc.c
+index 73660bf903ae..d400b563ab8c 100644
+--- a/drivers/gpu/drm/amd/display/dc/core/dc.c
++++ b/drivers/gpu/drm/amd/display/dc/core/dc.c
+@@ -621,6 +621,8 @@ static bool construct(struct dc *dc,
+ #endif
+ 
+ 	enum dce_version dc_version = DCE_VERSION_UNKNOWN;
++	memcpy(&dc->bb_overrides, &init_params->bb_overrides, sizeof(dc->bb_overrides));
++
+ 	dc_dceip = kzalloc(sizeof(*dc_dceip), GFP_KERNEL);
+ 	if (!dc_dceip) {
+ 		dm_error("%s: failed to create dceip\n", __func__);
+diff --git a/drivers/gpu/drm/amd/display/dc/dc.h b/drivers/gpu/drm/amd/display/dc/dc.h
+index 31a2ca998032..fef18ebcdf15 100644
+--- a/drivers/gpu/drm/amd/display/dc/dc.h
++++ b/drivers/gpu/drm/amd/display/dc/dc.h
+@@ -268,6 +268,14 @@ struct dc_debug_data {
+ 	uint32_t auxErrorCount;
+ };
+ 
++struct dc_bounding_box_overrides {
++	int sr_exit_time_ns;
++	int sr_enter_plus_exit_time_ns;
++	int urgent_latency_ns;
++	int percent_of_ideal_drambw;
++	int dram_clock_change_latency_ns;
++};
++
+ struct dc_state;
+ struct resource_pool;
+ struct dce_hwseq;
+@@ -277,6 +285,7 @@ struct dc {
+ 	struct dc_cap_funcs cap_funcs;
+ 	struct dc_config config;
+ 	struct dc_debug_options debug;
++	struct dc_bounding_box_overrides bb_overrides;
+ 	struct dc_context *ctx;
+ 
+ 	uint8_t link_count;
+@@ -330,6 +339,7 @@ struct dc_init_data {
+ 	struct hw_asic_id asic_id;
+ 	void *driver; /* ctx */
+ 	struct cgs_device *cgs_device;
++	struct dc_bounding_box_overrides bb_overrides;
+ 
+ 	int num_virtual_links;
+ 	/*
+-- 
+2.17.1
+

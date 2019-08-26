@@ -1,0 +1,31 @@
+From 6629168e2dfb00bf3431c5817971096b20df790e Mon Sep 17 00:00:00 2001
+From: Charlene Liu <charlene.liu@amd.com>
+Date: Thu, 31 Jan 2019 20:39:16 -0500
+Subject: [PATCH 1289/2940] drm/amd/display: Add disable triple buffering DC
+ debug option
+
+Added a "disable_tri_buf" DC debug option. When set to 1  feature will
+be off.
+
+Signed-off-by: Charlene Liu <charlene.liu@amd.com>
+Reviewed-by: Dmytro Laktyushkin <Dmytro.Laktyushkin@amd.com>
+Acked-by: Leo Li <sunpeng.li@amd.com>
+---
+ drivers/gpu/drm/amd/display/dc/dc.h | 1 +
+ 1 file changed, 1 insertion(+)
+
+diff --git a/drivers/gpu/drm/amd/display/dc/dc.h b/drivers/gpu/drm/amd/display/dc/dc.h
+index 3081a4b7b456..6fd7ff0a243a 100644
+--- a/drivers/gpu/drm/amd/display/dc/dc.h
++++ b/drivers/gpu/drm/amd/display/dc/dc.h
+@@ -257,6 +257,7 @@ struct dc_debug_options {
+ 	bool skip_detection_link_training;
+ 	unsigned int force_odm_combine; //bit vector based on otg inst
+ 	unsigned int force_fclk_khz;
++	bool disable_tri_buf;
+ };
+ 
+ struct dc_debug_data {
+-- 
+2.17.1
+

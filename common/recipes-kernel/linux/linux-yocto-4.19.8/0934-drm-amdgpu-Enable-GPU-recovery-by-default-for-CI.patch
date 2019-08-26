@@ -1,0 +1,30 @@
+From f106fc22fe7d880d8868dc1f20ce80f98046ca70 Mon Sep 17 00:00:00 2001
+From: Andrey Grodzovsky <andrey.grodzovsky@amd.com>
+Date: Tue, 11 Dec 2018 15:31:35 -0500
+Subject: [PATCH 0934/2940] drm/amdgpu: Enable GPU recovery by default for CI
+
+I retested Bonaire (gfx7 dGPU) and it works fine.
+
+Signed-off-by: Andrey Grodzovsky <andrey.grodzovsky@amd.com>
+Reviewed-by: Alex Deucher <alexander.deucher@amd.com>
+Signed-off-by: Alex Deucher <alexander.deucher@amd.com>
+---
+ drivers/gpu/drm/amd/amdgpu/amdgpu_device.c | 2 ++
+ 1 file changed, 2 insertions(+)
+
+diff --git a/drivers/gpu/drm/amd/amdgpu/amdgpu_device.c b/drivers/gpu/drm/amd/amdgpu/amdgpu_device.c
+index e97b6af48551..59d07e35578f 100644
+--- a/drivers/gpu/drm/amd/amdgpu/amdgpu_device.c
++++ b/drivers/gpu/drm/amd/amdgpu/amdgpu_device.c
+@@ -3307,6 +3307,8 @@ bool amdgpu_device_should_recover_gpu(struct amdgpu_device *adev)
+ 
+ 	if (amdgpu_gpu_recovery == -1) {
+ 		switch (adev->asic_type) {
++		case CHIP_BONAIRE:
++		case CHIP_HAWAII:
+ 		case CHIP_TOPAZ:
+ 		case CHIP_TONGA:
+ 		case CHIP_FIJI:
+-- 
+2.17.1
+

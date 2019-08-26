@@ -1,0 +1,242 @@
+From cb301ecbc34e12788c4f19ec0126f1f946f61d24 Mon Sep 17 00:00:00 2001
+From: Charlene Liu <Charlene.Liu@amd.com>
+Date: Wed, 13 Feb 2019 19:48:31 -0500
+Subject: [PATCH 1538/2940] Revert "drm/amd/display: dcn add check surface
+ in_use"
+
+This reverts commit 39f8d3f6214c1677522de58af02a7cb83205df69.
+
+[Description]
+Revert since this will be checked at CP side.
+
+Change-Id: I8c54613dde174ffa90cc8a1ba03fe360e25a1d85
+Signed-off-by: Charlene Liu <Charlene.Liu@amd.com>
+Reviewed-by: Tony Cheng <Tony.Cheng@amd.com>
+Acked-by: Bhawanpreet Lakha <Bhawanpreet.Lakha@amd.com>
+---
+ drivers/gpu/drm/amd/display/dc/core/dc.c      |  3 --
+ .../drm/amd/display/dc/dcn10/dcn10_hubbub.c   | 46 -------------------
+ .../drm/amd/display/dc/dcn10/dcn10_hubbub.h   | 25 ++--------
+ .../amd/display/dc/dcn10/dcn10_hw_sequencer.c | 22 +--------
+ .../gpu/drm/amd/display/dc/inc/hw/dchubbub.h  |  3 --
+ .../gpu/drm/amd/display/dc/inc/hw_sequencer.h |  2 -
+ 6 files changed, 4 insertions(+), 97 deletions(-)
+
+diff --git a/drivers/gpu/drm/amd/display/dc/core/dc.c b/drivers/gpu/drm/amd/display/dc/core/dc.c
+index 9bcf8b3983c2..20b0f03151d1 100644
+--- a/drivers/gpu/drm/amd/display/dc/core/dc.c
++++ b/drivers/gpu/drm/amd/display/dc/core/dc.c
+@@ -1755,9 +1755,6 @@ static void commit_planes_for_stream(struct dc *dc,
+ 
+ 			if (!pipe_ctx->plane_state)
+ 				continue;
+-			/*make sure hw finished surface update*/
+-			if (dc->hwss.wait_surface_safe_to_update)
+-				dc->hwss.wait_surface_safe_to_update(dc, pipe_ctx);
+ 
+ 			/* Full fe update*/
+ 			if (update_type == UPDATE_TYPE_FAST)
+diff --git a/drivers/gpu/drm/amd/display/dc/dcn10/dcn10_hubbub.c b/drivers/gpu/drm/amd/display/dc/dcn10/dcn10_hubbub.c
+index 9c6217b99692..e161ad836812 100644
+--- a/drivers/gpu/drm/amd/display/dc/dcn10/dcn10_hubbub.c
++++ b/drivers/gpu/drm/amd/display/dc/dcn10/dcn10_hubbub.c
+@@ -642,50 +642,6 @@ void hubbub1_soft_reset(struct hubbub *hubbub, bool reset)
+ 			DCHUBBUB_GLOBAL_SOFT_RESET, reset_en);
+ }
+ 
+-static bool hubbub1_is_surf_still_in_update(struct hubbub *hubbub, uint32_t hbup_inst)
+-{
+-	struct dcn10_hubbub *hubbub1 = TO_DCN10_HUBBUB(hubbub);
+-	uint32_t still_used_by_dcn = 0;
+-
+-	switch (hbup_inst) {
+-	case 0:
+-		REG_GET(SURFACE_CHECK0_ADDRESS_MSB,
+-			CHECKER0_SURFACE_INUSE,
+-			&still_used_by_dcn);
+-		break;
+-	case 1:
+-		REG_GET(SURFACE_CHECK1_ADDRESS_MSB,
+-			CHECKER1_SURFACE_INUSE,
+-			&still_used_by_dcn);
+-		break;
+-	case 2:
+-		REG_GET(SURFACE_CHECK2_ADDRESS_MSB,
+-			CHECKER2_SURFACE_INUSE,
+-			&still_used_by_dcn);
+-		break;
+-	case 3:
+-		REG_GET(SURFACE_CHECK3_ADDRESS_MSB,
+-			CHECKER3_SURFACE_INUSE,
+-			&still_used_by_dcn);
+-		break;
+-	default:
+-		break;
+-	}
+-	return (still_used_by_dcn == 1);
+-}
+-
+-void hubbub1_wait_for_safe_surf_update(struct hubbub *hubbub, uint32_t hbup_inst)
+-{
+-	uint32_t still_used_by_dcn = 0, count = 0;
+-
+-	do {
+-		still_used_by_dcn = hubbub1_is_surf_still_in_update(hubbub, hbup_inst);
+-		udelay(1);
+-		count++;
+-	} while (still_used_by_dcn == 1 && count < 100);
+-	ASSERT(count < 100);
+-}
+-
+ static bool hubbub1_dcc_support_swizzle(
+ 		enum swizzle_mode_values swizzle,
+ 		unsigned int bytes_per_element,
+@@ -904,14 +860,12 @@ static bool hubbub1_get_dcc_compression_cap(struct hubbub *hubbub,
+ 	return true;
+ }
+ 
+-
+ static const struct hubbub_funcs hubbub1_funcs = {
+ 	.update_dchub = hubbub1_update_dchub,
+ 	.dcc_support_swizzle = hubbub1_dcc_support_swizzle,
+ 	.dcc_support_pixel_format = hubbub1_dcc_support_pixel_format,
+ 	.get_dcc_compression_cap = hubbub1_get_dcc_compression_cap,
+ 	.wm_read_state = hubbub1_wm_read_state,
+-	.wait_for_surf_safe_update = hubbub1_wait_for_safe_surf_update,
+ };
+ 
+ void hubbub1_construct(struct hubbub *hubbub,
+diff --git a/drivers/gpu/drm/amd/display/dc/dcn10/dcn10_hubbub.h b/drivers/gpu/drm/amd/display/dc/dcn10/dcn10_hubbub.h
+index f352e7ab0da6..9cd4a5194154 100644
+--- a/drivers/gpu/drm/amd/display/dc/dcn10/dcn10_hubbub.h
++++ b/drivers/gpu/drm/amd/display/dc/dcn10/dcn10_hubbub.h
+@@ -52,11 +52,7 @@
+ 	SR(DCHUBBUB_GLOBAL_TIMER_CNTL), \
+ 	SR(DCHUBBUB_TEST_DEBUG_INDEX), \
+ 	SR(DCHUBBUB_TEST_DEBUG_DATA),\
+-	SR(DCHUBBUB_SOFT_RESET),\
+-	SR(SURFACE_CHECK0_ADDRESS_MSB),\
+-	SR(SURFACE_CHECK1_ADDRESS_MSB),\
+-	SR(SURFACE_CHECK2_ADDRESS_MSB),\
+-	SR(SURFACE_CHECK3_ADDRESS_MSB)
++	SR(DCHUBBUB_SOFT_RESET)
+ 
+ #define HUBBUB_SR_WATERMARK_REG_LIST()\
+ 	SR(DCHUBBUB_ARB_ALLOW_SR_ENTER_WATERMARK_A),\
+@@ -120,10 +116,6 @@ struct dcn_hubbub_registers {
+ 	uint32_t DCN_VM_AGP_BOT;
+ 	uint32_t DCN_VM_AGP_TOP;
+ 	uint32_t DCN_VM_AGP_BASE;
+-	uint32_t SURFACE_CHECK0_ADDRESS_MSB;
+-	uint32_t SURFACE_CHECK1_ADDRESS_MSB;
+-	uint32_t SURFACE_CHECK2_ADDRESS_MSB;
+-	uint32_t SURFACE_CHECK3_ADDRESS_MSB;
+ };
+ 
+ /* set field name */
+@@ -141,11 +133,7 @@ struct dcn_hubbub_registers {
+ 		HUBBUB_SF(DCHUBBUB_ARB_DRAM_STATE_CNTL, DCHUBBUB_ARB_ALLOW_PSTATE_CHANGE_FORCE_VALUE, mask_sh), \
+ 		HUBBUB_SF(DCHUBBUB_ARB_DRAM_STATE_CNTL, DCHUBBUB_ARB_ALLOW_PSTATE_CHANGE_FORCE_ENABLE, mask_sh), \
+ 		HUBBUB_SF(DCHUBBUB_ARB_SAT_LEVEL, DCHUBBUB_ARB_SAT_LEVEL, mask_sh), \
+-		HUBBUB_SF(DCHUBBUB_ARB_DF_REQ_OUTSTAND, DCHUBBUB_ARB_MIN_REQ_OUTSTAND, mask_sh),\
+-		HUBBUB_SF(SURFACE_CHECK0_ADDRESS_MSB, CHECKER0_SURFACE_INUSE, mask_sh),\
+-		HUBBUB_SF(SURFACE_CHECK1_ADDRESS_MSB, CHECKER1_SURFACE_INUSE, mask_sh),\
+-		HUBBUB_SF(SURFACE_CHECK2_ADDRESS_MSB, CHECKER2_SURFACE_INUSE, mask_sh),\
+-		HUBBUB_SF(SURFACE_CHECK3_ADDRESS_MSB, CHECKER3_SURFACE_INUSE, mask_sh)
++		HUBBUB_SF(DCHUBBUB_ARB_DF_REQ_OUTSTAND, DCHUBBUB_ARB_MIN_REQ_OUTSTAND, mask_sh)
+ 
+ #define HUBBUB_MASK_SH_LIST_DCN10(mask_sh)\
+ 		HUBBUB_MASK_SH_LIST_DCN(mask_sh), \
+@@ -179,12 +167,7 @@ struct dcn_hubbub_registers {
+ 		type FB_OFFSET;\
+ 		type AGP_BOT;\
+ 		type AGP_TOP;\
+-		type AGP_BASE;\
+-		type CHECKER0_SURFACE_INUSE;\
+-		type CHECKER1_SURFACE_INUSE;\
+-		type CHECKER2_SURFACE_INUSE;\
+-		type CHECKER3_SURFACE_INUSE
+-
++		type AGP_BASE
+ 
+ 
+ struct dcn_hubbub_shift {
+@@ -232,8 +215,6 @@ void hubbub1_wm_read_state(struct hubbub *hubbub,
+ 		struct dcn_hubbub_wm *wm);
+ 
+ void hubbub1_soft_reset(struct hubbub *hubbub, bool reset);
+-
+-void hubbub1_wait_for_safe_surf_update(struct hubbub *hubbub, uint32_t hbup_inst);
+ void hubbub1_construct(struct hubbub *hubbub,
+ 	struct dc_context *ctx,
+ 	const struct dcn_hubbub_registers *hubbub_regs,
+diff --git a/drivers/gpu/drm/amd/display/dc/dcn10/dcn10_hw_sequencer.c b/drivers/gpu/drm/amd/display/dc/dcn10/dcn10_hw_sequencer.c
+index c1b9bca3be76..e51c5041968c 100644
+--- a/drivers/gpu/drm/amd/display/dc/dcn10/dcn10_hw_sequencer.c
++++ b/drivers/gpu/drm/amd/display/dc/dcn10/dcn10_hw_sequencer.c
+@@ -88,24 +88,6 @@ static void log_mpc_crc(struct dc *dc,
+ 		REG_READ(DPP_TOP0_DPP_CRC_VAL_B_A), REG_READ(DPP_TOP0_DPP_CRC_VAL_R_G));
+ }
+ 
+-void dcn10_wait_for_surface_safe_to_use(struct dc *dc,
+-	struct pipe_ctx *pipe_ctx)
+-{
+-	struct hubbub *hubbub = dc->res_pool->hubbub;
+-
+-	if (!pipe_ctx->plane_state)
+-		return;
+-	if (!pipe_ctx->stream)
+-		return;
+-
+-	if (!pipe_ctx->plane_state->visible)
+-		return;
+-	if (hubbub->funcs->wait_for_surf_safe_update) {
+-		hubbub->funcs->wait_for_surf_safe_update(dc->res_pool->hubbub,
+-			pipe_ctx->plane_res.hubp->inst);
+-	}
+-}
+-
+ void dcn10_log_hubbub_state(struct dc *dc, struct dc_log_buffer_ctx *log_ctx)
+ {
+ 	struct dc_context *dc_ctx = dc->ctx;
+@@ -2968,9 +2950,7 @@ static const struct hw_sequencer_funcs dcn10_funcs = {
+ 	.disable_stream_gating = NULL,
+ 	.enable_stream_gating = NULL,
+ 	.setup_periodic_interrupt = dcn10_setup_periodic_interrupt,
+-	.setup_vupdate_interrupt = dcn10_setup_vupdate_interrupt,
+-	.wait_surface_safe_to_update = dcn10_wait_for_surface_safe_to_use,
+-
++	.setup_vupdate_interrupt = dcn10_setup_vupdate_interrupt
+ };
+ 
+ 
+diff --git a/drivers/gpu/drm/amd/display/dc/inc/hw/dchubbub.h b/drivers/gpu/drm/amd/display/dc/inc/hw/dchubbub.h
+index ac97d18d5568..9d2d8e51306c 100644
+--- a/drivers/gpu/drm/amd/display/dc/inc/hw/dchubbub.h
++++ b/drivers/gpu/drm/amd/display/dc/inc/hw/dchubbub.h
+@@ -73,9 +73,6 @@ struct hubbub_funcs {
+ 
+ 	void (*wm_read_state)(struct hubbub *hubbub,
+ 			struct dcn_hubbub_wm *wm);
+-
+-	void (*wait_for_surf_safe_update)(struct hubbub *hubbub,
+-			uint32_t hbup_inst);
+ };
+ 
+ struct hubbub {
+diff --git a/drivers/gpu/drm/amd/display/dc/inc/hw_sequencer.h b/drivers/gpu/drm/amd/display/dc/inc/hw_sequencer.h
+index 0ede4b604b77..7676f25216b1 100644
+--- a/drivers/gpu/drm/amd/display/dc/inc/hw_sequencer.h
++++ b/drivers/gpu/drm/amd/display/dc/inc/hw_sequencer.h
+@@ -232,8 +232,6 @@ struct hw_sequencer_funcs {
+ 	void (*setup_periodic_interrupt)(struct pipe_ctx *pipe_ctx, enum vline_select vline);
+ 	void (*setup_vupdate_interrupt)(struct pipe_ctx *pipe_ctx);
+ 
+-	void (*wait_surface_safe_to_update)(struct dc *dc,
+-			struct pipe_ctx *pipe_ctx);
+ };
+ 
+ void color_space_to_black_color(
+-- 
+2.17.1
+

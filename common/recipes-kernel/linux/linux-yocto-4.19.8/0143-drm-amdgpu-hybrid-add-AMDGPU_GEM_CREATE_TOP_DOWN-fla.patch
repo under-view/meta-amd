@@ -1,0 +1,59 @@
+From a574b1403145f0db90aa0a29a6661cfaf50d986f Mon Sep 17 00:00:00 2001
+From: Flora Cui <Flora.Cui@amd.com>
+Date: Thu, 1 Sep 2016 12:33:01 +0800
+Subject: [PATCH 0143/2940] drm/amdgpu: [hybrid] add AMDGPU_GEM_CREATE_TOP_DOWN
+ flag
+
+so that the buffer could be allocated from the top of domain
+
+Change-Id: I7dc4ba02b78b18330c7fe00841970ab9cccbded5
+Signed-off-by: Flora Cui <Flora.Cui@amd.com>
+Reviewed-by: Hawking Zhang <Hawking.Zhang@amd.com>
+Signed-off-by: Kalyan Alle <kalyan.alle@amd.com>
+
+Conflicts:
+      drivers/gpu/drm/amd/amdgpu/amdgpu_object.c
+---
+ drivers/gpu/drm/amd/amdgpu/amdgpu_object.c | 5 ++++-
+ include/uapi/drm/amdgpu_drm.h              | 2 ++
+ 2 files changed, 6 insertions(+), 1 deletion(-)
+
+diff --git a/drivers/gpu/drm/amd/amdgpu/amdgpu_object.c b/drivers/gpu/drm/amd/amdgpu/amdgpu_object.c
+index 800ae7ee42c3..e62c9601bb60 100644
+--- a/drivers/gpu/drm/amd/amdgpu/amdgpu_object.c
++++ b/drivers/gpu/drm/amd/amdgpu/amdgpu_object.c
+@@ -141,7 +141,7 @@ void amdgpu_bo_placement_from_domain(struct amdgpu_bo *abo, u32 domain)
+ 	struct ttm_placement *placement = &abo->placement;
+ 	struct ttm_place *places = abo->placements;
+ 	u64 flags = abo->flags;
+-	u32 c = 0;
++	u32 c = 0, i;
+ 
+ 	if (domain & AMDGPU_GEM_DOMAIN_VRAM) {
+ 		unsigned visible_pfn = adev->gmc.visible_vram_size >> PAGE_SHIFT;
+@@ -218,6 +218,9 @@ void amdgpu_bo_placement_from_domain(struct amdgpu_bo *abo, u32 domain)
+ 
+ 	BUG_ON(c >= AMDGPU_BO_MAX_PLACEMENTS);
+ 
++	for (i = 0; i < c; i++)
++		if (flags & AMDGPU_GEM_CREATE_TOP_DOWN)
++			places[i].flags |= TTM_PL_FLAG_TOPDOWN;
+ 	placement->num_placement = c;
+ 	placement->placement = places;
+ 
+diff --git a/include/uapi/drm/amdgpu_drm.h b/include/uapi/drm/amdgpu_drm.h
+index a2829eb514c3..baf299d3282d 100644
+--- a/include/uapi/drm/amdgpu_drm.h
++++ b/include/uapi/drm/amdgpu_drm.h
+@@ -133,6 +133,8 @@ extern "C" {
+ #define AMDGPU_GEM_CREATE_MQD_GFX9		(1 << 8)
+ 
+ /* hybrid specific */
++/* Flag that the memory allocation should be from top of domain */
++#define AMDGPU_GEM_CREATE_TOP_DOWN              (1ULL << 30)
+ /* Flag that the memory allocation should be pinned */
+ #define AMDGPU_GEM_CREATE_NO_EVICT              (1ULL << 31)
+ 
+-- 
+2.17.1
+

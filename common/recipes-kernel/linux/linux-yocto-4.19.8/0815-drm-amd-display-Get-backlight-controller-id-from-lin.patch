@@ -1,0 +1,45 @@
+From 1a2c10866e21c0fbb5f94164c9ca05cae324ee0e Mon Sep 17 00:00:00 2001
+From: David Francis <David.Francis@amd.com>
+Date: Thu, 25 Oct 2018 15:47:43 -0400
+Subject: [PATCH 0815/2940] drm/amd/display: Get backlight controller id from
+ link
+
+[Why]
+dc_link_set_backlight_level can be called from a context
+where the stream is unknown.  In this case, we can still
+find which controller is driving this particular backlight
+
+[How]
+Compare links for equality instead of streams
+
+Signed-off-by: David Francis <David.Francis@amd.com>
+Reviewed-by: Nicholas Kazlauskas <Nicholas.Kazlauskas@amd.com>
+Acked-by: Bhawanpreet Lakha <Bhawanpreet.Lakha@amd.com>
+Signed-off-by: Alex Deucher <alexander.deucher@amd.com>
+---
+ drivers/gpu/drm/amd/display/dc/core/dc_link.c | 8 ++++----
+ 1 file changed, 4 insertions(+), 4 deletions(-)
+
+diff --git a/drivers/gpu/drm/amd/display/dc/core/dc_link.c b/drivers/gpu/drm/amd/display/dc/core/dc_link.c
+index 7494ed791ef1..83c2f757a5fb 100644
+--- a/drivers/gpu/drm/amd/display/dc/core/dc_link.c
++++ b/drivers/gpu/drm/amd/display/dc/core/dc_link.c
+@@ -2173,11 +2173,11 @@ bool dc_link_set_backlight_level(const struct dc_link *link,
+ 			backlight_pwm_u16_16, backlight_pwm_u16_16);
+ 
+ 	if (dc_is_embedded_signal(link->connector_signal)) {
+-		if (stream != NULL) {
+-			for (i = 0; i < MAX_PIPES; i++) {
++		for (i = 0; i < MAX_PIPES; i++) {
++			if (core_dc->current_state->res_ctx.pipe_ctx[i].stream) {
+ 				if (core_dc->current_state->res_ctx.
+-						pipe_ctx[i].stream
+-						== stream)
++						pipe_ctx[i].stream->sink->link
++						== link)
+ 					/* DMCU -1 for all controller id values,
+ 					 * therefore +1 here
+ 					 */
+-- 
+2.17.1
+

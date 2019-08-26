@@ -1,0 +1,29 @@
+From 5e7261be09dda354534d78bd5619dfac40722f59 Mon Sep 17 00:00:00 2001
+From: Alex Deucher <alexander.deucher@amd.com>
+Date: Sun, 10 Feb 2019 21:50:53 -0500
+Subject: [PATCH 1316/2940] drm/amdgpu: use BACO on vega12 if platform supports
+ it
+
+Use BACO for reset of the platform supports it.
+
+Reviewed-by: Hawking Zhang <Hawking.Zhang@amd.com>
+Signed-off-by: Alex Deucher <alexander.deucher@amd.com>
+---
+ drivers/gpu/drm/amd/amdgpu/soc15.c | 1 +
+ 1 file changed, 1 insertion(+)
+
+diff --git a/drivers/gpu/drm/amd/amdgpu/soc15.c b/drivers/gpu/drm/amd/amdgpu/soc15.c
+index 797408a4d8a5..dee6873a2025 100644
+--- a/drivers/gpu/drm/amd/amdgpu/soc15.c
++++ b/drivers/gpu/drm/amd/amdgpu/soc15.c
+@@ -461,6 +461,7 @@ static int soc15_asic_reset(struct amdgpu_device *adev)
+ 
+ 	switch (adev->asic_type) {
+ 	case CHIP_VEGA10:
++	case CHIP_VEGA12:
+ 	case CHIP_VEGA20:
+ 		soc15_asic_get_baco_capability(adev, &baco_reset);
+ 		break;
+-- 
+2.17.1
+

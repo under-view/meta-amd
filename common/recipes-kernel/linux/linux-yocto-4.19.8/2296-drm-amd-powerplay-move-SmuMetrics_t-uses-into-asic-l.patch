@@ -1,0 +1,203 @@
+From 5ab960636126cd479d9deb3e4b96a3ddf4ce946b Mon Sep 17 00:00:00 2001
+From: Huang Rui <ray.huang@amd.com>
+Date: Sun, 31 Mar 2019 14:53:23 +0800
+Subject: [PATCH 2296/2940] drm/amd/powerplay: move SmuMetrics_t uses into asic
+ level
+
+This patch moves the rest of SmuMetrics_t uses into asic level. It's to avoid the
+conflicts with different asic.
+
+Signed-off-by: Huang Rui <ray.huang@amd.com>
+Reviewed-by: Kevin Wang <kevin1.wang@amd.com>
+Reviewed-by: Alex Deucher <alexander.deucher@amd.com>
+Reviewed-by: Hawking Zhang <Hawking.Zhang@amd.com>
+Signed-off-by: Alex Deucher <alexander.deucher@amd.com>
+---
+ .../gpu/drm/amd/powerplay/inc/amdgpu_smu.h    |  8 +++
+ drivers/gpu/drm/amd/powerplay/smu_v11_0.c     | 54 ++-----------------
+ drivers/gpu/drm/amd/powerplay/vega20_ppt.c    | 50 +++++++++++++++++
+ 3 files changed, 62 insertions(+), 50 deletions(-)
+
+diff --git a/drivers/gpu/drm/amd/powerplay/inc/amdgpu_smu.h b/drivers/gpu/drm/amd/powerplay/inc/amdgpu_smu.h
+index 856846b6fd27..7fa03eca4a08 100644
+--- a/drivers/gpu/drm/amd/powerplay/inc/amdgpu_smu.h
++++ b/drivers/gpu/drm/amd/powerplay/inc/amdgpu_smu.h
+@@ -571,6 +571,10 @@ struct pptable_funcs {
+ 	void (*tables_init)(struct smu_context *smu, struct smu_table *tables);
+ 	int (*set_thermal_fan_table)(struct smu_context *smu);
+ 	int (*get_fan_speed_percent)(struct smu_context *smu, uint32_t *speed);
++	int (*get_gpu_power)(struct smu_context *smu, uint32_t *value);
++	int (*get_current_activity_percent)(struct smu_context *smu,
++					    enum amd_pp_sensors sensor,
++					    uint32_t *value);
+ };
+ 
+ struct smu_funcs
+@@ -798,6 +802,10 @@ struct smu_funcs
+ 	((smu)->funcs->set_fan_control_mode ? (smu)->funcs->set_fan_control_mode((smu), (value)) : 0)
+ #define smu_get_fan_speed_percent(smu, speed) \
+ 	((smu)->ppt_funcs->get_fan_speed_percent ? (smu)->ppt_funcs->get_fan_speed_percent((smu), (speed)) : 0)
++#define smu_get_gpu_power(smu, val) \
++	((smu)->ppt_funcs->get_gpu_power ? (smu)->ppt_funcs->get_gpu_power((smu), (val)) : 0)
++#define smu_get_current_activity_percent(smu, val) \
++	((smu)->ppt_funcs->get_current_activity_percent ? (smu)->ppt_funcs->get_current_activity_percent((smu), (sensor), (val)) : 0)
+ #define smu_set_fan_speed_percent(smu, speed) \
+ 	((smu)->funcs->set_fan_speed_percent ? (smu)->funcs->set_fan_speed_percent((smu), (speed)) : 0)
+ 
+diff --git a/drivers/gpu/drm/amd/powerplay/smu_v11_0.c b/drivers/gpu/drm/amd/powerplay/smu_v11_0.c
+index 1d5fdf9e4a86..103e8bc3a7b9 100644
+--- a/drivers/gpu/drm/amd/powerplay/smu_v11_0.c
++++ b/drivers/gpu/drm/amd/powerplay/smu_v11_0.c
+@@ -1231,35 +1231,6 @@ static int smu_v11_0_get_metrics_table(struct smu_context *smu,
+ 	return ret;
+ }
+ 
+-static int smu_v11_0_get_current_activity_percent(struct smu_context *smu,
+-						  enum amd_pp_sensors sensor,
+-						  uint32_t *value)
+-{
+-	int ret = 0;
+-	SmuMetrics_t metrics;
+-
+-	if (!value)
+-		return -EINVAL;
+-
+-	ret = smu_v11_0_get_metrics_table(smu, &metrics);
+-	if (ret)
+-		return ret;
+-
+-	switch (sensor) {
+-	case AMDGPU_PP_SENSOR_GPU_LOAD:
+-		*value = metrics.AverageGfxActivity;
+-		break;
+-	case AMDGPU_PP_SENSOR_MEM_LOAD:
+-		*value = metrics.AverageUclkActivity;
+-		break;
+-	default:
+-		pr_err("Invalid sensor for retrieving clock activity\n");
+-		return -EINVAL;
+-	}
+-
+-	return 0;
+-}
+-
+ static int smu_v11_0_thermal_get_temperature(struct smu_context *smu,
+ 					     enum amd_pp_sensors sensor,
+ 					     uint32_t *value)
+@@ -1303,23 +1274,6 @@ static int smu_v11_0_thermal_get_temperature(struct smu_context *smu,
+ 	return 0;
+ }
+ 
+-static int smu_v11_0_get_gpu_power(struct smu_context *smu, uint32_t *value)
+-{
+-	int ret = 0;
+-	SmuMetrics_t metrics;
+-
+-	if (!value)
+-		return -EINVAL;
+-
+-	ret = smu_v11_0_get_metrics_table(smu, &metrics);
+-	if (ret)
+-		return ret;
+-
+-	*value = metrics.CurrSocketPower << 8;
+-
+-	return 0;
+-}
+-
+ static uint16_t convert_to_vddc(uint8_t vid)
+ {
+ 	return (uint16_t) ((6200 - (vid * 25)) / SMU11_VOLTAGE_SCALE);
+@@ -1354,9 +1308,9 @@ static int smu_v11_0_read_sensor(struct smu_context *smu,
+ 	switch (sensor) {
+ 	case AMDGPU_PP_SENSOR_GPU_LOAD:
+ 	case AMDGPU_PP_SENSOR_MEM_LOAD:
+-		ret = smu_v11_0_get_current_activity_percent(smu,
+-							     sensor,
+-							     (uint32_t *)data);
++		ret = smu_get_current_activity_percent(smu,
++						       sensor,
++						       (uint32_t *)data);
+ 		*size = 4;
+ 		break;
+ 	case AMDGPU_PP_SENSOR_GFX_MCLK:
+@@ -1374,7 +1328,7 @@ static int smu_v11_0_read_sensor(struct smu_context *smu,
+ 		*size = 4;
+ 		break;
+ 	case AMDGPU_PP_SENSOR_GPU_POWER:
+-		ret = smu_v11_0_get_gpu_power(smu, (uint32_t *)data);
++		ret = smu_get_gpu_power(smu, (uint32_t *)data);
+ 		*size = 4;
+ 		break;
+ 	case AMDGPU_PP_SENSOR_VDDGFX:
+diff --git a/drivers/gpu/drm/amd/powerplay/vega20_ppt.c b/drivers/gpu/drm/amd/powerplay/vega20_ppt.c
+index 2367bcc45468..75c86c4b2ece 100644
+--- a/drivers/gpu/drm/amd/powerplay/vega20_ppt.c
++++ b/drivers/gpu/drm/amd/powerplay/vega20_ppt.c
+@@ -2987,6 +2987,54 @@ static int vega20_get_fan_speed_percent(struct smu_context *smu,
+ 	return ret;
+ }
+ 
++static int vega20_get_gpu_power(struct smu_context *smu, uint32_t *value)
++{
++	int ret = 0;
++	SmuMetrics_t metrics;
++
++	if (!value)
++		return -EINVAL;
++
++	ret = smu_update_table(smu, SMU_TABLE_SMU_METRICS, (void *)&metrics,
++			       false);
++	if (ret)
++		return ret;
++
++	*value = metrics.CurrSocketPower << 8;
++
++	return 0;
++}
++
++static int vega20_get_current_activity_percent(struct smu_context *smu,
++					       enum amd_pp_sensors sensor,
++					       uint32_t *value)
++{
++	int ret = 0;
++	SmuMetrics_t metrics;
++
++	if (!value)
++		return -EINVAL;
++
++	ret = smu_update_table(smu, SMU_TABLE_SMU_METRICS,
++			       (void *)&metrics, false);
++	if (ret)
++		return ret;
++
++	switch (sensor) {
++	case AMDGPU_PP_SENSOR_GPU_LOAD:
++		*value = metrics.AverageGfxActivity;
++		break;
++	case AMDGPU_PP_SENSOR_MEM_LOAD:
++		*value = metrics.AverageUclkActivity;
++		break;
++	default:
++		pr_err("Invalid sensor for retrieving clock activity\n");
++		return -EINVAL;
++	}
++
++	return 0;
++}
++
+ static const struct pptable_funcs vega20_ppt_funcs = {
+ 	.tables_init = vega20_tables_init,
+ 	.alloc_dpm_context = vega20_allocate_dpm_context,
+@@ -3032,6 +3080,8 @@ static const struct pptable_funcs vega20_ppt_funcs = {
+ 	.is_dpm_running = vega20_is_dpm_running,
+ 	.set_thermal_fan_table = vega20_set_thermal_fan_table,
+ 	.get_fan_speed_percent = vega20_get_fan_speed_percent,
++	.get_gpu_power= vega20_get_gpu_power,
++	.get_current_activity_percent = vega20_get_current_activity_percent,
+ };
+ 
+ void vega20_set_ppt_funcs(struct smu_context *smu)
+-- 
+2.17.1
+

@@ -1,0 +1,40 @@
+From 679b8f56894b7baa72c4b6a884be7102f2d04752 Mon Sep 17 00:00:00 2001
+From: Dmytro Laktyushkin <Dmytro.Laktyushkin@amd.com>
+Date: Mon, 22 Oct 2018 14:41:40 -0400
+Subject: [PATCH 0959/2940] drm/amd/display: move AYCrCb8888 format to video
+ section
+
+This is a dual channel format and should be treated like other
+video formats
+
+Signed-off-by: Dmytro Laktyushkin <Dmytro.Laktyushkin@amd.com>
+Reviewed-by: Eric Bernstein <Eric.Bernstein@amd.com>
+Acked-by: Leo Li <sunpeng.li@amd.com>
+Signed-off-by: Alex Deucher <alexander.deucher@amd.com>
+---
+ drivers/gpu/drm/amd/display/dc/dc_hw_types.h | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/drivers/gpu/drm/amd/display/dc/dc_hw_types.h b/drivers/gpu/drm/amd/display/dc/dc_hw_types.h
+index 9ddfe4c6938b..e72fce4eca65 100644
+--- a/drivers/gpu/drm/amd/display/dc/dc_hw_types.h
++++ b/drivers/gpu/drm/amd/display/dc/dc_hw_types.h
+@@ -192,7 +192,6 @@ enum surface_pixel_format {
+ 	/*swaped & float*/
+ 	SURFACE_PIXEL_FORMAT_GRPH_ABGR16161616F,
+ 	/*grow graphics here if necessary */
+-	SURFACE_PIXEL_FORMAT_VIDEO_AYCrCb8888,
+ 	SURFACE_PIXEL_FORMAT_VIDEO_BEGIN,
+ 	SURFACE_PIXEL_FORMAT_VIDEO_420_YCbCr =
+ 		SURFACE_PIXEL_FORMAT_VIDEO_BEGIN,
+@@ -200,6 +199,7 @@ enum surface_pixel_format {
+ 	SURFACE_PIXEL_FORMAT_VIDEO_420_10bpc_YCbCr,
+ 	SURFACE_PIXEL_FORMAT_VIDEO_420_10bpc_YCrCb,
+ 		SURFACE_PIXEL_FORMAT_SUBSAMPLE_END,
++	SURFACE_PIXEL_FORMAT_VIDEO_AYCrCb8888,
+ 	SURFACE_PIXEL_FORMAT_INVALID
+ 
+ 	/*grow 444 video here if necessary */
+-- 
+2.17.1
+

@@ -1,0 +1,254 @@
+From f17dd055ed43afbcd08bea4ca273414f9f505604 Mon Sep 17 00:00:00 2001
+From: Chiawen Huang <chiawen.huang@amd.com>
+Date: Fri, 18 Jan 2019 14:07:54 +0800
+Subject: [PATCH 1209/2940] drm/amd/display: add gpio lock/unlock
+
+[Why]
+When querying HPD via GPIO flow,
+it will create a new gpio object then free in the end of query.
+There is a irql issue for HPD querying at ISR level.
+
+[How]
+Therefore, creating the HPD gpio object in dc_link and set it as unlcok in default.
+1. reducing unnecessary malloc/free when HPD querying.
+2. reducing init GPIO flow.
+3. add lock/unlock to prevent multi gpio service running.
+
+Change-Id: Ibcf95d4d50c37b6831d40530194a7d6f08777c5c
+Signed-off-by: Chiawen Huang <chiawen.huang@amd.com>
+Reviewed-by: Tony Cheng <Tony.Cheng@amd.com>
+Acked-by: Bhawanpreet Lakha <Bhawanpreet.Lakha@amd.com>
+---
+ drivers/gpu/drm/amd/display/dc/core/dc_link.c | 47 +++++++++----------
+ drivers/gpu/drm/amd/display/dc/dc_link.h      |  1 +
+ .../gpu/drm/amd/display/dc/gpio/gpio_base.c   | 12 +++++
+ .../drm/amd/display/dc/gpio/gpio_service.c    | 28 +++++++++++
+ .../drm/amd/display/dc/gpio/gpio_service.h    | 10 ++++
+ .../drm/amd/display/include/gpio_interface.h  |  8 ++++
+ 6 files changed, 81 insertions(+), 25 deletions(-)
+
+diff --git a/drivers/gpu/drm/amd/display/dc/core/dc_link.c b/drivers/gpu/drm/amd/display/dc/core/dc_link.c
+index d25174d87f07..2f9d9b1f45cf 100644
+--- a/drivers/gpu/drm/amd/display/dc/core/dc_link.c
++++ b/drivers/gpu/drm/amd/display/dc/core/dc_link.c
+@@ -76,6 +76,12 @@ static void destruct(struct dc_link *link)
+ {
+ 	int i;
+ 
++	if (link->hpd_gpio != NULL) {
++		dal_gpio_close(link->hpd_gpio);
++		dal_gpio_destroy_irq(&link->hpd_gpio);
++		link->hpd_gpio = NULL;
++	}
++
+ 	if (link->ddc)
+ 		dal_ddc_service_destroy(&link->ddc);
+ 
+@@ -931,18 +937,11 @@ bool dc_link_detect(struct dc_link *link, enum dc_detect_reason reason)
+ 
+ bool dc_link_get_hpd_state(struct dc_link *dc_link)
+ {
+-	struct gpio *hpd_pin;
+ 	uint32_t state;
+ 
+-	hpd_pin = get_hpd_gpio(dc_link->ctx->dc_bios,
+-					dc_link->link_id, dc_link->ctx->gpio_service);
+-	if (hpd_pin == NULL)
+-		ASSERT(false);
+-
+-	dal_gpio_open(hpd_pin, GPIO_MODE_INTERRUPT);
+-	dal_gpio_get_value(hpd_pin, &state);
+-	dal_gpio_close(hpd_pin);
+-	dal_gpio_destroy_irq(&hpd_pin);
++	dal_gpio_lock_pin(dc_link->hpd_gpio);
++	dal_gpio_get_value(dc_link->hpd_gpio, &state);
++	dal_gpio_unlock_pin(dc_link->hpd_gpio);
+ 
+ 	return state;
+ }
+@@ -1098,7 +1097,6 @@ static bool construct(
+ 	const struct link_init_data *init_params)
+ {
+ 	uint8_t i;
+-	struct gpio *hpd_gpio = NULL;
+ 	struct ddc_service_init_data ddc_service_init_data = { { 0 } };
+ 	struct dc_context *dc_ctx = init_params->ctx;
+ 	struct encoder_init_data enc_init_data = { 0 };
+@@ -1128,10 +1126,11 @@ static bool construct(
+ 	if (link->dc->res_pool->funcs->link_init)
+ 		link->dc->res_pool->funcs->link_init(link);
+ 
+-	hpd_gpio = get_hpd_gpio(link->ctx->dc_bios, link->link_id, link->ctx->gpio_service);
+-
+-	if (hpd_gpio != NULL)
+-		link->irq_source_hpd = dal_irq_get_source(hpd_gpio);
++	link->hpd_gpio = get_hpd_gpio(link->ctx->dc_bios, link->link_id, link->ctx->gpio_service);
++	dal_gpio_open(link->hpd_gpio, GPIO_MODE_INTERRUPT);
++	dal_gpio_unlock_pin(link->hpd_gpio);
++	if (link->hpd_gpio != NULL)
++		link->irq_source_hpd = dal_irq_get_source(link->hpd_gpio);
+ 
+ 	switch (link->link_id.id) {
+ 	case CONNECTOR_ID_HDMI_TYPE_A:
+@@ -1149,18 +1148,18 @@ static bool construct(
+ 	case CONNECTOR_ID_DISPLAY_PORT:
+ 		link->connector_signal =	SIGNAL_TYPE_DISPLAY_PORT;
+ 
+-		if (hpd_gpio != NULL)
++		if (link->hpd_gpio != NULL)
+ 			link->irq_source_hpd_rx =
+-					dal_irq_get_rx_source(hpd_gpio);
++					dal_irq_get_rx_source(link->hpd_gpio);
+ 
+ 		break;
+ 	case CONNECTOR_ID_EDP:
+ 		link->connector_signal = SIGNAL_TYPE_EDP;
+ 
+-		if (hpd_gpio != NULL) {
++		if (link->hpd_gpio != NULL) {
+ 			link->irq_source_hpd = DC_IRQ_SOURCE_INVALID;
+ 			link->irq_source_hpd_rx =
+-					dal_irq_get_rx_source(hpd_gpio);
++					dal_irq_get_rx_source(link->hpd_gpio);
+ 		}
+ 		break;
+ 	case CONNECTOR_ID_LVDS:
+@@ -1171,10 +1170,7 @@ static bool construct(
+ 		goto create_fail;
+ 	}
+ 
+-	if (hpd_gpio != NULL) {
+-		dal_gpio_destroy_irq(&hpd_gpio);
+-		hpd_gpio = NULL;
+-	}
++
+ 
+ 	/* TODO: #DAL3 Implement id to str function.*/
+ 	LINK_INFO("Connector[%d] description:"
+@@ -1277,8 +1273,9 @@ static bool construct(
+ ddc_create_fail:
+ create_fail:
+ 
+-	if (hpd_gpio != NULL) {
+-		dal_gpio_destroy_irq(&hpd_gpio);
++	if (link->hpd_gpio != NULL) {
++		dal_gpio_destroy_irq(&link->hpd_gpio);
++		link->hpd_gpio = NULL;
+ 	}
+ 
+ 	return false;
+diff --git a/drivers/gpu/drm/amd/display/dc/dc_link.h b/drivers/gpu/drm/amd/display/dc/dc_link.h
+index f249ff9be2a7..d26bbda61ad2 100644
+--- a/drivers/gpu/drm/amd/display/dc/dc_link.h
++++ b/drivers/gpu/drm/amd/display/dc/dc_link.h
+@@ -125,6 +125,7 @@ struct dc_link {
+ 	struct dc_link_status link_status;
+ 
+ 	struct link_trace link_trace;
++	struct gpio *hpd_gpio;
+ };
+ 
+ const struct dc_link_status *dc_link_get_status(const struct dc_link *dc_link);
+diff --git a/drivers/gpu/drm/amd/display/dc/gpio/gpio_base.c b/drivers/gpu/drm/amd/display/dc/gpio/gpio_base.c
+index 1d1efd72b291..cf76ea2d9f5a 100644
+--- a/drivers/gpu/drm/amd/display/dc/gpio/gpio_base.c
++++ b/drivers/gpu/drm/amd/display/dc/gpio/gpio_base.c
+@@ -101,6 +101,18 @@ enum gpio_mode dal_gpio_get_mode(
+ 	return gpio->mode;
+ }
+ 
++enum gpio_result dal_gpio_lock_pin(
++	struct gpio *gpio)
++{
++	return dal_gpio_service_lock(gpio->service, gpio->id, gpio->en);
++}
++
++enum gpio_result dal_gpio_unlock_pin(
++	struct gpio *gpio)
++{
++	return dal_gpio_service_unlock(gpio->service, gpio->id, gpio->en);
++}
++
+ enum gpio_result dal_gpio_change_mode(
+ 	struct gpio *gpio,
+ 	enum gpio_mode mode)
+diff --git a/drivers/gpu/drm/amd/display/dc/gpio/gpio_service.c b/drivers/gpu/drm/amd/display/dc/gpio/gpio_service.c
+index dada04296025..3c63a3c04dbb 100644
+--- a/drivers/gpu/drm/amd/display/dc/gpio/gpio_service.c
++++ b/drivers/gpu/drm/amd/display/dc/gpio/gpio_service.c
+@@ -192,6 +192,34 @@ static void set_pin_free(
+ 	service->busyness[id][en] = false;
+ }
+ 
++enum gpio_result dal_gpio_service_lock(
++	struct gpio_service *service,
++	enum gpio_id id,
++	uint32_t en)
++{
++	if (!service->busyness[id]) {
++		ASSERT_CRITICAL(false);
++		return GPIO_RESULT_OPEN_FAILED;
++	}
++
++	set_pin_busy(service, id, en);
++	return GPIO_RESULT_OK;
++}
++
++enum gpio_result dal_gpio_service_unlock(
++	struct gpio_service *service,
++	enum gpio_id id,
++	uint32_t en)
++{
++	if (!service->busyness[id]) {
++		ASSERT_CRITICAL(false);
++		return GPIO_RESULT_OPEN_FAILED;
++	}
++
++	set_pin_free(service, id, en);
++	return GPIO_RESULT_OK;
++}
++
+ enum gpio_result dal_gpio_service_open(
+ 	struct gpio_service *service,
+ 	enum gpio_id id,
+diff --git a/drivers/gpu/drm/amd/display/dc/gpio/gpio_service.h b/drivers/gpu/drm/amd/display/dc/gpio/gpio_service.h
+index 1d501a43d13b..0c678af75331 100644
+--- a/drivers/gpu/drm/amd/display/dc/gpio/gpio_service.h
++++ b/drivers/gpu/drm/amd/display/dc/gpio/gpio_service.h
+@@ -52,4 +52,14 @@ void dal_gpio_service_close(
+ 	struct gpio_service *service,
+ 	struct hw_gpio_pin **ptr);
+ 
++enum gpio_result dal_gpio_service_lock(
++	struct gpio_service *service,
++	enum gpio_id id,
++	uint32_t en);
++
++enum gpio_result dal_gpio_service_unlock(
++	struct gpio_service *service,
++	enum gpio_id id,
++	uint32_t en);
++
+ #endif
+diff --git a/drivers/gpu/drm/amd/display/include/gpio_interface.h b/drivers/gpu/drm/amd/display/include/gpio_interface.h
+index e4fd31024b92..7de64195dc33 100644
+--- a/drivers/gpu/drm/amd/display/include/gpio_interface.h
++++ b/drivers/gpu/drm/amd/display/include/gpio_interface.h
+@@ -59,6 +59,14 @@ enum gpio_result dal_gpio_change_mode(
+ 	struct gpio *gpio,
+ 	enum gpio_mode mode);
+ 
++/* Lock Pin */
++enum gpio_result dal_gpio_lock_pin(
++	struct gpio *gpio);
++
++/* Unlock Pin */
++enum gpio_result dal_gpio_unlock_pin(
++	struct gpio *gpio);
++
+ /* Get the GPIO id */
+ enum gpio_id dal_gpio_get_id(
+ 	const struct gpio *gpio);
+-- 
+2.17.1
+

@@ -1,0 +1,589 @@
+From af715761185339e1944bb86e9fa51f7f08a979d3 Mon Sep 17 00:00:00 2001
+From: Nikola Cornij <nikola.cornij@amd.com>
+Date: Wed, 17 Apr 2019 19:07:08 -0400
+Subject: [PATCH 2525/2940] drm/amd/display: Add support for extended DSC DPCD
+ caps
+
+[why]
+A few of the new DSC DPCD caps were introduced by a DP 1.4a SCR in order
+to give DSC branch decoders a chance to expose their maximum throughput
+and maximum line width limitations.
+
+Signed-off-by: Nikola Cornij <nikola.cornij@amd.com>
+Reviewed-by: Wenjing Liu <Wenjing.Liu@amd.com>
+Acked-by: Bhawanpreet Lakha <Bhawanpreet.Lakha@amd.com>
+Signed-off-by: Alex Deucher <alexander.deucher@amd.com>
+---
+ .../gpu/drm/amd/display/dc/core/dc_link_dp.c  |  50 +++---
+ drivers/gpu/drm/amd/display/dc/dc_dsc.h       |   3 +-
+ drivers/gpu/drm/amd/display/dc/dc_types.h     |   5 +
+ drivers/gpu/drm/amd/display/dc/dsc/dc_dsc.c   | 118 ++++++++----
+ .../drm/amd/display/include/dpcd_structs.h    | 168 ++++++++++++++++++
+ include/drm/drm_dp_helper.h                   |   5 +
+ 6 files changed, 289 insertions(+), 60 deletions(-)
+ create mode 100644 drivers/gpu/drm/amd/display/include/dpcd_structs.h
+
+diff --git a/drivers/gpu/drm/amd/display/dc/core/dc_link_dp.c b/drivers/gpu/drm/amd/display/dc/core/dc_link_dp.c
+index effc36745671..017f88c9f2e4 100644
+--- a/drivers/gpu/drm/amd/display/dc/core/dc_link_dp.c
++++ b/drivers/gpu/drm/amd/display/dc/core/dc_link_dp.c
+@@ -2383,8 +2383,8 @@ static bool retrieve_link_cap(struct dc_link *link)
+ 	int i;
+ 	struct dp_sink_hw_fw_revision dp_hw_fw_revision;
+ #ifdef CONFIG_DRM_AMD_DC_DSC_SUPPORT
+-	uint8_t dsc_data[16];
+-	struct dsc_dec_dpcd_caps *dsc_caps;
++	uint8_t dsc_data[16]; /* DP_DSC_BITS_PER_PIXEL_INC - DP_DSC_SUPPORT + 1 == 16 */
++	struct dsc_dec_dpcd_caps *dsc_dec_caps;
+ #endif
+ 
+ 	memset(dpcd_data, '\0', sizeof(dpcd_data));
+@@ -2558,8 +2558,8 @@ static bool retrieve_link_cap(struct dc_link *link)
+ 		sizeof(dp_hw_fw_revision.ieee_fw_rev));
+ 
+ #ifdef CONFIG_DRM_AMD_DC_DSC_SUPPORT
+-	dsc_caps = &link->dpcd_caps.dsc_sink_caps;
+-	memset(dsc_caps, '\0', sizeof(*dsc_caps));
++	dsc_dec_caps = &link->dpcd_caps.dsc_sink_caps;
++	memset(dsc_dec_caps, '\0', sizeof(*dsc_dec_caps));
+ 	memset(&link->dpcd_caps.dsc_sink_caps, '\0',
+ 			sizeof(link->dpcd_caps.dsc_sink_caps));
+ 	memset(&link->dpcd_caps.fec_cap, '\0', sizeof(link->dpcd_caps.fec_cap));
+@@ -2571,7 +2571,7 @@ static bool retrieve_link_cap(struct dc_link *link)
+ 				dsc_data,
+ 				sizeof(dsc_data));
+ 		if (status == DC_OK) {
+-			DC_LOG_DSC("DSC capability read at link %d:",
++			DC_LOG_DSC("DSC DPCD capability read at link %d:",
+ 					link->link_index);
+ 			DC_LOG_DSC("\t%02x %02x %02x %02x",
+ 					dsc_data[0], dsc_data[1],
+@@ -2590,37 +2590,43 @@ static bool retrieve_link_cap(struct dc_link *link)
+ 			return false;
+ 		}
+ 
+-		if (dc_dsc_parse_dsc_dpcd(dsc_data,
+-				dsc_caps)) {
+-			DC_LOG_DSC("DSC capability parsed at link %d:",
++		if (dc_dsc_parse_dsc_dpcd(dsc_data, NULL,
++				dsc_dec_caps)) {
++			DC_LOG_DSC("DSC DPCD capabilities parsed at link %d:",
+ 					link->link_index);
+ 			DC_LOG_DSC("\tis_dsc_supported:\t%d",
+-					dsc_caps->is_dsc_supported);
+-			DC_LOG_DSC("\tdsc_version:\t%d", dsc_caps->dsc_version);
++					dsc_dec_caps->is_dsc_supported);
++			DC_LOG_DSC("\tdsc_version:\t%d", dsc_dec_caps->dsc_version);
+ 			DC_LOG_DSC("\trc_buffer_size:\t%d",
+-					dsc_caps->rc_buffer_size);
++					dsc_dec_caps->rc_buffer_size);
+ 			DC_LOG_DSC("\tslice_caps1:\t0x%x20",
+-					dsc_caps->slice_caps1.raw);
++					dsc_dec_caps->slice_caps1.raw);
+ 			DC_LOG_DSC("\tslice_caps2:\t0x%x20",
+-					dsc_caps->slice_caps2.raw);
++					dsc_dec_caps->slice_caps2.raw);
+ 			DC_LOG_DSC("\tlb_bit_depth:\t%d",
+-					dsc_caps->lb_bit_depth);
++					dsc_dec_caps->lb_bit_depth);
+ 			DC_LOG_DSC("\tis_block_pred_supported:\t%d",
+-					dsc_caps->is_block_pred_supported);
++					dsc_dec_caps->is_block_pred_supported);
+ 			DC_LOG_DSC("\tedp_max_bits_per_pixel:\t%d",
+-					dsc_caps->edp_max_bits_per_pixel);
++					dsc_dec_caps->edp_max_bits_per_pixel);
+ 			DC_LOG_DSC("\tcolor_formats:\t%d",
+-					dsc_caps->color_formats.raw);
++					dsc_dec_caps->color_formats.raw);
+ 			DC_LOG_DSC("\tcolor_depth:\t%d",
+-					dsc_caps->color_depth.raw);
++					dsc_dec_caps->color_depth.raw);
+ 			DC_LOG_DSC("\tthroughput_mode_0_mps:\t%d",
+-					dsc_caps->throughput_mode_0_mps);
++					dsc_dec_caps->throughput_mode_0_mps);
+ 			DC_LOG_DSC("\tthroughput_mode_1_mps:\t%d",
+-					dsc_caps->throughput_mode_1_mps);
++					dsc_dec_caps->throughput_mode_1_mps);
+ 			DC_LOG_DSC("\tmax_slice_width:\t%d",
+-					dsc_caps->max_slice_width);
++					dsc_dec_caps->max_slice_width);
+ 			DC_LOG_DSC("\tbpp_increment_div:\t%d",
+-					dsc_caps->bpp_increment_div);
++					dsc_dec_caps->bpp_increment_div);
++			DC_LOG_DSC("\tbranch_overall_throughput_0_mps:\t%d",
++					dsc_dec_caps->branch_overall_throughput_0_mps);
++			DC_LOG_DSC("\tbranch_overall_throughput_1_mps:\t%d",
++					dsc_dec_caps->branch_overall_throughput_1_mps);
++			DC_LOG_DSC("\tbranch_max_line_width:\t%d",
++					dsc_dec_caps->branch_max_line_width);
+ 		} else {
+ 			/* Some sinks return bogus DSC DPCD data
+ 			 * when they don't support DSC.
+diff --git a/drivers/gpu/drm/amd/display/dc/dc_dsc.h b/drivers/gpu/drm/amd/display/dc/dc_dsc.h
+index be0f7b09086a..6de3bc9162ea 100644
+--- a/drivers/gpu/drm/amd/display/dc/dc_dsc.h
++++ b/drivers/gpu/drm/amd/display/dc/dc_dsc.h
+@@ -34,7 +34,8 @@ struct dc_dsc_bw_range {
+ };
+ 
+ 
+-bool dc_dsc_parse_dsc_dpcd(const uint8_t *dpcd_dsc_data,
++bool dc_dsc_parse_dsc_dpcd(const uint8_t *dpcd_dsc_basic_data,
++		const uint8_t *dpcd_dsc_ext_data,
+ 		struct dsc_dec_dpcd_caps *dsc_sink_caps);
+ 
+ bool dc_dsc_compute_bandwidth_range(
+diff --git a/drivers/gpu/drm/amd/display/dc/dc_types.h b/drivers/gpu/drm/amd/display/dc/dc_types.h
+index d755321f5437..5cd4ce07a265 100644
+--- a/drivers/gpu/drm/amd/display/dc/dc_types.h
++++ b/drivers/gpu/drm/amd/display/dc/dc_types.h
+@@ -782,6 +782,11 @@ struct dsc_dec_dpcd_caps {
+ 	int32_t throughput_mode_1_mps; /* In MPs */
+ 	int32_t max_slice_width;
+ 	uint32_t bpp_increment_div; /* bpp increment divisor, e.g. if 16, it's 1/16th of a bit */
++
++	/* Extended DSC caps */
++	uint32_t branch_overall_throughput_0_mps; /* In MPs */
++	uint32_t branch_overall_throughput_1_mps; /* In MPs */
++	uint32_t branch_max_line_width;
+ };
+ #endif
+ #endif /* DC_TYPES_H_ */
+diff --git a/drivers/gpu/drm/amd/display/dc/dsc/dc_dsc.c b/drivers/gpu/drm/amd/display/dc/dsc/dc_dsc.c
+index f09f23707a94..94a623dc37f4 100644
+--- a/drivers/gpu/drm/amd/display/dc/dsc/dc_dsc.c
++++ b/drivers/gpu/drm/amd/display/dc/dsc/dc_dsc.c
+@@ -252,7 +252,7 @@ struct dc_dsc_policy {
+ 	int min_target_bpp; // Minimum target bits per pixel
+ };
+ 
+-static inline uint32_t dsc_round_up(uint32_t value)
++static inline uint32_t dsc_div_by_10_round_up(uint32_t value)
+ {
+ 	return (value + 9) / 10;
+ }
+@@ -304,7 +304,7 @@ static void get_dsc_bandwidth_range(
+ 	range->stream_kbps = dc_bandwidth_in_kbps_from_timing(timing);
+ 
+ 	/* max dsc target bpp */
+-	range->max_kbps = dsc_round_up(max_bpp * timing->pix_clk_100hz);
++	range->max_kbps = dsc_div_by_10_round_up(max_bpp * timing->pix_clk_100hz);
+ 	range->max_target_bpp_x16 = max_bpp * 16;
+ 	if (range->max_kbps > range->stream_kbps) {
+ 		/* max dsc target bpp is capped to native bandwidth */
+@@ -313,7 +313,7 @@ static void get_dsc_bandwidth_range(
+ 	}
+ 
+ 	/* min dsc target bpp */
+-	range->min_kbps = dsc_round_up(min_bpp * timing->pix_clk_100hz);
++	range->min_kbps = dsc_div_by_10_round_up(min_bpp * timing->pix_clk_100hz);
+ 	range->min_target_bpp_x16 = min_bpp * 16;
+ 	if (range->min_kbps > range->max_kbps) {
+ 		/* min dsc target bpp is capped to max dsc bandwidth*/
+@@ -532,16 +532,23 @@ static bool setup_dsc_config(
+ 	int pic_width;
+ 	int slice_width;
+ 	int target_bpp;
+-	int sink_per_slice_throughput;
++	int sink_per_slice_throughput_mps;
++	int branch_max_throughput_mps = 0;
+ 	bool is_dsc_possible = false;
+ 	int num_slices_v;
+ 	int pic_height;
+ 
+ 	memset(dsc_cfg, 0, sizeof(struct dc_dsc_config));
+ 
++	pic_width = timing->h_addressable + timing->h_border_left + timing->h_border_right;
++	pic_height = timing->v_addressable + timing->v_border_top + timing->v_border_bottom;
++
+ 	if (!dsc_sink_caps->is_dsc_supported)
+ 		goto done;
+ 
++	if (dsc_sink_caps->branch_max_line_width && dsc_sink_caps->branch_max_line_width < pic_width)
++		goto done;
++
+ 	// Intersect decoder with encoder DSC caps and validate DSC settings
+ 	is_dsc_possible = intersect_dsc_caps(dsc_sink_caps, dsc_enc_caps, timing->pixel_encoding, &dsc_common_caps);
+ 	if (!is_dsc_possible)
+@@ -554,39 +561,46 @@ static bool setup_dsc_config(
+ 	if (!is_dsc_possible)
+ 		goto done;
+ 
+-	sink_per_slice_throughput = 0;
++	sink_per_slice_throughput_mps = 0;
+ 
+ 	// Validate available DSC settings against the mode timing
+ 
+-	// Color format
++	// Validate color format (and pick up the throughput values)
+ 	dsc_cfg->ycbcr422_simple = false;
+ 	switch (timing->pixel_encoding)	{
+ 	case PIXEL_ENCODING_RGB:
+ 		is_dsc_possible = (bool)dsc_common_caps.color_formats.bits.RGB;
+-		sink_per_slice_throughput = dsc_sink_caps->throughput_mode_0_mps;
++		sink_per_slice_throughput_mps = dsc_sink_caps->throughput_mode_0_mps;
++		branch_max_throughput_mps = dsc_sink_caps->branch_overall_throughput_0_mps;
+ 		break;
+ 	case PIXEL_ENCODING_YCBCR444:
+ 		is_dsc_possible = (bool)dsc_common_caps.color_formats.bits.YCBCR_444;
+-		sink_per_slice_throughput = dsc_sink_caps->throughput_mode_0_mps;
+-		break;
+-	case PIXEL_ENCODING_YCBCR422: {
+-			is_dsc_possible = (bool)dsc_common_caps.color_formats.bits.YCBCR_NATIVE_422;
+-			sink_per_slice_throughput = dsc_sink_caps->throughput_mode_1_mps;
+-			if (!is_dsc_possible) {
+-				is_dsc_possible = (bool)dsc_common_caps.color_formats.bits.YCBCR_SIMPLE_422;
+-				dsc_cfg->ycbcr422_simple = is_dsc_possible;
+-				sink_per_slice_throughput = dsc_sink_caps->throughput_mode_0_mps;
+-			}
++		sink_per_slice_throughput_mps = dsc_sink_caps->throughput_mode_0_mps;
++		branch_max_throughput_mps = dsc_sink_caps->branch_overall_throughput_0_mps;
++		break;
++	case PIXEL_ENCODING_YCBCR422:
++		is_dsc_possible = (bool)dsc_common_caps.color_formats.bits.YCBCR_NATIVE_422;
++		sink_per_slice_throughput_mps = dsc_sink_caps->throughput_mode_1_mps;
++		branch_max_throughput_mps = dsc_sink_caps->branch_overall_throughput_1_mps;
++		if (!is_dsc_possible) {
++			is_dsc_possible = (bool)dsc_common_caps.color_formats.bits.YCBCR_SIMPLE_422;
++			dsc_cfg->ycbcr422_simple = is_dsc_possible;
++			sink_per_slice_throughput_mps = dsc_sink_caps->throughput_mode_0_mps;
+ 		}
+ 		break;
+ 	case PIXEL_ENCODING_YCBCR420:
+ 		is_dsc_possible = (bool)dsc_common_caps.color_formats.bits.YCBCR_NATIVE_420;
+-		sink_per_slice_throughput = dsc_sink_caps->throughput_mode_1_mps;
++		sink_per_slice_throughput_mps = dsc_sink_caps->throughput_mode_1_mps;
++		branch_max_throughput_mps = dsc_sink_caps->branch_overall_throughput_1_mps;
+ 		break;
+ 	default:
+ 		is_dsc_possible = false;
+ 	}
+ 
++	// Validate branch's maximum throughput
++	if (branch_max_throughput_mps && dsc_div_by_10_round_up(timing->pix_clk_100hz) > branch_max_throughput_mps * 1000)
++		is_dsc_possible = false;
++
+ 	if (!is_dsc_possible)
+ 		goto done;
+ 
+@@ -611,7 +625,6 @@ static bool setup_dsc_config(
+ 	// DSC slicing
+ 	max_slices_h = get_max_dsc_slices(dsc_common_caps.slice_caps);
+ 
+-	pic_width = timing->h_addressable + timing->h_border_left + timing->h_border_right;
+ 	while (max_slices_h > 0) {
+ 		if (pic_width % max_slices_h == 0)
+ 			break;
+@@ -630,7 +643,8 @@ static bool setup_dsc_config(
+ 	min_slices_h = fit_num_slices_up(dsc_common_caps.slice_caps, min_slices_h);
+ 
+ 	while (min_slices_h <= max_slices_h) {
+-		if (dsc_round_up(timing->pix_clk_100hz) / (min_slices_h) <= sink_per_slice_throughput * 1000)
++		int pix_clk_per_slice_khz = dsc_div_by_10_round_up(timing->pix_clk_100hz) / min_slices_h;
++		if (pix_clk_per_slice_khz <= sink_per_slice_throughput_mps * 1000)
+ 			break;
+ 
+ 		min_slices_h = inc_num_slices(dsc_common_caps.slice_caps, min_slices_h);
+@@ -673,7 +687,6 @@ static bool setup_dsc_config(
+ 
+ 	// Vertical number of slices: start from policy and pick the first one that height is divisible by.
+ 	// For 4:2:0 make sure the slice height is divisible by 2 as well.
+-	pic_height = timing->v_addressable + timing->v_border_top + timing->v_border_bottom;
+ 	num_slices_v = dsc_policy.num_slices_v;
+ 	if (num_slices_v < 1)
+ 		num_slices_v = 1;
+@@ -710,41 +723,41 @@ static bool setup_dsc_config(
+ 	return is_dsc_possible;
+ }
+ 
+-bool dc_dsc_parse_dsc_dpcd(const uint8_t *dpcd_dsc_data, struct dsc_dec_dpcd_caps *dsc_sink_caps)
++bool dc_dsc_parse_dsc_dpcd(const uint8_t *dpcd_dsc_basic_data, const uint8_t *dpcd_dsc_ext_data, struct dsc_dec_dpcd_caps *dsc_sink_caps)
+ {
+-	dsc_sink_caps->is_dsc_supported = (dpcd_dsc_data[DP_DSC_SUPPORT - DP_DSC_SUPPORT] & DP_DSC_DECOMPRESSION_IS_SUPPORTED) != 0;
++	dsc_sink_caps->is_dsc_supported = (dpcd_dsc_basic_data[DP_DSC_SUPPORT - DP_DSC_SUPPORT] & DP_DSC_DECOMPRESSION_IS_SUPPORTED) != 0;
+ 	if (!dsc_sink_caps->is_dsc_supported)
+ 		return true;
+ 
+-	dsc_sink_caps->dsc_version = dpcd_dsc_data[DP_DSC_REV - DP_DSC_SUPPORT];
++	dsc_sink_caps->dsc_version = dpcd_dsc_basic_data[DP_DSC_REV - DP_DSC_SUPPORT];
+ 
+ 	{
+ 		int buff_block_size;
+ 		int buff_size;
+ 
+-		if (!dsc_buff_block_size_from_dpcd(dpcd_dsc_data[DP_DSC_RC_BUF_BLK_SIZE - DP_DSC_SUPPORT], &buff_block_size))
++		if (!dsc_buff_block_size_from_dpcd(dpcd_dsc_basic_data[DP_DSC_RC_BUF_BLK_SIZE - DP_DSC_SUPPORT], &buff_block_size))
+ 			return false;
+ 
+-		buff_size = dpcd_dsc_data[DP_DSC_RC_BUF_SIZE - DP_DSC_SUPPORT] + 1;
++		buff_size = dpcd_dsc_basic_data[DP_DSC_RC_BUF_SIZE - DP_DSC_SUPPORT] + 1;
+ 		dsc_sink_caps->rc_buffer_size = buff_size * buff_block_size;
+ 	}
+ 
+-	dsc_sink_caps->slice_caps1.raw = dpcd_dsc_data[DP_DSC_SLICE_CAP_1 - DP_DSC_SUPPORT];
+-	if (!dsc_line_buff_depth_from_dpcd(dpcd_dsc_data[DP_DSC_LINE_BUF_BIT_DEPTH - DP_DSC_SUPPORT], &dsc_sink_caps->lb_bit_depth))
++	dsc_sink_caps->slice_caps1.raw = dpcd_dsc_basic_data[DP_DSC_SLICE_CAP_1 - DP_DSC_SUPPORT];
++	if (!dsc_line_buff_depth_from_dpcd(dpcd_dsc_basic_data[DP_DSC_LINE_BUF_BIT_DEPTH - DP_DSC_SUPPORT], &dsc_sink_caps->lb_bit_depth))
+ 		return false;
+ 
+ 	dsc_sink_caps->is_block_pred_supported =
+-		(dpcd_dsc_data[DP_DSC_BLK_PREDICTION_SUPPORT - DP_DSC_SUPPORT] & DP_DSC_BLK_PREDICTION_IS_SUPPORTED) != 0;
++		(dpcd_dsc_basic_data[DP_DSC_BLK_PREDICTION_SUPPORT - DP_DSC_SUPPORT] & DP_DSC_BLK_PREDICTION_IS_SUPPORTED) != 0;
+ 
+ 	dsc_sink_caps->edp_max_bits_per_pixel =
+-		dpcd_dsc_data[DP_DSC_MAX_BITS_PER_PIXEL_LOW - DP_DSC_SUPPORT] |
+-		dpcd_dsc_data[DP_DSC_MAX_BITS_PER_PIXEL_HI - DP_DSC_SUPPORT] << 8;
++		dpcd_dsc_basic_data[DP_DSC_MAX_BITS_PER_PIXEL_LOW - DP_DSC_SUPPORT] |
++		dpcd_dsc_basic_data[DP_DSC_MAX_BITS_PER_PIXEL_HI - DP_DSC_SUPPORT] << 8;
+ 
+-	dsc_sink_caps->color_formats.raw = dpcd_dsc_data[DP_DSC_DEC_COLOR_FORMAT_CAP - DP_DSC_SUPPORT];
+-	dsc_sink_caps->color_depth.raw = dpcd_dsc_data[DP_DSC_DEC_COLOR_DEPTH_CAP - DP_DSC_SUPPORT];
++	dsc_sink_caps->color_formats.raw = dpcd_dsc_basic_data[DP_DSC_DEC_COLOR_FORMAT_CAP - DP_DSC_SUPPORT];
++	dsc_sink_caps->color_depth.raw = dpcd_dsc_basic_data[DP_DSC_DEC_COLOR_DEPTH_CAP - DP_DSC_SUPPORT];
+ 
+ 	{
+-		int dpcd_throughput = dpcd_dsc_data[DP_DSC_PEAK_THROUGHPUT - DP_DSC_SUPPORT];
++		int dpcd_throughput = dpcd_dsc_basic_data[DP_DSC_PEAK_THROUGHPUT - DP_DSC_SUPPORT];
+ 
+ 		if (!dsc_throughput_from_dpcd(dpcd_throughput & DP_DSC_THROUGHPUT_MODE_0_MASK, &dsc_sink_caps->throughput_mode_0_mps))
+ 			return false;
+@@ -754,12 +767,43 @@ bool dc_dsc_parse_dsc_dpcd(const uint8_t *dpcd_dsc_data, struct dsc_dec_dpcd_cap
+ 			return false;
+ 	}
+ 
+-	dsc_sink_caps->max_slice_width = dpcd_dsc_data[DP_DSC_MAX_SLICE_WIDTH - DP_DSC_SUPPORT] * 320;
+-	dsc_sink_caps->slice_caps2.raw = dpcd_dsc_data[DP_DSC_SLICE_CAP_2 - DP_DSC_SUPPORT];
++	dsc_sink_caps->max_slice_width = dpcd_dsc_basic_data[DP_DSC_MAX_SLICE_WIDTH - DP_DSC_SUPPORT] * 320;
++	dsc_sink_caps->slice_caps2.raw = dpcd_dsc_basic_data[DP_DSC_SLICE_CAP_2 - DP_DSC_SUPPORT];
+ 
+-	if (!dsc_bpp_increment_div_from_dpcd(dpcd_dsc_data[DP_DSC_BITS_PER_PIXEL_INC - DP_DSC_SUPPORT], &dsc_sink_caps->bpp_increment_div))
++	if (!dsc_bpp_increment_div_from_dpcd(dpcd_dsc_basic_data[DP_DSC_BITS_PER_PIXEL_INC - DP_DSC_SUPPORT], &dsc_sink_caps->bpp_increment_div))
+ 		return false;
+ 
++	/* Extended caps */
++	if (dpcd_dsc_ext_data == NULL) { // Extended DPCD DSC data can be null, e.g. because it doesn't apply to SST
++		dsc_sink_caps->branch_overall_throughput_0_mps = 0;
++		dsc_sink_caps->branch_overall_throughput_1_mps = 0;
++		dsc_sink_caps->branch_max_line_width = 0;
++		return true;
++	}
++
++	dsc_sink_caps->branch_overall_throughput_0_mps = dpcd_dsc_ext_data[DP_DSC_BRANCH_OVERALL_THROUGHPUT_0 - DP_DSC_BRANCH_OVERALL_THROUGHPUT_0];
++	if (dsc_sink_caps->branch_overall_throughput_0_mps == 0)
++		dsc_sink_caps->branch_overall_throughput_0_mps = 0;
++	else if (dsc_sink_caps->branch_overall_throughput_0_mps == 1)
++		dsc_sink_caps->branch_overall_throughput_0_mps = 680;
++	else {
++		dsc_sink_caps->branch_overall_throughput_0_mps *= 50;
++		dsc_sink_caps->branch_overall_throughput_0_mps += 600;
++	}
++
++	dsc_sink_caps->branch_overall_throughput_1_mps = dpcd_dsc_ext_data[DP_DSC_BRANCH_OVERALL_THROUGHPUT_1 - DP_DSC_BRANCH_OVERALL_THROUGHPUT_0];
++	if (dsc_sink_caps->branch_overall_throughput_1_mps == 0)
++		dsc_sink_caps->branch_overall_throughput_1_mps = 0;
++	else if (dsc_sink_caps->branch_overall_throughput_1_mps == 1)
++		dsc_sink_caps->branch_overall_throughput_1_mps = 680;
++	else {
++		dsc_sink_caps->branch_overall_throughput_1_mps *= 50;
++		dsc_sink_caps->branch_overall_throughput_1_mps += 600;
++	}
++
++	dsc_sink_caps->branch_max_line_width = dpcd_dsc_ext_data[DP_DSC_BRANCH_MAX_LINE_WIDTH - DP_DSC_BRANCH_OVERALL_THROUGHPUT_0] * 320;
++	ASSERT(dsc_sink_caps->branch_max_line_width == 0 || dsc_sink_caps->branch_max_line_width >= 5120);
++
+ 	return true;
+ }
+ 
+diff --git a/drivers/gpu/drm/amd/display/include/dpcd_structs.h b/drivers/gpu/drm/amd/display/include/dpcd_structs.h
+new file mode 100644
+index 000000000000..6f417e0480e6
+--- /dev/null
++++ b/drivers/gpu/drm/amd/display/include/dpcd_structs.h
+@@ -0,0 +1,168 @@
++/*
++ * dpcd_structs.h
++ *
++ *  Created on: Oct 31, 2018
++ *      Author: jlei
++ */
++
++#ifndef DAL_INCLUDE_DPCD_STRUCTS_H_
++#define DAL_INCLUDE_DPCD_STRUCTS_H_
++
++struct dpcd_receive_port0_cap01 {
++	union {
++		struct {
++			// Byte 0
++			unsigned char reserved0				:1; // Bit0
++			unsigned char local_edid_present		:1;
++			unsigned char associated_to_preceding_port	:1;
++			unsigned char hblank_expansion_capable		:1;
++			unsigned char buffer_size_unit			:1; // Bit4
++			unsigned char buffer_size_per_port		:1;
++			unsigned char reserved1				:2;
++
++			// Byte 1
++			unsigned char buffer_size			:8;
++		} fields;
++		unsigned char raw[2];
++	};
++};
++
++#ifdef CONFIG_DRM_AMD_DC_DSC_SUPPORT
++
++struct dpcd_dsc_basic_capabilities {
++	union {
++		struct {
++			// Byte 0
++			struct {
++
++				unsigned char dsc_support				:1; // Bit0
++				unsigned char reserved					:7;
++			} dsc_support;
++
++			// Byte 1
++			struct {
++				unsigned char dsc_version_major	:4;
++				unsigned char dsc_version_minor	:4;
++			} dsc_algorithm_revision;
++
++			// Byte 2
++			struct {
++				unsigned char rc_block_buffer_size	:2;
++				unsigned char reserved	:6;
++			} dsc_rc_buffer_block_size;
++
++			// Byte 3
++			unsigned char dsc_rc_buffer_size;
++
++			// Byte 4
++			struct {
++				unsigned char one_slice_per_dp_dsc_sink_device		:1; // Bit0
++				unsigned char two_slices_per_dp_dsc_sink_device		:1;
++				unsigned char reserved					:1;
++				unsigned char four_slices_per_dp_dsc_sink_device	:1;
++				unsigned char six_slices_per_dp_dsc_sink_device		:1; // Bit 4
++				unsigned char eight_slices_per_dp_dsc_sink_device	:1;
++				unsigned char ten_slices_per_dp_dsc_sink_device		:1;
++				unsigned char twelve_slices_per_dp_dsc_sink_device	:1;
++			} dsc_slice_capabilities_1;
++
++			// Byte 5
++			struct {
++				unsigned char line_buffer_bit_depth	:4;
++				unsigned char reserved			:4;
++			} dsc_line_buffer_bit_depth;
++
++			// Byte 6
++			struct {
++				unsigned char block_prediction_support	:1;
++				unsigned char reserved			:7;
++			} dsc_block_prediction_support;
++
++			// Byte 7,8
++			struct {
++				unsigned char maximum_bits_per_pixel_supported_by_the_decompressor_low	:7;
++				unsigned char maximum_bits_per_pixel_supported_by_the_decompressor_high	:7;
++			} maximum_bits_per_pixel_supported_by_the_decompressor;
++
++			// Byte 9
++			struct {
++				unsigned char rgb_support			:1; // Bit0
++				unsigned char y_cb_cr_444_support		:1;
++				unsigned char y_cb_cr_simple_422_support	:1;
++				unsigned char y_cb_cr_native_422_support	:1;
++				unsigned char y_cb_cr_native_420_support	:1; // Bit 4
++				unsigned char reserved				:3;
++			} dsc_decoder_color_format_capabilities;
++
++			// Byte 10
++			struct {
++				unsigned char reserved0				:1; // Bit0
++				unsigned char eight_bits_per_color_support	:1;
++				unsigned char ten_bits_per_color_support	:1;
++				unsigned char twelve_bits_per_color_support	:1;
++				unsigned char reserved1				:4; // Bit 4
++			} dsc_decoder_color_depth_capabilities;
++
++			// Byte 11
++			struct {
++				unsigned char throughput_mode_0			:4;
++				unsigned char throughput_mode_1			:4;
++			} peak_dsc_throughput_dsc_sink;
++
++			// Byte 12
++			unsigned char dsc_maximum_slice_width;
++
++			// Byte 13
++			struct {
++				unsigned char sixteen_slices_per_dsc_sink_device	:1;
++				unsigned char twenty_slices_per_dsc_sink_device		:1;
++				unsigned char twentyfour_slices_per_dsc_sink_device	:1;
++				unsigned char reserved					:5;
++			} dsc_slice_capabilities_2;
++
++			// Byte 14
++			unsigned char reserved;
++
++			// Byte 15
++			struct {
++				unsigned char increment_of_bits_per_pixel_supported	:3;
++				unsigned char reserved					:5;
++			} bits_per_pixel_increment;
++		} fields;
++		unsigned char raw[16];
++	};
++};
++
++struct dpcd_dsc_ext_capabilities {
++	union {
++		struct {
++			unsigned char branch_overall_throughput_0; // Byte 0
++			unsigned char branch_overall_throughput_1; // Byte 1
++			unsigned char branch_max_line_width; // Byte 2
++		} fields;
++		unsigned char raw[3];
++	};
++};
++
++struct dpcd_dsc_capabilities {
++	struct dpcd_dsc_basic_capabilities dsc_basic_caps;
++	struct dpcd_dsc_ext_capabilities dsc_ext_caps;
++};
++
++struct dpcd_fec_capability {
++	union {
++		struct {
++			// Byte 0
++			unsigned char fec_capable				:1; // Bit0
++			unsigned char uncorrected_block_error_count_capable	:1;
++			unsigned char corrected_block_error_count_capable	:1;
++			unsigned char bit_error_count_capable			:1;
++			unsigned char reserved					:4; // Bit4
++		} fields;
++		unsigned char raw[1];
++	};
++};
++
++#endif
++
++#endif /* DAL_INCLUDE_DPCD_STRUCTS_H_ */
+diff --git a/include/drm/drm_dp_helper.h b/include/drm/drm_dp_helper.h
+index 5bf516411678..04b2881c4325 100644
+--- a/include/drm/drm_dp_helper.h
++++ b/include/drm/drm_dp_helper.h
+@@ -347,6 +347,11 @@
+ # define DP_FEC_CORR_BLK_ERROR_COUNT_CAP    (1 << 2)
+ # define DP_FEC_BIT_ERROR_COUNT_CAP	    (1 << 3)
+ 
++/* DP Extended DSC Capabilities */
++#define DP_DSC_BRANCH_OVERALL_THROUGHPUT_0  0x0a0   /* DP 1.4a SCR */
++#define DP_DSC_BRANCH_OVERALL_THROUGHPUT_1  0x0a1
++#define DP_DSC_BRANCH_MAX_LINE_WIDTH        0x0a2
++
+ /* link configuration */
+ #define	DP_LINK_BW_SET		            0x100
+ # define DP_LINK_RATE_TABLE		    0x00    /* eDP 1.4 */
+-- 
+2.17.1
+

@@ -1,0 +1,160 @@
+From 35b730eec371cb3d3853a68e5591f5046f2b58a1 Mon Sep 17 00:00:00 2001
+From: Joshua Aberback <joshua.aberback@amd.com>
+Date: Mon, 1 Apr 2019 15:21:24 -0400
+Subject: [PATCH 1789/2940] drm/amd/display: Add profiling tools for bandwidth
+ validation
+
+[Why]
+We used this change to investigate the performance of bandwidth validation,
+it will be useful to have if we need to investigate further.
+
+[How]
+We use performance counter tick numbers to profile performance, they live
+at dc->debug.bw_val_profile (set .enable in debugger to turn on measuring).
+
+Change-Id: I828306882837c77c92a66f5c2b9d2de296685416
+Signed-off-by: Joshua Aberback <joshua.aberback@amd.com>
+Reviewed-by: Tony Cheng <Tony.Cheng@amd.com>
+Acked-by: Bhawanpreet Lakha <Bhawanpreet Lakha@amd.com>
+---
+ .../gpu/drm/amd/display/dc/calcs/dcn_calcs.c  | 18 +++++++
+ drivers/gpu/drm/amd/display/dc/dc.h           | 52 +++++++++++++++++++
+ 2 files changed, 70 insertions(+)
+
+diff --git a/drivers/gpu/drm/amd/display/dc/calcs/dcn_calcs.c b/drivers/gpu/drm/amd/display/dc/calcs/dcn_calcs.c
+index d7aece82e4fe..1b4b51657f5e 100644
+--- a/drivers/gpu/drm/amd/display/dc/calcs/dcn_calcs.c
++++ b/drivers/gpu/drm/amd/display/dc/calcs/dcn_calcs.c
+@@ -704,6 +704,12 @@ bool dcn_validate_bandwidth(
+ 		struct dc_state *context,
+ 		bool fast_validate)
+ {
++	/*
++	 * we want a breakdown of the various stages of validation, which the
++	 * perf_trace macro doesn't support
++	 */
++	BW_VAL_TRACE_SETUP();
++
+ 	const struct resource_pool *pool = dc->res_pool;
+ 	struct dcn_bw_internal_vars *v = &context->dcn_bw_vars;
+ 	int i, input_idx;
+@@ -712,6 +718,9 @@ bool dcn_validate_bandwidth(
+ 	float bw_limit;
+ 
+ 	PERFORMANCE_TRACE_START();
++
++	BW_VAL_TRACE_COUNT();
++
+ 	if (dcn_bw_apply_registry_override(dc))
+ 		dcn_bw_sync_calcs_and_dml(dc);
+ 
+@@ -1014,6 +1023,8 @@ bool dcn_validate_bandwidth(
+ 		mode_support_and_system_configuration(v);
+ 	}
+ 
++	BW_VAL_TRACE_END_VOLTAGE_LEVEL();
++
+ 	if (v->voltage_level != number_of_states_plus_one && !fast_validate) {
+ 		float bw_consumed = v->total_bandwidth_consumed_gbyte_per_second;
+ 
+@@ -1089,6 +1100,8 @@ bool dcn_validate_bandwidth(
+ 			break;
+ 		}
+ 
++		BW_VAL_TRACE_END_WATERMARKS();
++
+ 		for (i = 0, input_idx = 0; i < pool->pipe_count; i++) {
+ 			struct pipe_ctx *pipe = &context->res_ctx.pipe_ctx[i];
+ 
+@@ -1179,6 +1192,10 @@ bool dcn_validate_bandwidth(
+ 
+ 			input_idx++;
+ 		}
++	} else if (v->voltage_level == number_of_states_plus_one) {
++		BW_VAL_TRACE_SKIP(fail);
++	} else if (fast_validate) {
++		BW_VAL_TRACE_SKIP(fast);
+ 	}
+ 
+ 	if (v->voltage_level == 0) {
+@@ -1198,6 +1215,7 @@ bool dcn_validate_bandwidth(
+ 	kernel_fpu_end();
+ 
+ 	PERFORMANCE_TRACE_END();
++	BW_VAL_TRACE_FINISH();
+ 
+ 	if (bw_limit_pass && v->voltage_level != 5)
+ 		return true;
+diff --git a/drivers/gpu/drm/amd/display/dc/dc.h b/drivers/gpu/drm/amd/display/dc/dc.h
+index df433d2dac5e..fabb297054b5 100644
+--- a/drivers/gpu/drm/amd/display/dc/dc.h
++++ b/drivers/gpu/drm/amd/display/dc/dc.h
+@@ -249,6 +249,57 @@ struct dc_clocks {
+ 	bool p_state_change_support;
+ };
+ 
++struct dc_bw_validation_profile {
++	bool enable;
++
++	unsigned long long total_ticks;
++	unsigned long long voltage_level_ticks;
++	unsigned long long watermark_ticks;
++	unsigned long long rq_dlg_ticks;
++
++	unsigned long long total_count;
++	unsigned long long skip_fast_count;
++	unsigned long long skip_pass_count;
++	unsigned long long skip_fail_count;
++};
++
++#define BW_VAL_TRACE_SETUP() \
++		unsigned long long end_tick = 0; \
++		unsigned long long voltage_level_tick = 0; \
++		unsigned long long watermark_tick = 0; \
++		unsigned long long start_tick = dc->debug.bw_val_profile.enable ? \
++				dm_get_timestamp(dc->ctx) : 0
++
++#define BW_VAL_TRACE_COUNT() \
++		if (dc->debug.bw_val_profile.enable) \
++			dc->debug.bw_val_profile.total_count++
++
++#define BW_VAL_TRACE_SKIP(status) \
++		if (dc->debug.bw_val_profile.enable) { \
++			if (!voltage_level_tick) \
++				voltage_level_tick = dm_get_timestamp(dc->ctx); \
++			dc->debug.bw_val_profile.skip_ ## status ## _count++; \
++		}
++
++#define BW_VAL_TRACE_END_VOLTAGE_LEVEL() \
++		if (dc->debug.bw_val_profile.enable) \
++			voltage_level_tick = dm_get_timestamp(dc->ctx)
++
++#define BW_VAL_TRACE_END_WATERMARKS() \
++		if (dc->debug.bw_val_profile.enable) \
++			watermark_tick = dm_get_timestamp(dc->ctx)
++
++#define BW_VAL_TRACE_FINISH() \
++		if (dc->debug.bw_val_profile.enable) { \
++			end_tick = dm_get_timestamp(dc->ctx); \
++			dc->debug.bw_val_profile.total_ticks += end_tick - start_tick; \
++			dc->debug.bw_val_profile.voltage_level_ticks += voltage_level_tick - start_tick; \
++			if (watermark_tick) { \
++				dc->debug.bw_val_profile.watermark_ticks += watermark_tick - voltage_level_tick; \
++				dc->debug.bw_val_profile.rq_dlg_ticks += end_tick - watermark_tick; \
++			} \
++		}
++
+ struct dc_debug_options {
+ 	enum visual_confirm visual_confirm;
+ 	bool sanity_checks;
+@@ -302,6 +353,7 @@ struct dc_debug_options {
+ 	unsigned int force_odm_combine; //bit vector based on otg inst
+ 	unsigned int force_fclk_khz;
+ 	bool disable_tri_buf;
++	struct dc_bw_validation_profile bw_val_profile;
+ };
+ 
+ struct dc_debug_data {
+-- 
+2.17.1
+

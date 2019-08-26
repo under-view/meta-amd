@@ -1,0 +1,1114 @@
+From 2be8147743292703e6d2b650c9102df2f7616d21 Mon Sep 17 00:00:00 2001
+From: Harry Wentland <harry.wentland@amd.com>
+Date: Fri, 22 Feb 2019 10:49:04 -0500
+Subject: [PATCH 2439/2940] drm/amd/display: Add DCN2 MPC
+
+Add support to program the DCN2 MPC (Multiple pipe and plane combine)
+
+HW Blocks:
+
+    +--------+
+    |  MPC   |
+    +--------+
+        |
+        v
+    +-------+
+    |  OPP  |
+    +-------+
+        |
+        v
+    +--------+
+    |  OPTC  |
+    +--------+
+        |
+        v
+    +--------+       +--------+
+    |  DIO   |       |  DCCG  |
+    +--------+       +--------+
+
+Signed-off-by: Harry Wentland <harry.wentland@amd.com>
+Signed-off-by: Alex Deucher <alexander.deucher@amd.com>
+---
+ drivers/gpu/drm/amd/display/dc/dc_hw_types.h  |  87 ++-
+ .../gpu/drm/amd/display/dc/dcn10/dcn10_mpc.c  |   6 +
+ .../gpu/drm/amd/display/dc/dcn20/dcn20_mpc.c  | 526 ++++++++++++++++++
+ .../gpu/drm/amd/display/dc/dcn20/dcn20_mpc.h  | 285 ++++++++++
+ drivers/gpu/drm/amd/display/dc/inc/hw/mpc.h   |  52 ++
+ 5 files changed, 955 insertions(+), 1 deletion(-)
+ create mode 100644 drivers/gpu/drm/amd/display/dc/dcn20/dcn20_mpc.c
+ create mode 100644 drivers/gpu/drm/amd/display/dc/dcn20/dcn20_mpc.h
+
+diff --git a/drivers/gpu/drm/amd/display/dc/dc_hw_types.h b/drivers/gpu/drm/amd/display/dc/dc_hw_types.h
+index d9999ff915df..6a9670de38f3 100644
+--- a/drivers/gpu/drm/amd/display/dc/dc_hw_types.h
++++ b/drivers/gpu/drm/amd/display/dc/dc_hw_types.h
+@@ -194,6 +194,12 @@ enum surface_pixel_format {
+ 	/*swaped & float*/
+ 	SURFACE_PIXEL_FORMAT_GRPH_ABGR16161616F,
+ 	/*grow graphics here if necessary */
++#if defined(CONFIG_DRM_AMD_DC_DCN2_0)
++	SURFACE_PIXEL_FORMAT_GRPH_RGB111110_FIX,
++	SURFACE_PIXEL_FORMAT_GRPH_BGR101111_FIX,
++	SURFACE_PIXEL_FORMAT_GRPH_RGB111110_FLOAT,
++	SURFACE_PIXEL_FORMAT_GRPH_BGR101111_FLOAT,
++#endif
+ 	SURFACE_PIXEL_FORMAT_VIDEO_BEGIN,
+ 	SURFACE_PIXEL_FORMAT_VIDEO_420_YCbCr =
+ 		SURFACE_PIXEL_FORMAT_VIDEO_BEGIN,
+@@ -201,6 +207,10 @@ enum surface_pixel_format {
+ 	SURFACE_PIXEL_FORMAT_VIDEO_420_10bpc_YCbCr,
+ 	SURFACE_PIXEL_FORMAT_VIDEO_420_10bpc_YCrCb,
+ 		SURFACE_PIXEL_FORMAT_SUBSAMPLE_END,
++#if defined(CONFIG_DRM_AMD_DC_DCN2_0)
++	SURFACE_PIXEL_FORMAT_VIDEO_ACrYCb2101010,
++	SURFACE_PIXEL_FORMAT_VIDEO_CrYCbA1010102,
++#endif
+ 	SURFACE_PIXEL_FORMAT_VIDEO_AYCrCb8888,
+ 	SURFACE_PIXEL_FORMAT_INVALID
+ 
+@@ -239,6 +249,13 @@ enum tile_split_values {
+ 	DC_ROTATED_MICRO_TILING = 0x3,
+ };
+ 
++#ifdef CONFIG_DRM_AMD_DC_DCN2_0
++enum tripleBuffer_enable {
++	DC_TRIPLEBUFFER_DISABLE = 0x0,
++	DC_TRIPLEBUFFER_ENABLE = 0x1,
++};
++#endif
++
+ /* TODO: These values come from hardware spec. We need to readdress this
+  * if they ever change.
+  */
+@@ -437,6 +454,14 @@ struct dc_csc_transform {
+ 	bool enable_adjustment;
+ };
+ 
++#ifdef CONFIG_DRM_AMD_DC_DCN2_0
++struct dc_rgb_fixed {
++	struct fixed31_32 red;
++	struct fixed31_32 green;
++	struct fixed31_32 blue;
++};
++#endif
++
+ struct dc_gamma {
+ 	struct kref refcount;
+ 	enum dc_gamma_type type;
+@@ -470,7 +495,11 @@ enum dc_cursor_color_format {
+ 	CURSOR_MODE_MONO,
+ 	CURSOR_MODE_COLOR_1BIT_AND,
+ 	CURSOR_MODE_COLOR_PRE_MULTIPLIED_ALPHA,
+-	CURSOR_MODE_COLOR_UN_PRE_MULTIPLIED_ALPHA
++	CURSOR_MODE_COLOR_UN_PRE_MULTIPLIED_ALPHA,
++#if defined(CONFIG_DRM_AMD_DC_DCN2_0)
++	CURSOR_MODE_COLOR_64BIT_FP_PRE_MULTIPLIED,
++	CURSOR_MODE_COLOR_64BIT_FP_UN_PRE_MULTIPLIED
++#endif
+ };
+ 
+ /*
+@@ -616,6 +645,10 @@ enum dc_color_depth {
+ 	COLOR_DEPTH_121212,
+ 	COLOR_DEPTH_141414,
+ 	COLOR_DEPTH_161616,
++#ifdef CONFIG_DRM_AMD_DC_DCN2_0
++	COLOR_DEPTH_999,
++	COLOR_DEPTH_111111,
++#endif
+ 	COLOR_DEPTH_COUNT
+ };
+ 
+@@ -750,6 +783,58 @@ struct dc_crtc_timing {
+ 	struct dc_crtc_timing_flags flags;
+ };
+ 
++/* Passed on init */
++enum vram_type {
++	VIDEO_MEMORY_TYPE_GDDR5  = 2,
++	VIDEO_MEMORY_TYPE_DDR3   = 3,
++	VIDEO_MEMORY_TYPE_DDR4   = 4,
++	VIDEO_MEMORY_TYPE_HBM    = 5,
++	VIDEO_MEMORY_TYPE_GDDR6  = 6,
++};
++
++#ifdef CONFIG_DRM_AMD_DC_DCN2_0
++enum dwb_cnv_out_bpc {
++	DWB_CNV_OUT_BPC_8BPC  = 0,
++	DWB_CNV_OUT_BPC_10BPC = 1,
++};
++
++enum dwb_output_depth {
++	DWB_OUTPUT_PIXEL_DEPTH_8BPC = 0,
++	DWB_OUTPUT_PIXEL_DEPTH_10BPC = 1,
++};
++
++enum dwb_capture_rate {
++	dwb_capture_rate_0 = 0,	/* Every frame is captured. */
++	dwb_capture_rate_1 = 1,	/* Every other frame is captured. */
++	dwb_capture_rate_2 = 2,	/* Every 3rd frame is captured. */
++	dwb_capture_rate_3 = 3,	/* Every 4th frame is captured. */
++};
++
++enum dwb_scaler_mode {
++	dwb_scaler_mode_bypass444 = 0,
++	dwb_scaler_mode_rgb444 = 1,
++	dwb_scaler_mode_yuv444 = 2,
++	dwb_scaler_mode_yuv420 = 3
++};
++
++enum dwb_subsample_position {
++	DWB_INTERSTITIAL_SUBSAMPLING = 0,
++	DWB_COSITED_SUBSAMPLING      = 1
++};
++
++#define MCIF_BUF_COUNT	4
++
++struct mcif_buf_params {
++	unsigned long long	luma_address[MCIF_BUF_COUNT];
++	unsigned long long	chroma_address[MCIF_BUF_COUNT];
++	unsigned int		luma_pitch;
++	unsigned int		chroma_pitch;
++	unsigned int		warmup_pitch;
++	unsigned int		swlock;
++};
++
++#endif
++
+ #define MAX_TG_COLOR_VALUE 0x3FF
+ struct tg_color {
+ 	/* Maximum 10 bits color value */
+diff --git a/drivers/gpu/drm/amd/display/dc/dcn10/dcn10_mpc.c b/drivers/gpu/drm/amd/display/dc/dcn10/dcn10_mpc.c
+index 958994edf2c4..0bca011ed7c9 100644
+--- a/drivers/gpu/drm/amd/display/dc/dcn10/dcn10_mpc.c
++++ b/drivers/gpu/drm/amd/display/dc/dcn10/dcn10_mpc.c
+@@ -438,6 +438,12 @@ static const struct mpc_funcs dcn10_mpc_funcs = {
+ 	.assert_mpcc_idle_before_connect = mpc1_assert_mpcc_idle_before_connect,
+ 	.init_mpcc_list_from_hw = mpc1_init_mpcc_list_from_hw,
+ 	.update_blending = mpc1_update_blending,
++#if defined(CONFIG_DRM_AMD_DC_DCN2_0)
++	.set_denorm = NULL,
++	.set_denorm_clamp = NULL,
++	.set_output_csc = NULL,
++	.set_output_gamma = NULL,
++#endif
+ };
+ 
+ void dcn10_mpc_construct(struct dcn10_mpc *mpc10,
+diff --git a/drivers/gpu/drm/amd/display/dc/dcn20/dcn20_mpc.c b/drivers/gpu/drm/amd/display/dc/dcn20/dcn20_mpc.c
+new file mode 100644
+index 000000000000..240749e4cf83
+--- /dev/null
++++ b/drivers/gpu/drm/amd/display/dc/dcn20/dcn20_mpc.c
+@@ -0,0 +1,526 @@
++/*
++ * Copyright 2012-15 Advanced Micro Devices, Inc.
++ *
++ * Permission is hereby granted, free of charge, to any person obtaining a
++ * copy of this software and associated documentation files (the "Software"),
++ * to deal in the Software without restriction, including without limitation
++ * the rights to use, copy, modify, merge, publish, distribute, sublicense,
++ * and/or sell copies of the Software, and to permit persons to whom the
++ * Software is furnished to do so, subject to the following conditions:
++ *
++ * The above copyright notice and this permission notice shall be included in
++ * all copies or substantial portions of the Software.
++ *
++ * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
++ * IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
++ * FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.  IN NO EVENT SHALL
++ * THE COPYRIGHT HOLDER(S) OR AUTHOR(S) BE LIABLE FOR ANY CLAIM, DAMAGES OR
++ * OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE,
++ * ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR
++ * OTHER DEALINGS IN THE SOFTWARE.
++ *
++ * Authors: AMD
++ *
++ */
++
++#include "dcn20_mpc.h"
++
++#include "reg_helper.h"
++#include "dc.h"
++#include "mem_input.h"
++#include "dcn10/dcn10_cm_common.h"
++
++#define REG(reg)\
++	mpc20->mpc_regs->reg
++
++#define CTX \
++	mpc20->base.ctx
++
++#undef FN
++#define FN(reg_name, field_name) \
++	mpc20->mpc_shift->field_name, mpc20->mpc_mask->field_name
++
++#define NUM_ELEMENTS(a) (sizeof(a) / sizeof((a)[0]))
++
++void mpc2_update_blending(
++	struct mpc *mpc,
++	struct mpcc_blnd_cfg *blnd_cfg,
++	int mpcc_id)
++{
++	struct dcn20_mpc *mpc20 = TO_DCN20_MPC(mpc);
++
++	struct mpcc *mpcc = mpc1_get_mpcc(mpc, mpcc_id);
++
++	REG_UPDATE_7(MPCC_CONTROL[mpcc_id],
++			MPCC_ALPHA_BLND_MODE,		blnd_cfg->alpha_mode,
++			MPCC_ALPHA_MULTIPLIED_MODE,	blnd_cfg->pre_multiplied_alpha,
++			MPCC_BLND_ACTIVE_OVERLAP_ONLY,	blnd_cfg->overlap_only,
++			MPCC_GLOBAL_ALPHA,		blnd_cfg->global_alpha,
++			MPCC_GLOBAL_GAIN,		blnd_cfg->global_gain,
++			MPCC_BG_BPC,			blnd_cfg->background_color_bpc,
++			MPCC_BOT_GAIN_MODE,		blnd_cfg->bottom_gain_mode);
++
++	REG_SET(MPCC_TOP_GAIN[mpcc_id], 0, MPCC_TOP_GAIN, blnd_cfg->top_gain);
++	REG_SET(MPCC_BOT_GAIN_INSIDE[mpcc_id], 0, MPCC_BOT_GAIN_INSIDE, blnd_cfg->bottom_inside_gain);
++	REG_SET(MPCC_BOT_GAIN_OUTSIDE[mpcc_id], 0, MPCC_BOT_GAIN_OUTSIDE, blnd_cfg->bottom_outside_gain);
++
++	mpc1_set_bg_color(mpc, &blnd_cfg->black_color, mpcc_id);
++	mpcc->blnd_cfg = *blnd_cfg;
++}
++
++void mpc2_set_denorm(
++		struct mpc *mpc,
++		int opp_id,
++		enum dc_color_depth output_depth)
++{
++	struct dcn20_mpc *mpc20 = TO_DCN20_MPC(mpc);
++	int denorm_mode = 0;
++
++	switch (output_depth) {
++	case COLOR_DEPTH_666:
++		denorm_mode = 1;
++		break;
++	case COLOR_DEPTH_888:
++		denorm_mode = 2;
++		break;
++	case COLOR_DEPTH_999:
++		denorm_mode = 3;
++		break;
++	case COLOR_DEPTH_101010:
++		denorm_mode = 4;
++		break;
++	case COLOR_DEPTH_111111:
++		denorm_mode = 5;
++		break;
++	case COLOR_DEPTH_121212:
++		denorm_mode = 6;
++		break;
++	case COLOR_DEPTH_141414:
++	case COLOR_DEPTH_161616:
++	default:
++		/* not valid used case! */
++		break;
++	}
++
++	REG_UPDATE(DENORM_CONTROL[opp_id],
++			MPC_OUT_DENORM_MODE, denorm_mode);
++}
++
++void mpc2_set_denorm_clamp(
++		struct mpc *mpc,
++		int opp_id,
++		struct mpc_denorm_clamp denorm_clamp)
++{
++	struct dcn20_mpc *mpc20 = TO_DCN20_MPC(mpc);
++
++	REG_UPDATE_2(DENORM_CONTROL[opp_id],
++			MPC_OUT_DENORM_CLAMP_MAX_R_CR, denorm_clamp.clamp_max_r_cr,
++			MPC_OUT_DENORM_CLAMP_MIN_R_CR, denorm_clamp.clamp_min_r_cr);
++	REG_UPDATE_2(DENORM_CLAMP_G_Y[opp_id],
++			MPC_OUT_DENORM_CLAMP_MAX_G_Y, denorm_clamp.clamp_max_g_y,
++			MPC_OUT_DENORM_CLAMP_MIN_G_Y, denorm_clamp.clamp_min_g_y);
++	REG_UPDATE_2(DENORM_CLAMP_B_CB[opp_id],
++			MPC_OUT_DENORM_CLAMP_MAX_B_CB, denorm_clamp.clamp_max_b_cb,
++			MPC_OUT_DENORM_CLAMP_MIN_B_CB, denorm_clamp.clamp_min_b_cb);
++}
++
++
++
++void mpc2_set_output_csc(
++		struct mpc *mpc,
++		int opp_id,
++		const uint16_t *regval,
++		enum mpc_output_csc_mode ocsc_mode)
++{
++	struct dcn20_mpc *mpc20 = TO_DCN20_MPC(mpc);
++	struct color_matrices_reg ocsc_regs;
++
++	REG_SET(CSC_MODE[opp_id], 0, MPC_OCSC_MODE, ocsc_mode);
++
++	if (ocsc_mode == MPC_OUTPUT_CSC_DISABLE)
++		return;
++
++	if (regval == NULL) {
++		BREAK_TO_DEBUGGER();
++		return;
++	}
++
++	ocsc_regs.shifts.csc_c11 = mpc20->mpc_shift->MPC_OCSC_C11_A;
++	ocsc_regs.masks.csc_c11  = mpc20->mpc_mask->MPC_OCSC_C11_A;
++	ocsc_regs.shifts.csc_c12 = mpc20->mpc_shift->MPC_OCSC_C12_A;
++	ocsc_regs.masks.csc_c12 = mpc20->mpc_mask->MPC_OCSC_C12_A;
++
++	if (ocsc_mode == MPC_OUTPUT_CSC_COEF_A) {
++		ocsc_regs.csc_c11_c12 = REG(CSC_C11_C12_A[opp_id]);
++		ocsc_regs.csc_c33_c34 = REG(CSC_C33_C34_A[opp_id]);
++	} else {
++		ocsc_regs.csc_c11_c12 = REG(CSC_C11_C12_B[opp_id]);
++		ocsc_regs.csc_c33_c34 = REG(CSC_C33_C34_B[opp_id]);
++	}
++	cm_helper_program_color_matrices(
++			mpc20->base.ctx,
++			regval,
++			&ocsc_regs);
++}
++
++void mpc2_set_ocsc_default(
++		struct mpc *mpc,
++		int opp_id,
++		enum dc_color_space color_space,
++		enum mpc_output_csc_mode ocsc_mode)
++{
++	struct dcn20_mpc *mpc20 = TO_DCN20_MPC(mpc);
++	uint32_t arr_size;
++	struct color_matrices_reg ocsc_regs;
++	const uint16_t *regval = NULL;
++
++	REG_SET(CSC_MODE[opp_id], 0, MPC_OCSC_MODE, ocsc_mode);
++	if (ocsc_mode == MPC_OUTPUT_CSC_DISABLE)
++		return;
++
++	regval = find_color_matrix(color_space, &arr_size);
++
++	if (regval == NULL) {
++		BREAK_TO_DEBUGGER();
++		return;
++	}
++
++	ocsc_regs.shifts.csc_c11 = mpc20->mpc_shift->MPC_OCSC_C11_A;
++	ocsc_regs.masks.csc_c11  = mpc20->mpc_mask->MPC_OCSC_C11_A;
++	ocsc_regs.shifts.csc_c12 = mpc20->mpc_shift->MPC_OCSC_C12_A;
++	ocsc_regs.masks.csc_c12 = mpc20->mpc_mask->MPC_OCSC_C12_A;
++
++
++	if (ocsc_mode == MPC_OUTPUT_CSC_COEF_A) {
++		ocsc_regs.csc_c11_c12 = REG(CSC_C11_C12_A[opp_id]);
++		ocsc_regs.csc_c33_c34 = REG(CSC_C33_C34_A[opp_id]);
++	} else {
++		ocsc_regs.csc_c11_c12 = REG(CSC_C11_C12_B[opp_id]);
++		ocsc_regs.csc_c33_c34 = REG(CSC_C33_C34_B[opp_id]);
++	}
++
++	cm_helper_program_color_matrices(
++			mpc20->base.ctx,
++			regval,
++			&ocsc_regs);
++}
++
++static void mpc2_ogam_get_reg_field(
++		struct mpc *mpc,
++		struct xfer_func_reg *reg)
++{
++	struct dcn20_mpc *mpc20 = TO_DCN20_MPC(mpc);
++
++	reg->shifts.exp_region0_lut_offset = mpc20->mpc_shift->MPCC_OGAM_RAMA_EXP_REGION0_LUT_OFFSET;
++	reg->masks.exp_region0_lut_offset = mpc20->mpc_mask->MPCC_OGAM_RAMA_EXP_REGION0_LUT_OFFSET;
++	reg->shifts.exp_region0_num_segments = mpc20->mpc_shift->MPCC_OGAM_RAMA_EXP_REGION0_NUM_SEGMENTS;
++	reg->masks.exp_region0_num_segments = mpc20->mpc_mask->MPCC_OGAM_RAMA_EXP_REGION0_NUM_SEGMENTS;
++	reg->shifts.exp_region1_lut_offset = mpc20->mpc_shift->MPCC_OGAM_RAMA_EXP_REGION1_LUT_OFFSET;
++	reg->masks.exp_region1_lut_offset = mpc20->mpc_mask->MPCC_OGAM_RAMA_EXP_REGION1_LUT_OFFSET;
++	reg->shifts.exp_region1_num_segments = mpc20->mpc_shift->MPCC_OGAM_RAMA_EXP_REGION1_NUM_SEGMENTS;
++	reg->masks.exp_region1_num_segments = mpc20->mpc_mask->MPCC_OGAM_RAMA_EXP_REGION1_NUM_SEGMENTS;
++	reg->shifts.field_region_end = mpc20->mpc_shift->MPCC_OGAM_RAMA_EXP_REGION_END_B;
++	reg->masks.field_region_end = mpc20->mpc_mask->MPCC_OGAM_RAMA_EXP_REGION_END_B;
++	reg->shifts.field_region_end_slope = mpc20->mpc_shift->MPCC_OGAM_RAMA_EXP_REGION_END_SLOPE_B;
++	reg->masks.field_region_end_slope = mpc20->mpc_mask->MPCC_OGAM_RAMA_EXP_REGION_END_SLOPE_B;
++	reg->shifts.field_region_end_base = mpc20->mpc_shift->MPCC_OGAM_RAMA_EXP_REGION_END_BASE_B;
++	reg->masks.field_region_end_base = mpc20->mpc_mask->MPCC_OGAM_RAMA_EXP_REGION_END_BASE_B;
++	reg->shifts.field_region_linear_slope = mpc20->mpc_shift->MPCC_OGAM_RAMA_EXP_REGION_LINEAR_SLOPE_B;
++	reg->masks.field_region_linear_slope = mpc20->mpc_mask->MPCC_OGAM_RAMA_EXP_REGION_LINEAR_SLOPE_B;
++	reg->shifts.exp_region_start = mpc20->mpc_shift->MPCC_OGAM_RAMA_EXP_REGION_START_B;
++	reg->masks.exp_region_start = mpc20->mpc_mask->MPCC_OGAM_RAMA_EXP_REGION_START_B;
++	reg->shifts.exp_resion_start_segment = mpc20->mpc_shift->MPCC_OGAM_RAMA_EXP_REGION_START_SEGMENT_B;
++	reg->masks.exp_resion_start_segment = mpc20->mpc_mask->MPCC_OGAM_RAMA_EXP_REGION_START_SEGMENT_B;
++}
++
++static void mpc20_power_on_ogam_lut(
++		struct mpc *mpc, int mpcc_id,
++		bool power_on)
++{
++	struct dcn20_mpc *mpc20 = TO_DCN20_MPC(mpc);
++
++	REG_SET(MPCC_MEM_PWR_CTRL[mpcc_id], 0,
++			MPCC_OGAM_MEM_PWR_FORCE, power_on == true ? 0:1);
++
++}
++
++static void mpc20_configure_ogam_lut(
++		struct mpc *mpc, int mpcc_id,
++		bool is_ram_a)
++{
++	struct dcn20_mpc *mpc20 = TO_DCN20_MPC(mpc);
++
++	REG_UPDATE_2(MPCC_OGAM_LUT_RAM_CONTROL[mpcc_id],
++			MPCC_OGAM_LUT_WRITE_EN_MASK, 7,
++			MPCC_OGAM_LUT_RAM_SEL, is_ram_a == true ? 0:1);
++
++	REG_SET(MPCC_OGAM_LUT_INDEX[mpcc_id], 0, MPCC_OGAM_LUT_INDEX, 0);
++}
++
++static enum dc_lut_mode mpc20_get_ogam_current(struct mpc *mpc, int mpcc_id)
++{
++	enum dc_lut_mode mode;
++	uint32_t state_mode;
++	struct dcn20_mpc *mpc20 = TO_DCN20_MPC(mpc);
++
++	REG_GET(MPCC_OGAM_LUT_RAM_CONTROL[mpcc_id],
++			MPCC_OGAM_CONFIG_STATUS, &state_mode);
++
++		switch (state_mode) {
++		case 0:
++			mode = LUT_BYPASS;
++			break;
++		case 1:
++			mode = LUT_RAM_A;
++			break;
++		case 2:
++			mode = LUT_RAM_B;
++			break;
++		default:
++			mode = LUT_BYPASS;
++			break;
++		}
++		return mode;
++}
++
++static void mpc2_program_lutb(struct mpc *mpc, int mpcc_id,
++			const struct pwl_params *params)
++{
++	struct dcn20_mpc *mpc20 = TO_DCN20_MPC(mpc);
++	struct xfer_func_reg gam_regs;
++
++	mpc2_ogam_get_reg_field(mpc, &gam_regs);
++
++	gam_regs.start_cntl_b = REG(MPCC_OGAM_RAMB_START_CNTL_B[mpcc_id]);
++	gam_regs.start_cntl_g = REG(MPCC_OGAM_RAMB_START_CNTL_G[mpcc_id]);
++	gam_regs.start_cntl_r = REG(MPCC_OGAM_RAMB_START_CNTL_R[mpcc_id]);
++	gam_regs.start_slope_cntl_b = REG(MPCC_OGAM_RAMB_SLOPE_CNTL_B[mpcc_id]);
++	gam_regs.start_slope_cntl_g = REG(MPCC_OGAM_RAMB_SLOPE_CNTL_G[mpcc_id]);
++	gam_regs.start_slope_cntl_r = REG(MPCC_OGAM_RAMB_SLOPE_CNTL_R[mpcc_id]);
++	gam_regs.start_end_cntl1_b = REG(MPCC_OGAM_RAMB_END_CNTL1_B[mpcc_id]);
++	gam_regs.start_end_cntl2_b = REG(MPCC_OGAM_RAMB_END_CNTL2_B[mpcc_id]);
++	gam_regs.start_end_cntl1_g = REG(MPCC_OGAM_RAMB_END_CNTL1_G[mpcc_id]);
++	gam_regs.start_end_cntl2_g = REG(MPCC_OGAM_RAMB_END_CNTL2_G[mpcc_id]);
++	gam_regs.start_end_cntl1_r = REG(MPCC_OGAM_RAMB_END_CNTL1_R[mpcc_id]);
++	gam_regs.start_end_cntl2_r = REG(MPCC_OGAM_RAMB_END_CNTL2_R[mpcc_id]);
++	gam_regs.region_start = REG(MPCC_OGAM_RAMB_REGION_0_1[mpcc_id]);
++	gam_regs.region_end = REG(MPCC_OGAM_RAMB_REGION_32_33[mpcc_id]);
++
++	cm_helper_program_xfer_func(mpc20->base.ctx, params, &gam_regs);
++
++}
++
++static void mpc2_program_luta(struct mpc *mpc, int mpcc_id,
++		const struct pwl_params *params)
++{
++	struct dcn20_mpc *mpc20 = TO_DCN20_MPC(mpc);
++	struct xfer_func_reg gam_regs;
++
++	mpc2_ogam_get_reg_field(mpc, &gam_regs);
++
++	gam_regs.start_cntl_b = REG(MPCC_OGAM_RAMA_START_CNTL_B[mpcc_id]);
++	gam_regs.start_cntl_g = REG(MPCC_OGAM_RAMA_START_CNTL_G[mpcc_id]);
++	gam_regs.start_cntl_r = REG(MPCC_OGAM_RAMA_START_CNTL_R[mpcc_id]);
++	gam_regs.start_slope_cntl_b = REG(MPCC_OGAM_RAMA_SLOPE_CNTL_B[mpcc_id]);
++	gam_regs.start_slope_cntl_g = REG(MPCC_OGAM_RAMA_SLOPE_CNTL_G[mpcc_id]);
++	gam_regs.start_slope_cntl_r = REG(MPCC_OGAM_RAMA_SLOPE_CNTL_R[mpcc_id]);
++	gam_regs.start_end_cntl1_b = REG(MPCC_OGAM_RAMA_END_CNTL1_B[mpcc_id]);
++	gam_regs.start_end_cntl2_b = REG(MPCC_OGAM_RAMA_END_CNTL2_B[mpcc_id]);
++	gam_regs.start_end_cntl1_g = REG(MPCC_OGAM_RAMA_END_CNTL1_G[mpcc_id]);
++	gam_regs.start_end_cntl2_g = REG(MPCC_OGAM_RAMA_END_CNTL2_G[mpcc_id]);
++	gam_regs.start_end_cntl1_r = REG(MPCC_OGAM_RAMA_END_CNTL1_R[mpcc_id]);
++	gam_regs.start_end_cntl2_r = REG(MPCC_OGAM_RAMA_END_CNTL2_R[mpcc_id]);
++	gam_regs.region_start = REG(MPCC_OGAM_RAMA_REGION_0_1[mpcc_id]);
++	gam_regs.region_end = REG(MPCC_OGAM_RAMA_REGION_32_33[mpcc_id]);
++
++	cm_helper_program_xfer_func(mpc20->base.ctx, params, &gam_regs);
++
++}
++
++static void mpc20_program_ogam_pwl(
++		struct mpc *mpc, int mpcc_id,
++		const struct pwl_result_data *rgb,
++		uint32_t num)
++{
++	uint32_t i;
++	struct dcn20_mpc *mpc20 = TO_DCN20_MPC(mpc);
++
++	for (i = 0 ; i < num; i++) {
++		REG_SET(MPCC_OGAM_LUT_DATA[mpcc_id], 0, MPCC_OGAM_LUT_DATA, rgb[i].red_reg);
++		REG_SET(MPCC_OGAM_LUT_DATA[mpcc_id], 0, MPCC_OGAM_LUT_DATA, rgb[i].green_reg);
++		REG_SET(MPCC_OGAM_LUT_DATA[mpcc_id], 0, MPCC_OGAM_LUT_DATA, rgb[i].blue_reg);
++
++		REG_SET(MPCC_OGAM_LUT_DATA[mpcc_id], 0,
++				MPCC_OGAM_LUT_DATA, rgb[i].delta_red_reg);
++		REG_SET(MPCC_OGAM_LUT_DATA[mpcc_id], 0,
++				MPCC_OGAM_LUT_DATA, rgb[i].delta_green_reg);
++		REG_SET(MPCC_OGAM_LUT_DATA[mpcc_id], 0,
++				MPCC_OGAM_LUT_DATA, rgb[i].delta_blue_reg);
++
++	}
++
++}
++
++void apply_DEDCN20_305_wa(
++		struct mpc *mpc,
++		int mpcc_id, enum dc_lut_mode current_mode,
++		enum dc_lut_mode next_mode)
++{
++	struct dcn20_mpc *mpc20 = TO_DCN20_MPC(mpc);
++
++	if (mpc->ctx->dc->work_arounds.dedcn20_305_wa == false) {
++		/*hw fixed in new review*/
++		return;
++	}
++	if (current_mode == LUT_BYPASS)
++		/*this will only work if OTG is locked.
++		 *if we were to support OTG unlock case,
++		 *the workaround will be more complex
++		 */
++		REG_SET(MPCC_OGAM_MODE[mpcc_id], 0, MPCC_OGAM_MODE,
++			next_mode == LUT_RAM_A ? 1:2);
++}
++
++void mpc2_set_output_gamma(
++		struct mpc *mpc,
++		int mpcc_id,
++		const struct pwl_params *params)
++{
++	enum dc_lut_mode current_mode;
++	enum dc_lut_mode next_mode;
++	struct dcn20_mpc *mpc20 = TO_DCN20_MPC(mpc);
++
++	if (params == NULL) {
++		REG_SET(MPCC_OGAM_MODE[mpcc_id], 0, MPCC_OGAM_MODE, 0);
++		return;
++	}
++	current_mode = mpc20_get_ogam_current(mpc, mpcc_id);
++	if (current_mode == LUT_BYPASS || current_mode == LUT_RAM_A)
++		next_mode = LUT_RAM_B;
++	else
++		next_mode = LUT_RAM_A;
++
++	mpc20_power_on_ogam_lut(mpc, mpcc_id, true);
++	mpc20_configure_ogam_lut(mpc, mpcc_id, next_mode == LUT_RAM_A ? true:false);
++
++	if (next_mode == LUT_RAM_A)
++		mpc2_program_luta(mpc, mpcc_id, params);
++	else
++		mpc2_program_lutb(mpc, mpcc_id, params);
++
++	apply_DEDCN20_305_wa(mpc, mpcc_id, current_mode, next_mode);
++
++	mpc20_program_ogam_pwl(
++			mpc, mpcc_id, params->rgb_resulted, params->hw_points_num);
++
++	REG_SET(MPCC_OGAM_MODE[mpcc_id], 0, MPCC_OGAM_MODE,
++		next_mode == LUT_RAM_A ? 1:2);
++}
++void mpc2_assert_idle_mpcc(struct mpc *mpc, int id)
++{
++	struct dcn20_mpc *mpc20 = TO_DCN20_MPC(mpc);
++	unsigned int mpc_disabled;
++
++	ASSERT(!(mpc20->mpcc_in_use_mask & 1 << id));
++	REG_GET(MPCC_STATUS[id], MPCC_DISABLED, &mpc_disabled);
++	if (mpc_disabled)
++		return;
++
++	REG_WAIT(MPCC_STATUS[id],
++			MPCC_IDLE, 1,
++			1, 100000);
++}
++
++void mpc2_assert_mpcc_idle_before_connect(struct mpc *mpc, int mpcc_id)
++{
++	struct dcn20_mpc *mpc20 = TO_DCN20_MPC(mpc);
++	unsigned int top_sel, mpc_busy, mpc_idle, mpc_disabled;
++	REG_GET(MPCC_STATUS[mpcc_id], MPCC_DISABLED, &mpc_disabled);
++
++	if (mpc_disabled) {
++		ASSERT(0);
++		return;
++	}
++
++	REG_GET(MPCC_TOP_SEL[mpcc_id],
++			MPCC_TOP_SEL, &top_sel);
++
++	if (top_sel == 0xf) {
++		REG_GET_2(MPCC_STATUS[mpcc_id],
++				MPCC_BUSY, &mpc_busy,
++				MPCC_IDLE, &mpc_idle);
++
++		ASSERT(mpc_busy == 0);
++		ASSERT(mpc_idle == 1);
++	}
++}
++
++static void mpc2_init_mpcc(struct mpcc *mpcc, int mpcc_inst)
++{
++	mpcc->mpcc_id = mpcc_inst;
++	mpcc->dpp_id = 0xf;
++	mpcc->mpcc_bot = NULL;
++	mpcc->blnd_cfg.overlap_only = false;
++	mpcc->blnd_cfg.global_alpha = 0xff;
++	mpcc->blnd_cfg.global_gain = 0xff;
++	mpcc->blnd_cfg.background_color_bpc = 4;
++	mpcc->blnd_cfg.bottom_gain_mode = 0;
++	mpcc->blnd_cfg.top_gain = 0x1f000;
++	mpcc->blnd_cfg.bottom_inside_gain = 0x1f000;
++	mpcc->blnd_cfg.bottom_outside_gain = 0x1f000;
++	mpcc->sm_cfg.enable = false;
++}
++
++struct mpcc *mpc2_get_mpcc_for_dpp(struct mpc_tree *tree, int dpp_id)
++{
++	struct mpcc *tmp_mpcc = tree->opp_list;
++
++	while (tmp_mpcc != NULL) {
++		if (tmp_mpcc->dpp_id == 0xf || tmp_mpcc->dpp_id == dpp_id)
++			return tmp_mpcc;
++		tmp_mpcc = tmp_mpcc->mpcc_bot;
++	}
++	return NULL;
++}
++
++const struct mpc_funcs dcn20_mpc_funcs = {
++	.read_mpcc_state = mpc1_read_mpcc_state,
++	.insert_plane = mpc1_insert_plane,
++	.remove_mpcc = mpc1_remove_mpcc,
++	.mpc_init = mpc1_mpc_init,
++	.update_blending = mpc2_update_blending,
++	.get_mpcc_for_dpp = mpc2_get_mpcc_for_dpp,
++	.wait_for_idle = mpc2_assert_idle_mpcc,
++	.assert_mpcc_idle_before_connect = mpc2_assert_mpcc_idle_before_connect,
++	.init_mpcc_list_from_hw = mpc1_init_mpcc_list_from_hw,
++	.set_denorm = mpc2_set_denorm,
++	.set_denorm_clamp = mpc2_set_denorm_clamp,
++	.set_output_csc = mpc2_set_output_csc,
++	.set_ocsc_default = mpc2_set_ocsc_default,
++	.set_output_gamma = mpc2_set_output_gamma,
++};
++
++void dcn20_mpc_construct(struct dcn20_mpc *mpc20,
++	struct dc_context *ctx,
++	const struct dcn20_mpc_registers *mpc_regs,
++	const struct dcn20_mpc_shift *mpc_shift,
++	const struct dcn20_mpc_mask *mpc_mask,
++	int num_mpcc)
++{
++	int i;
++
++	mpc20->base.ctx = ctx;
++
++	mpc20->base.funcs = &dcn20_mpc_funcs;
++
++	mpc20->mpc_regs = mpc_regs;
++	mpc20->mpc_shift = mpc_shift;
++	mpc20->mpc_mask = mpc_mask;
++
++	mpc20->mpcc_in_use_mask = 0;
++	mpc20->num_mpcc = num_mpcc;
++
++	for (i = 0; i < MAX_MPCC; i++)
++		mpc2_init_mpcc(&mpc20->base.mpcc_array[i], i);
++}
++
+diff --git a/drivers/gpu/drm/amd/display/dc/dcn20/dcn20_mpc.h b/drivers/gpu/drm/amd/display/dc/dcn20/dcn20_mpc.h
+new file mode 100644
+index 000000000000..9750095d2d73
+--- /dev/null
++++ b/drivers/gpu/drm/amd/display/dc/dcn20/dcn20_mpc.h
+@@ -0,0 +1,285 @@
++/* Copyright 2012-15 Advanced Micro Devices, Inc.
++ *
++ * Permission is hereby granted, free of charge, to any person obtaining a
++ * copy of this software and associated documentation files (the "Software"),
++ * to deal in the Software without restriction, including without limitation
++ * the rights to use, copy, modify, merge, publish, distribute, sublicense,
++ * and/or sell copies of the Software, and to permit persons to whom the
++ * Software is furnished to do so, subject to the following conditions:
++ *
++ * The above copyright notice and this permission notice shall be included in
++ * all copies or substantial portions of the Software.
++ *
++ * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
++ * IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
++ * FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.  IN NO EVENT SHALL
++ * THE COPYRIGHT HOLDER(S) OR AUTHOR(S) BE LIABLE FOR ANY CLAIM, DAMAGES OR
++ * OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE,
++ * ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR
++ * OTHER DEALINGS IN THE SOFTWARE.
++ *
++ * Authors: AMD
++ *
++ */
++
++#ifndef __DC_MPCC_DCN20_H__
++#define __DC_MPCC_DCN20_H__
++
++#include "dcn10/dcn10_mpc.h"
++
++#define TO_DCN20_MPC(mpc_base) \
++	container_of(mpc_base, struct dcn20_mpc, base)
++
++#define MPC_REG_LIST_DCN2_0(inst)\
++	MPC_COMMON_REG_LIST_DCN1_0(inst),\
++	SRII(MPCC_TOP_GAIN, MPCC, inst),\
++	SRII(MPCC_BOT_GAIN_INSIDE, MPCC, inst),\
++	SRII(MPCC_BOT_GAIN_OUTSIDE, MPCC, inst),\
++	SRII(MPCC_OGAM_RAMA_START_CNTL_B, MPCC_OGAM, inst),\
++	SRII(MPCC_OGAM_RAMA_START_CNTL_G, MPCC_OGAM, inst),\
++	SRII(MPCC_OGAM_RAMA_START_CNTL_R, MPCC_OGAM, inst),\
++	SRII(MPCC_OGAM_RAMA_SLOPE_CNTL_B, MPCC_OGAM, inst),\
++	SRII(MPCC_OGAM_RAMA_SLOPE_CNTL_G, MPCC_OGAM, inst),\
++	SRII(MPCC_OGAM_RAMA_SLOPE_CNTL_R, MPCC_OGAM, inst),\
++	SRII(MPCC_OGAM_RAMA_END_CNTL1_B, MPCC_OGAM, inst),\
++	SRII(MPCC_OGAM_RAMA_END_CNTL2_B, MPCC_OGAM, inst),\
++	SRII(MPCC_OGAM_RAMA_END_CNTL1_G, MPCC_OGAM, inst),\
++	SRII(MPCC_OGAM_RAMA_END_CNTL2_G, MPCC_OGAM, inst),\
++	SRII(MPCC_OGAM_RAMA_END_CNTL1_R, MPCC_OGAM, inst),\
++	SRII(MPCC_OGAM_RAMA_END_CNTL2_R, MPCC_OGAM, inst),\
++	SRII(MPCC_OGAM_RAMA_REGION_0_1, MPCC_OGAM, inst),\
++	SRII(MPCC_OGAM_RAMA_REGION_32_33, MPCC_OGAM, inst),\
++	SRII(MPCC_OGAM_RAMB_START_CNTL_B, MPCC_OGAM, inst),\
++	SRII(MPCC_OGAM_RAMB_START_CNTL_G, MPCC_OGAM, inst),\
++	SRII(MPCC_OGAM_RAMB_START_CNTL_R, MPCC_OGAM, inst),\
++	SRII(MPCC_OGAM_RAMB_SLOPE_CNTL_B, MPCC_OGAM, inst),\
++	SRII(MPCC_OGAM_RAMB_SLOPE_CNTL_G, MPCC_OGAM, inst),\
++	SRII(MPCC_OGAM_RAMB_SLOPE_CNTL_R, MPCC_OGAM, inst),\
++	SRII(MPCC_OGAM_RAMB_END_CNTL1_B, MPCC_OGAM, inst),\
++	SRII(MPCC_OGAM_RAMB_END_CNTL2_B, MPCC_OGAM, inst),\
++	SRII(MPCC_OGAM_RAMB_END_CNTL1_G, MPCC_OGAM, inst),\
++	SRII(MPCC_OGAM_RAMB_END_CNTL2_G, MPCC_OGAM, inst),\
++	SRII(MPCC_OGAM_RAMB_END_CNTL1_R, MPCC_OGAM, inst),\
++	SRII(MPCC_OGAM_RAMB_END_CNTL2_R, MPCC_OGAM, inst),\
++	SRII(MPCC_OGAM_RAMB_REGION_0_1, MPCC_OGAM, inst),\
++	SRII(MPCC_OGAM_RAMB_REGION_32_33, MPCC_OGAM, inst),\
++	SRII(MPCC_MEM_PWR_CTRL, MPCC, inst),\
++	SRII(MPCC_OGAM_LUT_INDEX, MPCC_OGAM, inst),\
++	SRII(MPCC_OGAM_LUT_RAM_CONTROL, MPCC_OGAM, inst),\
++	SRII(MPCC_OGAM_LUT_DATA, MPCC_OGAM, inst),\
++	SRII(MPCC_OGAM_MODE, MPCC_OGAM, inst)
++
++#define MPC_OUT_MUX_REG_LIST_DCN2_0(inst) \
++	MPC_OUT_MUX_COMMON_REG_LIST_DCN1_0(inst),\
++	SRII(CSC_MODE, MPC_OUT, inst),\
++	SRII(CSC_C11_C12_A, MPC_OUT, inst),\
++	SRII(CSC_C33_C34_A, MPC_OUT, inst),\
++	SRII(CSC_C11_C12_B, MPC_OUT, inst),\
++	SRII(CSC_C33_C34_B, MPC_OUT, inst),\
++	SRII(DENORM_CONTROL, MPC_OUT, inst),\
++	SRII(DENORM_CLAMP_G_Y, MPC_OUT, inst),\
++	SRII(DENORM_CLAMP_B_CB, MPC_OUT, inst)
++
++#define MPC_REG_VARIABLE_LIST_DCN2_0 \
++	MPC_COMMON_REG_VARIABLE_LIST \
++	uint32_t MPCC_TOP_GAIN[MAX_MPCC]; \
++	uint32_t MPCC_BOT_GAIN_INSIDE[MAX_MPCC]; \
++	uint32_t MPCC_BOT_GAIN_OUTSIDE[MAX_MPCC]; \
++	uint32_t MPCC_OGAM_RAMA_START_CNTL_B[MAX_MPCC]; \
++	uint32_t MPCC_OGAM_RAMA_START_CNTL_G[MAX_MPCC]; \
++	uint32_t MPCC_OGAM_RAMA_START_CNTL_R[MAX_MPCC]; \
++	uint32_t MPCC_OGAM_RAMA_SLOPE_CNTL_B[MAX_MPCC]; \
++	uint32_t MPCC_OGAM_RAMA_SLOPE_CNTL_G[MAX_MPCC]; \
++	uint32_t MPCC_OGAM_RAMA_SLOPE_CNTL_R[MAX_MPCC]; \
++	uint32_t MPCC_OGAM_RAMA_END_CNTL1_B[MAX_MPCC]; \
++	uint32_t MPCC_OGAM_RAMA_END_CNTL2_B[MAX_MPCC]; \
++	uint32_t MPCC_OGAM_RAMA_END_CNTL1_G[MAX_MPCC]; \
++	uint32_t MPCC_OGAM_RAMA_END_CNTL2_G[MAX_MPCC]; \
++	uint32_t MPCC_OGAM_RAMA_END_CNTL1_R[MAX_MPCC]; \
++	uint32_t MPCC_OGAM_RAMA_END_CNTL2_R[MAX_MPCC]; \
++	uint32_t MPCC_OGAM_RAMA_REGION_0_1[MAX_MPCC]; \
++	uint32_t MPCC_OGAM_RAMA_REGION_32_33[MAX_MPCC]; \
++	uint32_t MPCC_OGAM_RAMB_START_CNTL_B[MAX_MPCC]; \
++	uint32_t MPCC_OGAM_RAMB_START_CNTL_G[MAX_MPCC]; \
++	uint32_t MPCC_OGAM_RAMB_START_CNTL_R[MAX_MPCC]; \
++	uint32_t MPCC_OGAM_RAMB_SLOPE_CNTL_B[MAX_MPCC]; \
++	uint32_t MPCC_OGAM_RAMB_SLOPE_CNTL_G[MAX_MPCC]; \
++	uint32_t MPCC_OGAM_RAMB_SLOPE_CNTL_R[MAX_MPCC]; \
++	uint32_t MPCC_OGAM_RAMB_END_CNTL1_B[MAX_MPCC]; \
++	uint32_t MPCC_OGAM_RAMB_END_CNTL2_B[MAX_MPCC]; \
++	uint32_t MPCC_OGAM_RAMB_END_CNTL1_G[MAX_MPCC]; \
++	uint32_t MPCC_OGAM_RAMB_END_CNTL2_G[MAX_MPCC]; \
++	uint32_t MPCC_OGAM_RAMB_END_CNTL1_R[MAX_MPCC]; \
++	uint32_t MPCC_OGAM_RAMB_END_CNTL2_R[MAX_MPCC]; \
++	uint32_t MPCC_OGAM_RAMB_REGION_0_1[MAX_MPCC]; \
++	uint32_t MPCC_OGAM_RAMB_REGION_32_33[MAX_MPCC];\
++	uint32_t MPCC_MEM_PWR_CTRL[MAX_MPCC];\
++	uint32_t MPCC_OGAM_LUT_INDEX[MAX_MPCC];\
++	uint32_t MPCC_OGAM_LUT_RAM_CONTROL[MAX_MPCC];\
++	uint32_t MPCC_OGAM_LUT_DATA[MAX_MPCC];\
++	uint32_t MPCC_OGAM_MODE[MAX_MPCC];\
++	uint32_t CSC_MODE[MAX_OPP]; \
++	uint32_t CSC_C11_C12_A[MAX_OPP]; \
++	uint32_t CSC_C33_C34_A[MAX_OPP]; \
++	uint32_t CSC_C11_C12_B[MAX_OPP]; \
++	uint32_t CSC_C33_C34_B[MAX_OPP]; \
++	uint32_t DENORM_CONTROL[MAX_OPP]; \
++	uint32_t DENORM_CLAMP_G_Y[MAX_OPP]; \
++	uint32_t DENORM_CLAMP_B_CB[MAX_OPP];
++
++#define MPC_COMMON_MASK_SH_LIST_DCN2_0(mask_sh) \
++	MPC_COMMON_MASK_SH_LIST_DCN1_0(mask_sh),\
++	SF(MPCC0_MPCC_CONTROL, MPCC_BG_BPC, mask_sh),\
++	SF(MPCC0_MPCC_CONTROL, MPCC_BOT_GAIN_MODE, mask_sh),\
++	SF(MPCC0_MPCC_TOP_GAIN, MPCC_TOP_GAIN, mask_sh),\
++	SF(MPCC0_MPCC_BOT_GAIN_INSIDE, MPCC_BOT_GAIN_INSIDE, mask_sh),\
++	SF(MPCC0_MPCC_BOT_GAIN_OUTSIDE, MPCC_BOT_GAIN_OUTSIDE, mask_sh),\
++	SF(MPC_OUT0_CSC_MODE, MPC_OCSC_MODE, mask_sh),\
++	SF(MPC_OUT0_CSC_C11_C12_A, MPC_OCSC_C11_A, mask_sh),\
++	SF(MPC_OUT0_CSC_C11_C12_A, MPC_OCSC_C12_A, mask_sh),\
++	SF(MPCC0_MPCC_STATUS, MPCC_DISABLED, mask_sh),\
++	SF(MPCC_OGAM0_MPCC_OGAM_RAMA_REGION_0_1, MPCC_OGAM_RAMA_EXP_REGION0_LUT_OFFSET, mask_sh),\
++	SF(MPCC_OGAM0_MPCC_OGAM_RAMA_REGION_0_1, MPCC_OGAM_RAMA_EXP_REGION0_NUM_SEGMENTS, mask_sh),\
++	SF(MPCC_OGAM0_MPCC_OGAM_RAMA_REGION_0_1, MPCC_OGAM_RAMA_EXP_REGION1_LUT_OFFSET, mask_sh),\
++	SF(MPCC_OGAM0_MPCC_OGAM_RAMA_REGION_0_1, MPCC_OGAM_RAMA_EXP_REGION1_NUM_SEGMENTS, mask_sh),\
++	SF(MPCC_OGAM0_MPCC_OGAM_RAMA_END_CNTL1_B, MPCC_OGAM_RAMA_EXP_REGION_END_B, mask_sh),\
++	SF(MPCC_OGAM0_MPCC_OGAM_RAMA_END_CNTL2_B, MPCC_OGAM_RAMA_EXP_REGION_END_SLOPE_B, mask_sh),\
++	SF(MPCC_OGAM0_MPCC_OGAM_RAMA_END_CNTL2_B, MPCC_OGAM_RAMA_EXP_REGION_END_BASE_B, mask_sh),\
++	SF(MPCC_OGAM0_MPCC_OGAM_RAMA_SLOPE_CNTL_B, MPCC_OGAM_RAMA_EXP_REGION_LINEAR_SLOPE_B, mask_sh),\
++	SF(MPCC_OGAM0_MPCC_OGAM_RAMA_START_CNTL_B, MPCC_OGAM_RAMA_EXP_REGION_START_B, mask_sh),\
++	SF(MPCC_OGAM0_MPCC_OGAM_RAMA_START_CNTL_B, MPCC_OGAM_RAMA_EXP_REGION_START_SEGMENT_B, mask_sh),\
++	SF(MPCC_OGAM0_MPCC_OGAM_RAMB_REGION_0_1, MPCC_OGAM_RAMB_EXP_REGION0_LUT_OFFSET, mask_sh),\
++	SF(MPCC_OGAM0_MPCC_OGAM_RAMB_REGION_0_1, MPCC_OGAM_RAMB_EXP_REGION0_NUM_SEGMENTS, mask_sh),\
++	SF(MPCC_OGAM0_MPCC_OGAM_RAMB_REGION_0_1, MPCC_OGAM_RAMB_EXP_REGION1_LUT_OFFSET, mask_sh),\
++	SF(MPCC_OGAM0_MPCC_OGAM_RAMB_REGION_0_1, MPCC_OGAM_RAMB_EXP_REGION1_NUM_SEGMENTS, mask_sh),\
++	SF(MPCC_OGAM0_MPCC_OGAM_RAMB_END_CNTL1_B, MPCC_OGAM_RAMB_EXP_REGION_END_B, mask_sh),\
++	SF(MPCC_OGAM0_MPCC_OGAM_RAMB_END_CNTL2_B, MPCC_OGAM_RAMB_EXP_REGION_END_SLOPE_B, mask_sh),\
++	SF(MPCC_OGAM0_MPCC_OGAM_RAMB_END_CNTL2_B, MPCC_OGAM_RAMB_EXP_REGION_END_BASE_B, mask_sh),\
++	SF(MPCC_OGAM0_MPCC_OGAM_RAMB_SLOPE_CNTL_B, MPCC_OGAM_RAMB_EXP_REGION_LINEAR_SLOPE_B, mask_sh),\
++	SF(MPCC_OGAM0_MPCC_OGAM_RAMB_START_CNTL_B, MPCC_OGAM_RAMB_EXP_REGION_START_B, mask_sh),\
++	SF(MPCC_OGAM0_MPCC_OGAM_RAMB_START_CNTL_B, MPCC_OGAM_RAMB_EXP_REGION_START_SEGMENT_B, mask_sh),\
++	SF(MPCC0_MPCC_MEM_PWR_CTRL, MPCC_OGAM_MEM_PWR_FORCE, mask_sh),\
++	SF(MPCC_OGAM0_MPCC_OGAM_LUT_INDEX, MPCC_OGAM_LUT_INDEX, mask_sh),\
++	SF(MPCC_OGAM0_MPCC_OGAM_LUT_RAM_CONTROL, MPCC_OGAM_LUT_WRITE_EN_MASK, mask_sh),\
++	SF(MPCC_OGAM0_MPCC_OGAM_LUT_RAM_CONTROL, MPCC_OGAM_LUT_RAM_SEL, mask_sh),\
++	SF(MPCC_OGAM0_MPCC_OGAM_LUT_RAM_CONTROL, MPCC_OGAM_CONFIG_STATUS, mask_sh),\
++	SF(MPCC_OGAM0_MPCC_OGAM_LUT_DATA, MPCC_OGAM_LUT_DATA, mask_sh),\
++	SF(MPCC_OGAM0_MPCC_OGAM_MODE, MPCC_OGAM_MODE, mask_sh),\
++	SF(MPC_OUT0_DENORM_CONTROL, MPC_OUT_DENORM_MODE, mask_sh),\
++	SF(MPC_OUT0_DENORM_CONTROL, MPC_OUT_DENORM_CLAMP_MAX_R_CR, mask_sh),\
++	SF(MPC_OUT0_DENORM_CONTROL, MPC_OUT_DENORM_CLAMP_MIN_R_CR, mask_sh),\
++	SF(MPC_OUT0_DENORM_CLAMP_G_Y, MPC_OUT_DENORM_CLAMP_MAX_G_Y, mask_sh),\
++	SF(MPC_OUT0_DENORM_CLAMP_G_Y, MPC_OUT_DENORM_CLAMP_MIN_G_Y, mask_sh),\
++	SF(MPC_OUT0_DENORM_CLAMP_B_CB, MPC_OUT_DENORM_CLAMP_MAX_B_CB, mask_sh),\
++	SF(MPC_OUT0_DENORM_CLAMP_B_CB, MPC_OUT_DENORM_CLAMP_MIN_B_CB, mask_sh)
++
++#define MPC_REG_FIELD_LIST_DCN2_0(type) \
++	MPC_REG_FIELD_LIST(type)\
++	type MPCC_BG_BPC;\
++	type MPCC_BOT_GAIN_MODE;\
++	type MPCC_TOP_GAIN;\
++	type MPCC_BOT_GAIN_INSIDE;\
++	type MPCC_BOT_GAIN_OUTSIDE;\
++	type MPC_OCSC_MODE;\
++	type MPC_OCSC_C11_A;\
++	type MPC_OCSC_C12_A;\
++	type MPCC_OGAM_RAMA_EXP_REGION0_LUT_OFFSET;\
++	type MPCC_OGAM_RAMA_EXP_REGION0_NUM_SEGMENTS;\
++	type MPCC_OGAM_RAMA_EXP_REGION1_LUT_OFFSET;\
++	type MPCC_OGAM_RAMA_EXP_REGION1_NUM_SEGMENTS;\
++	type MPCC_OGAM_RAMA_EXP_REGION_END_B;\
++	type MPCC_OGAM_RAMA_EXP_REGION_END_SLOPE_B;\
++	type MPCC_OGAM_RAMA_EXP_REGION_END_BASE_B;\
++	type MPCC_OGAM_RAMA_EXP_REGION_LINEAR_SLOPE_B;\
++	type MPCC_OGAM_RAMA_EXP_REGION_START_B;\
++	type MPCC_OGAM_RAMA_EXP_REGION_START_SEGMENT_B;\
++	type MPCC_OGAM_RAMB_EXP_REGION0_LUT_OFFSET;\
++	type MPCC_OGAM_RAMB_EXP_REGION0_NUM_SEGMENTS;\
++	type MPCC_OGAM_RAMB_EXP_REGION1_LUT_OFFSET;\
++	type MPCC_OGAM_RAMB_EXP_REGION1_NUM_SEGMENTS;\
++	type MPCC_OGAM_RAMB_EXP_REGION_END_B;\
++	type MPCC_OGAM_RAMB_EXP_REGION_END_SLOPE_B;\
++	type MPCC_OGAM_RAMB_EXP_REGION_END_BASE_B;\
++	type MPCC_OGAM_RAMB_EXP_REGION_LINEAR_SLOPE_B;\
++	type MPCC_OGAM_RAMB_EXP_REGION_START_B;\
++	type MPCC_OGAM_RAMB_EXP_REGION_START_SEGMENT_B;\
++	type MPCC_OGAM_MEM_PWR_FORCE;\
++	type MPCC_OGAM_LUT_INDEX;\
++	type MPCC_OGAM_LUT_WRITE_EN_MASK;\
++	type MPCC_OGAM_LUT_RAM_SEL;\
++	type MPCC_OGAM_CONFIG_STATUS;\
++	type MPCC_OGAM_LUT_DATA;\
++	type MPCC_OGAM_MODE;\
++	type MPC_OUT_DENORM_MODE;\
++	type MPC_OUT_DENORM_CLAMP_MAX_R_CR;\
++	type MPC_OUT_DENORM_CLAMP_MIN_R_CR;\
++	type MPC_OUT_DENORM_CLAMP_MAX_G_Y;\
++	type MPC_OUT_DENORM_CLAMP_MIN_G_Y;\
++	type MPC_OUT_DENORM_CLAMP_MAX_B_CB;\
++	type MPC_OUT_DENORM_CLAMP_MIN_B_CB;\
++	type MPCC_DISABLED;
++
++struct dcn20_mpc_registers {
++	MPC_REG_VARIABLE_LIST_DCN2_0
++};
++
++struct dcn20_mpc_shift {
++	MPC_REG_FIELD_LIST_DCN2_0(uint8_t)
++};
++
++struct dcn20_mpc_mask {
++	MPC_REG_FIELD_LIST_DCN2_0(uint32_t)
++};
++
++struct dcn20_mpc {
++	struct mpc base;
++
++	int mpcc_in_use_mask;
++	int num_mpcc;
++	const struct dcn20_mpc_registers *mpc_regs;
++	const struct dcn20_mpc_shift *mpc_shift;
++	const struct dcn20_mpc_mask *mpc_mask;
++};
++
++void dcn20_mpc_construct(struct dcn20_mpc *mpcc20,
++	struct dc_context *ctx,
++	const struct dcn20_mpc_registers *mpc_regs,
++	const struct dcn20_mpc_shift *mpc_shift,
++	const struct dcn20_mpc_mask *mpc_mask,
++	int num_mpcc);
++
++void mpc2_update_blending(
++	struct mpc *mpc,
++	struct mpcc_blnd_cfg *blnd_cfg,
++	int mpcc_id);
++
++void mpc2_set_denorm(
++	struct mpc *mpc,
++	int opp_id,
++	enum dc_color_depth output_depth);
++
++void mpc2_set_denorm_clamp(
++	struct mpc *mpc,
++	int opp_id,
++	struct mpc_denorm_clamp denorm_clamp);
++
++void mpc2_set_output_csc(
++	struct mpc *mpc,
++	int opp_id,
++	const uint16_t *regval,
++	enum mpc_output_csc_mode ocsc_mode);
++
++void mpc2_set_ocsc_default(
++	struct mpc *mpc,
++	int opp_id,
++	enum dc_color_space color_space,
++	enum mpc_output_csc_mode ocsc_mode);
++
++void mpc2_set_output_gamma(
++	struct mpc *mpc,
++	int mpcc_id,
++	const struct pwl_params *params);
++
++void mpc2_assert_idle_mpcc(struct mpc *mpc, int id);
++void mpc2_assert_mpcc_idle_before_connect(struct mpc *mpc, int mpcc_id);
++#endif
+diff --git a/drivers/gpu/drm/amd/display/dc/inc/hw/mpc.h b/drivers/gpu/drm/amd/display/dc/inc/hw/mpc.h
+index caf74e3c836f..45b94e319cd4 100644
+--- a/drivers/gpu/drm/amd/display/dc/inc/hw/mpc.h
++++ b/drivers/gpu/drm/amd/display/dc/inc/hw/mpc.h
+@@ -31,6 +31,10 @@
+ #define MAX_MPCC 6
+ #define MAX_OPP 6
+ 
++#if   defined(CONFIG_DRM_AMD_DC_DCN2_0)
++#define MAX_DWB		1
++#endif
++
+ enum mpc_output_csc_mode {
+ 	MPC_OUTPUT_CSC_DISABLE = 0,
+ 	MPC_OUTPUT_CSC_COEF_A,
+@@ -62,6 +66,14 @@ struct mpcc_blnd_cfg {
+ 	int global_alpha;
+ 	bool overlap_only;
+ 
++#if defined(CONFIG_DRM_AMD_DC_DCN2_0)
++	/* MPCC top/bottom gain settings */
++	int bottom_gain_mode;
++	int background_color_bpc;
++	int top_gain;
++	int bottom_inside_gain;
++	int bottom_outside_gain;
++#endif
+ };
+ 
+ struct mpcc_sm_cfg {
+@@ -78,6 +90,17 @@ struct mpcc_sm_cfg {
+ 	int force_next_field_polarity;
+ };
+ 
++#if defined(CONFIG_DRM_AMD_DC_DCN2_0)
++struct mpc_denorm_clamp {
++	int clamp_max_r_cr;
++	int clamp_min_r_cr;
++	int clamp_max_g_y;
++	int clamp_min_g_y;
++	int clamp_max_b_cb;
++	int clamp_min_b_cb;
++};
++#endif
++
+ /*
+  * MPCC connection and blending configuration for a single MPCC instance.
+  * This struct is used as a node in an MPC tree.
+@@ -103,6 +126,9 @@ struct mpc {
+ 	struct dc_context *ctx;
+ 
+ 	struct mpcc mpcc_array[MAX_MPCC];
++#if defined(CONFIG_DRM_AMD_DC_DCN2_0)
++	struct pwl_params blender_params;
++#endif
+ };
+ 
+ struct mpcc_state {
+@@ -200,6 +226,32 @@ struct mpc_funcs {
+ 		struct mpc *mpc,
+ 		struct mpc_tree *tree);
+ 
++#if defined(CONFIG_DRM_AMD_DC_DCN2_0)
++	void (*set_denorm)(struct mpc *mpc,
++			int opp_id,
++			enum dc_color_depth output_depth);
++
++	void (*set_denorm_clamp)(
++			struct mpc *mpc,
++			int opp_id,
++			struct mpc_denorm_clamp denorm_clamp);
++
++	void (*set_output_csc)(struct mpc *mpc,
++			int opp_id,
++			const uint16_t *regval,
++			enum mpc_output_csc_mode ocsc_mode);
++
++	void (*set_ocsc_default)(struct mpc *mpc,
++			int opp_id,
++			enum dc_color_space color_space,
++			enum mpc_output_csc_mode ocsc_mode);
++
++	void (*set_output_gamma)(
++			struct mpc *mpc,
++			int mpcc_id,
++			const struct pwl_params *params);
++#endif
++
+ };
+ 
+ #endif
+-- 
+2.17.1
+

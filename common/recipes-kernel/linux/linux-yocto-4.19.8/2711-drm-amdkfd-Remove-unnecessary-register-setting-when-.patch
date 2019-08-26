@@ -1,0 +1,54 @@
+From 1b6ce1db49679ffa4bf85a64d49bb0274b3a01e4 Mon Sep 17 00:00:00 2001
+From: Yong Zhao <Yong.Zhao@amd.com>
+Date: Fri, 12 Oct 2018 16:48:04 -0400
+Subject: [PATCH 2711/2940] drm/amdkfd: Remove unnecessary register setting
+ when invalidating tlb in kfd
+
+Those register settings have been done in gfxhub_v1_0_program_invalidation()
+and mmhub_v1_0_program_invalidation().
+
+Signed-off-by: Yong Zhao <Yong.Zhao@amd.com>
+Reviewed-by: Felix Kuehling <Felix.Kuehling@amd.com>
+Signed-off-by: Alex Deucher <alexander.deucher@amd.com>
+---
+ .../gpu/drm/amd/amdgpu/amdgpu_amdkfd_gfx_v9.c   | 17 -----------------
+ 1 file changed, 17 deletions(-)
+
+diff --git a/drivers/gpu/drm/amd/amdgpu/amdgpu_amdkfd_gfx_v9.c b/drivers/gpu/drm/amd/amdgpu/amdgpu_amdkfd_gfx_v9.c
+index ef68a53bd940..f3323d852c04 100644
+--- a/drivers/gpu/drm/amd/amdgpu/amdgpu_amdkfd_gfx_v9.c
++++ b/drivers/gpu/drm/amd/amdgpu/amdgpu_amdkfd_gfx_v9.c
+@@ -61,11 +61,6 @@
+ #define mmMMHUB_VM_INVALIDATE_ENG16_ACK				0x0705
+ #define mmMMHUB_VM_INVALIDATE_ENG16_ACK_BASE_IDX		0
+ 
+-#define mmMMHUB_VM_INVALIDATE_ENG16_ADDR_RANGE_LO32		0x0727
+-#define mmMMHUB_VM_INVALIDATE_ENG16_ADDR_RANGE_LO32_BASE_IDX	0
+-#define mmMMHUB_VM_INVALIDATE_ENG16_ADDR_RANGE_HI32		0x0728
+-#define mmMMHUB_VM_INVALIDATE_ENG16_ADDR_RANGE_HI32_BASE_IDX	0
+-
+ #define V9_PIPE_PER_MEC		(4)
+ #define V9_QUEUES_PER_PIPE_MEC	(8)
+ 
+@@ -772,18 +767,6 @@ static void write_vmid_invalidate_request(struct kgd_dev *kgd, uint8_t vmid)
+ 	 * TODO 2: support range-based invalidation, requires kfg2kgd
+ 	 * interface change
+ 	 */
+-	WREG32(SOC15_REG_OFFSET(GC, 0, mmVM_INVALIDATE_ENG16_ADDR_RANGE_LO32),
+-				0xffffffff);
+-	WREG32(SOC15_REG_OFFSET(GC, 0, mmVM_INVALIDATE_ENG16_ADDR_RANGE_HI32),
+-				0x0000001f);
+-
+-	WREG32(SOC15_REG_OFFSET(MMHUB, 0,
+-				mmMMHUB_VM_INVALIDATE_ENG16_ADDR_RANGE_LO32),
+-				0xffffffff);
+-	WREG32(SOC15_REG_OFFSET(MMHUB, 0,
+-				mmMMHUB_VM_INVALIDATE_ENG16_ADDR_RANGE_HI32),
+-				0x0000001f);
+-
+ 	WREG32(SOC15_REG_OFFSET(GC, 0, mmVM_INVALIDATE_ENG16_REQ), req);
+ 
+ 	WREG32(SOC15_REG_OFFSET(MMHUB, 0, mmMMHUB_VM_INVALIDATE_ENG16_REQ),
+-- 
+2.17.1
+

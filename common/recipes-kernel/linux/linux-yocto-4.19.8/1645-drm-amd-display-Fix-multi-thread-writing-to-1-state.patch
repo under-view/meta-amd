@@ -1,0 +1,961 @@
+From b7ac9bf91928216adbbab2d2e3f6a36d7e29d272 Mon Sep 17 00:00:00 2001
+From: Aidan Wood <Aidan.Wood@amd.com>
+Date: Fri, 22 Feb 2019 13:37:03 -0500
+Subject: [PATCH 1645/2940] drm/amd/display: Fix multi-thread writing to 1
+ state
+
+[Why]
+Multiple threads were writing back to one global VBA in DC resulting
+in multiple threads overwriting eachother's data
+
+[How]
+Add an instance of DML (which contains VBA) to each context and
+change all calls that used dc->dml to use context->dml. Created a
+seperate copy constructor for linux in a case where there is no
+access to DC.
+
+Change-Id: I9999fa5ee909dca4d90c4861e66e4c34e7822a8b
+Signed-off-by: Aidan Wood <Aidan.Wood@amd.com>
+Reviewed-by: Jun Lei <Jun.Lei@amd.com>
+Acked-by: Bhawanpreet Lakha <Bhawanpreet.Lakha@amd.com>
+Signed-off-by: Chaudhary Amit Kumar <Chaudharyamit.Kumar@amd.com>
+---
+ .../gpu/drm/amd/display/amdgpu_dm/amdgpu_dm.c | 15 ++-
+ .../gpu/drm/amd/display/dc/calcs/dcn_calcs.c  | 98 +++++++++----------
+ drivers/gpu/drm/amd/display/dc/core/dc.c      | 83 ++++++++++++----
+ .../gpu/drm/amd/display/dc/core/dc_debug.c    | 24 ++---
+ drivers/gpu/drm/amd/display/dc/dc.h           |  3 +-
+ .../gpu/drm/amd/display/dc/dce/dce_clk_mgr.c  | 30 +++---
+ .../amd/display/dc/dce100/dce100_resource.c   |  8 +-
+ .../display/dc/dce110/dce110_hw_sequencer.c   | 14 +--
+ .../amd/display/dc/dce110/dce110_resource.c   | 62 ++++++------
+ .../amd/display/dc/dce112/dce112_resource.c   | 62 ++++++------
+ .../drm/amd/display/dc/dce80/dce80_resource.c |  8 +-
+ .../drm/amd/display/dc/dcn10/dcn10_clk_mgr.c  |  2 +-
+ .../amd/display/dc/dcn10/dcn10_hw_sequencer.c | 24 ++---
+ .../dc/dcn10/dcn10_hw_sequencer_debug.c       | 12 +--
+ .../gpu/drm/amd/display/dc/inc/core_types.h   | 10 +-
+ 15 files changed, 252 insertions(+), 203 deletions(-)
+
+diff --git a/drivers/gpu/drm/amd/display/amdgpu_dm/amdgpu_dm.c b/drivers/gpu/drm/amd/display/amdgpu_dm/amdgpu_dm.c
+index 3949d932e648..ccbc434893a7 100644
+--- a/drivers/gpu/drm/amd/display/amdgpu_dm/amdgpu_dm.c
++++ b/drivers/gpu/drm/amd/display/amdgpu_dm/amdgpu_dm.c
+@@ -1632,17 +1632,16 @@ dm_atomic_duplicate_state(struct drm_private_obj *obj)
+ 
+ 	__drm_atomic_helper_private_obj_duplicate_state(obj, &new_state->base);
+ 
+-	new_state->context = dc_create_state();
++	old_state = to_dm_atomic_state(obj->state);
++
++	if (old_state && old_state->context)
++		new_state->context = dc_copy_state(old_state->context);
++
+ 	if (!new_state->context) {
+ 		kfree(new_state);
+ 		return NULL;
+ 	}
+ 
+-	old_state = to_dm_atomic_state(obj->state);
+-	if (old_state && old_state->context)
+-		dc_resource_state_copy_construct(old_state->context,
+-						 new_state->context);
+-
+ 	return &new_state->base;
+ }
+ 
+@@ -1686,7 +1685,7 @@ static int amdgpu_dm_mode_config_init(struct amdgpu_device *adev)
+ 	if (!state)
+ 		return -ENOMEM;
+ 
+-	state->context = dc_create_state();
++	state->context = dc_create_state(adev->dm.dc);
+ 	if (!state->context) {
+ 		kfree(state);
+ 		return -ENOMEM;
+@@ -5186,7 +5185,7 @@ static void amdgpu_dm_atomic_commit_tail(struct drm_atomic_state *state)
+ 		dc_state = dm_state->context;
+ 	} else {
+ 		/* No state changes, retain current state. */
+-		dc_state_temp = dc_create_state();
++		dc_state_temp = dc_create_state(dm->dc);
+ 		ASSERT(dc_state_temp);
+ 		dc_state = dc_state_temp;
+ 		dc_resource_state_copy_construct_current(dm->dc, dc_state);
+diff --git a/drivers/gpu/drm/amd/display/dc/calcs/dcn_calcs.c b/drivers/gpu/drm/amd/display/dc/calcs/dcn_calcs.c
+index 66e50bcdcc7c..d2083e0b59a7 100644
+--- a/drivers/gpu/drm/amd/display/dc/calcs/dcn_calcs.c
++++ b/drivers/gpu/drm/amd/display/dc/calcs/dcn_calcs.c
+@@ -536,28 +536,28 @@ static void calc_wm_sets_and_perf_params(
+ 		v->fabric_and_dram_bandwidth = v->fabric_and_dram_bandwidth_vnom0p8;
+ 		dispclkdppclkdcfclk_deep_sleep_prefetch_parameters_watermarks_and_performance_calculation(v);
+ 
+-		context->bw.dcn.watermarks.b.cstate_pstate.cstate_exit_ns =
++		context->bw_ctx.bw.dcn.watermarks.b.cstate_pstate.cstate_exit_ns =
+ 			v->stutter_exit_watermark * 1000;
+-		context->bw.dcn.watermarks.b.cstate_pstate.cstate_enter_plus_exit_ns =
++		context->bw_ctx.bw.dcn.watermarks.b.cstate_pstate.cstate_enter_plus_exit_ns =
+ 				v->stutter_enter_plus_exit_watermark * 1000;
+-		context->bw.dcn.watermarks.b.cstate_pstate.pstate_change_ns =
++		context->bw_ctx.bw.dcn.watermarks.b.cstate_pstate.pstate_change_ns =
+ 				v->dram_clock_change_watermark * 1000;
+-		context->bw.dcn.watermarks.b.pte_meta_urgent_ns = v->ptemeta_urgent_watermark * 1000;
+-		context->bw.dcn.watermarks.b.urgent_ns = v->urgent_watermark * 1000;
++		context->bw_ctx.bw.dcn.watermarks.b.pte_meta_urgent_ns = v->ptemeta_urgent_watermark * 1000;
++		context->bw_ctx.bw.dcn.watermarks.b.urgent_ns = v->urgent_watermark * 1000;
+ 
+ 		v->dcfclk_per_state[1] = v->dcfclkv_nom0p8;
+ 		v->dcfclk_per_state[0] = v->dcfclkv_nom0p8;
+ 		v->dcfclk = v->dcfclkv_nom0p8;
+ 		dispclkdppclkdcfclk_deep_sleep_prefetch_parameters_watermarks_and_performance_calculation(v);
+ 
+-		context->bw.dcn.watermarks.c.cstate_pstate.cstate_exit_ns =
++		context->bw_ctx.bw.dcn.watermarks.c.cstate_pstate.cstate_exit_ns =
+ 			v->stutter_exit_watermark * 1000;
+-		context->bw.dcn.watermarks.c.cstate_pstate.cstate_enter_plus_exit_ns =
++		context->bw_ctx.bw.dcn.watermarks.c.cstate_pstate.cstate_enter_plus_exit_ns =
+ 				v->stutter_enter_plus_exit_watermark * 1000;
+-		context->bw.dcn.watermarks.c.cstate_pstate.pstate_change_ns =
++		context->bw_ctx.bw.dcn.watermarks.c.cstate_pstate.pstate_change_ns =
+ 				v->dram_clock_change_watermark * 1000;
+-		context->bw.dcn.watermarks.c.pte_meta_urgent_ns = v->ptemeta_urgent_watermark * 1000;
+-		context->bw.dcn.watermarks.c.urgent_ns = v->urgent_watermark * 1000;
++		context->bw_ctx.bw.dcn.watermarks.c.pte_meta_urgent_ns = v->ptemeta_urgent_watermark * 1000;
++		context->bw_ctx.bw.dcn.watermarks.c.urgent_ns = v->urgent_watermark * 1000;
+ 	}
+ 
+ 	if (v->voltage_level < 3) {
+@@ -571,14 +571,14 @@ static void calc_wm_sets_and_perf_params(
+ 		v->dcfclk = v->dcfclkv_max0p9;
+ 		dispclkdppclkdcfclk_deep_sleep_prefetch_parameters_watermarks_and_performance_calculation(v);
+ 
+-		context->bw.dcn.watermarks.d.cstate_pstate.cstate_exit_ns =
++		context->bw_ctx.bw.dcn.watermarks.d.cstate_pstate.cstate_exit_ns =
+ 			v->stutter_exit_watermark * 1000;
+-		context->bw.dcn.watermarks.d.cstate_pstate.cstate_enter_plus_exit_ns =
++		context->bw_ctx.bw.dcn.watermarks.d.cstate_pstate.cstate_enter_plus_exit_ns =
+ 				v->stutter_enter_plus_exit_watermark * 1000;
+-		context->bw.dcn.watermarks.d.cstate_pstate.pstate_change_ns =
++		context->bw_ctx.bw.dcn.watermarks.d.cstate_pstate.pstate_change_ns =
+ 				v->dram_clock_change_watermark * 1000;
+-		context->bw.dcn.watermarks.d.pte_meta_urgent_ns = v->ptemeta_urgent_watermark * 1000;
+-		context->bw.dcn.watermarks.d.urgent_ns = v->urgent_watermark * 1000;
++		context->bw_ctx.bw.dcn.watermarks.d.pte_meta_urgent_ns = v->ptemeta_urgent_watermark * 1000;
++		context->bw_ctx.bw.dcn.watermarks.d.urgent_ns = v->urgent_watermark * 1000;
+ 	}
+ 
+ 	v->fabric_and_dram_bandwidth_per_state[2] = v->fabric_and_dram_bandwidth_vnom0p8;
+@@ -591,20 +591,20 @@ static void calc_wm_sets_and_perf_params(
+ 	v->dcfclk = v->dcfclk_per_state[v->voltage_level];
+ 	dispclkdppclkdcfclk_deep_sleep_prefetch_parameters_watermarks_and_performance_calculation(v);
+ 
+-	context->bw.dcn.watermarks.a.cstate_pstate.cstate_exit_ns =
++	context->bw_ctx.bw.dcn.watermarks.a.cstate_pstate.cstate_exit_ns =
+ 		v->stutter_exit_watermark * 1000;
+-	context->bw.dcn.watermarks.a.cstate_pstate.cstate_enter_plus_exit_ns =
++	context->bw_ctx.bw.dcn.watermarks.a.cstate_pstate.cstate_enter_plus_exit_ns =
+ 			v->stutter_enter_plus_exit_watermark * 1000;
+-	context->bw.dcn.watermarks.a.cstate_pstate.pstate_change_ns =
++	context->bw_ctx.bw.dcn.watermarks.a.cstate_pstate.pstate_change_ns =
+ 			v->dram_clock_change_watermark * 1000;
+-	context->bw.dcn.watermarks.a.pte_meta_urgent_ns = v->ptemeta_urgent_watermark * 1000;
+-	context->bw.dcn.watermarks.a.urgent_ns = v->urgent_watermark * 1000;
++	context->bw_ctx.bw.dcn.watermarks.a.pte_meta_urgent_ns = v->ptemeta_urgent_watermark * 1000;
++	context->bw_ctx.bw.dcn.watermarks.a.urgent_ns = v->urgent_watermark * 1000;
+ 	if (v->voltage_level >= 2) {
+-		context->bw.dcn.watermarks.b = context->bw.dcn.watermarks.a;
+-		context->bw.dcn.watermarks.c = context->bw.dcn.watermarks.a;
++		context->bw_ctx.bw.dcn.watermarks.b = context->bw_ctx.bw.dcn.watermarks.a;
++		context->bw_ctx.bw.dcn.watermarks.c = context->bw_ctx.bw.dcn.watermarks.a;
+ 	}
+ 	if (v->voltage_level >= 3)
+-		context->bw.dcn.watermarks.d = context->bw.dcn.watermarks.a;
++		context->bw_ctx.bw.dcn.watermarks.d = context->bw_ctx.bw.dcn.watermarks.a;
+ }
+ #endif
+ 
+@@ -1000,8 +1000,8 @@ bool dcn_validate_bandwidth(
+ 				dc->debug.sr_enter_plus_exit_time_dpm0_ns / 1000.0f;
+ 		if (dc->debug.sr_exit_time_dpm0_ns)
+ 			v->sr_exit_time =  dc->debug.sr_exit_time_dpm0_ns / 1000.0f;
+-		dc->dml.soc.sr_enter_plus_exit_time_us = v->sr_enter_plus_exit_time;
+-		dc->dml.soc.sr_exit_time_us = v->sr_exit_time;
++		context->bw_ctx.dml.soc.sr_enter_plus_exit_time_us = v->sr_enter_plus_exit_time;
++		context->bw_ctx.dml.soc.sr_exit_time_us = v->sr_exit_time;
+ 		mode_support_and_system_configuration(v);
+ 	}
+ 
+@@ -1027,54 +1027,54 @@ bool dcn_validate_bandwidth(
+ 		 */
+ 		dispclkdppclkdcfclk_deep_sleep_prefetch_parameters_watermarks_and_performance_calculation(v);
+ 
+-		context->bw.dcn.watermarks.a.cstate_pstate.cstate_exit_ns =
++		context->bw_ctx.bw.dcn.watermarks.a.cstate_pstate.cstate_exit_ns =
+ 			v->stutter_exit_watermark * 1000;
+-		context->bw.dcn.watermarks.a.cstate_pstate.cstate_enter_plus_exit_ns =
++		context->bw_ctx.bw.dcn.watermarks.a.cstate_pstate.cstate_enter_plus_exit_ns =
+ 				v->stutter_enter_plus_exit_watermark * 1000;
+-		context->bw.dcn.watermarks.a.cstate_pstate.pstate_change_ns =
++		context->bw_ctx.bw.dcn.watermarks.a.cstate_pstate.pstate_change_ns =
+ 				v->dram_clock_change_watermark * 1000;
+-		context->bw.dcn.watermarks.a.pte_meta_urgent_ns = v->ptemeta_urgent_watermark * 1000;
+-		context->bw.dcn.watermarks.a.urgent_ns = v->urgent_watermark * 1000;
+-		context->bw.dcn.watermarks.b = context->bw.dcn.watermarks.a;
+-		context->bw.dcn.watermarks.c = context->bw.dcn.watermarks.a;
+-		context->bw.dcn.watermarks.d = context->bw.dcn.watermarks.a;
++		context->bw_ctx.bw.dcn.watermarks.a.pte_meta_urgent_ns = v->ptemeta_urgent_watermark * 1000;
++		context->bw_ctx.bw.dcn.watermarks.a.urgent_ns = v->urgent_watermark * 1000;
++		context->bw_ctx.bw.dcn.watermarks.b = context->bw_ctx.bw.dcn.watermarks.a;
++		context->bw_ctx.bw.dcn.watermarks.c = context->bw_ctx.bw.dcn.watermarks.a;
++		context->bw_ctx.bw.dcn.watermarks.d = context->bw_ctx.bw.dcn.watermarks.a;
+ 
+-		context->bw.dcn.clk.fclk_khz = (int)(bw_consumed * 1000000 /
++		context->bw_ctx.bw.dcn.clk.fclk_khz = (int)(bw_consumed * 1000000 /
+ 				(ddr4_dram_factor_single_Channel * v->number_of_channels));
+ 		if (bw_consumed == v->fabric_and_dram_bandwidth_vmin0p65) {
+-			context->bw.dcn.clk.fclk_khz = (int)(bw_consumed * 1000000 / 32);
++			context->bw_ctx.bw.dcn.clk.fclk_khz = (int)(bw_consumed * 1000000 / 32);
+ 		}
+ 
+-		context->bw.dcn.clk.dcfclk_deep_sleep_khz = (int)(v->dcf_clk_deep_sleep * 1000);
+-		context->bw.dcn.clk.dcfclk_khz = (int)(v->dcfclk * 1000);
++		context->bw_ctx.bw.dcn.clk.dcfclk_deep_sleep_khz = (int)(v->dcf_clk_deep_sleep * 1000);
++		context->bw_ctx.bw.dcn.clk.dcfclk_khz = (int)(v->dcfclk * 1000);
+ 
+-		context->bw.dcn.clk.dispclk_khz = (int)(v->dispclk * 1000);
++		context->bw_ctx.bw.dcn.clk.dispclk_khz = (int)(v->dispclk * 1000);
+ 		if (dc->debug.max_disp_clk == true)
+-			context->bw.dcn.clk.dispclk_khz = (int)(dc->dcn_soc->max_dispclk_vmax0p9 * 1000);
++			context->bw_ctx.bw.dcn.clk.dispclk_khz = (int)(dc->dcn_soc->max_dispclk_vmax0p9 * 1000);
+ 
+-		if (context->bw.dcn.clk.dispclk_khz <
++		if (context->bw_ctx.bw.dcn.clk.dispclk_khz <
+ 				dc->debug.min_disp_clk_khz) {
+-			context->bw.dcn.clk.dispclk_khz =
++			context->bw_ctx.bw.dcn.clk.dispclk_khz =
+ 					dc->debug.min_disp_clk_khz;
+ 		}
+ 
+-		context->bw.dcn.clk.dppclk_khz = context->bw.dcn.clk.dispclk_khz / v->dispclk_dppclk_ratio;
+-		context->bw.dcn.clk.phyclk_khz = v->phyclk_per_state[v->voltage_level];
++		context->bw_ctx.bw.dcn.clk.dppclk_khz = context->bw_ctx.bw.dcn.clk.dispclk_khz / v->dispclk_dppclk_ratio;
++		context->bw_ctx.bw.dcn.clk.phyclk_khz = v->phyclk_per_state[v->voltage_level];
+ 		switch (v->voltage_level) {
+ 		case 0:
+-			context->bw.dcn.clk.max_supported_dppclk_khz =
++			context->bw_ctx.bw.dcn.clk.max_supported_dppclk_khz =
+ 					(int)(dc->dcn_soc->max_dppclk_vmin0p65 * 1000);
+ 			break;
+ 		case 1:
+-			context->bw.dcn.clk.max_supported_dppclk_khz =
++			context->bw_ctx.bw.dcn.clk.max_supported_dppclk_khz =
+ 					(int)(dc->dcn_soc->max_dppclk_vmid0p72 * 1000);
+ 			break;
+ 		case 2:
+-			context->bw.dcn.clk.max_supported_dppclk_khz =
++			context->bw_ctx.bw.dcn.clk.max_supported_dppclk_khz =
+ 					(int)(dc->dcn_soc->max_dppclk_vnom0p8 * 1000);
+ 			break;
+ 		default:
+-			context->bw.dcn.clk.max_supported_dppclk_khz =
++			context->bw_ctx.bw.dcn.clk.max_supported_dppclk_khz =
+ 					(int)(dc->dcn_soc->max_dppclk_vmax0p9 * 1000);
+ 			break;
+ 		}
+@@ -1173,9 +1173,9 @@ bool dcn_validate_bandwidth(
+ 
+ 	if (v->voltage_level == 0) {
+ 
+-		dc->dml.soc.sr_enter_plus_exit_time_us =
++		context->bw_ctx.dml.soc.sr_enter_plus_exit_time_us =
+ 				dc->dcn_soc->sr_enter_plus_exit_time;
+-		dc->dml.soc.sr_exit_time_us = dc->dcn_soc->sr_exit_time;
++		context->bw_ctx.dml.soc.sr_exit_time_us = dc->dcn_soc->sr_exit_time;
+ 	}
+ 
+ 	/*
+diff --git a/drivers/gpu/drm/amd/display/dc/core/dc.c b/drivers/gpu/drm/amd/display/dc/core/dc.c
+index 19aea68c9d67..5c3da56d0692 100644
+--- a/drivers/gpu/drm/amd/display/dc/core/dc.c
++++ b/drivers/gpu/drm/amd/display/dc/core/dc.c
+@@ -677,13 +677,6 @@ static bool construct(struct dc *dc,
+ 
+ 	dc->ctx = dc_ctx;
+ 
+-	dc->current_state = dc_create_state();
+-
+-	if (!dc->current_state) {
+-		dm_error("%s: failed to create validate ctx\n", __func__);
+-		goto fail;
+-	}
+-
+ 	/* Create logger */
+ 
+ 	dc_ctx->dce_environment = init_params->dce_environment;
+@@ -739,6 +732,18 @@ static bool construct(struct dc *dc,
+ 	if (!dc->res_pool)
+ 		goto fail;
+ 
++	/* Creation of current_state must occur after dc->dml
++	 * is initialized in dc_create_resource_pool because
++	 * on creation it copies the contents of dc->dml
++	 */
++
++	dc->current_state = dc_create_state(dc);
++
++	if (!dc->current_state) {
++		dm_error("%s: failed to create validate ctx\n", __func__);
++		goto fail;
++	}
++
+ 	dc_resource_state_construct(dc, dc->current_state);
+ 
+ 	if (!create_links(dc, init_params->num_virtual_links))
+@@ -755,7 +760,7 @@ static bool construct(struct dc *dc,
+ static void disable_dangling_plane(struct dc *dc, struct dc_state *context)
+ {
+ 	int i, j;
+-	struct dc_state *dangling_context = dc_create_state();
++	struct dc_state *dangling_context = dc_create_state(dc);
+ 	struct dc_state *current_ctx;
+ 
+ 	if (dangling_context == NULL)
+@@ -1215,18 +1220,58 @@ bool dc_post_update_surfaces_to_stream(struct dc *dc)
+ 	return true;
+ }
+ 
+-struct dc_state *dc_create_state(void)
++struct dc_state *dc_create_state(struct dc *dc)
+ {
+ 	struct dc_state *context = kzalloc(sizeof(struct dc_state),
+ 					   GFP_KERNEL);
+ 
+ 	if (!context)
+ 		return NULL;
++	/* Each context must have their own instance of VBA and in order to
++	 * initialize and obtain IP and SOC the base DML instance from DC is
++	 * initially copied into every context
++	 */
++	memcpy(&context->bw_ctx.dml, &dc->dml, sizeof(struct display_mode_lib));
+ 
+ 	kref_init(&context->refcount);
++
+ 	return context;
+ }
+ 
++struct dc_state *dc_copy_state(struct dc_state *src_ctx)
++{
++	int i, j;
++	struct dc_state *new_ctx = kzalloc(sizeof(struct dc_state),
++					   GFP_KERNEL);
++
++	if (!new_ctx)
++		return NULL;
++
++	memcpy(new_ctx, src_ctx, sizeof(struct dc_state));
++
++	for (i = 0; i < MAX_PIPES; i++) {
++			struct pipe_ctx *cur_pipe = &new_ctx->res_ctx.pipe_ctx[i];
++
++			if (cur_pipe->top_pipe)
++				cur_pipe->top_pipe =  &new_ctx->res_ctx.pipe_ctx[cur_pipe->top_pipe->pipe_idx];
++
++			if (cur_pipe->bottom_pipe)
++				cur_pipe->bottom_pipe = &new_ctx->res_ctx.pipe_ctx[cur_pipe->bottom_pipe->pipe_idx];
++
++	}
++
++	for (i = 0; i < new_ctx->stream_count; i++) {
++			dc_stream_retain(new_ctx->streams[i]);
++			for (j = 0; j < new_ctx->stream_status[i].plane_count; j++)
++				dc_plane_state_retain(
++					new_ctx->stream_status[i].plane_states[j]);
++	}
++
++	kref_init(&new_ctx->refcount);
++
++	return new_ctx;
++}
++
+ void dc_retain_state(struct dc_state *context)
+ {
+ 	kref_get(&context->refcount);
+@@ -1825,7 +1870,7 @@ void dc_commit_updates_for_stream(struct dc *dc,
+ 	if (update_type >= UPDATE_TYPE_FULL) {
+ 
+ 		/* initialize scratch memory for building context */
+-		context = dc_create_state();
++		context = dc_create_state(dc);
+ 		if (context == NULL) {
+ 			DC_ERROR("Failed to allocate new validate context!\n");
+ 			return;
+@@ -2110,13 +2155,13 @@ void dc_link_remove_remote_sink(struct dc_link *link, struct dc_sink *sink)
+ 
+ void get_clock_requirements_for_state(struct dc_state *state, struct AsicStateEx *info)
+ {
+-	info->displayClock				= (unsigned int)state->bw.dcn.clk.dispclk_khz;
+-	info->engineClock				= (unsigned int)state->bw.dcn.clk.dcfclk_khz;
+-	info->memoryClock				= (unsigned int)state->bw.dcn.clk.dramclk_khz;
+-	info->maxSupportedDppClock		= (unsigned int)state->bw.dcn.clk.max_supported_dppclk_khz;
+-	info->dppClock					= (unsigned int)state->bw.dcn.clk.dppclk_khz;
+-	info->socClock					= (unsigned int)state->bw.dcn.clk.socclk_khz;
+-	info->dcfClockDeepSleep			= (unsigned int)state->bw.dcn.clk.dcfclk_deep_sleep_khz;
+-	info->fClock					= (unsigned int)state->bw.dcn.clk.fclk_khz;
+-	info->phyClock					= (unsigned int)state->bw.dcn.clk.phyclk_khz;
++	info->displayClock				= (unsigned int)state->bw_ctx.bw.dcn.clk.dispclk_khz;
++	info->engineClock				= (unsigned int)state->bw_ctx.bw.dcn.clk.dcfclk_khz;
++	info->memoryClock				= (unsigned int)state->bw_ctx.bw.dcn.clk.dramclk_khz;
++	info->maxSupportedDppClock		= (unsigned int)state->bw_ctx.bw.dcn.clk.max_supported_dppclk_khz;
++	info->dppClock					= (unsigned int)state->bw_ctx.bw.dcn.clk.dppclk_khz;
++	info->socClock					= (unsigned int)state->bw_ctx.bw.dcn.clk.socclk_khz;
++	info->dcfClockDeepSleep			= (unsigned int)state->bw_ctx.bw.dcn.clk.dcfclk_deep_sleep_khz;
++	info->fClock					= (unsigned int)state->bw_ctx.bw.dcn.clk.fclk_khz;
++	info->phyClock					= (unsigned int)state->bw_ctx.bw.dcn.clk.phyclk_khz;
+ }
+diff --git a/drivers/gpu/drm/amd/display/dc/core/dc_debug.c b/drivers/gpu/drm/amd/display/dc/core/dc_debug.c
+index 830235d460dc..2d1bbe5092eb 100644
+--- a/drivers/gpu/drm/amd/display/dc/core/dc_debug.c
++++ b/drivers/gpu/drm/amd/display/dc/core/dc_debug.c
+@@ -351,19 +351,19 @@ void context_clock_trace(
+ 	DC_LOGGER_INIT(dc->ctx->logger);
+ 	CLOCK_TRACE("Current: dispclk_khz:%d  max_dppclk_khz:%d  dcfclk_khz:%d\n"
+ 			"dcfclk_deep_sleep_khz:%d  fclk_khz:%d  socclk_khz:%d\n",
+-			context->bw.dcn.clk.dispclk_khz,
+-			context->bw.dcn.clk.dppclk_khz,
+-			context->bw.dcn.clk.dcfclk_khz,
+-			context->bw.dcn.clk.dcfclk_deep_sleep_khz,
+-			context->bw.dcn.clk.fclk_khz,
+-			context->bw.dcn.clk.socclk_khz);
++			context->bw_ctx.bw.dcn.clk.dispclk_khz,
++			context->bw_ctx.bw.dcn.clk.dppclk_khz,
++			context->bw_ctx.bw.dcn.clk.dcfclk_khz,
++			context->bw_ctx.bw.dcn.clk.dcfclk_deep_sleep_khz,
++			context->bw_ctx.bw.dcn.clk.fclk_khz,
++			context->bw_ctx.bw.dcn.clk.socclk_khz);
+ 	CLOCK_TRACE("Calculated: dispclk_khz:%d  max_dppclk_khz:%d  dcfclk_khz:%d\n"
+ 			"dcfclk_deep_sleep_khz:%d  fclk_khz:%d  socclk_khz:%d\n",
+-			context->bw.dcn.clk.dispclk_khz,
+-			context->bw.dcn.clk.dppclk_khz,
+-			context->bw.dcn.clk.dcfclk_khz,
+-			context->bw.dcn.clk.dcfclk_deep_sleep_khz,
+-			context->bw.dcn.clk.fclk_khz,
+-			context->bw.dcn.clk.socclk_khz);
++			context->bw_ctx.bw.dcn.clk.dispclk_khz,
++			context->bw_ctx.bw.dcn.clk.dppclk_khz,
++			context->bw_ctx.bw.dcn.clk.dcfclk_khz,
++			context->bw_ctx.bw.dcn.clk.dcfclk_deep_sleep_khz,
++			context->bw_ctx.bw.dcn.clk.fclk_khz,
++			context->bw_ctx.bw.dcn.clk.socclk_khz);
+ #endif
+ }
+diff --git a/drivers/gpu/drm/amd/display/dc/dc.h b/drivers/gpu/drm/amd/display/dc/dc.h
+index 583b45b122d8..a60180d6b99f 100644
+--- a/drivers/gpu/drm/amd/display/dc/dc.h
++++ b/drivers/gpu/drm/amd/display/dc/dc.h
+@@ -683,7 +683,8 @@ void dc_resource_state_destruct(struct dc_state *context);
+ bool dc_commit_state(struct dc *dc, struct dc_state *context);
+ 
+ 
+-struct dc_state *dc_create_state(void);
++struct dc_state *dc_create_state(struct dc *dc);
++struct dc_state *dc_copy_state(struct dc_state *src_ctx);
+ void dc_retain_state(struct dc_state *context);
+ void dc_release_state(struct dc_state *context);
+ 
+diff --git a/drivers/gpu/drm/amd/display/dc/dce/dce_clk_mgr.c b/drivers/gpu/drm/amd/display/dc/dce/dce_clk_mgr.c
+index 75c2397e837b..03b64028a733 100644
+--- a/drivers/gpu/drm/amd/display/dc/dce/dce_clk_mgr.c
++++ b/drivers/gpu/drm/amd/display/dc/dce/dce_clk_mgr.c
+@@ -219,7 +219,7 @@ static enum dm_pp_clocks_state dce_get_required_clocks_state(
+ 	 * all required clocks
+ 	 */
+ 	for (i = clk_mgr_dce->max_clks_state; i >= DM_PP_CLOCKS_STATE_ULTRA_LOW; i--)
+-		if (context->bw.dce.dispclk_khz >
++		if (context->bw_ctx.bw.dce.dispclk_khz >
+ 				clk_mgr_dce->max_clks_by_state[i].display_clk_khz
+ 			|| max_pix_clk >
+ 				clk_mgr_dce->max_clks_by_state[i].pixel_clk_khz)
+@@ -229,7 +229,7 @@ static enum dm_pp_clocks_state dce_get_required_clocks_state(
+ 	if (low_req_clk > clk_mgr_dce->max_clks_state) {
+ 		/* set max clock state for high phyclock, invalid on exceeding display clock */
+ 		if (clk_mgr_dce->max_clks_by_state[clk_mgr_dce->max_clks_state].display_clk_khz
+-				< context->bw.dce.dispclk_khz)
++				< context->bw_ctx.bw.dce.dispclk_khz)
+ 			low_req_clk = DM_PP_CLOCKS_STATE_INVALID;
+ 		else
+ 			low_req_clk = clk_mgr_dce->max_clks_state;
+@@ -607,22 +607,22 @@ static void dce11_pplib_apply_display_requirements(
+ 	struct dm_pp_display_configuration *pp_display_cfg = &context->pp_display_cfg;
+ 
+ 	pp_display_cfg->all_displays_in_sync =
+-		context->bw.dce.all_displays_in_sync;
++		context->bw_ctx.bw.dce.all_displays_in_sync;
+ 	pp_display_cfg->nb_pstate_switch_disable =
+-			context->bw.dce.nbp_state_change_enable == false;
++			context->bw_ctx.bw.dce.nbp_state_change_enable == false;
+ 	pp_display_cfg->cpu_cc6_disable =
+-			context->bw.dce.cpuc_state_change_enable == false;
++			context->bw_ctx.bw.dce.cpuc_state_change_enable == false;
+ 	pp_display_cfg->cpu_pstate_disable =
+-			context->bw.dce.cpup_state_change_enable == false;
++			context->bw_ctx.bw.dce.cpup_state_change_enable == false;
+ 	pp_display_cfg->cpu_pstate_separation_time =
+-			context->bw.dce.blackout_recovery_time_us;
++			context->bw_ctx.bw.dce.blackout_recovery_time_us;
+ 
+-	pp_display_cfg->min_memory_clock_khz = context->bw.dce.yclk_khz
++	pp_display_cfg->min_memory_clock_khz = context->bw_ctx.bw.dce.yclk_khz
+ 		/ MEMORY_TYPE_MULTIPLIER_CZ;
+ 
+ 	pp_display_cfg->min_engine_clock_khz = determine_sclk_from_bounding_box(
+ 			dc,
+-			context->bw.dce.sclk_khz);
++			context->bw_ctx.bw.dce.sclk_khz);
+ 
+ 	/*
+ 	 * As workaround for >4x4K lightup set dcfclock to min_engine_clock value.
+@@ -635,7 +635,7 @@ static void dce11_pplib_apply_display_requirements(
+ 			pp_display_cfg->min_engine_clock_khz : 0;
+ 
+ 	pp_display_cfg->min_engine_clock_deep_sleep_khz
+-			= context->bw.dce.sclk_deep_sleep_khz;
++			= context->bw_ctx.bw.dce.sclk_deep_sleep_khz;
+ 
+ 	pp_display_cfg->avail_mclk_switch_time_us =
+ 						dce110_get_min_vblank_time_us(context);
+@@ -666,7 +666,7 @@ static void dce_update_clocks(struct clk_mgr *clk_mgr,
+ {
+ 	struct dce_clk_mgr *clk_mgr_dce = TO_DCE_CLK_MGR(clk_mgr);
+ 	struct dm_pp_power_level_change_request level_change_req;
+-	int patched_disp_clk = context->bw.dce.dispclk_khz;
++	int patched_disp_clk = context->bw_ctx.bw.dce.dispclk_khz;
+ 
+ 	/*TODO: W/A for dal3 linux, investigate why this works */
+ 	if (!clk_mgr_dce->dfs_bypass_active)
+@@ -693,7 +693,7 @@ static void dce11_update_clocks(struct clk_mgr *clk_mgr,
+ {
+ 	struct dce_clk_mgr *clk_mgr_dce = TO_DCE_CLK_MGR(clk_mgr);
+ 	struct dm_pp_power_level_change_request level_change_req;
+-        int patched_disp_clk = context->bw.dce.dispclk_khz;
++	int patched_disp_clk = context->bw_ctx.bw.dce.dispclk_khz;
+ 
+         /*TODO: W/A for dal3 linux, investigate why this works */
+         if (!clk_mgr_dce->dfs_bypass_active)
+@@ -708,7 +708,7 @@ static void dce11_update_clocks(struct clk_mgr *clk_mgr,
+ 	}
+ 
+        if (should_set_clock(safe_to_lower, patched_disp_clk, clk_mgr->clks.dispclk_khz)) {
+-               context->bw.dce.dispclk_khz = dce_set_clock(clk_mgr, patched_disp_clk);
++	       context->bw_ctx.bw.dce.dispclk_khz = dce_set_clock(clk_mgr, patched_disp_clk);
+                clk_mgr->clks.dispclk_khz = patched_disp_clk;
+ 	}
+ 	dce11_pplib_apply_display_requirements(clk_mgr->ctx->dc, context);
+@@ -720,7 +720,7 @@ static void dce112_update_clocks(struct clk_mgr *clk_mgr,
+ {
+ 	struct dce_clk_mgr *clk_mgr_dce = TO_DCE_CLK_MGR(clk_mgr);
+ 	struct dm_pp_power_level_change_request level_change_req;
+-	int patched_disp_clk = context->bw.dce.dispclk_khz;
++	int patched_disp_clk = context->bw_ctx.bw.dce.dispclk_khz;
+ 
+ 	if (!clk_mgr_dce->dfs_bypass_active)
+ 		patched_disp_clk = patched_disp_clk * 115 / 100;
+@@ -747,7 +747,7 @@ static void dce12_update_clocks(struct clk_mgr *clk_mgr,
+ 	struct dce_clk_mgr *clk_mgr_dce = TO_DCE_CLK_MGR(clk_mgr);
+ 	struct dm_pp_clock_for_voltage_req clock_voltage_req = {0};
+ 	int max_pix_clk = get_max_pixel_clock_for_all_paths(context);
+-	int patched_disp_clk = context->bw.dce.dispclk_khz;
++	int patched_disp_clk = context->bw_ctx.bw.dce.dispclk_khz;
+ 
+ 	/*TODO: W/A for dal3 linux, investigate why this works */
+ 	if (!clk_mgr_dce->dfs_bypass_active)
+diff --git a/drivers/gpu/drm/amd/display/dc/dce100/dce100_resource.c b/drivers/gpu/drm/amd/display/dc/dce100/dce100_resource.c
+index b733dc17db87..767d37c6d942 100644
+--- a/drivers/gpu/drm/amd/display/dc/dce100/dce100_resource.c
++++ b/drivers/gpu/drm/amd/display/dc/dce100/dce100_resource.c
+@@ -773,11 +773,11 @@ bool dce100_validate_bandwidth(
+ 
+ 	if (at_least_one_pipe) {
+ 		/* TODO implement when needed but for now hardcode max value*/
+-		context->bw.dce.dispclk_khz = 681000;
+-		context->bw.dce.yclk_khz = 250000 * MEMORY_TYPE_MULTIPLIER_CZ;
++		context->bw_ctx.bw.dce.dispclk_khz = 681000;
++		context->bw_ctx.bw.dce.yclk_khz = 250000 * MEMORY_TYPE_MULTIPLIER_CZ;
+ 	} else {
+-		context->bw.dce.dispclk_khz = 0;
+-		context->bw.dce.yclk_khz = 0;
++		context->bw_ctx.bw.dce.dispclk_khz = 0;
++		context->bw_ctx.bw.dce.yclk_khz = 0;
+ 	}
+ 
+ 	return true;
+diff --git a/drivers/gpu/drm/amd/display/dc/dce110/dce110_hw_sequencer.c b/drivers/gpu/drm/amd/display/dc/dce110/dce110_hw_sequencer.c
+index 17feafb235eb..ed9222840523 100644
+--- a/drivers/gpu/drm/amd/display/dc/dce110/dce110_hw_sequencer.c
++++ b/drivers/gpu/drm/amd/display/dc/dce110/dce110_hw_sequencer.c
+@@ -1630,18 +1630,18 @@ static void dce110_set_displaymarks(
+ 			dc->bw_vbios->blackout_duration, pipe_ctx->stream);
+ 		pipe_ctx->plane_res.mi->funcs->mem_input_program_display_marks(
+ 			pipe_ctx->plane_res.mi,
+-			context->bw.dce.nbp_state_change_wm_ns[num_pipes],
+-			context->bw.dce.stutter_exit_wm_ns[num_pipes],
+-			context->bw.dce.stutter_entry_wm_ns[num_pipes],
+-			context->bw.dce.urgent_wm_ns[num_pipes],
++			context->bw_ctx.bw.dce.nbp_state_change_wm_ns[num_pipes],
++			context->bw_ctx.bw.dce.stutter_exit_wm_ns[num_pipes],
++			context->bw_ctx.bw.dce.stutter_entry_wm_ns[num_pipes],
++			context->bw_ctx.bw.dce.urgent_wm_ns[num_pipes],
+ 			total_dest_line_time_ns);
+ 		if (i == underlay_idx) {
+ 			num_pipes++;
+ 			pipe_ctx->plane_res.mi->funcs->mem_input_program_chroma_display_marks(
+ 				pipe_ctx->plane_res.mi,
+-				context->bw.dce.nbp_state_change_wm_ns[num_pipes],
+-				context->bw.dce.stutter_exit_wm_ns[num_pipes],
+-				context->bw.dce.urgent_wm_ns[num_pipes],
++				context->bw_ctx.bw.dce.nbp_state_change_wm_ns[num_pipes],
++				context->bw_ctx.bw.dce.stutter_exit_wm_ns[num_pipes],
++				context->bw_ctx.bw.dce.urgent_wm_ns[num_pipes],
+ 				total_dest_line_time_ns);
+ 		}
+ 		num_pipes++;
+diff --git a/drivers/gpu/drm/amd/display/dc/dce110/dce110_resource.c b/drivers/gpu/drm/amd/display/dc/dce110/dce110_resource.c
+index 50af7e17db3b..7c4914b2b524 100644
+--- a/drivers/gpu/drm/amd/display/dc/dce110/dce110_resource.c
++++ b/drivers/gpu/drm/amd/display/dc/dce110/dce110_resource.c
+@@ -883,7 +883,7 @@ static bool dce110_validate_bandwidth(
+ 			dc->bw_vbios,
+ 			context->res_ctx.pipe_ctx,
+ 			dc->res_pool->pipe_count,
+-			&context->bw.dce))
++			&context->bw_ctx.bw.dce))
+ 		result =  true;
+ 
+ 	if (!result)
+@@ -893,8 +893,8 @@ static bool dce110_validate_bandwidth(
+ 			context->streams[0]->timing.v_addressable,
+ 			context->streams[0]->timing.pix_clk_100hz / 10);
+ 
+-	if (memcmp(&dc->current_state->bw.dce,
+-			&context->bw.dce, sizeof(context->bw.dce))) {
++	if (memcmp(&dc->current_state->bw_ctx.bw.dce,
++			&context->bw_ctx.bw.dce, sizeof(context->bw_ctx.bw.dce))) {
+ 
+ 		DC_LOG_BANDWIDTH_CALCS(
+ 			"%s: finish,\n"
+@@ -908,34 +908,34 @@ static bool dce110_validate_bandwidth(
+ 			"sclk: %d sclk_sleep: %d yclk: %d blackout_recovery_time_us: %d\n"
+ 			,
+ 			__func__,
+-			context->bw.dce.nbp_state_change_wm_ns[0].b_mark,
+-			context->bw.dce.nbp_state_change_wm_ns[0].a_mark,
+-			context->bw.dce.urgent_wm_ns[0].b_mark,
+-			context->bw.dce.urgent_wm_ns[0].a_mark,
+-			context->bw.dce.stutter_exit_wm_ns[0].b_mark,
+-			context->bw.dce.stutter_exit_wm_ns[0].a_mark,
+-			context->bw.dce.nbp_state_change_wm_ns[1].b_mark,
+-			context->bw.dce.nbp_state_change_wm_ns[1].a_mark,
+-			context->bw.dce.urgent_wm_ns[1].b_mark,
+-			context->bw.dce.urgent_wm_ns[1].a_mark,
+-			context->bw.dce.stutter_exit_wm_ns[1].b_mark,
+-			context->bw.dce.stutter_exit_wm_ns[1].a_mark,
+-			context->bw.dce.nbp_state_change_wm_ns[2].b_mark,
+-			context->bw.dce.nbp_state_change_wm_ns[2].a_mark,
+-			context->bw.dce.urgent_wm_ns[2].b_mark,
+-			context->bw.dce.urgent_wm_ns[2].a_mark,
+-			context->bw.dce.stutter_exit_wm_ns[2].b_mark,
+-			context->bw.dce.stutter_exit_wm_ns[2].a_mark,
+-			context->bw.dce.stutter_mode_enable,
+-			context->bw.dce.cpuc_state_change_enable,
+-			context->bw.dce.cpup_state_change_enable,
+-			context->bw.dce.nbp_state_change_enable,
+-			context->bw.dce.all_displays_in_sync,
+-			context->bw.dce.dispclk_khz,
+-			context->bw.dce.sclk_khz,
+-			context->bw.dce.sclk_deep_sleep_khz,
+-			context->bw.dce.yclk_khz,
+-			context->bw.dce.blackout_recovery_time_us);
++			context->bw_ctx.bw.dce.nbp_state_change_wm_ns[0].b_mark,
++			context->bw_ctx.bw.dce.nbp_state_change_wm_ns[0].a_mark,
++			context->bw_ctx.bw.dce.urgent_wm_ns[0].b_mark,
++			context->bw_ctx.bw.dce.urgent_wm_ns[0].a_mark,
++			context->bw_ctx.bw.dce.stutter_exit_wm_ns[0].b_mark,
++			context->bw_ctx.bw.dce.stutter_exit_wm_ns[0].a_mark,
++			context->bw_ctx.bw.dce.nbp_state_change_wm_ns[1].b_mark,
++			context->bw_ctx.bw.dce.nbp_state_change_wm_ns[1].a_mark,
++			context->bw_ctx.bw.dce.urgent_wm_ns[1].b_mark,
++			context->bw_ctx.bw.dce.urgent_wm_ns[1].a_mark,
++			context->bw_ctx.bw.dce.stutter_exit_wm_ns[1].b_mark,
++			context->bw_ctx.bw.dce.stutter_exit_wm_ns[1].a_mark,
++			context->bw_ctx.bw.dce.nbp_state_change_wm_ns[2].b_mark,
++			context->bw_ctx.bw.dce.nbp_state_change_wm_ns[2].a_mark,
++			context->bw_ctx.bw.dce.urgent_wm_ns[2].b_mark,
++			context->bw_ctx.bw.dce.urgent_wm_ns[2].a_mark,
++			context->bw_ctx.bw.dce.stutter_exit_wm_ns[2].b_mark,
++			context->bw_ctx.bw.dce.stutter_exit_wm_ns[2].a_mark,
++			context->bw_ctx.bw.dce.stutter_mode_enable,
++			context->bw_ctx.bw.dce.cpuc_state_change_enable,
++			context->bw_ctx.bw.dce.cpup_state_change_enable,
++			context->bw_ctx.bw.dce.nbp_state_change_enable,
++			context->bw_ctx.bw.dce.all_displays_in_sync,
++			context->bw_ctx.bw.dce.dispclk_khz,
++			context->bw_ctx.bw.dce.sclk_khz,
++			context->bw_ctx.bw.dce.sclk_deep_sleep_khz,
++			context->bw_ctx.bw.dce.yclk_khz,
++			context->bw_ctx.bw.dce.blackout_recovery_time_us);
+ 	}
+ 	return result;
+ }
+diff --git a/drivers/gpu/drm/amd/display/dc/dce112/dce112_resource.c b/drivers/gpu/drm/amd/display/dc/dce112/dce112_resource.c
+index 188fc992e941..02e9343951dd 100644
+--- a/drivers/gpu/drm/amd/display/dc/dce112/dce112_resource.c
++++ b/drivers/gpu/drm/amd/display/dc/dce112/dce112_resource.c
+@@ -823,7 +823,7 @@ bool dce112_validate_bandwidth(
+ 			dc->bw_vbios,
+ 			context->res_ctx.pipe_ctx,
+ 			dc->res_pool->pipe_count,
+-			&context->bw.dce))
++			&context->bw_ctx.bw.dce))
+ 		result = true;
+ 
+ 	if (!result)
+@@ -831,8 +831,8 @@ bool dce112_validate_bandwidth(
+ 			"%s: Bandwidth validation failed!",
+ 			__func__);
+ 
+-	if (memcmp(&dc->current_state->bw.dce,
+-			&context->bw.dce, sizeof(context->bw.dce))) {
++	if (memcmp(&dc->current_state->bw_ctx.bw.dce,
++			&context->bw_ctx.bw.dce, sizeof(context->bw_ctx.bw.dce))) {
+ 
+ 		DC_LOG_BANDWIDTH_CALCS(
+ 			"%s: finish,\n"
+@@ -846,34 +846,34 @@ bool dce112_validate_bandwidth(
+ 			"sclk: %d sclk_sleep: %d yclk: %d blackout_recovery_time_us: %d\n"
+ 			,
+ 			__func__,
+-			context->bw.dce.nbp_state_change_wm_ns[0].b_mark,
+-			context->bw.dce.nbp_state_change_wm_ns[0].a_mark,
+-			context->bw.dce.urgent_wm_ns[0].b_mark,
+-			context->bw.dce.urgent_wm_ns[0].a_mark,
+-			context->bw.dce.stutter_exit_wm_ns[0].b_mark,
+-			context->bw.dce.stutter_exit_wm_ns[0].a_mark,
+-			context->bw.dce.nbp_state_change_wm_ns[1].b_mark,
+-			context->bw.dce.nbp_state_change_wm_ns[1].a_mark,
+-			context->bw.dce.urgent_wm_ns[1].b_mark,
+-			context->bw.dce.urgent_wm_ns[1].a_mark,
+-			context->bw.dce.stutter_exit_wm_ns[1].b_mark,
+-			context->bw.dce.stutter_exit_wm_ns[1].a_mark,
+-			context->bw.dce.nbp_state_change_wm_ns[2].b_mark,
+-			context->bw.dce.nbp_state_change_wm_ns[2].a_mark,
+-			context->bw.dce.urgent_wm_ns[2].b_mark,
+-			context->bw.dce.urgent_wm_ns[2].a_mark,
+-			context->bw.dce.stutter_exit_wm_ns[2].b_mark,
+-			context->bw.dce.stutter_exit_wm_ns[2].a_mark,
+-			context->bw.dce.stutter_mode_enable,
+-			context->bw.dce.cpuc_state_change_enable,
+-			context->bw.dce.cpup_state_change_enable,
+-			context->bw.dce.nbp_state_change_enable,
+-			context->bw.dce.all_displays_in_sync,
+-			context->bw.dce.dispclk_khz,
+-			context->bw.dce.sclk_khz,
+-			context->bw.dce.sclk_deep_sleep_khz,
+-			context->bw.dce.yclk_khz,
+-			context->bw.dce.blackout_recovery_time_us);
++			context->bw_ctx.bw.dce.nbp_state_change_wm_ns[0].b_mark,
++			context->bw_ctx.bw.dce.nbp_state_change_wm_ns[0].a_mark,
++			context->bw_ctx.bw.dce.urgent_wm_ns[0].b_mark,
++			context->bw_ctx.bw.dce.urgent_wm_ns[0].a_mark,
++			context->bw_ctx.bw.dce.stutter_exit_wm_ns[0].b_mark,
++			context->bw_ctx.bw.dce.stutter_exit_wm_ns[0].a_mark,
++			context->bw_ctx.bw.dce.nbp_state_change_wm_ns[1].b_mark,
++			context->bw_ctx.bw.dce.nbp_state_change_wm_ns[1].a_mark,
++			context->bw_ctx.bw.dce.urgent_wm_ns[1].b_mark,
++			context->bw_ctx.bw.dce.urgent_wm_ns[1].a_mark,
++			context->bw_ctx.bw.dce.stutter_exit_wm_ns[1].b_mark,
++			context->bw_ctx.bw.dce.stutter_exit_wm_ns[1].a_mark,
++			context->bw_ctx.bw.dce.nbp_state_change_wm_ns[2].b_mark,
++			context->bw_ctx.bw.dce.nbp_state_change_wm_ns[2].a_mark,
++			context->bw_ctx.bw.dce.urgent_wm_ns[2].b_mark,
++			context->bw_ctx.bw.dce.urgent_wm_ns[2].a_mark,
++			context->bw_ctx.bw.dce.stutter_exit_wm_ns[2].b_mark,
++			context->bw_ctx.bw.dce.stutter_exit_wm_ns[2].a_mark,
++			context->bw_ctx.bw.dce.stutter_mode_enable,
++			context->bw_ctx.bw.dce.cpuc_state_change_enable,
++			context->bw_ctx.bw.dce.cpup_state_change_enable,
++			context->bw_ctx.bw.dce.nbp_state_change_enable,
++			context->bw_ctx.bw.dce.all_displays_in_sync,
++			context->bw_ctx.bw.dce.dispclk_khz,
++			context->bw_ctx.bw.dce.sclk_khz,
++			context->bw_ctx.bw.dce.sclk_deep_sleep_khz,
++			context->bw_ctx.bw.dce.yclk_khz,
++			context->bw_ctx.bw.dce.blackout_recovery_time_us);
+ 	}
+ 	return result;
+ }
+diff --git a/drivers/gpu/drm/amd/display/dc/dce80/dce80_resource.c b/drivers/gpu/drm/amd/display/dc/dce80/dce80_resource.c
+index 066fd89747c2..c7899ec96287 100644
+--- a/drivers/gpu/drm/amd/display/dc/dce80/dce80_resource.c
++++ b/drivers/gpu/drm/amd/display/dc/dce80/dce80_resource.c
+@@ -807,11 +807,11 @@ bool dce80_validate_bandwidth(
+ 
+ 	if (at_least_one_pipe) {
+ 		/* TODO implement when needed but for now hardcode max value*/
+-		context->bw.dce.dispclk_khz = 681000;
+-		context->bw.dce.yclk_khz = 250000 * MEMORY_TYPE_MULTIPLIER_CZ;
++		context->bw_ctx.bw.dce.dispclk_khz = 681000;
++		context->bw_ctx.bw.dce.yclk_khz = 250000 * MEMORY_TYPE_MULTIPLIER_CZ;
+ 	} else {
+-		context->bw.dce.dispclk_khz = 0;
+-		context->bw.dce.yclk_khz = 0;
++		context->bw_ctx.bw.dce.dispclk_khz = 0;
++		context->bw_ctx.bw.dce.yclk_khz = 0;
+ 	}
+ 
+ 	return true;
+diff --git a/drivers/gpu/drm/amd/display/dc/dcn10/dcn10_clk_mgr.c b/drivers/gpu/drm/amd/display/dc/dcn10/dcn10_clk_mgr.c
+index a567d44d4978..d98ac7d90e4c 100644
+--- a/drivers/gpu/drm/amd/display/dc/dcn10/dcn10_clk_mgr.c
++++ b/drivers/gpu/drm/amd/display/dc/dcn10/dcn10_clk_mgr.c
+@@ -167,7 +167,7 @@ static void dcn1_update_clocks(struct clk_mgr *clk_mgr,
+ {
+ 	struct dc *dc = clk_mgr->ctx->dc;
+ 	struct dc_debug_options *debug = &dc->debug;
+-	struct dc_clocks *new_clocks = &context->bw.dcn.clk;
++	struct dc_clocks *new_clocks = &context->bw_ctx.bw.dcn.clk;
+ 	struct pp_smu_display_requirement_rv *smu_req_cur =
+ 			&dc->res_pool->pp_smu_req;
+ 	struct pp_smu_display_requirement_rv smu_req = *smu_req_cur;
+diff --git a/drivers/gpu/drm/amd/display/dc/dcn10/dcn10_hw_sequencer.c b/drivers/gpu/drm/amd/display/dc/dcn10/dcn10_hw_sequencer.c
+index d46b29e0f02d..2e5ff2c49aa2 100644
+--- a/drivers/gpu/drm/amd/display/dc/dcn10/dcn10_hw_sequencer.c
++++ b/drivers/gpu/drm/amd/display/dc/dcn10/dcn10_hw_sequencer.c
+@@ -345,13 +345,13 @@ void dcn10_log_hw_state(struct dc *dc,
+ 
+ 	DTN_INFO("\nCALCULATED Clocks: dcfclk_khz:%d  dcfclk_deep_sleep_khz:%d  dispclk_khz:%d\n"
+ 		"dppclk_khz:%d  max_supported_dppclk_khz:%d  fclk_khz:%d  socclk_khz:%d\n\n",
+-			dc->current_state->bw.dcn.clk.dcfclk_khz,
+-			dc->current_state->bw.dcn.clk.dcfclk_deep_sleep_khz,
+-			dc->current_state->bw.dcn.clk.dispclk_khz,
+-			dc->current_state->bw.dcn.clk.dppclk_khz,
+-			dc->current_state->bw.dcn.clk.max_supported_dppclk_khz,
+-			dc->current_state->bw.dcn.clk.fclk_khz,
+-			dc->current_state->bw.dcn.clk.socclk_khz);
++			dc->current_state->bw_ctx.bw.dcn.clk.dcfclk_khz,
++			dc->current_state->bw_ctx.bw.dcn.clk.dcfclk_deep_sleep_khz,
++			dc->current_state->bw_ctx.bw.dcn.clk.dispclk_khz,
++			dc->current_state->bw_ctx.bw.dcn.clk.dppclk_khz,
++			dc->current_state->bw_ctx.bw.dcn.clk.max_supported_dppclk_khz,
++			dc->current_state->bw_ctx.bw.dcn.clk.fclk_khz,
++			dc->current_state->bw_ctx.bw.dcn.clk.socclk_khz);
+ 
+ 	log_mpc_crc(dc, log_ctx);
+ 
+@@ -2068,7 +2068,7 @@ void update_dchubp_dpp(
+ 	 * divided by 2
+ 	 */
+ 	if (plane_state->update_flags.bits.full_update) {
+-		bool should_divided_by_2 = context->bw.dcn.clk.dppclk_khz <=
++		bool should_divided_by_2 = context->bw_ctx.bw.dcn.clk.dppclk_khz <=
+ 				dc->res_pool->clk_mgr->clks.dispclk_khz / 2;
+ 
+ 		dpp->funcs->dpp_dppclk_control(
+@@ -2442,7 +2442,7 @@ static void dcn10_prepare_bandwidth(
+ 
+ 	if (!IS_FPGA_MAXIMUS_DC(dc->ctx->dce_environment)) {
+ 		if (context->stream_count == 0)
+-			context->bw.dcn.clk.phyclk_khz = 0;
++			context->bw_ctx.bw.dcn.clk.phyclk_khz = 0;
+ 
+ 		dc->res_pool->clk_mgr->funcs->update_clocks(
+ 				dc->res_pool->clk_mgr,
+@@ -2451,7 +2451,7 @@ static void dcn10_prepare_bandwidth(
+ 	}
+ 
+ 	hubbub1_program_watermarks(dc->res_pool->hubbub,
+-			&context->bw.dcn.watermarks,
++			&context->bw_ctx.bw.dcn.watermarks,
+ 			dc->res_pool->ref_clocks.dchub_ref_clock_inKhz / 1000,
+ 			true);
+ 	dcn10_stereo_hw_frame_pack_wa(dc, context);
+@@ -2472,7 +2472,7 @@ static void dcn10_optimize_bandwidth(
+ 
+ 	if (!IS_FPGA_MAXIMUS_DC(dc->ctx->dce_environment)) {
+ 		if (context->stream_count == 0)
+-			context->bw.dcn.clk.phyclk_khz = 0;
++			context->bw_ctx.bw.dcn.clk.phyclk_khz = 0;
+ 
+ 		dc->res_pool->clk_mgr->funcs->update_clocks(
+ 				dc->res_pool->clk_mgr,
+@@ -2481,7 +2481,7 @@ static void dcn10_optimize_bandwidth(
+ 	}
+ 
+ 	hubbub1_program_watermarks(dc->res_pool->hubbub,
+-			&context->bw.dcn.watermarks,
++			&context->bw_ctx.bw.dcn.watermarks,
+ 			dc->res_pool->ref_clocks.dchub_ref_clock_inKhz / 1000,
+ 			true);
+ 	dcn10_stereo_hw_frame_pack_wa(dc, context);
+diff --git a/drivers/gpu/drm/amd/display/dc/dcn10/dcn10_hw_sequencer_debug.c b/drivers/gpu/drm/amd/display/dc/dcn10/dcn10_hw_sequencer_debug.c
+index aa7a5163c40a..991622da9ed5 100644
+--- a/drivers/gpu/drm/amd/display/dc/dcn10/dcn10_hw_sequencer_debug.c
++++ b/drivers/gpu/drm/amd/display/dc/dcn10/dcn10_hw_sequencer_debug.c
+@@ -472,12 +472,12 @@ static unsigned int dcn10_get_clock_states(struct dc *dc, char *pBuf, unsigned i
+ 	chars_printed = snprintf_count(pBuf, bufSize, "dcfclk,dcfclk_deep_sleep,dispclk,"
+ 		"dppclk,fclk,socclk\n"
+ 		"%d,%d,%d,%d,%d,%d\n",
+-		dc->current_state->bw.dcn.clk.dcfclk_khz,
+-		dc->current_state->bw.dcn.clk.dcfclk_deep_sleep_khz,
+-		dc->current_state->bw.dcn.clk.dispclk_khz,
+-		dc->current_state->bw.dcn.clk.dppclk_khz,
+-		dc->current_state->bw.dcn.clk.fclk_khz,
+-		dc->current_state->bw.dcn.clk.socclk_khz);
++		dc->current_state->bw_ctx.bw.dcn.clk.dcfclk_khz,
++		dc->current_state->bw_ctx.bw.dcn.clk.dcfclk_deep_sleep_khz,
++		dc->current_state->bw_ctx.bw.dcn.clk.dispclk_khz,
++		dc->current_state->bw_ctx.bw.dcn.clk.dppclk_khz,
++		dc->current_state->bw_ctx.bw.dcn.clk.fclk_khz,
++		dc->current_state->bw_ctx.bw.dcn.clk.socclk_khz);
+ 
+ 	remaining_buffer -= chars_printed;
+ 	pBuf += chars_printed;
+diff --git a/drivers/gpu/drm/amd/display/dc/inc/core_types.h b/drivers/gpu/drm/amd/display/dc/inc/core_types.h
+index 93967e72c0f6..69d645c7faae 100644
+--- a/drivers/gpu/drm/amd/display/dc/inc/core_types.h
++++ b/drivers/gpu/drm/amd/display/dc/inc/core_types.h
+@@ -266,18 +266,22 @@ struct dcn_bw_output {
+ 	struct dcn_watermark_set watermarks;
+ };
+ 
+-union bw_context {
++union bw_output {
+ 	struct dcn_bw_output dcn;
+ 	struct dce_bw_output dce;
+ };
+ 
++struct bw_context {
++	union bw_output bw;
++	struct display_mode_lib dml;
++};
+ /**
+  * struct dc_state - The full description of a state requested by a user
+  *
+  * @streams: Stream properties
+  * @stream_status: The planes on a given stream
+  * @res_ctx: Persistent state of resources
+- * @bw: The output from bandwidth and watermark calculations
++ * @bw_ctx: The output from bandwidth and watermark calculations and the DML
+  * @pp_display_cfg: PowerPlay clocks and settings
+  * @dcn_bw_vars: non-stack memory to support bandwidth calculations
+  *
+@@ -289,7 +293,7 @@ struct dc_state {
+ 
+ 	struct resource_context res_ctx;
+ 
+-	union bw_context bw;
++	struct bw_context bw_ctx;
+ 
+ 	/* Note: these are big structures, do *not* put on stack! */
+ 	struct dm_pp_display_configuration pp_display_cfg;
+-- 
+2.17.1
+

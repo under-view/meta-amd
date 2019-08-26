@@ -1,0 +1,32 @@
+From b857b27f06c415693822c736e1961c2aa2086524 Mon Sep 17 00:00:00 2001
+From: Alex Deucher <alexander.deucher@amd.com>
+Date: Tue, 27 Nov 2018 11:41:27 -0500
+Subject: [PATCH 0875/2940] drm/amdgpu: add VCN JPEG support
+ amdgpu_ctx_num_entities
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+Looks like it was missed when setting support was added.
+
+Reviewed-by: Christian König <christian.koenig@amd.com>
+Signed-off-by: Alex Deucher <alexander.deucher@amd.com>
+---
+ drivers/gpu/drm/amd/amdgpu/amdgpu_ctx.c | 1 +
+ 1 file changed, 1 insertion(+)
+
+diff --git a/drivers/gpu/drm/amd/amdgpu/amdgpu_ctx.c b/drivers/gpu/drm/amd/amdgpu/amdgpu_ctx.c
+index 16acd3dde503..2f802cf38b28 100644
+--- a/drivers/gpu/drm/amd/amdgpu/amdgpu_ctx.c
++++ b/drivers/gpu/drm/amd/amdgpu/amdgpu_ctx.c
+@@ -39,6 +39,7 @@ const unsigned int amdgpu_ctx_num_entities[AMDGPU_HW_IP_NUM] = {
+ 	[AMDGPU_HW_IP_UVD_ENC]	=	1,
+ 	[AMDGPU_HW_IP_VCN_DEC]	=	1,
+ 	[AMDGPU_HW_IP_VCN_ENC]	=	1,
++	[AMDGPU_HW_IP_VCN_JPEG]	=	1,
+ };
+ 
+ static int amdgput_ctx_total_num_entities(void)
+-- 
+2.17.1
+

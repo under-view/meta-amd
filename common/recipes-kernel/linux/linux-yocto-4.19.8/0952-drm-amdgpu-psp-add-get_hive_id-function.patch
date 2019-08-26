@@ -1,0 +1,50 @@
+From fa9465f398898166c54daaa04a470d40539e0b4a Mon Sep 17 00:00:00 2001
+From: Hawking Zhang <Hawking.Zhang@amd.com>
+Date: Sat, 29 Sep 2018 12:17:42 +0800
+Subject: [PATCH 0952/2940] drm/amdgpu/psp: add get_hive_id function
+
+get_hive_id is used for driver to query hive_id for current device
+from xgmi ta
+
+Signed-off-by: Hawking Zhang <Hawking.Zhang@amd.com>
+Acked-by: Alex Deucher <alexander.deucher@amd.com>
+Reviewed-by: Huang Rui <ray.huang@amd.com>
+Reviewed-by: Shaoyun Liu <Shaoyun.Liu@amd.com>
+Signed-off-by: Alex Deucher <alexander.deucher@amd.com>
+---
+ drivers/gpu/drm/amd/amdgpu/psp_v11_0.c | 17 ++++++++++++-----
+ 1 file changed, 12 insertions(+), 5 deletions(-)
+
+diff --git a/drivers/gpu/drm/amd/amdgpu/psp_v11_0.c b/drivers/gpu/drm/amd/amdgpu/psp_v11_0.c
+index 69507ec3a3c4..40a224ec4cb4 100644
+--- a/drivers/gpu/drm/amd/amdgpu/psp_v11_0.c
++++ b/drivers/gpu/drm/amd/amdgpu/psp_v11_0.c
+@@ -699,13 +699,20 @@ static int psp_v11_0_xgmi_set_topology_info(struct psp_context *psp,
+ 
+ static u64 psp_v11_0_xgmi_get_hive_id(struct psp_context *psp)
+ {
+-	u64 hive_id = 0;
++	struct ta_xgmi_shared_memory *xgmi_cmd;
++	int ret;
++
++	xgmi_cmd = (struct ta_xgmi_shared_memory*)psp->xgmi_context.xgmi_shared_buf;
++	memset(xgmi_cmd, 0, sizeof(struct ta_xgmi_shared_memory));
+ 
+-	/* Remove me when we can get correct hive_id through PSP */
+-	if (psp->adev->gmc.xgmi.num_physical_nodes)
+-		hive_id = 0x123456789abcdef;
++	xgmi_cmd->cmd_id = TA_COMMAND_XGMI__GET_HIVE_ID;
+ 
+-	return hive_id;
++	/* Invoke xgmi ta to get hive id */
++	ret = psp_xgmi_invoke(psp, xgmi_cmd->cmd_id);
++	if (ret)
++		return 0;
++	else
++		return xgmi_cmd->xgmi_out_message.get_hive_id.hive_id;
+ }
+ 
+ static u64 psp_v11_0_xgmi_get_node_id(struct psp_context *psp)
+-- 
+2.17.1
+

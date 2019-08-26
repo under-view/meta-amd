@@ -1,0 +1,69 @@
+From 5bd09c73bbbb0e9aca87e4f4a2f73f7897c0a855 Mon Sep 17 00:00:00 2001
+From: Nicholas Kazlauskas <nicholas.kazlauskas@amd.com>
+Date: Tue, 22 Jan 2019 14:09:34 -0500
+Subject: [PATCH 1267/2940] drm/amd/display: Fix update type mismatches in
+ atomic check
+
+[Why]
+Whenever a stream or plane is added or removed from the context the
+pointer will change from old to new. We set lock and validation
+needed in these cases. But not all of these cases match update_type
+from dm_determine_update_type_for_commit - an example being overlay
+plane updates.
+
+There are warnings for a few of these cases that should be fixed.
+
+[How]
+We can closer align to DC (and lock_and_validation_needed) by
+comparing stream and plane pointers.
+
+Since the old stream/old plane state is never freed until sometime
+after the commit tail work finishes we are guaranteed to never get
+back the same block of memory when we remove and create a stream or
+plane state in the same commit.
+
+Signed-off-by: Nicholas Kazlauskas <nicholas.kazlauskas@amd.com>
+Reviewed-by: Leo Li <sunpeng.li@amd.com>
+---
+ .../gpu/drm/amd/display/amdgpu_dm/amdgpu_dm.c    | 16 ++++++++++------
+ 1 file changed, 10 insertions(+), 6 deletions(-)
+
+diff --git a/drivers/gpu/drm/amd/display/amdgpu_dm/amdgpu_dm.c b/drivers/gpu/drm/amd/display/amdgpu_dm/amdgpu_dm.c
+index 9578138fa0f7..8f411660fdf7 100644
+--- a/drivers/gpu/drm/amd/display/amdgpu_dm/amdgpu_dm.c
++++ b/drivers/gpu/drm/amd/display/amdgpu_dm/amdgpu_dm.c
+@@ -5907,14 +5907,13 @@ dm_determine_update_type_for_commit(struct dc *dc,
+ 		old_dm_crtc_state = to_dm_crtc_state(old_crtc_state);
+ 		num_plane = 0;
+ 
+-		if (!new_dm_crtc_state->stream) {
+-			if (!new_dm_crtc_state->stream && old_dm_crtc_state->stream) {
+-				update_type = UPDATE_TYPE_FULL;
+-				goto cleanup;
+-			}
++		if (new_dm_crtc_state->stream != old_dm_crtc_state->stream) {
++			update_type = UPDATE_TYPE_FULL;
++			goto cleanup;
++		}
+ 
++		if (!new_dm_crtc_state->stream)
+ 			continue;
+-		}
+ 
+ 		for_each_oldnew_plane_in_state(state, plane, old_plane_state, new_plane_state, j) {
+ 			new_plane_crtc = new_plane_state->crtc;
+@@ -5925,6 +5924,11 @@ dm_determine_update_type_for_commit(struct dc *dc,
+ 			if (plane->type == DRM_PLANE_TYPE_CURSOR)
+ 				continue;
+ 
++			if (new_dm_plane_state->dc_state != old_dm_plane_state->dc_state) {
++				update_type = UPDATE_TYPE_FULL;
++				goto cleanup;
++			}
++
+ 			if (!state->allow_modeset)
+ 				continue;
+ 
+-- 
+2.17.1
+

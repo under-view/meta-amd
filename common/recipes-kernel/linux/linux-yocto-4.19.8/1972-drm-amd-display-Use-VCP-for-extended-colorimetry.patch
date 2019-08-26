@@ -1,0 +1,34 @@
+From bbcbf1e4d28e3ad16bba0da2412d7c48f8cc6728 Mon Sep 17 00:00:00 2001
+From: Aric Cyr <aric.cyr@amd.com>
+Date: Wed, 1 May 2019 17:05:05 -0400
+Subject: [PATCH 1972/2940] drm/amd/display: Use VCP for extended colorimetry
+
+DPRX should send the VCP extended colorimetry packet if the
+sink supports DPCD rev1.4 and reports the extended colorimetry
+bit.
+
+Signed-off-by: Aric Cyr <aric.cyr@amd.com>
+Reviewed-by: Anthony Koo <Anthony.Koo@amd.com>
+Acked-by: Bhawanpreet Lakha <Bhawanpreet.Lakha@amd.com>
+---
+ drivers/gpu/drm/amd/display/modules/info_packet/info_packet.c | 4 +++-
+ 1 file changed, 3 insertions(+), 1 deletion(-)
+
+diff --git a/drivers/gpu/drm/amd/display/modules/info_packet/info_packet.c b/drivers/gpu/drm/amd/display/modules/info_packet/info_packet.c
+index db06fab2ad5c..bc13c552797f 100644
+--- a/drivers/gpu/drm/amd/display/modules/info_packet/info_packet.c
++++ b/drivers/gpu/drm/amd/display/modules/info_packet/info_packet.c
+@@ -63,7 +63,9 @@ void mod_build_vsc_infopacket(const struct dc_stream_state *stream,
+ 	if (stream->psr_version != 0)
+ 		vscPacketRevision = 2;
+ 
+-	if (stream->timing.pixel_encoding == PIXEL_ENCODING_YCBCR420)
++	/* Update to revision 5 for extended colorimetry support for DPCD 1.4+ */
++	if (stream->link->dpcd_caps.dpcd_rev.raw >= 0x14 &&
++			stream->link->dpcd_caps.dprx_feature.bits.VSC_SDP_COLORIMETRY_SUPPORTED)
+ 		vscPacketRevision = 5;
+ 
+ 	/* VSC packet not needed based on the features
+-- 
+2.17.1
+

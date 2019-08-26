@@ -1,0 +1,191 @@
+From 66acbd53c86ad6cefa1d6512092b73adf3fc46f3 Mon Sep 17 00:00:00 2001
+From: =?UTF-8?q?Christian=20K=C3=B6nig?= <christian.koenig@amd.com>
+Date: Wed, 18 Jul 2018 16:34:49 +0200
+Subject: [PATCH 0106/2940] drm/amdgpu: move context related stuff to
+ amdgpu_ctx.h
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+Further unmangle amdgpu.h.
+
+Signed-off-by: Christian König <christian.koenig@amd.com>
+Reviewed-by: Chunming Zhou <david1.zhou@amd.com>
+Reviewed-by: Huang Rui <ray.huang@amd.com>
+Signed-off-by: Alex Deucher <alexander.deucher@amd.com>
+---
+ drivers/gpu/drm/amd/amdgpu/amdgpu.h     | 59 +----------------
+ drivers/gpu/drm/amd/amdgpu/amdgpu_ctx.h | 84 +++++++++++++++++++++++++
+ 2 files changed, 86 insertions(+), 57 deletions(-)
+ create mode 100644 drivers/gpu/drm/amd/amdgpu/amdgpu_ctx.h
+
+diff --git a/drivers/gpu/drm/amd/amdgpu/amdgpu.h b/drivers/gpu/drm/amd/amdgpu/amdgpu.h
+index 20e81df5cd94..50eeb7c1350e 100644
+--- a/drivers/gpu/drm/amd/amdgpu/amdgpu.h
++++ b/drivers/gpu/drm/amd/amdgpu/amdgpu.h
+@@ -28,6 +28,8 @@
+ #ifndef __AMDGPU_H__
+ #define __AMDGPU_H__
+ 
++#include "amdgpu_ctx.h"
++
+ #include <linux/atomic.h>
+ #include <linux/wait.h>
+ #include <linux/list.h>
+@@ -477,63 +479,6 @@ struct amdgpu_ib {
+ 
+ extern const struct drm_sched_backend_ops amdgpu_sched_ops;
+ 
+-/*
+- * context related structures
+- */
+-
+-struct amdgpu_ctx_ring {
+-	uint64_t		sequence;
+-	struct dma_fence	**fences;
+-	struct drm_sched_entity	entity;
+-};
+-
+-struct amdgpu_ctx {
+-	struct kref		refcount;
+-	struct amdgpu_device    *adev;
+-	unsigned		reset_counter;
+-	unsigned        reset_counter_query;
+-	uint32_t		vram_lost_counter;
+-	spinlock_t		ring_lock;
+-	struct dma_fence	**fences;
+-	struct amdgpu_ctx_ring	rings[AMDGPU_MAX_RINGS];
+-	bool			preamble_presented;
+-	enum drm_sched_priority init_priority;
+-	enum drm_sched_priority override_priority;
+-	struct mutex            lock;
+-	atomic_t	guilty;
+-};
+-
+-struct amdgpu_ctx_mgr {
+-	struct amdgpu_device	*adev;
+-	struct mutex		lock;
+-	/* protected by lock */
+-	struct idr		ctx_handles;
+-};
+-
+-struct amdgpu_ctx *amdgpu_ctx_get(struct amdgpu_fpriv *fpriv, uint32_t id);
+-int amdgpu_ctx_put(struct amdgpu_ctx *ctx);
+-
+-int amdgpu_ctx_get_ring(struct amdgpu_ctx *ctx,
+-			u32 hw_ip, u32 instance, u32 ring,
+-			struct amdgpu_ring **out_ring);
+-int amdgpu_ctx_add_fence(struct amdgpu_ctx *ctx, struct amdgpu_ring *ring,
+-			      struct dma_fence *fence, uint64_t *seq);
+-struct dma_fence *amdgpu_ctx_get_fence(struct amdgpu_ctx *ctx,
+-				   struct amdgpu_ring *ring, uint64_t seq);
+-void amdgpu_ctx_priority_override(struct amdgpu_ctx *ctx,
+-				  enum drm_sched_priority priority);
+-
+-int amdgpu_ctx_ioctl(struct drm_device *dev, void *data,
+-		     struct drm_file *filp);
+-
+-int amdgpu_ctx_wait_prev_fence(struct amdgpu_ctx *ctx, unsigned ring_id);
+-
+-void amdgpu_ctx_mgr_init(struct amdgpu_ctx_mgr *mgr);
+-void amdgpu_ctx_mgr_entity_fini(struct amdgpu_ctx_mgr *mgr);
+-void amdgpu_ctx_mgr_entity_flush(struct amdgpu_ctx_mgr *mgr);
+-void amdgpu_ctx_mgr_fini(struct amdgpu_ctx_mgr *mgr);
+-
+-
+ /*
+  * file private structure
+  */
+diff --git a/drivers/gpu/drm/amd/amdgpu/amdgpu_ctx.h b/drivers/gpu/drm/amd/amdgpu/amdgpu_ctx.h
+new file mode 100644
+index 000000000000..5664b1f54142
+--- /dev/null
++++ b/drivers/gpu/drm/amd/amdgpu/amdgpu_ctx.h
+@@ -0,0 +1,84 @@
++/*
++ * Copyright 2018 Advanced Micro Devices, Inc.
++ *
++ * Permission is hereby granted, free of charge, to any person obtaining a
++ * copy of this software and associated documentation files (the "Software"),
++ * to deal in the Software without restriction, including without limitation
++ * the rights to use, copy, modify, merge, publish, distribute, sublicense,
++ * and/or sell copies of the Software, and to permit persons to whom the
++ * Software is furnished to do so, subject to the following conditions:
++ *
++ * The above copyright notice and this permission notice shall be included in
++ * all copies or substantial portions of the Software.
++ *
++ * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
++ * IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
++ * FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.  IN NO EVENT SHALL
++ * THE COPYRIGHT HOLDER(S) OR AUTHOR(S) BE LIABLE FOR ANY CLAIM, DAMAGES OR
++ * OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE,
++ * ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR
++ * OTHER DEALINGS IN THE SOFTWARE.
++ *
++ */
++#ifndef __AMDGPU_CTX_H__
++#define __AMDGPU_CTX_H__
++
++#include "amdgpu_ring.h"
++
++struct drm_device;
++struct drm_file;
++struct amdgpu_fpriv;
++
++struct amdgpu_ctx_ring {
++	uint64_t		sequence;
++	struct dma_fence	**fences;
++	struct drm_sched_entity	entity;
++};
++
++struct amdgpu_ctx {
++	struct kref		refcount;
++	struct amdgpu_device    *adev;
++	unsigned		reset_counter;
++	unsigned		reset_counter_query;
++	uint32_t		vram_lost_counter;
++	spinlock_t		ring_lock;
++	struct dma_fence	**fences;
++	struct amdgpu_ctx_ring	rings[AMDGPU_MAX_RINGS];
++	bool			preamble_presented;
++	enum drm_sched_priority init_priority;
++	enum drm_sched_priority override_priority;
++	struct mutex            lock;
++	atomic_t		guilty;
++};
++
++struct amdgpu_ctx_mgr {
++	struct amdgpu_device	*adev;
++	struct mutex		lock;
++	/* protected by lock */
++	struct idr		ctx_handles;
++};
++
++struct amdgpu_ctx *amdgpu_ctx_get(struct amdgpu_fpriv *fpriv, uint32_t id);
++int amdgpu_ctx_put(struct amdgpu_ctx *ctx);
++
++int amdgpu_ctx_get_ring(struct amdgpu_ctx *ctx,
++			u32 hw_ip, u32 instance, u32 ring,
++			struct amdgpu_ring **out_ring);
++int amdgpu_ctx_add_fence(struct amdgpu_ctx *ctx, struct amdgpu_ring *ring,
++			      struct dma_fence *fence, uint64_t *seq);
++struct dma_fence *amdgpu_ctx_get_fence(struct amdgpu_ctx *ctx,
++				   struct amdgpu_ring *ring, uint64_t seq);
++void amdgpu_ctx_priority_override(struct amdgpu_ctx *ctx,
++				  enum drm_sched_priority priority);
++
++int amdgpu_ctx_ioctl(struct drm_device *dev, void *data,
++		     struct drm_file *filp);
++
++int amdgpu_ctx_wait_prev_fence(struct amdgpu_ctx *ctx, unsigned ring_id);
++
++void amdgpu_ctx_mgr_init(struct amdgpu_ctx_mgr *mgr);
++void amdgpu_ctx_mgr_entity_fini(struct amdgpu_ctx_mgr *mgr);
++void amdgpu_ctx_mgr_entity_flush(struct amdgpu_ctx_mgr *mgr);
++void amdgpu_ctx_mgr_fini(struct amdgpu_ctx_mgr *mgr);
++
++#endif
+-- 
+2.17.1
+

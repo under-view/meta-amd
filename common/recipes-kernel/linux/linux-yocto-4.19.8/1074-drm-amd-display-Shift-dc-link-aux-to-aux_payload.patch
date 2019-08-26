@@ -1,0 +1,310 @@
+From 944f526b0445becd7477d6d29d8185ea6180b4ae Mon Sep 17 00:00:00 2001
+From: David Francis <David.Francis@amd.com>
+Date: Thu, 29 Nov 2018 13:40:03 -0500
+Subject: [PATCH 1074/2940] drm/amd/display: Shift dc link aux to aux_payload
+
+[Why]
+aux_payload should be the struct used inside dc to start
+aux transactions.  This will allow the old aux interface
+to be seamlessly replaced.
+
+[How]
+Add three fields to aux_payload: reply, mot, defer_delay
+This will mean that aux_payload has all data required
+to submit a request.  Shift dc_link to use this struct
+
+Signed-off-by: David Francis <David.Francis@amd.com>
+Reviewed-by: Harry Wentland <Harry.Wentland@amd.com>
+Acked-by: Leo Li <sunpeng.li@amd.com>
+Signed-off-by: Alex Deucher <alexander.deucher@amd.com>
+---
+ .../display/amdgpu_dm/amdgpu_dm_mst_types.c   | 84 ++++---------------
+ .../gpu/drm/amd/display/dc/core/dc_link_ddc.c | 57 +++++++++----
+ drivers/gpu/drm/amd/display/dc/dce/dce_aux.c  |  3 +-
+ .../gpu/drm/amd/display/dc/inc/dc_link_ddc.h  | 11 +--
+ .../amd/display/include/i2caux_interface.h    | 10 +++
+ 5 files changed, 70 insertions(+), 95 deletions(-)
+
+diff --git a/drivers/gpu/drm/amd/display/amdgpu_dm/amdgpu_dm_mst_types.c b/drivers/gpu/drm/amd/display/amdgpu_dm/amdgpu_dm_mst_types.c
+index 5e7ca1f3a8d1..60da1222afaa 100644
+--- a/drivers/gpu/drm/amd/display/amdgpu_dm/amdgpu_dm_mst_types.c
++++ b/drivers/gpu/drm/amd/display/amdgpu_dm/amdgpu_dm_mst_types.c
+@@ -35,6 +35,8 @@
+ 
+ #include "dc_link_ddc.h"
+ 
++#include "i2caux_interface.h"
++
+ /* #define TRACE_DPCD */
+ 
+ #ifdef TRACE_DPCD
+@@ -81,80 +83,24 @@ static ssize_t dm_dp_aux_transfer(struct drm_dp_aux *aux,
+ 				  struct drm_dp_aux_msg *msg)
+ {
+ 	ssize_t result = 0;
+-	enum i2caux_transaction_action action;
+-	enum aux_transaction_type type;
++	struct aux_payload payload;
+ 
+ 	if (WARN_ON(msg->size > 16))
+ 		return -E2BIG;
+ 
+-	switch (msg->request & ~DP_AUX_I2C_MOT) {
+-	case DP_AUX_NATIVE_READ:
+-		type = AUX_TRANSACTION_TYPE_DP;
+-		action = I2CAUX_TRANSACTION_ACTION_DP_READ;
+-
+-		result = dc_link_aux_transfer(TO_DM_AUX(aux)->ddc_service,
+-					      msg->address,
+-					      &msg->reply,
+-					      msg->buffer,
+-					      msg->size,
+-					      type,
+-					      action);
+-		break;
+-	case DP_AUX_NATIVE_WRITE:
+-		type = AUX_TRANSACTION_TYPE_DP;
+-		action = I2CAUX_TRANSACTION_ACTION_DP_WRITE;
+-
+-		dc_link_aux_transfer(TO_DM_AUX(aux)->ddc_service,
+-				     msg->address,
+-				     &msg->reply,
+-				     msg->buffer,
+-				     msg->size,
+-				     type,
+-				     action);
+-		result = msg->size;
+-		break;
+-	case DP_AUX_I2C_READ:
+-		type = AUX_TRANSACTION_TYPE_I2C;
+-		if (msg->request & DP_AUX_I2C_MOT)
+-			action = I2CAUX_TRANSACTION_ACTION_I2C_READ_MOT;
+-		else
+-			action = I2CAUX_TRANSACTION_ACTION_I2C_READ;
+-
+-		result = dc_link_aux_transfer(TO_DM_AUX(aux)->ddc_service,
+-					      msg->address,
+-					      &msg->reply,
+-					      msg->buffer,
+-					      msg->size,
+-					      type,
+-					      action);
+-		break;
+-	case DP_AUX_I2C_WRITE:
+-		type = AUX_TRANSACTION_TYPE_I2C;
+-		if (msg->request & DP_AUX_I2C_MOT)
+-			action = I2CAUX_TRANSACTION_ACTION_I2C_WRITE_MOT;
+-		else
+-			action = I2CAUX_TRANSACTION_ACTION_I2C_WRITE;
+-
+-		dc_link_aux_transfer(TO_DM_AUX(aux)->ddc_service,
+-				     msg->address,
+-				     &msg->reply,
+-				     msg->buffer,
+-				     msg->size,
+-				     type,
+-				     action);
+-		result = msg->size;
+-		break;
+-	default:
+-		return -EINVAL;
+-	}
++	payload.address = msg->address;
++	payload.data = msg->buffer;
++	payload.length = msg->size;
++	payload.reply = &msg->reply;
++	payload.i2c_over_aux = (msg->request & DP_AUX_NATIVE_WRITE) == 0;
++	payload.write = (msg->request & DP_AUX_I2C_READ) == 0;
++	payload.mot = (msg->request & DP_AUX_I2C_MOT) != 0;
++	payload.defer_delay = 0;
+ 
+-#ifdef TRACE_DPCD
+-	log_dpcd(msg->request,
+-		 msg->address,
+-		 msg->buffer,
+-		 msg->size,
+-		 r == DDC_RESULT_SUCESSFULL);
+-#endif
++	result = dc_link_aux_transfer(TO_DM_AUX(aux)->ddc_service, &payload);
++
++	if (payload.write)
++		result = msg->size;
+ 
+ 	if (result < 0) /* DC doesn't know about kernel error codes */
+ 		result = -EIO;
+diff --git a/drivers/gpu/drm/amd/display/dc/core/dc_link_ddc.c b/drivers/gpu/drm/amd/display/dc/core/dc_link_ddc.c
+index 99a314b79850..5ac65737a1e8 100644
+--- a/drivers/gpu/drm/amd/display/dc/core/dc_link_ddc.c
++++ b/drivers/gpu/drm/amd/display/dc/core/dc_link_ddc.c
+@@ -229,7 +229,9 @@ void dal_ddc_aux_payloads_add(
+ 	uint32_t address,
+ 	uint32_t len,
+ 	uint8_t *data,
+-	bool write)
++	bool write,
++	bool mot,
++	uint32_t defer_delay)
+ {
+ 	uint32_t payload_size = DEFAULT_AUX_MAX_DATA_SIZE;
+ 	uint32_t pos;
+@@ -240,7 +242,10 @@ void dal_ddc_aux_payloads_add(
+ 			.write = write,
+ 			.address = address,
+ 			.length = DDC_MIN(payload_size, len - pos),
+-			.data = data + pos };
++			.data = data + pos,
++			.reply = NULL,
++			.mot = mot,
++			.defer_delay = defer_delay};
+ 		dal_vector_append(&payloads->payloads, &payload);
+ 	}
+ }
+@@ -584,10 +589,10 @@ bool dal_ddc_service_query_ddc_data(
+ 			.max_defer_write_retry = 0 };
+ 
+ 		dal_ddc_aux_payloads_add(
+-			payloads, address, write_size, write_buf, true);
++			payloads, address, write_size, write_buf, true, true, get_defer_delay(ddc));
+ 
+ 		dal_ddc_aux_payloads_add(
+-			payloads, address, read_size, read_buf, false);
++			payloads, address, read_size, read_buf, false, false, get_defer_delay(ddc));
+ 
+ 		command.number_of_payloads =
+ 			dal_ddc_aux_payloads_get_count(payloads);
+@@ -629,13 +634,25 @@ bool dal_ddc_service_query_ddc_data(
+ 	return ret;
+ }
+ 
++static enum i2caux_transaction_action i2caux_action_from_payload(struct aux_payload *payload)
++{
++	if (payload->i2c_over_aux) {
++		if (payload->write) {
++			if (payload->mot)
++				return I2CAUX_TRANSACTION_ACTION_I2C_WRITE_MOT;
++			return I2CAUX_TRANSACTION_ACTION_I2C_WRITE;
++		}
++		if (payload->mot)
++			return I2CAUX_TRANSACTION_ACTION_I2C_READ_MOT;
++		return I2CAUX_TRANSACTION_ACTION_I2C_READ;
++	}
++	if (payload->write)
++		return I2CAUX_TRANSACTION_ACTION_DP_WRITE;
++	return I2CAUX_TRANSACTION_ACTION_DP_READ;
++}
++
+ int dc_link_aux_transfer(struct ddc_service *ddc,
+-			     unsigned int address,
+-			     uint8_t *reply,
+-			     void *buffer,
+-			     unsigned int size,
+-			     enum aux_transaction_type type,
+-			     enum i2caux_transaction_action action)
++		struct aux_payload *payload)
+ {
+ 	struct ddc *ddc_pin = ddc->ddc_pin;
+ 	struct aux_engine *aux_engine;
+@@ -652,21 +669,25 @@ int dc_link_aux_transfer(struct ddc_service *ddc,
+ 	aux_engine = ddc->ctx->dc->res_pool->engines[ddc_pin->pin_data->en];
+ 	aux_engine->funcs->acquire(aux_engine, ddc_pin);
+ 
+-	aux_req.type = type;
+-	aux_req.action = action;
++	if (payload->i2c_over_aux)
++		aux_req.type = AUX_TRANSACTION_TYPE_I2C;
++	else
++		aux_req.type = AUX_TRANSACTION_TYPE_DP;
++
++	aux_req.action = i2caux_action_from_payload(payload);
+ 
+-	aux_req.address = address;
+-	aux_req.delay = 0;
+-	aux_req.length = size;
+-	aux_req.data = buffer;
++	aux_req.address = payload->address;
++	aux_req.delay = payload->defer_delay * 10;
++	aux_req.length = payload->length;
++	aux_req.data = payload->data;
+ 
+ 	aux_engine->funcs->submit_channel_request(aux_engine, &aux_req);
+ 	operation_result = aux_engine->funcs->get_channel_status(aux_engine, &returned_bytes);
+ 
+ 	switch (operation_result) {
+ 	case AUX_CHANNEL_OPERATION_SUCCEEDED:
+-		res = aux_engine->funcs->read_channel_reply(aux_engine, size,
+-							buffer, reply,
++		res = aux_engine->funcs->read_channel_reply(aux_engine, payload->length,
++							payload->data, payload->reply,
+ 							&status);
+ 		break;
+ 	case AUX_CHANNEL_OPERATION_FAILED_HPD_DISCON:
+diff --git a/drivers/gpu/drm/amd/display/dc/dce/dce_aux.c b/drivers/gpu/drm/amd/display/dc/dce/dce_aux.c
+index aaeb7faac0c4..760bc5cc329d 100644
+--- a/drivers/gpu/drm/amd/display/dc/dce/dce_aux.c
++++ b/drivers/gpu/drm/amd/display/dc/dce/dce_aux.c
+@@ -273,7 +273,8 @@ static int read_channel_reply(struct aux_engine *engine, uint32_t size,
+ 
+ 	REG_GET(AUX_SW_DATA, AUX_SW_DATA, &reply_result_32);
+ 	reply_result_32 = reply_result_32 >> 4;
+-	*reply_result = (uint8_t)reply_result_32;
++	if (reply_result != NULL)
++		*reply_result = (uint8_t)reply_result_32;
+ 
+ 	if (reply_result_32 == 0) { /* ACK */
+ 		uint32_t i = 0;
+diff --git a/drivers/gpu/drm/amd/display/dc/inc/dc_link_ddc.h b/drivers/gpu/drm/amd/display/dc/inc/dc_link_ddc.h
+index 538b83303b86..b609cd886455 100644
+--- a/drivers/gpu/drm/amd/display/dc/inc/dc_link_ddc.h
++++ b/drivers/gpu/drm/amd/display/dc/inc/dc_link_ddc.h
+@@ -69,7 +69,9 @@ void dal_ddc_aux_payloads_add(
+ 		uint32_t address,
+ 		uint32_t len,
+ 		uint8_t *data,
+-		bool write);
++		bool write,
++		bool mot,
++		uint32_t defer_delay);
+ 
+ struct ddc_service_init_data {
+ 	struct graphics_object_id id;
+@@ -103,12 +105,7 @@ bool dal_ddc_service_query_ddc_data(
+ 		uint32_t read_size);
+ 
+ int dc_link_aux_transfer(struct ddc_service *ddc,
+-			     unsigned int address,
+-			     uint8_t *reply,
+-			     void *buffer,
+-			     unsigned int size,
+-			     enum aux_transaction_type type,
+-			     enum i2caux_transaction_action action);
++		struct aux_payload *payload);
+ 
+ void dal_ddc_service_write_scdc_data(
+ 		struct ddc_service *ddc_service,
+diff --git a/drivers/gpu/drm/amd/display/include/i2caux_interface.h b/drivers/gpu/drm/amd/display/include/i2caux_interface.h
+index 13a3c82d118f..1b648fe041da 100644
+--- a/drivers/gpu/drm/amd/display/include/i2caux_interface.h
++++ b/drivers/gpu/drm/amd/display/include/i2caux_interface.h
+@@ -40,9 +40,19 @@ struct aux_payload {
+ 	/* set following flag to write data,
+ 	 * reset it to read data */
+ 	bool write;
++	bool mot;
+ 	uint32_t address;
+ 	uint8_t length;
+ 	uint8_t *data;
++	/*
++	 * used to return the reply type of the transaction
++	 * ignored if NULL
++	 */
++	uint8_t *reply;
++	/* expressed in milliseconds
++	 * zero means "use default value"
++	 */
++	uint32_t defer_delay;
+ };
+ 
+ struct aux_command {
+-- 
+2.17.1
+

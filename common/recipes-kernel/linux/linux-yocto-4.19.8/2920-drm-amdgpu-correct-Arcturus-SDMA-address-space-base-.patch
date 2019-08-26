@@ -1,0 +1,44 @@
+From 1f87164bfafb590885002e26edc1cf1053565ab5 Mon Sep 17 00:00:00 2001
+From: Le Ma <le.ma@amd.com>
+Date: Thu, 15 Nov 2018 18:56:17 +0800
+Subject: [PATCH 2920/2940] drm/amdgpu: correct Arcturus SDMA address space
+ base index
+
+Signed-off-by: Le Ma <le.ma@amd.com>
+Reviewed-by: Hawking Zhang <Hawking.Zhang@amd.com>
+Signed-off-by: Alex Deucher <alexander.deucher@amd.com>
+---
+ drivers/gpu/drm/amd/amdgpu/sdma_v4_0.c | 12 ++++++------
+ 1 file changed, 6 insertions(+), 6 deletions(-)
+
+diff --git a/drivers/gpu/drm/amd/amdgpu/sdma_v4_0.c b/drivers/gpu/drm/amd/amdgpu/sdma_v4_0.c
+index 936c6e36d120..5279f25cd2b6 100644
+--- a/drivers/gpu/drm/amd/amdgpu/sdma_v4_0.c
++++ b/drivers/gpu/drm/amd/amdgpu/sdma_v4_0.c
+@@ -208,17 +208,17 @@ static u32 sdma_v4_0_get_reg_offset(struct amdgpu_device *adev,
+ 	case 1:
+ 		return (adev->reg_offset[SDMA1_HWIP][0][0] + offset);
+ 	case 2:
+-		return (adev->reg_offset[SDMA2_HWIP][0][0] + offset);
++		return (adev->reg_offset[SDMA2_HWIP][0][1] + offset);
+ 	case 3:
+-		return (adev->reg_offset[SDMA3_HWIP][0][0] + offset);
++		return (adev->reg_offset[SDMA3_HWIP][0][1] + offset);
+ 	case 4:
+-		return (adev->reg_offset[SDMA4_HWIP][0][0] + offset);
++		return (adev->reg_offset[SDMA4_HWIP][0][1] + offset);
+ 	case 5:
+-		return (adev->reg_offset[SDMA5_HWIP][0][0] + offset);
++		return (adev->reg_offset[SDMA5_HWIP][0][1] + offset);
+ 	case 6:
+-		return (adev->reg_offset[SDMA6_HWIP][0][0] + offset);
++		return (adev->reg_offset[SDMA6_HWIP][0][1] + offset);
+ 	case 7:
+-		return (adev->reg_offset[SDMA7_HWIP][0][0] + offset);
++		return (adev->reg_offset[SDMA7_HWIP][0][1] + offset);
+ 	default:
+ 		break;
+ 	}
+-- 
+2.17.1
+

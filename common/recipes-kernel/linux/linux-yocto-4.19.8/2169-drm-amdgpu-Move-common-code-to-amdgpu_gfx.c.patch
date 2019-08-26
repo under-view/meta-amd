@@ -1,0 +1,91 @@
+From 4908b3052e61039984501716f0b4cba625a5dc6b Mon Sep 17 00:00:00 2001
+From: Hawking Zhang <Hawking.Zhang@amd.com>
+Date: Tue, 5 Mar 2019 22:05:02 +0800
+Subject: [PATCH 2169/2940] drm/amdgpu: Move common code to amdgpu_gfx.c
+
+move common code to amdgpu_gfx_enable_kcq,so
+this function can be shared with gfx8 and gfx9
+
+Signed-off-by: Hawking Zhang <Hawking.Zhang@amd.com>
+Signed-off-by: Rex Zhu <Rex.Zhu@amd.com>
+Reviewed-by: Alex Deucher <alexander.deucher@amd.com>
+Reviewed-by: Hawking Zhang <Hawking.Zhang@amd.com>
+Signed-off-by: Alex Deucher <alexander.deucher@amd.com>
+---
+ drivers/gpu/drm/amd/amdgpu/amdgpu_gfx.c | 47 +++++++++++++++++++++++++
+ drivers/gpu/drm/amd/amdgpu/amdgpu_gfx.h |  1 +
+ 2 files changed, 48 insertions(+)
+
+diff --git a/drivers/gpu/drm/amd/amdgpu/amdgpu_gfx.c b/drivers/gpu/drm/amd/amdgpu/amdgpu_gfx.c
+index ad159e06cfb2..c793b6914957 100644
+--- a/drivers/gpu/drm/amd/amdgpu/amdgpu_gfx.c
++++ b/drivers/gpu/drm/amd/amdgpu/amdgpu_gfx.c
+@@ -450,6 +450,53 @@ int amdgpu_gfx_disable_kcq(struct amdgpu_device *adev)
+ 	return amdgpu_ring_test_ring(kiq_ring);
+ }
+ 
++int amdgpu_gfx_enable_kcq(struct amdgpu_device *adev)
++{
++	struct amdgpu_kiq *kiq = &adev->gfx.kiq;
++	struct amdgpu_ring *kiq_ring = &adev->gfx.kiq.ring;
++	uint64_t queue_mask = 0;
++	int r, i;
++
++	if (!kiq->pmf || !kiq->pmf->kiq_map_queues ||!kiq->pmf->kiq_set_resources)
++		return -EINVAL;
++
++	for (i = 0; i < AMDGPU_MAX_COMPUTE_QUEUES; ++i) {
++		if (!test_bit(i, adev->gfx.mec.queue_bitmap))
++			continue;
++
++		/* This situation may be hit in the future if a new HW
++		 * generation exposes more than 64 queues. If so, the
++		 * definition of queue_mask needs updating */
++		if (WARN_ON(i > (sizeof(queue_mask)*8))) {
++			DRM_ERROR("Invalid KCQ enabled: %d\n", i);
++			break;
++		}
++
++		queue_mask |= (1ull << i);
++	}
++
++	DRM_INFO("kiq ring mec %d pipe %d q %d\n", kiq_ring->me, kiq_ring->pipe,
++							kiq_ring->queue);
++
++	r = amdgpu_ring_alloc(kiq_ring, kiq->pmf->map_queues_size *
++					adev->gfx.num_compute_rings +
++					kiq->pmf->set_resources_size);
++	if (r) {
++		DRM_ERROR("Failed to lock KIQ (%d).\n", r);
++		return r;
++	}
++
++	kiq->pmf->kiq_set_resources(kiq_ring, queue_mask);
++	for (i = 0; i < adev->gfx.num_compute_rings; i++)
++		kiq->pmf->kiq_map_queues(kiq_ring, &adev->gfx.compute_ring[i]);
++
++	r = amdgpu_ring_test_helper(kiq_ring);
++	if (r)
++		DRM_ERROR("KCQ enable failed\n");
++
++	return r;
++}
++
+ /* amdgpu_gfx_off_ctrl - Handle gfx off feature enable/disable
+  *
+  * @adev: amdgpu_device pointer
+diff --git a/drivers/gpu/drm/amd/amdgpu/amdgpu_gfx.h b/drivers/gpu/drm/amd/amdgpu/amdgpu_gfx.h
+index b22421f2b6fe..42730adbefcf 100644
+--- a/drivers/gpu/drm/amd/amdgpu/amdgpu_gfx.h
++++ b/drivers/gpu/drm/amd/amdgpu/amdgpu_gfx.h
+@@ -354,6 +354,7 @@ int amdgpu_gfx_mqd_sw_init(struct amdgpu_device *adev,
+ 			   unsigned mqd_size);
+ void amdgpu_gfx_mqd_sw_fini(struct amdgpu_device *adev);
+ int amdgpu_gfx_disable_kcq(struct amdgpu_device *adev);
++int amdgpu_gfx_enable_kcq(struct amdgpu_device *adev);
+ 
+ void amdgpu_gfx_compute_queue_acquire(struct amdgpu_device *adev);
+ void amdgpu_gfx_graphics_queue_acquire(struct amdgpu_device *adev);
+-- 
+2.17.1
+

@@ -1,0 +1,58 @@
+From 28751d4d72c58371168b2d0d1de349437e473dad Mon Sep 17 00:00:00 2001
+From: Yongqiang Sun <yongqiang.sun@amd.com>
+Date: Thu, 28 Mar 2019 16:49:42 -0400
+Subject: [PATCH 1774/2940] drm/amd/display: define HUBP_MASK_SH_LIST_DCN for
+ Raven
+
+Change-Id: Ibe60745eaaea72d694ceb9d22936eae0abae5674
+Signed-off-by: Yongqiang Sun <yongqiang.sun@amd.com>
+Reviewed-by: Tony Cheng <Tony.Cheng@amd.com>
+Acked-by: Bhawanpreet Lakha <Bhawanpreet Lakha@amd.com>
+---
+ drivers/gpu/drm/amd/display/dc/dcn10/dcn10_hubp.h | 9 ++++++---
+ 1 file changed, 6 insertions(+), 3 deletions(-)
+
+diff --git a/drivers/gpu/drm/amd/display/dc/dcn10/dcn10_hubp.h b/drivers/gpu/drm/amd/display/dc/dcn10/dcn10_hubp.h
+index 3268ab089363..db98ba361686 100644
+--- a/drivers/gpu/drm/amd/display/dc/dcn10/dcn10_hubp.h
++++ b/drivers/gpu/drm/amd/display/dc/dcn10/dcn10_hubp.h
+@@ -247,7 +247,7 @@
+ 	.field_name = reg_name ## __ ## field_name ## post_fix
+ 
+ /* Mask/shift struct generation macro for all ASICs (including those with reduced functionality) */
+-#define HUBP_MASK_SH_LIST_DCN(mask_sh)\
++#define HUBP_MASK_SH_LIST_DCN_COMMON(mask_sh)\
+ 	HUBP_SF(HUBP0_DCHUBP_CNTL, HUBP_BLANK_EN, mask_sh),\
+ 	HUBP_SF(HUBP0_DCHUBP_CNTL, HUBP_TTU_DISABLE, mask_sh),\
+ 	HUBP_SF(HUBP0_DCHUBP_CNTL, HUBP_UNDERFLOW_STATUS, mask_sh),\
+@@ -331,7 +331,6 @@
+ 	HUBP_SF(HUBP0_DCHUBP_REQ_SIZE_CONFIG, META_CHUNK_SIZE, mask_sh),\
+ 	HUBP_SF(HUBP0_DCHUBP_REQ_SIZE_CONFIG, MIN_META_CHUNK_SIZE, mask_sh),\
+ 	HUBP_SF(HUBP0_DCHUBP_REQ_SIZE_CONFIG, DPTE_GROUP_SIZE, mask_sh),\
+-	HUBP_SF(HUBP0_DCHUBP_REQ_SIZE_CONFIG, MPTE_GROUP_SIZE, mask_sh),\
+ 	HUBP_SF(HUBP0_DCHUBP_REQ_SIZE_CONFIG, SWATH_HEIGHT, mask_sh),\
+ 	HUBP_SF(HUBP0_DCHUBP_REQ_SIZE_CONFIG, PTE_ROW_HEIGHT_LINEAR, mask_sh),\
+ 	HUBP_SF(HUBP0_DCHUBP_REQ_SIZE_CONFIG_C, CHUNK_SIZE_C, mask_sh),\
+@@ -339,7 +338,6 @@
+ 	HUBP_SF(HUBP0_DCHUBP_REQ_SIZE_CONFIG_C, META_CHUNK_SIZE_C, mask_sh),\
+ 	HUBP_SF(HUBP0_DCHUBP_REQ_SIZE_CONFIG_C, MIN_META_CHUNK_SIZE_C, mask_sh),\
+ 	HUBP_SF(HUBP0_DCHUBP_REQ_SIZE_CONFIG_C, DPTE_GROUP_SIZE_C, mask_sh),\
+-	HUBP_SF(HUBP0_DCHUBP_REQ_SIZE_CONFIG_C, MPTE_GROUP_SIZE_C, mask_sh),\
+ 	HUBP_SF(HUBP0_DCHUBP_REQ_SIZE_CONFIG_C, SWATH_HEIGHT_C, mask_sh),\
+ 	HUBP_SF(HUBP0_DCHUBP_REQ_SIZE_CONFIG_C, PTE_ROW_HEIGHT_LINEAR_C, mask_sh),\
+ 	HUBP_SF(HUBPREQ0_BLANK_OFFSET_0, REFCYC_H_BLANK_END, mask_sh),\
+@@ -373,6 +371,11 @@
+ 	HUBP_SF(HUBPREQ0_DCN_SURF0_TTU_CNTL1, REFCYC_PER_REQ_DELIVERY_PRE, mask_sh),\
+ 	HUBP_SF(HUBP0_HUBP_CLK_CNTL, HUBP_CLOCK_ENABLE, mask_sh)
+ 
++#define HUBP_MASK_SH_LIST_DCN(mask_sh)\
++	HUBP_MASK_SH_LIST_DCN_COMMON(mask_sh),\
++	HUBP_SF(HUBP0_DCHUBP_REQ_SIZE_CONFIG, MPTE_GROUP_SIZE, mask_sh),\
++	HUBP_SF(HUBP0_DCHUBP_REQ_SIZE_CONFIG_C, MPTE_GROUP_SIZE_C, mask_sh)
++
+ /* Mask/shift struct generation macro for ASICs with VM */
+ #define HUBP_MASK_SH_LIST_DCN_VM(mask_sh)\
+ 	HUBP_SF(HUBPREQ0_NOM_PARAMETERS_0, DST_Y_PER_PTE_ROW_NOM_L, mask_sh),\
+-- 
+2.17.1
+

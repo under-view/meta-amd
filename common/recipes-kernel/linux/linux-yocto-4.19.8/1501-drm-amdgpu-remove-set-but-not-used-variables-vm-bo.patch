@@ -1,0 +1,46 @@
+From 787a3c025eceaeebe8ce1abc1890de729094a249 Mon Sep 17 00:00:00 2001
+From: YueHaibing <yuehaibing@huawei.com>
+Date: Wed, 20 Feb 2019 03:31:50 +0000
+Subject: [PATCH 1501/2940] drm/amdgpu: remove set but not used variables 'vm,
+ bo'
+
+Fixes gcc '-Wunused-but-set-variable' warning:
+
+drivers/gpu/drm/amd/amdgpu/amdgpu_amdkfd_gpuvm.c: In function 'update_gpuvm_pte':
+drivers/gpu/drm/amd/amdgpu/amdgpu_amdkfd_gpuvm.c:840:20: warning:
+ variable 'bo' set but not used [-Wunused-but-set-variable]
+
+drivers/gpu/drm/amd/amdgpu/amdgpu_amdkfd_gpuvm.c:838:20: warning:
+ variable 'vm' set but not used [-Wunused-but-set-variable]
+
+They're never used since introduction in a46a2cd103a8 ("drm/amdgpu: Add GPUVM
+memory management functions for KFD")
+
+Signed-off-by: YueHaibing <yuehaibing@huawei.com>
+Signed-off-by: Alex Deucher <alexander.deucher@amd.com>
+---
+ drivers/gpu/drm/amd/amdgpu/amdgpu_amdkfd_gpuvm.c | 8 +-------
+ 1 file changed, 1 insertion(+), 7 deletions(-)
+
+diff --git a/drivers/gpu/drm/amd/amdgpu/amdgpu_amdkfd_gpuvm.c b/drivers/gpu/drm/amd/amdgpu/amdgpu_amdkfd_gpuvm.c
+index 3e50a493bffd..72e6fe4110ca 100644
+--- a/drivers/gpu/drm/amd/amdgpu/amdgpu_amdkfd_gpuvm.c
++++ b/drivers/gpu/drm/amd/amdgpu/amdgpu_amdkfd_gpuvm.c
+@@ -839,13 +839,7 @@ static int update_gpuvm_pte(struct amdgpu_device *adev,
+ 		struct amdgpu_sync *sync)
+ {
+ 	int ret;
+-	struct amdgpu_vm *vm;
+-	struct amdgpu_bo_va *bo_va;
+-	struct amdgpu_bo *bo;
+-
+-	bo_va = entry->bo_va;
+-	vm = bo_va->base.vm;
+-	bo = bo_va->base.bo;
++	struct amdgpu_bo_va *bo_va = entry->bo_va;
+ 
+ 	/* Update the page tables  */
+ 	ret = amdgpu_vm_bo_update(adev, bo_va, false);
+-- 
+2.17.1
+

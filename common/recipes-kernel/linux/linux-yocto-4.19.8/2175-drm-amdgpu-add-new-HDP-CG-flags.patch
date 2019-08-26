@@ -1,0 +1,35 @@
+From b9584bd1231a034bd6b6d477b825987de26091b3 Mon Sep 17 00:00:00 2001
+From: Hawking Zhang <Hawking.Zhang@amd.com>
+Date: Wed, 29 Aug 2018 21:18:19 +0800
+Subject: [PATCH 2175/2940] drm/amdgpu: add new HDP CG flags
+
+HDP 5.0 supports SRAM power gating. all the LS (Light Sleep)/
+DS (Deep Sleep)/SD (Shut Down) modes are supported. However,
+only one of these modes can be enabled at one time.
+
+There is no dynamic power mode switch support. clock/power gating
+has to be disabled before making any power mode change.
+
+Signed-off-by: Hawking Zhang <Hawking.Zhang@amd.com>
+Reviewed-by: Alex Deucher <alexander.deucher@amd.com>
+Signed-off-by: Alex Deucher <alexander.deucher@amd.com>
+---
+ drivers/gpu/drm/amd/include/amd_shared.h | 2 ++
+ 1 file changed, 2 insertions(+)
+
+diff --git a/drivers/gpu/drm/amd/include/amd_shared.h b/drivers/gpu/drm/amd/include/amd_shared.h
+index 574bf6e70763..abf0454b1a9d 100644
+--- a/drivers/gpu/drm/amd/include/amd_shared.h
++++ b/drivers/gpu/drm/amd/include/amd_shared.h
+@@ -93,6 +93,8 @@ enum amd_powergating_state {
+ #define AMD_CG_SUPPORT_DRM_MGCG			(1 << 22)
+ #define AMD_CG_SUPPORT_DF_MGCG			(1 << 23)
+ #define AMD_CG_SUPPORT_VCN_MGCG			(1 << 24)
++#define AMD_CG_SUPPORT_HDP_DS			(1 << 25)
++#define AMD_CG_SUPPORT_HDP_SD			(1 << 26)
+ /* PG flags */
+ #define AMD_PG_SUPPORT_GFX_PG			(1 << 0)
+ #define AMD_PG_SUPPORT_GFX_SMG			(1 << 1)
+-- 
+2.17.1
+

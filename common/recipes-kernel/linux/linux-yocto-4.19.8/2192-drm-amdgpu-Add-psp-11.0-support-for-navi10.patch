@@ -1,0 +1,92 @@
+From 26cb3dc6b8068c238e7347c809543859cc92b50a Mon Sep 17 00:00:00 2001
+From: Tao Zhou <Tao.Zhou1@amd.com>
+Date: Mon, 21 May 2018 16:32:05 +0800
+Subject: [PATCH 2192/2940] drm/amdgpu: Add psp 11.0 support for navi10.
+
+Add psp 11.0 code for navi10. psp 11.0 is not enabled for now.
+Will enable it when psp 11.0 firmware is available.
+
+Signed-off-by: Tao Zhou <Tao.Zhou1@amd.com>
+Reviewed-by: Alex Deucher <alexander.deucher@amd.com>
+Signed-off-by: Alex Deucher <alexander.deucher@amd.com>
+---
+ drivers/gpu/drm/amd/amdgpu/amdgpu_psp.c |  1 +
+ drivers/gpu/drm/amd/amdgpu/psp_v11_0.c  | 29 +++++++++++++++++++++----
+ 2 files changed, 26 insertions(+), 4 deletions(-)
+
+diff --git a/drivers/gpu/drm/amd/amdgpu/amdgpu_psp.c b/drivers/gpu/drm/amd/amdgpu/amdgpu_psp.c
+index 46592b978b3a..94452d28b3c2 100644
+--- a/drivers/gpu/drm/amd/amdgpu/amdgpu_psp.c
++++ b/drivers/gpu/drm/amd/amdgpu/amdgpu_psp.c
+@@ -52,6 +52,7 @@ static int psp_early_init(void *handle)
+ 		psp_v10_0_set_psp_funcs(psp);
+ 		break;
+ 	case CHIP_VEGA20:
++	case CHIP_NAVI10:
+ 		psp_v11_0_set_psp_funcs(psp);
+ 		break;
+ 	default:
+diff --git a/drivers/gpu/drm/amd/amdgpu/psp_v11_0.c b/drivers/gpu/drm/amd/amdgpu/psp_v11_0.c
+index ef7acb317e23..3e756fca1492 100644
+--- a/drivers/gpu/drm/amd/amdgpu/psp_v11_0.c
++++ b/drivers/gpu/drm/amd/amdgpu/psp_v11_0.c
+@@ -40,9 +40,15 @@ MODULE_FIRMWARE("amdgpu/vega20_sos.bin");
+ MODULE_FIRMWARE("amdgpu/vega20_asd.bin");
+ MODULE_FIRMWARE("amdgpu/vega20_ta.bin");
+ MODULE_FIRMWARE("amdgpu/vega20_sos_old.bin");
++MODULE_FIRMWARE("amdgpu/navi10_sos.bin");
+ 
+ /* address block */
+ #define smnMP1_FIRMWARE_FLAGS		0x3010024
++/* navi10 reg offset define */
++#define mmRLC_GPM_UCODE_ADDR_NV10      0x5b61
++#define mmRLC_GPM_UCODE_DATA_NV10      0x5b62
++#define mmSDMA0_UCODE_ADDR_NV10                0x5880
++#define mmSDMA0_UCODE_DATA_NV10                0x5881
+ 
+ #define VEGA20_BL_VERSION_VAR_NEW 0xA1
+ 
+@@ -63,6 +69,9 @@ static int psp_v11_0_init_microcode(struct psp_context *psp)
+ 	case CHIP_VEGA20:
+ 		chip_name = "vega20";
+ 		break;
++	case CHIP_NAVI10:
++		chip_name = "navi10";
++		break;
+ 	default:
+ 		BUG();
+ 	}
+@@ -509,14 +518,26 @@ psp_v11_0_sram_map(struct amdgpu_device *adev,
+ 
+ 	case AMDGPU_UCODE_ID_RLC_G:
+ 		*sram_offset = 0x2000;
+-		*sram_addr_reg_offset = SOC15_REG_OFFSET(GC, 0, mmRLC_GPM_UCODE_ADDR);
+-		*sram_data_reg_offset = SOC15_REG_OFFSET(GC, 0, mmRLC_GPM_UCODE_DATA);
++		if (adev->asic_type != CHIP_NAVI10) {
++			*sram_addr_reg_offset = SOC15_REG_OFFSET(GC, 0, mmRLC_GPM_UCODE_ADDR);
++			*sram_data_reg_offset = SOC15_REG_OFFSET(GC, 0, mmRLC_GPM_UCODE_DATA);
++		}
++		else {
++			*sram_addr_reg_offset = adev->reg_offset[GC_HWIP][0][1] + mmRLC_GPM_UCODE_ADDR_NV10;
++			*sram_data_reg_offset = adev->reg_offset[GC_HWIP][0][1] + mmRLC_GPM_UCODE_DATA_NV10;
++		}
+ 		break;
+ 
+ 	case AMDGPU_UCODE_ID_SDMA0:
+ 		*sram_offset = 0x0;
+-		*sram_addr_reg_offset = SOC15_REG_OFFSET(SDMA0, 0, mmSDMA0_UCODE_ADDR);
+-		*sram_data_reg_offset = SOC15_REG_OFFSET(SDMA0, 0, mmSDMA0_UCODE_DATA);
++		if (adev->asic_type != CHIP_NAVI10) {
++			*sram_addr_reg_offset = SOC15_REG_OFFSET(SDMA0, 0, mmSDMA0_UCODE_ADDR);
++			*sram_data_reg_offset = SOC15_REG_OFFSET(SDMA0, 0, mmSDMA0_UCODE_DATA);
++		}
++		else {
++			*sram_addr_reg_offset = adev->reg_offset[GC_HWIP][0][1] + mmSDMA0_UCODE_ADDR_NV10;
++			*sram_data_reg_offset = adev->reg_offset[GC_HWIP][0][1] + mmSDMA0_UCODE_DATA_NV10;
++		}
+ 		break;
+ 
+ /* TODO: needs to confirm */
+-- 
+2.17.1
+

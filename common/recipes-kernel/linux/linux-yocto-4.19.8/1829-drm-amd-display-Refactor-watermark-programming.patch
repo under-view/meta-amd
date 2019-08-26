@@ -1,0 +1,379 @@
+From 533ca7a52a852fea844e6730ce2f3b8c085674b7 Mon Sep 17 00:00:00 2001
+From: Yongqiang Sun <yongqiang.sun@amd.com>
+Date: Fri, 29 Mar 2019 14:36:57 -0400
+Subject: [PATCH 1829/2940] drm/amd/display: Refactor watermark programming
+
+* Replace certain register writes with register sets that overwrites the
+  the entire register, instead of only a field within the register.
+* Add program_watermarks() entry to hubbub vtable. Hook it up to
+  existing functions that program watermarks.
+* Add additional watermark registers.
+
+Signed-off-by: Yongqiang Sun <yongqiang.sun@amd.com>
+Reviewed-by: Tony Cheng <Tony.Cheng@amd.com>
+Acked-by: Leo Li <sunpeng.li@amd.com>
+---
+ .../drm/amd/display/dc/dcn10/dcn10_hubbub.c   | 49 ++++++++++-----
+ .../drm/amd/display/dc/dcn10/dcn10_hubbub.h   | 63 +++++++++++++++----
+ .../amd/display/dc/dcn10/dcn10_hw_sequencer.c |  8 ++-
+ .../gpu/drm/amd/display/dc/inc/hw/dchubbub.h  |  6 ++
+ 4 files changed, 97 insertions(+), 29 deletions(-)
+
+diff --git a/drivers/gpu/drm/amd/display/dc/dcn10/dcn10_hubbub.c b/drivers/gpu/drm/amd/display/dc/dcn10/dcn10_hubbub.c
+index 295cbd5b843f..0db2a6e96fc0 100644
+--- a/drivers/gpu/drm/amd/display/dc/dcn10/dcn10_hubbub.c
++++ b/drivers/gpu/drm/amd/display/dc/dcn10/dcn10_hubbub.c
+@@ -283,7 +283,8 @@ void hubbub1_program_watermarks(
+ 		hubbub1->watermarks.a.urgent_ns = watermarks->a.urgent_ns;
+ 		prog_wm_value = convert_and_clamp(watermarks->a.urgent_ns,
+ 				refclk_mhz, 0x1fffff);
+-		REG_WRITE(DCHUBBUB_ARB_DATA_URGENCY_WATERMARK_A, prog_wm_value);
++		REG_SET(DCHUBBUB_ARB_DATA_URGENCY_WATERMARK_A, 0,
++				DCHUBBUB_ARB_DATA_URGENCY_WATERMARK_A, prog_wm_value);
+ 
+ 		DC_LOG_BANDWIDTH_CALCS("URGENCY_WATERMARK_A calculated =%d\n"
+ 			"HW register value = 0x%x\n",
+@@ -310,7 +311,8 @@ void hubbub1_program_watermarks(
+ 			prog_wm_value = convert_and_clamp(
+ 					watermarks->a.cstate_pstate.cstate_enter_plus_exit_ns,
+ 					refclk_mhz, 0x1fffff);
+-			REG_WRITE(DCHUBBUB_ARB_ALLOW_SR_ENTER_WATERMARK_A, prog_wm_value);
++			REG_SET(DCHUBBUB_ARB_ALLOW_SR_ENTER_WATERMARK_A, 0,
++					DCHUBBUB_ARB_ALLOW_SR_ENTER_WATERMARK_A, prog_wm_value);
+ 			DC_LOG_BANDWIDTH_CALCS("SR_ENTER_EXIT_WATERMARK_A calculated =%d\n"
+ 				"HW register value = 0x%x\n",
+ 				watermarks->a.cstate_pstate.cstate_enter_plus_exit_ns, prog_wm_value);
+@@ -323,7 +325,8 @@ void hubbub1_program_watermarks(
+ 			prog_wm_value = convert_and_clamp(
+ 					watermarks->a.cstate_pstate.cstate_exit_ns,
+ 					refclk_mhz, 0x1fffff);
+-			REG_WRITE(DCHUBBUB_ARB_ALLOW_SR_EXIT_WATERMARK_A, prog_wm_value);
++			REG_SET(DCHUBBUB_ARB_ALLOW_SR_EXIT_WATERMARK_A, 0,
++					DCHUBBUB_ARB_ALLOW_SR_EXIT_WATERMARK_A, prog_wm_value);
+ 			DC_LOG_BANDWIDTH_CALCS("SR_EXIT_WATERMARK_A calculated =%d\n"
+ 				"HW register value = 0x%x\n",
+ 				watermarks->a.cstate_pstate.cstate_exit_ns, prog_wm_value);
+@@ -337,7 +340,8 @@ void hubbub1_program_watermarks(
+ 		prog_wm_value = convert_and_clamp(
+ 				watermarks->a.cstate_pstate.pstate_change_ns,
+ 				refclk_mhz, 0x1fffff);
+-		REG_WRITE(DCHUBBUB_ARB_ALLOW_DRAM_CLK_CHANGE_WATERMARK_A, prog_wm_value);
++		REG_SET(DCHUBBUB_ARB_ALLOW_DRAM_CLK_CHANGE_WATERMARK_A, 0,
++				DCHUBBUB_ARB_ALLOW_DRAM_CLK_CHANGE_WATERMARK_A, prog_wm_value);
+ 		DC_LOG_BANDWIDTH_CALCS("DRAM_CLK_CHANGE_WATERMARK_A calculated =%d\n"
+ 			"HW register value = 0x%x\n\n",
+ 			watermarks->a.cstate_pstate.pstate_change_ns, prog_wm_value);
+@@ -348,7 +352,8 @@ void hubbub1_program_watermarks(
+ 		hubbub1->watermarks.b.urgent_ns = watermarks->b.urgent_ns;
+ 		prog_wm_value = convert_and_clamp(watermarks->b.urgent_ns,
+ 				refclk_mhz, 0x1fffff);
+-		REG_WRITE(DCHUBBUB_ARB_DATA_URGENCY_WATERMARK_B, prog_wm_value);
++		REG_SET(DCHUBBUB_ARB_DATA_URGENCY_WATERMARK_B, 0,
++				DCHUBBUB_ARB_DATA_URGENCY_WATERMARK_B, prog_wm_value);
+ 
+ 		DC_LOG_BANDWIDTH_CALCS("URGENCY_WATERMARK_B calculated =%d\n"
+ 			"HW register value = 0x%x\n",
+@@ -375,7 +380,8 @@ void hubbub1_program_watermarks(
+ 			prog_wm_value = convert_and_clamp(
+ 					watermarks->b.cstate_pstate.cstate_enter_plus_exit_ns,
+ 					refclk_mhz, 0x1fffff);
+-			REG_WRITE(DCHUBBUB_ARB_ALLOW_SR_ENTER_WATERMARK_B, prog_wm_value);
++			REG_SET(DCHUBBUB_ARB_ALLOW_SR_ENTER_WATERMARK_B, 0,
++					DCHUBBUB_ARB_ALLOW_SR_ENTER_WATERMARK_B, prog_wm_value);
+ 			DC_LOG_BANDWIDTH_CALCS("SR_ENTER_EXIT_WATERMARK_B calculated =%d\n"
+ 				"HW register value = 0x%x\n",
+ 				watermarks->b.cstate_pstate.cstate_enter_plus_exit_ns, prog_wm_value);
+@@ -388,7 +394,8 @@ void hubbub1_program_watermarks(
+ 			prog_wm_value = convert_and_clamp(
+ 					watermarks->b.cstate_pstate.cstate_exit_ns,
+ 					refclk_mhz, 0x1fffff);
+-			REG_WRITE(DCHUBBUB_ARB_ALLOW_SR_EXIT_WATERMARK_B, prog_wm_value);
++			REG_SET(DCHUBBUB_ARB_ALLOW_SR_EXIT_WATERMARK_B, 0,
++					DCHUBBUB_ARB_ALLOW_SR_EXIT_WATERMARK_B, prog_wm_value);
+ 			DC_LOG_BANDWIDTH_CALCS("SR_EXIT_WATERMARK_B calculated =%d\n"
+ 				"HW register value = 0x%x\n",
+ 				watermarks->b.cstate_pstate.cstate_exit_ns, prog_wm_value);
+@@ -402,7 +409,8 @@ void hubbub1_program_watermarks(
+ 		prog_wm_value = convert_and_clamp(
+ 				watermarks->b.cstate_pstate.pstate_change_ns,
+ 				refclk_mhz, 0x1fffff);
+-		REG_WRITE(DCHUBBUB_ARB_ALLOW_DRAM_CLK_CHANGE_WATERMARK_B, prog_wm_value);
++		REG_SET(DCHUBBUB_ARB_ALLOW_DRAM_CLK_CHANGE_WATERMARK_B, 0,
++				DCHUBBUB_ARB_ALLOW_DRAM_CLK_CHANGE_WATERMARK_B, prog_wm_value);
+ 		DC_LOG_BANDWIDTH_CALCS("DRAM_CLK_CHANGE_WATERMARK_B calculated =%d\n"
+ 			"HW register value = 0x%x\n\n",
+ 			watermarks->b.cstate_pstate.pstate_change_ns, prog_wm_value);
+@@ -413,7 +421,8 @@ void hubbub1_program_watermarks(
+ 		hubbub1->watermarks.c.urgent_ns = watermarks->c.urgent_ns;
+ 		prog_wm_value = convert_and_clamp(watermarks->c.urgent_ns,
+ 				refclk_mhz, 0x1fffff);
+-		REG_WRITE(DCHUBBUB_ARB_DATA_URGENCY_WATERMARK_C, prog_wm_value);
++		REG_SET(DCHUBBUB_ARB_DATA_URGENCY_WATERMARK_C, 0,
++				DCHUBBUB_ARB_DATA_URGENCY_WATERMARK_C, prog_wm_value);
+ 
+ 		DC_LOG_BANDWIDTH_CALCS("URGENCY_WATERMARK_C calculated =%d\n"
+ 			"HW register value = 0x%x\n",
+@@ -440,7 +449,8 @@ void hubbub1_program_watermarks(
+ 			prog_wm_value = convert_and_clamp(
+ 					watermarks->c.cstate_pstate.cstate_enter_plus_exit_ns,
+ 					refclk_mhz, 0x1fffff);
+-			REG_WRITE(DCHUBBUB_ARB_ALLOW_SR_ENTER_WATERMARK_C, prog_wm_value);
++			REG_SET(DCHUBBUB_ARB_ALLOW_SR_ENTER_WATERMARK_C, 0,
++					DCHUBBUB_ARB_ALLOW_SR_ENTER_WATERMARK_C, prog_wm_value);
+ 			DC_LOG_BANDWIDTH_CALCS("SR_ENTER_EXIT_WATERMARK_C calculated =%d\n"
+ 				"HW register value = 0x%x\n",
+ 				watermarks->c.cstate_pstate.cstate_enter_plus_exit_ns, prog_wm_value);
+@@ -453,7 +463,8 @@ void hubbub1_program_watermarks(
+ 			prog_wm_value = convert_and_clamp(
+ 					watermarks->c.cstate_pstate.cstate_exit_ns,
+ 					refclk_mhz, 0x1fffff);
+-			REG_WRITE(DCHUBBUB_ARB_ALLOW_SR_EXIT_WATERMARK_C, prog_wm_value);
++			REG_SET(DCHUBBUB_ARB_ALLOW_SR_EXIT_WATERMARK_C, 0,
++					DCHUBBUB_ARB_ALLOW_SR_EXIT_WATERMARK_C, prog_wm_value);
+ 			DC_LOG_BANDWIDTH_CALCS("SR_EXIT_WATERMARK_C calculated =%d\n"
+ 				"HW register value = 0x%x\n",
+ 				watermarks->c.cstate_pstate.cstate_exit_ns, prog_wm_value);
+@@ -467,7 +478,8 @@ void hubbub1_program_watermarks(
+ 		prog_wm_value = convert_and_clamp(
+ 				watermarks->c.cstate_pstate.pstate_change_ns,
+ 				refclk_mhz, 0x1fffff);
+-		REG_WRITE(DCHUBBUB_ARB_ALLOW_DRAM_CLK_CHANGE_WATERMARK_C, prog_wm_value);
++		REG_SET(DCHUBBUB_ARB_ALLOW_DRAM_CLK_CHANGE_WATERMARK_C, 0,
++				DCHUBBUB_ARB_ALLOW_DRAM_CLK_CHANGE_WATERMARK_C, prog_wm_value);
+ 		DC_LOG_BANDWIDTH_CALCS("DRAM_CLK_CHANGE_WATERMARK_C calculated =%d\n"
+ 			"HW register value = 0x%x\n\n",
+ 			watermarks->c.cstate_pstate.pstate_change_ns, prog_wm_value);
+@@ -478,7 +490,8 @@ void hubbub1_program_watermarks(
+ 		hubbub1->watermarks.d.urgent_ns = watermarks->d.urgent_ns;
+ 		prog_wm_value = convert_and_clamp(watermarks->d.urgent_ns,
+ 				refclk_mhz, 0x1fffff);
+-		REG_WRITE(DCHUBBUB_ARB_DATA_URGENCY_WATERMARK_D, prog_wm_value);
++		REG_SET(DCHUBBUB_ARB_DATA_URGENCY_WATERMARK_D, 0,
++				DCHUBBUB_ARB_DATA_URGENCY_WATERMARK_D, prog_wm_value);
+ 
+ 		DC_LOG_BANDWIDTH_CALCS("URGENCY_WATERMARK_D calculated =%d\n"
+ 			"HW register value = 0x%x\n",
+@@ -505,7 +518,8 @@ void hubbub1_program_watermarks(
+ 			prog_wm_value = convert_and_clamp(
+ 					watermarks->d.cstate_pstate.cstate_enter_plus_exit_ns,
+ 					refclk_mhz, 0x1fffff);
+-			REG_WRITE(DCHUBBUB_ARB_ALLOW_SR_ENTER_WATERMARK_D, prog_wm_value);
++			REG_SET(DCHUBBUB_ARB_ALLOW_SR_ENTER_WATERMARK_D, 0,
++					DCHUBBUB_ARB_ALLOW_SR_ENTER_WATERMARK_D, prog_wm_value);
+ 			DC_LOG_BANDWIDTH_CALCS("SR_ENTER_EXIT_WATERMARK_D calculated =%d\n"
+ 				"HW register value = 0x%x\n",
+ 				watermarks->d.cstate_pstate.cstate_enter_plus_exit_ns, prog_wm_value);
+@@ -518,7 +532,8 @@ void hubbub1_program_watermarks(
+ 			prog_wm_value = convert_and_clamp(
+ 					watermarks->d.cstate_pstate.cstate_exit_ns,
+ 					refclk_mhz, 0x1fffff);
+-			REG_WRITE(DCHUBBUB_ARB_ALLOW_SR_EXIT_WATERMARK_D, prog_wm_value);
++			REG_SET(DCHUBBUB_ARB_ALLOW_SR_EXIT_WATERMARK_D, 0,
++					DCHUBBUB_ARB_ALLOW_SR_EXIT_WATERMARK_D, prog_wm_value);
+ 			DC_LOG_BANDWIDTH_CALCS("SR_EXIT_WATERMARK_D calculated =%d\n"
+ 				"HW register value = 0x%x\n",
+ 				watermarks->d.cstate_pstate.cstate_exit_ns, prog_wm_value);
+@@ -532,7 +547,8 @@ void hubbub1_program_watermarks(
+ 		prog_wm_value = convert_and_clamp(
+ 				watermarks->d.cstate_pstate.pstate_change_ns,
+ 				refclk_mhz, 0x1fffff);
+-		REG_WRITE(DCHUBBUB_ARB_ALLOW_DRAM_CLK_CHANGE_WATERMARK_D, prog_wm_value);
++		REG_SET(DCHUBBUB_ARB_ALLOW_DRAM_CLK_CHANGE_WATERMARK_D, 0,
++				DCHUBBUB_ARB_ALLOW_DRAM_CLK_CHANGE_WATERMARK_D, prog_wm_value);
+ 		DC_LOG_BANDWIDTH_CALCS("DRAM_CLK_CHANGE_WATERMARK_D calculated =%d\n"
+ 			"HW register value = 0x%x\n\n",
+ 			watermarks->d.cstate_pstate.pstate_change_ns, prog_wm_value);
+@@ -867,6 +883,7 @@ static const struct hubbub_funcs hubbub1_funcs = {
+ 	.dcc_support_pixel_format = hubbub1_dcc_support_pixel_format,
+ 	.get_dcc_compression_cap = hubbub1_get_dcc_compression_cap,
+ 	.wm_read_state = hubbub1_wm_read_state,
++	.program_watermarks = hubbub1_program_watermarks,
+ };
+ 
+ void hubbub1_construct(struct hubbub *hubbub,
+diff --git a/drivers/gpu/drm/amd/display/dc/dcn10/dcn10_hubbub.h b/drivers/gpu/drm/amd/display/dc/dcn10/dcn10_hubbub.h
+index 9cd4a5194154..85811b24a497 100644
+--- a/drivers/gpu/drm/amd/display/dc/dcn10/dcn10_hubbub.h
++++ b/drivers/gpu/drm/amd/display/dc/dcn10/dcn10_hubbub.h
+@@ -32,18 +32,14 @@
+ #define TO_DCN10_HUBBUB(hubbub)\
+ 	container_of(hubbub, struct dcn10_hubbub, base)
+ 
+-#define HUBHUB_REG_LIST_DCN()\
++#define HUBBUB_REG_LIST_DCN_COMMON()\
+ 	SR(DCHUBBUB_ARB_DATA_URGENCY_WATERMARK_A),\
+-	SR(DCHUBBUB_ARB_PTE_META_URGENCY_WATERMARK_A),\
+ 	SR(DCHUBBUB_ARB_ALLOW_DRAM_CLK_CHANGE_WATERMARK_A),\
+ 	SR(DCHUBBUB_ARB_DATA_URGENCY_WATERMARK_B),\
+-	SR(DCHUBBUB_ARB_PTE_META_URGENCY_WATERMARK_B),\
+ 	SR(DCHUBBUB_ARB_ALLOW_DRAM_CLK_CHANGE_WATERMARK_B),\
+ 	SR(DCHUBBUB_ARB_DATA_URGENCY_WATERMARK_C),\
+-	SR(DCHUBBUB_ARB_PTE_META_URGENCY_WATERMARK_C),\
+ 	SR(DCHUBBUB_ARB_ALLOW_DRAM_CLK_CHANGE_WATERMARK_C),\
+ 	SR(DCHUBBUB_ARB_DATA_URGENCY_WATERMARK_D),\
+-	SR(DCHUBBUB_ARB_PTE_META_URGENCY_WATERMARK_D),\
+ 	SR(DCHUBBUB_ARB_ALLOW_DRAM_CLK_CHANGE_WATERMARK_D),\
+ 	SR(DCHUBBUB_ARB_WATERMARK_CHANGE_CNTL),\
+ 	SR(DCHUBBUB_ARB_DRAM_STATE_CNTL),\
+@@ -54,6 +50,12 @@
+ 	SR(DCHUBBUB_TEST_DEBUG_DATA),\
+ 	SR(DCHUBBUB_SOFT_RESET)
+ 
++#define HUBBUB_VM_REG_LIST() \
++	SR(DCHUBBUB_ARB_PTE_META_URGENCY_WATERMARK_A),\
++	SR(DCHUBBUB_ARB_PTE_META_URGENCY_WATERMARK_B),\
++	SR(DCHUBBUB_ARB_PTE_META_URGENCY_WATERMARK_C),\
++	SR(DCHUBBUB_ARB_PTE_META_URGENCY_WATERMARK_D)
++
+ #define HUBBUB_SR_WATERMARK_REG_LIST()\
+ 	SR(DCHUBBUB_ARB_ALLOW_SR_ENTER_WATERMARK_A),\
+ 	SR(DCHUBBUB_ARB_ALLOW_SR_EXIT_WATERMARK_A),\
+@@ -65,7 +67,8 @@
+ 	SR(DCHUBBUB_ARB_ALLOW_SR_EXIT_WATERMARK_D)
+ 
+ #define HUBBUB_REG_LIST_DCN10(id)\
+-	HUBHUB_REG_LIST_DCN(), \
++	HUBBUB_REG_LIST_DCN_COMMON(), \
++	HUBBUB_VM_REG_LIST(), \
+ 	HUBBUB_SR_WATERMARK_REG_LIST(), \
+ 	SR(DCHUBBUB_SDPIF_FB_TOP),\
+ 	SR(DCHUBBUB_SDPIF_FB_BASE),\
+@@ -122,8 +125,7 @@ struct dcn_hubbub_registers {
+ #define HUBBUB_SF(reg_name, field_name, post_fix)\
+ 	.field_name = reg_name ## __ ## field_name ## post_fix
+ 
+-
+-#define HUBBUB_MASK_SH_LIST_DCN(mask_sh)\
++#define HUBBUB_MASK_SH_LIST_DCN_COMMON(mask_sh)\
+ 		HUBBUB_SF(DCHUBBUB_GLOBAL_TIMER_CNTL, DCHUBBUB_GLOBAL_TIMER_ENABLE, mask_sh), \
+ 		HUBBUB_SF(DCHUBBUB_SOFT_RESET, DCHUBBUB_GLOBAL_SOFT_RESET, mask_sh), \
+ 		HUBBUB_SF(DCHUBBUB_ARB_WATERMARK_CHANGE_CNTL, DCHUBBUB_ARB_WATERMARK_CHANGE_REQUEST, mask_sh), \
+@@ -133,10 +135,29 @@ struct dcn_hubbub_registers {
+ 		HUBBUB_SF(DCHUBBUB_ARB_DRAM_STATE_CNTL, DCHUBBUB_ARB_ALLOW_PSTATE_CHANGE_FORCE_VALUE, mask_sh), \
+ 		HUBBUB_SF(DCHUBBUB_ARB_DRAM_STATE_CNTL, DCHUBBUB_ARB_ALLOW_PSTATE_CHANGE_FORCE_ENABLE, mask_sh), \
+ 		HUBBUB_SF(DCHUBBUB_ARB_SAT_LEVEL, DCHUBBUB_ARB_SAT_LEVEL, mask_sh), \
+-		HUBBUB_SF(DCHUBBUB_ARB_DF_REQ_OUTSTAND, DCHUBBUB_ARB_MIN_REQ_OUTSTAND, mask_sh)
++		HUBBUB_SF(DCHUBBUB_ARB_DF_REQ_OUTSTAND, DCHUBBUB_ARB_MIN_REQ_OUTSTAND, mask_sh), \
++		HUBBUB_SF(DCHUBBUB_ARB_DATA_URGENCY_WATERMARK_A, DCHUBBUB_ARB_DATA_URGENCY_WATERMARK_A, mask_sh), \
++		HUBBUB_SF(DCHUBBUB_ARB_DATA_URGENCY_WATERMARK_B, DCHUBBUB_ARB_DATA_URGENCY_WATERMARK_B, mask_sh), \
++		HUBBUB_SF(DCHUBBUB_ARB_DATA_URGENCY_WATERMARK_C, DCHUBBUB_ARB_DATA_URGENCY_WATERMARK_C, mask_sh), \
++		HUBBUB_SF(DCHUBBUB_ARB_DATA_URGENCY_WATERMARK_D, DCHUBBUB_ARB_DATA_URGENCY_WATERMARK_D, mask_sh), \
++		HUBBUB_SF(DCHUBBUB_ARB_ALLOW_DRAM_CLK_CHANGE_WATERMARK_A, DCHUBBUB_ARB_ALLOW_DRAM_CLK_CHANGE_WATERMARK_A, mask_sh), \
++		HUBBUB_SF(DCHUBBUB_ARB_ALLOW_DRAM_CLK_CHANGE_WATERMARK_B, DCHUBBUB_ARB_ALLOW_DRAM_CLK_CHANGE_WATERMARK_B, mask_sh), \
++		HUBBUB_SF(DCHUBBUB_ARB_ALLOW_DRAM_CLK_CHANGE_WATERMARK_C, DCHUBBUB_ARB_ALLOW_DRAM_CLK_CHANGE_WATERMARK_C, mask_sh), \
++		HUBBUB_SF(DCHUBBUB_ARB_ALLOW_DRAM_CLK_CHANGE_WATERMARK_D, DCHUBBUB_ARB_ALLOW_DRAM_CLK_CHANGE_WATERMARK_D, mask_sh)
++
++#define HUBBUB_MASK_SH_LIST_STUTTER(mask_sh) \
++		HUBBUB_SF(DCHUBBUB_ARB_ALLOW_SR_ENTER_WATERMARK_A, DCHUBBUB_ARB_ALLOW_SR_ENTER_WATERMARK_A, mask_sh), \
++		HUBBUB_SF(DCHUBBUB_ARB_ALLOW_SR_ENTER_WATERMARK_B, DCHUBBUB_ARB_ALLOW_SR_ENTER_WATERMARK_B, mask_sh), \
++		HUBBUB_SF(DCHUBBUB_ARB_ALLOW_SR_ENTER_WATERMARK_C, DCHUBBUB_ARB_ALLOW_SR_ENTER_WATERMARK_C, mask_sh), \
++		HUBBUB_SF(DCHUBBUB_ARB_ALLOW_SR_ENTER_WATERMARK_D, DCHUBBUB_ARB_ALLOW_SR_ENTER_WATERMARK_D, mask_sh), \
++		HUBBUB_SF(DCHUBBUB_ARB_ALLOW_SR_EXIT_WATERMARK_A, DCHUBBUB_ARB_ALLOW_SR_EXIT_WATERMARK_A, mask_sh), \
++		HUBBUB_SF(DCHUBBUB_ARB_ALLOW_SR_EXIT_WATERMARK_B, DCHUBBUB_ARB_ALLOW_SR_EXIT_WATERMARK_B, mask_sh), \
++		HUBBUB_SF(DCHUBBUB_ARB_ALLOW_SR_EXIT_WATERMARK_C, DCHUBBUB_ARB_ALLOW_SR_EXIT_WATERMARK_C, mask_sh), \
++		HUBBUB_SF(DCHUBBUB_ARB_ALLOW_SR_EXIT_WATERMARK_D, DCHUBBUB_ARB_ALLOW_SR_EXIT_WATERMARK_D, mask_sh)
+ 
+ #define HUBBUB_MASK_SH_LIST_DCN10(mask_sh)\
+-		HUBBUB_MASK_SH_LIST_DCN(mask_sh), \
++		HUBBUB_MASK_SH_LIST_DCN_COMMON(mask_sh), \
++		HUBBUB_MASK_SH_LIST_STUTTER(mask_sh), \
+ 		HUBBUB_SF(DCHUBBUB_SDPIF_FB_TOP, SDPIF_FB_TOP, mask_sh), \
+ 		HUBBUB_SF(DCHUBBUB_SDPIF_FB_BASE, SDPIF_FB_BASE, mask_sh), \
+ 		HUBBUB_SF(DCHUBBUB_SDPIF_FB_OFFSET, SDPIF_FB_OFFSET, mask_sh), \
+@@ -167,15 +188,35 @@ struct dcn_hubbub_registers {
+ 		type FB_OFFSET;\
+ 		type AGP_BOT;\
+ 		type AGP_TOP;\
+-		type AGP_BASE
++		type AGP_BASE;\
++		type DCHUBBUB_ARB_DATA_URGENCY_WATERMARK_A;\
++		type DCHUBBUB_ARB_DATA_URGENCY_WATERMARK_B;\
++		type DCHUBBUB_ARB_DATA_URGENCY_WATERMARK_C;\
++		type DCHUBBUB_ARB_DATA_URGENCY_WATERMARK_D;\
++		type DCHUBBUB_ARB_ALLOW_DRAM_CLK_CHANGE_WATERMARK_A;\
++		type DCHUBBUB_ARB_ALLOW_DRAM_CLK_CHANGE_WATERMARK_B;\
++		type DCHUBBUB_ARB_ALLOW_DRAM_CLK_CHANGE_WATERMARK_C;\
++		type DCHUBBUB_ARB_ALLOW_DRAM_CLK_CHANGE_WATERMARK_D
++
++#define HUBBUB_STUTTER_REG_FIELD_LIST(type) \
++		type DCHUBBUB_ARB_ALLOW_SR_ENTER_WATERMARK_A;\
++		type DCHUBBUB_ARB_ALLOW_SR_ENTER_WATERMARK_B;\
++		type DCHUBBUB_ARB_ALLOW_SR_ENTER_WATERMARK_C;\
++		type DCHUBBUB_ARB_ALLOW_SR_ENTER_WATERMARK_D;\
++		type DCHUBBUB_ARB_ALLOW_SR_EXIT_WATERMARK_A;\
++		type DCHUBBUB_ARB_ALLOW_SR_EXIT_WATERMARK_B;\
++		type DCHUBBUB_ARB_ALLOW_SR_EXIT_WATERMARK_C;\
++		type DCHUBBUB_ARB_ALLOW_SR_EXIT_WATERMARK_D
+ 
+ 
+ struct dcn_hubbub_shift {
+ 	DCN_HUBBUB_REG_FIELD_LIST(uint8_t);
++	HUBBUB_STUTTER_REG_FIELD_LIST(uint8_t);
+ };
+ 
+ struct dcn_hubbub_mask {
+ 	DCN_HUBBUB_REG_FIELD_LIST(uint32_t);
++	HUBBUB_STUTTER_REG_FIELD_LIST(uint32_t);
+ };
+ 
+ struct dc;
+diff --git a/drivers/gpu/drm/amd/display/dc/dcn10/dcn10_hw_sequencer.c b/drivers/gpu/drm/amd/display/dc/dcn10/dcn10_hw_sequencer.c
+index 65b8c134e8af..b577c95d420b 100644
+--- a/drivers/gpu/drm/amd/display/dc/dcn10/dcn10_hw_sequencer.c
++++ b/drivers/gpu/drm/amd/display/dc/dcn10/dcn10_hw_sequencer.c
+@@ -2437,6 +2437,8 @@ static void dcn10_prepare_bandwidth(
+ 		struct dc *dc,
+ 		struct dc_state *context)
+ {
++	struct hubbub *hubbub = dc->res_pool->hubbub;
++
+ 	if (dc->debug.sanity_checks)
+ 		dcn10_verify_allow_pstate_change_high(dc);
+ 
+@@ -2450,7 +2452,7 @@ static void dcn10_prepare_bandwidth(
+ 				false);
+ 	}
+ 
+-	hubbub1_program_watermarks(dc->res_pool->hubbub,
++	hubbub->funcs->program_watermarks(hubbub,
+ 			&context->bw_ctx.bw.dcn.watermarks,
+ 			dc->res_pool->ref_clocks.dchub_ref_clock_inKhz / 1000,
+ 			true);
+@@ -2467,6 +2469,8 @@ static void dcn10_optimize_bandwidth(
+ 		struct dc *dc,
+ 		struct dc_state *context)
+ {
++	struct hubbub *hubbub = dc->res_pool->hubbub;
++
+ 	if (dc->debug.sanity_checks)
+ 		dcn10_verify_allow_pstate_change_high(dc);
+ 
+@@ -2480,7 +2484,7 @@ static void dcn10_optimize_bandwidth(
+ 				true);
+ 	}
+ 
+-	hubbub1_program_watermarks(dc->res_pool->hubbub,
++	hubbub->funcs->program_watermarks(hubbub,
+ 			&context->bw_ctx.bw.dcn.watermarks,
+ 			dc->res_pool->ref_clocks.dchub_ref_clock_inKhz / 1000,
+ 			true);
+diff --git a/drivers/gpu/drm/amd/display/dc/inc/hw/dchubbub.h b/drivers/gpu/drm/amd/display/dc/inc/hw/dchubbub.h
+index 5e8fead3c09a..93667e8b23b3 100644
+--- a/drivers/gpu/drm/amd/display/dc/inc/hw/dchubbub.h
++++ b/drivers/gpu/drm/amd/display/dc/inc/hw/dchubbub.h
+@@ -77,6 +77,12 @@ struct hubbub_funcs {
+ 	void (*get_dchub_ref_freq)(struct hubbub *hubbub,
+ 			unsigned int dccg_ref_freq_inKhz,
+ 			unsigned int *dchub_ref_freq_inKhz);
++
++	void (*program_watermarks)(
++			struct hubbub *hubbub,
++			struct dcn_watermark_set *watermarks,
++			unsigned int refclk_mhz,
++			bool safe_to_lower);
+ };
+ 
+ struct hubbub {
+-- 
+2.17.1
+

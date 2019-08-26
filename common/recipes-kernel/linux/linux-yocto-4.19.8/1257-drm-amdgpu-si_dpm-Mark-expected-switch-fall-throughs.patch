@@ -1,0 +1,40 @@
+From 7d226ab8b92c9645f346dce6ad9f57c38437122e Mon Sep 17 00:00:00 2001
+From: "Gustavo A. R. Silva" <gustavo@embeddedor.com>
+Date: Fri, 15 Feb 2019 10:46:43 -0600
+Subject: [PATCH 1257/2940] drm/amdgpu/si_dpm: Mark expected switch
+ fall-throughs
+
+In preparation to enabling -Wimplicit-fallthrough, mark switch
+cases where we are expecting to fall through.
+
+Warning level 3 was used: -Wimplicit-fallthrough=3
+
+This patch is part of the ongoing efforts to enable
+-Wimplicit-fallthrough.
+
+Signed-off-by: Gustavo A. R. Silva <gustavo@embeddedor.com>
+Signed-off-by: Alex Deucher <alexander.deucher@amd.com>
+---
+ drivers/gpu/drm/amd/amdgpu/si_dpm.c | 2 ++
+ 1 file changed, 2 insertions(+)
+
+diff --git a/drivers/gpu/drm/amd/amdgpu/si_dpm.c b/drivers/gpu/drm/amd/amdgpu/si_dpm.c
+index da58040fdbdc..41e01a7f57a4 100644
+--- a/drivers/gpu/drm/amd/amdgpu/si_dpm.c
++++ b/drivers/gpu/drm/amd/amdgpu/si_dpm.c
+@@ -6216,10 +6216,12 @@ static void si_request_link_speed_change_before_state_change(struct amdgpu_devic
+ 			si_pi->force_pcie_gen = AMDGPU_PCIE_GEN2;
+ 			if (current_link_speed == AMDGPU_PCIE_GEN2)
+ 				break;
++			/* fall through */
+ 		case AMDGPU_PCIE_GEN2:
+ 			if (amdgpu_acpi_pcie_performance_request(adev, PCIE_PERF_REQ_PECI_GEN2, false) == 0)
+ 				break;
+ #endif
++			/* fall through */
+ 		default:
+ 			si_pi->force_pcie_gen = si_get_current_pcie_speed(adev);
+ 			break;
+-- 
+2.17.1
+

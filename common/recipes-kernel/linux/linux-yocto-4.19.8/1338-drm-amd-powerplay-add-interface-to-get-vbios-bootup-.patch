@@ -1,0 +1,58 @@
+From a9ffd6fb0fb5176fdba8b0ab64c0d7c3b26c5d78 Mon Sep 17 00:00:00 2001
+From: Huang Rui <ray.huang@amd.com>
+Date: Tue, 4 Dec 2018 18:24:58 +0800
+Subject: [PATCH 1338/2940] drm/amd/powerplay: add interface to get vbios
+ bootup values (v2)
+
+This patch adds interface to get vbios bootup values for smu.
+It's to get boot_values from vbios to set revision, gfxclk, and etc.
+
+v2: add detailed info to describe this function.
+
+Signed-off-by: Huang Rui <ray.huang@amd.com>
+Acked-by: Alex Deucher <alexander.deucher@amd.com>
+---
+ drivers/gpu/drm/amd/powerplay/amdgpu_smu.c     | 5 +++++
+ drivers/gpu/drm/amd/powerplay/inc/amdgpu_smu.h | 3 +++
+ 2 files changed, 8 insertions(+)
+
+diff --git a/drivers/gpu/drm/amd/powerplay/amdgpu_smu.c b/drivers/gpu/drm/amd/powerplay/amdgpu_smu.c
+index 10316a2397da..d022388f3993 100644
+--- a/drivers/gpu/drm/amd/powerplay/amdgpu_smu.c
++++ b/drivers/gpu/drm/amd/powerplay/amdgpu_smu.c
+@@ -140,6 +140,11 @@ static int smu_smc_table_hw_init(struct smu_context *smu)
+ 	if (ret)
+ 		return ret;
+ 
++	/* get boot_values from vbios to set revision, gfxclk, and etc. */
++	ret = smu_get_vbios_bootup_values(smu);
++	if (ret)
++		return ret;
++
+ 	return 0;
+ }
+ 
+diff --git a/drivers/gpu/drm/amd/powerplay/inc/amdgpu_smu.h b/drivers/gpu/drm/amd/powerplay/inc/amdgpu_smu.h
+index d6cb895c6f88..10888c6956aa 100644
+--- a/drivers/gpu/drm/amd/powerplay/inc/amdgpu_smu.h
++++ b/drivers/gpu/drm/amd/powerplay/inc/amdgpu_smu.h
+@@ -40,6 +40,7 @@ struct smu_funcs
+ 	int (*load_microcode)(struct smu_context *smu);
+ 	int (*check_fw_status)(struct smu_context *smu);
+ 	int (*read_pptable_from_vbios)(struct smu_context *smu);
++	int (*get_vbios_bootup_values)(struct smu_context *smu);
+ };
+ 
+ #define smu_init_microcode(smu) \
+@@ -54,6 +55,8 @@ struct smu_funcs
+ 	((smu)->funcs->check_fw_status ? (smu)->funcs->check_fw_status((smu)) : 0)
+ #define smu_read_pptable_from_vbios(smu) \
+ 	((smu)->funcs->read_pptable_from_vbios ? (smu)->funcs->read_pptable_from_vbios((smu)) : 0)
++#define smu_get_vbios_bootup_values(smu) \
++	((smu)->funcs->get_vbios_bootup_values ? (smu)->funcs->get_vbios_bootup_values((smu)) : 0)
+ 
+ extern const struct amd_ip_funcs smu_ip_funcs;
+ 
+-- 
+2.17.1
+

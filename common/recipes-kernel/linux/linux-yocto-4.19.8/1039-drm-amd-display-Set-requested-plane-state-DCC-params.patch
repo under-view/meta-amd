@@ -1,0 +1,218 @@
+From b7bc066b031e2d5281d402a308fc239c0353800d Mon Sep 17 00:00:00 2001
+From: Nicholas Kazlauskas <nicholas.kazlauskas@amd.com>
+Date: Wed, 2 Jan 2019 15:15:41 -0500
+Subject: [PATCH 1039/2940] drm/amd/display: Set requested plane state DCC
+ params for GFX9
+
+[Why]
+Hardware support for Delta Color Compression (DCC) decompression is
+available in DC for GFX9 but there's no way for userspace to enable
+the feature.
+
+Enabling the feature can provide improved GFX performance and
+power savings in many situations.
+
+[How]
+The GFX9 DCC parameters are passed to amdgpu_dm from AMDGPU via the
+amdgpu_bo tiling_flags. The plane capability is queried and the
+parameters are set accordingly.
+
+The DCC address is given via a 256 byte aligned offset on the
+framebuffer address. The DCC address is updated whenever the buffer
+address changes.
+
+Signed-off-by: Nicholas Kazlauskas <nicholas.kazlauskas@amd.com>
+Acked-by: Alex Deucher <alexander.deucher@amd.com>
+Reviewed-by: Harry Wentland <harry.wentland@amd.com>
+Signed-off-by: Alex Deucher <alexander.deucher@amd.com>
+Signed-off-by: Chaudhary Amit Kumar <Chaudharyamit.Kumar@amd.com>
+---
+ .../gpu/drm/amd/display/amdgpu_dm/amdgpu_dm.c | 90 ++++++++++++++++++-
+ include/uapi/drm/amdgpu_drm.h                 |  7 ++
+ 2 files changed, 95 insertions(+), 2 deletions(-)
+
+diff --git a/drivers/gpu/drm/amd/display/amdgpu_dm/amdgpu_dm.c b/drivers/gpu/drm/amd/display/amdgpu_dm/amdgpu_dm.c
+index abd7b8334955..0f5397059c75 100644
+--- a/drivers/gpu/drm/amd/display/amdgpu_dm/amdgpu_dm.c
++++ b/drivers/gpu/drm/amd/display/amdgpu_dm/amdgpu_dm.c
+@@ -2297,6 +2297,68 @@ static int get_fb_info(const struct amdgpu_framebuffer *amdgpu_fb,
+ 	return r;
+ }
+ 
++static inline uint64_t get_dcc_address(uint64_t address, uint64_t tiling_flags)
++{
++	uint32_t offset = AMDGPU_TILING_GET(tiling_flags, DCC_OFFSET_256B);
++
++	return offset ? (address + offset * 256) : 0;
++}
++
++static bool fill_plane_dcc_attributes(struct amdgpu_device *adev,
++				      const struct amdgpu_framebuffer *afb,
++				      struct dc_plane_state *plane_state,
++				      uint64_t info)
++{
++	struct dc *dc = adev->dm.dc;
++	struct dc_dcc_surface_param input = {0};
++	struct dc_surface_dcc_cap output = {0};
++	uint32_t offset = AMDGPU_TILING_GET(info, DCC_OFFSET_256B);
++	uint32_t i64b = AMDGPU_TILING_GET(info, DCC_INDEPENDENT_64B) != 0;
++	uint64_t dcc_address;
++
++	if (!offset)
++		return false;
++
++	if (!dc->cap_funcs.get_dcc_compression_cap)
++		return false;
++
++	input.format = plane_state->format;
++	input.surface_size.width =
++		plane_state->plane_size.grph.surface_size.width;
++	input.surface_size.height =
++		plane_state->plane_size.grph.surface_size.height;
++	input.swizzle_mode = plane_state->tiling_info.gfx9.swizzle;
++
++	if (plane_state->rotation == ROTATION_ANGLE_0 ||
++	    plane_state->rotation == ROTATION_ANGLE_180)
++		input.scan = SCAN_DIRECTION_HORIZONTAL;
++	else if (plane_state->rotation == ROTATION_ANGLE_90 ||
++		 plane_state->rotation == ROTATION_ANGLE_270)
++		input.scan = SCAN_DIRECTION_VERTICAL;
++
++	if (!dc->cap_funcs.get_dcc_compression_cap(dc, &input, &output))
++		return false;
++
++	if (!output.capable)
++		return false;
++
++	if (i64b == 0 && output.grph.rgb.independent_64b_blks != 0)
++		return false;
++
++	plane_state->dcc.enable = 1;
++	plane_state->dcc.grph.meta_pitch =
++		AMDGPU_TILING_GET(info, DCC_PITCH_MAX) + 1;
++	plane_state->dcc.grph.independent_64b_blks = i64b;
++
++	dcc_address = get_dcc_address(afb->address, info);
++	plane_state->address.grph.meta_addr.low_part =
++		lower_32_bits(dcc_address);
++	plane_state->address.grph.meta_addr.high_part =
++		upper_32_bits(dcc_address);
++
++	return true;
++}
++
+ static int fill_plane_attributes_from_fb(struct amdgpu_device *adev,
+ 					 struct dc_plane_state *plane_state,
+ 					 const struct amdgpu_framebuffer *amdgpu_fb)
+@@ -2349,6 +2411,10 @@ static int fill_plane_attributes_from_fb(struct amdgpu_device *adev,
+ 		return -EINVAL;
+ 	}
+ 
++	memset(&plane_state->address, 0, sizeof(plane_state->address));
++	memset(&plane_state->tiling_info, 0, sizeof(plane_state->tiling_info));
++	memset(&plane_state->dcc, 0, sizeof(plane_state->dcc));
++
+ 	if (plane_state->format < SURFACE_PIXEL_FORMAT_VIDEO_BEGIN) {
+ 		plane_state->address.type = PLN_ADDR_TYPE_GRAPHICS;
+ 		plane_state->plane_size.grph.surface_size.x = 0;
+@@ -2380,8 +2446,6 @@ static int fill_plane_attributes_from_fb(struct amdgpu_device *adev,
+ 		plane_state->color_space = COLOR_SPACE_YCBCR709;
+ 	}
+ 
+-	memset(&plane_state->tiling_info, 0, sizeof(plane_state->tiling_info));
+-
+ 	/* Fill GFX8 params */
+ 	if (AMDGPU_TILING_GET(tiling_flags, ARRAY_MODE) == DC_ARRAY_2D_TILED_THIN1) {
+ 		unsigned int bankw, bankh, mtaspect, tile_split, num_banks;
+@@ -2431,6 +2495,9 @@ static int fill_plane_attributes_from_fb(struct amdgpu_device *adev,
+ 		plane_state->tiling_info.gfx9.swizzle =
+ 			AMDGPU_TILING_GET(tiling_flags, SWIZZLE_MODE);
+ 		plane_state->tiling_info.gfx9.shaderEnable = 1;
++
++		fill_plane_dcc_attributes(adev, amdgpu_fb, plane_state,
++					  tiling_flags);
+ 	}
+ 
+ 	plane_state->visible = true;
+@@ -3562,6 +3629,7 @@ static int dm_plane_helper_prepare_fb(struct drm_plane *plane,
+ 	struct amdgpu_bo *rbo;
+ 	uint64_t chroma_addr = 0;
+ 	struct dm_plane_state *dm_plane_state_new, *dm_plane_state_old;
++	uint64_t tiling_flags, dcc_address;
+ 	unsigned int awidth;
+ 	uint32_t domain;
+ 	int r;
+@@ -3602,6 +3670,9 @@ static int dm_plane_helper_prepare_fb(struct drm_plane *plane,
+ 		DRM_ERROR("%p bind failed\n", rbo);
+ 		return r;
+ 	}
++
++	amdgpu_bo_get_tiling_flags(rbo, &tiling_flags);
++
+ 	amdgpu_bo_unreserve(rbo);
+ 
+ 	afb->address = amdgpu_bo_gpu_offset(rbo);
+@@ -3615,6 +3686,13 @@ static int dm_plane_helper_prepare_fb(struct drm_plane *plane,
+ 		if (plane_state->format < SURFACE_PIXEL_FORMAT_VIDEO_BEGIN) {
+ 			plane_state->address.grph.addr.low_part = lower_32_bits(afb->address);
+ 			plane_state->address.grph.addr.high_part = upper_32_bits(afb->address);
++
++			dcc_address =
++				get_dcc_address(afb->address, tiling_flags);
++			plane_state->address.grph.meta_addr.low_part =
++				lower_32_bits(dcc_address);
++			plane_state->address.grph.meta_addr.high_part =
++				upper_32_bits(dcc_address);
+ 		} else {
+ 			awidth = ALIGN(new_state->fb->width, 64);
+ 			plane_state->address.type = PLN_ADDR_TYPE_VIDEO_PROGRESSIVE;
+@@ -4597,6 +4675,7 @@ static void amdgpu_dm_do_flip(struct drm_crtc *crtc,
+ 	struct dm_crtc_state *acrtc_state = to_dm_crtc_state(crtc->state);
+ 	struct dc_stream_status *stream_status;
+ 	struct dc_plane_state *surface;
++	uint64_t tiling_flags, dcc_address;
+ 
+ 
+ 	/* Prepare wait for target vblank early - before the fence-waits */
+@@ -4619,6 +4698,8 @@ static void amdgpu_dm_do_flip(struct drm_crtc *crtc,
+ 	WARN_ON(reservation_object_wait_timeout_rcu(abo->tbo.resv, true, false,
+ 								    MAX_SCHEDULE_TIMEOUT) < 0);
+ 
++	amdgpu_bo_get_tiling_flags(abo, &tiling_flags);
++
+ 	amdgpu_bo_unreserve(abo);
+ 
+ 	/*
+@@ -4644,6 +4725,11 @@ static void amdgpu_dm_do_flip(struct drm_crtc *crtc,
+ 
+ 	addr.address.grph.addr.low_part = lower_32_bits(afb->address);
+ 	addr.address.grph.addr.high_part = upper_32_bits(afb->address);
++
++	dcc_address = get_dcc_address(afb->address, tiling_flags);
++	addr.address.grph.meta_addr.low_part = lower_32_bits(dcc_address);
++	addr.address.grph.meta_addr.high_part = upper_32_bits(dcc_address);
++
+ 	addr.flip_immediate = async_flip;
+ 
+ 	timestamp_ns = ktime_get_ns();
+diff --git a/include/uapi/drm/amdgpu_drm.h b/include/uapi/drm/amdgpu_drm.h
+index ac71a14540a7..8129a2beffeb 100644
+--- a/include/uapi/drm/amdgpu_drm.h
++++ b/include/uapi/drm/amdgpu_drm.h
+@@ -384,6 +384,13 @@ struct drm_amdgpu_gem_dgma {
+ /* GFX9 and later: */
+ #define AMDGPU_TILING_SWIZZLE_MODE_SHIFT		0
+ #define AMDGPU_TILING_SWIZZLE_MODE_MASK			0x1f
++#define AMDGPU_TILING_DCC_OFFSET_256B_SHIFT             5
++#define AMDGPU_TILING_DCC_OFFSET_256B_MASK              0xFFFFFF
++#define AMDGPU_TILING_DCC_PITCH_MAX_SHIFT               29
++#define AMDGPU_TILING_DCC_PITCH_MAX_MASK                0x3FFF
++#define AMDGPU_TILING_DCC_INDEPENDENT_64B_SHIFT         43
++#define AMDGPU_TILING_DCC_INDEPENDENT_64B_MASK          0x1
++
+ 
+ /* Set/Get helpers for tiling flags. */
+ #define AMDGPU_TILING_SET(field, value) \
+-- 
+2.17.1
+

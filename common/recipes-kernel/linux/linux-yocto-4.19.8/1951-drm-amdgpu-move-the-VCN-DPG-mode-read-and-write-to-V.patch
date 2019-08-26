@@ -1,0 +1,82 @@
+From 3d523c746e6ce70b18d990d28249d3c2dcc539fd Mon Sep 17 00:00:00 2001
+From: Leo Liu <leo.liu@amd.com>
+Date: Mon, 13 May 2019 12:15:45 -0400
+Subject: [PATCH 1951/2940] drm/amdgpu: move the VCN DPG mode read and write to
+ VCN
+
+Since this is VCN specific and only used by VCN
+
+Signed-off-by: Leo Liu <leo.liu@amd.com>
+Reviewed-by: Alex Deucher <alexander.deucher@amd.com>
+---
+ drivers/gpu/drm/amd/amdgpu/amdgpu_vcn.h   | 21 +++++++++++++++++++++
+ drivers/gpu/drm/amd/amdgpu/soc15_common.h | 21 ---------------------
+ 2 files changed, 21 insertions(+), 21 deletions(-)
+
+diff --git a/drivers/gpu/drm/amd/amdgpu/amdgpu_vcn.h b/drivers/gpu/drm/amd/amdgpu/amdgpu_vcn.h
+index a0ad19af9080..98bd0982d325 100644
+--- a/drivers/gpu/drm/amd/amdgpu/amdgpu_vcn.h
++++ b/drivers/gpu/drm/amd/amdgpu/amdgpu_vcn.h
+@@ -45,6 +45,27 @@
+ #define VCN_ENC_CMD_REG_WRITE		0x0000000b
+ #define VCN_ENC_CMD_REG_WAIT		0x0000000c
+ 
++#define RREG32_SOC15_DPG_MODE(ip, inst, reg, mask, sram_sel) 				\
++	({	WREG32_SOC15(ip, inst, mmUVD_DPG_LMA_MASK, mask); 			\
++		WREG32_SOC15(ip, inst, mmUVD_DPG_LMA_CTL, 				\
++			UVD_DPG_LMA_CTL__MASK_EN_MASK | 				\
++			((adev->reg_offset[ip##_HWIP][inst][reg##_BASE_IDX] + reg) 	\
++			<< UVD_DPG_LMA_CTL__READ_WRITE_ADDR__SHIFT) | 			\
++			(sram_sel << UVD_DPG_LMA_CTL__SRAM_SEL__SHIFT)); 		\
++		RREG32_SOC15(ip, inst, mmUVD_DPG_LMA_DATA); 				\
++	})
++
++#define WREG32_SOC15_DPG_MODE(ip, inst, reg, value, mask, sram_sel) 			\
++	do { 										\
++		WREG32_SOC15(ip, inst, mmUVD_DPG_LMA_DATA, value); 			\
++		WREG32_SOC15(ip, inst, mmUVD_DPG_LMA_MASK, mask); 			\
++		WREG32_SOC15(ip, inst, mmUVD_DPG_LMA_CTL, 				\
++			UVD_DPG_LMA_CTL__READ_WRITE_MASK | 				\
++			((adev->reg_offset[ip##_HWIP][inst][reg##_BASE_IDX] + reg) 	\
++			<< UVD_DPG_LMA_CTL__READ_WRITE_ADDR__SHIFT) | 			\
++			(sram_sel << UVD_DPG_LMA_CTL__SRAM_SEL__SHIFT)); 		\
++	} while (0)
++
+ enum engine_status_constants {
+ 	UVD_PGFSM_STATUS__UVDM_UVDU_PWR_ON = 0x2AAAA0,
+ 	UVD_PGFSM_CONFIG__UVDM_UVDU_PWR_ON = 0x00000002,
+diff --git a/drivers/gpu/drm/amd/amdgpu/soc15_common.h b/drivers/gpu/drm/amd/amdgpu/soc15_common.h
+index c634606e64bd..47f74dab365d 100644
+--- a/drivers/gpu/drm/amd/amdgpu/soc15_common.h
++++ b/drivers/gpu/drm/amd/amdgpu/soc15_common.h
+@@ -69,27 +69,6 @@
+ 		}						\
+ 	} while (0)
+ 
+-#define RREG32_SOC15_DPG_MODE(ip, inst, reg, mask, sram_sel) 	\
+-		({ WREG32_SOC15(ip, inst, mmUVD_DPG_LMA_MASK, mask); \
+-			WREG32_SOC15(ip, inst, mmUVD_DPG_LMA_CTL,	\
+-				UVD_DPG_LMA_CTL__MASK_EN_MASK |				\
+-				((adev->reg_offset[ip##_HWIP][inst][reg##_BASE_IDX] + reg) \
+-				<< UVD_DPG_LMA_CTL__READ_WRITE_ADDR__SHIFT) | \
+-				(sram_sel << UVD_DPG_LMA_CTL__SRAM_SEL__SHIFT));	\
+-			RREG32_SOC15(ip, inst, mmUVD_DPG_LMA_DATA); })
+-
+-#define WREG32_SOC15_DPG_MODE(ip, inst, reg, value, mask, sram_sel)	\
+-	do {							\
+-		WREG32_SOC15(ip, inst, mmUVD_DPG_LMA_DATA, value);	\
+-		WREG32_SOC15(ip, inst, mmUVD_DPG_LMA_MASK, mask);		\
+-		WREG32_SOC15(ip, inst, mmUVD_DPG_LMA_CTL,	\
+-			UVD_DPG_LMA_CTL__READ_WRITE_MASK |	\
+-			((adev->reg_offset[ip##_HWIP][inst][reg##_BASE_IDX] + reg) \
+-			<< UVD_DPG_LMA_CTL__READ_WRITE_ADDR__SHIFT) |	\
+-			(sram_sel << UVD_DPG_LMA_CTL__SRAM_SEL__SHIFT)); \
+-	} while (0)
+-
+-
+ #define WREG32_RLC(reg, value) \
+ 	do {							\
+ 		if (amdgpu_virt_support_rlc_prg_reg(adev)) {    \
+-- 
+2.17.1
+

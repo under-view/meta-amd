@@ -1,0 +1,121 @@
+From 1e464bd969955c156d20ad62cb68bf10d2b77ee5 Mon Sep 17 00:00:00 2001
+From: Likun Gao <Likun.Gao@amd.com>
+Date: Fri, 25 Jan 2019 17:45:24 +0800
+Subject: [PATCH 1483/2940] drm/amd/powerplay: set fan target interface for
+ hwmon
+
+Add fan1_target set interface to set fan speed for hwmon.
+
+Signed-off-by: Likun Gao <Likun.Gao@amd.com>
+Reviewed-by: Kevin Wang <kevin1.wang@amd.com>
+Reviewed-by: Huang Rui <ray.huang@amd.com>
+Reviewed-by: Alex Deucher <alexander.deucher@amd.com>
+---
+ drivers/gpu/drm/amd/amdgpu/amdgpu_pm.c        | 12 +++++--
+ .../gpu/drm/amd/powerplay/inc/amdgpu_smu.h    |  3 ++
+ drivers/gpu/drm/amd/powerplay/smu_v11_0.c     | 31 +++++++++++++++++++
+ 3 files changed, 44 insertions(+), 2 deletions(-)
+
+diff --git a/drivers/gpu/drm/amd/amdgpu/amdgpu_pm.c b/drivers/gpu/drm/amd/amdgpu/amdgpu_pm.c
+index 3875a62352de..d3efba85683f 100644
+--- a/drivers/gpu/drm/amd/amdgpu/amdgpu_pm.c
++++ b/drivers/gpu/drm/amd/amdgpu/amdgpu_pm.c
+@@ -1606,7 +1606,11 @@ static ssize_t amdgpu_hwmon_set_fan1_target(struct device *dev,
+ 	u32 value;
+ 	u32 pwm_mode;
+ 
+-	pwm_mode = amdgpu_dpm_get_fan_control_mode(adev);
++	if (is_support_sw_smu(adev))
++		pwm_mode = smu_get_fan_control_mode(&adev->smu);
++	else
++		pwm_mode = amdgpu_dpm_get_fan_control_mode(adev);
++
+ 	if (pwm_mode != AMD_FAN_CTRL_MANUAL)
+ 		return -ENODATA;
+ 
+@@ -1619,7 +1623,11 @@ static ssize_t amdgpu_hwmon_set_fan1_target(struct device *dev,
+ 	if (err)
+ 		return err;
+ 
+-	if (adev->powerplay.pp_funcs->set_fan_speed_rpm) {
++	if (is_support_sw_smu(adev)) {
++		err = smu_set_fan_speed_rpm(&adev->smu, value);
++		if (err)
++			return err;
++	} else if (adev->powerplay.pp_funcs->set_fan_speed_rpm) {
+ 		err = amdgpu_dpm_set_fan_speed_rpm(adev, value);
+ 		if (err)
+ 			return err;
+diff --git a/drivers/gpu/drm/amd/powerplay/inc/amdgpu_smu.h b/drivers/gpu/drm/amd/powerplay/inc/amdgpu_smu.h
+index ef2b80749b87..8464fdb3c337 100644
+--- a/drivers/gpu/drm/amd/powerplay/inc/amdgpu_smu.h
++++ b/drivers/gpu/drm/amd/powerplay/inc/amdgpu_smu.h
+@@ -536,6 +536,7 @@ struct smu_funcs
+ 	int (*set_fan_control_mode)(struct smu_context *smu, uint32_t mode);
+ 	int (*get_fan_speed_percent)(struct smu_context *smu, uint32_t *speed);
+ 	int (*set_fan_speed_percent)(struct smu_context *smu, uint32_t speed);
++	int (*set_fan_speed_rpm)(struct smu_context *smu, uint32_t speed);
+ };
+ 
+ #define smu_init_microcode(smu) \
+@@ -588,6 +589,8 @@ struct smu_funcs
+ 	((smu)->funcs->update_od8_settings ? (smu)->funcs->update_od8_settings((smu), (index), (value)) : 0)
+ #define smu_get_current_rpm(smu, speed) \
+ 	((smu)->funcs->get_current_rpm ? (smu)->funcs->get_current_rpm((smu), (speed)) : 0)
++#define smu_set_fan_speed_rpm(smu, speed) \
++	((smu)->funcs->set_fan_speed_rpm ? (smu)->funcs->set_fan_speed_rpm((smu), (speed)) : 0)
+ #define smu_send_smc_msg(smu, msg) \
+ 	((smu)->funcs->send_smc_msg? (smu)->funcs->send_smc_msg((smu), (msg)) : 0)
+ #define smu_send_smc_msg_with_param(smu, msg, param) \
+diff --git a/drivers/gpu/drm/amd/powerplay/smu_v11_0.c b/drivers/gpu/drm/amd/powerplay/smu_v11_0.c
+index 8c83bf9f2bc8..8acfeed1f774 100644
+--- a/drivers/gpu/drm/amd/powerplay/smu_v11_0.c
++++ b/drivers/gpu/drm/amd/powerplay/smu_v11_0.c
+@@ -1864,6 +1864,36 @@ smu_v11_0_set_fan_control_mode(struct smu_context *smu,
+ 	return ret;
+ }
+ 
++static int smu_v11_0_set_fan_speed_rpm(struct smu_context *smu,
++				       uint32_t speed)
++{
++	struct amdgpu_device *adev = smu->adev;
++	int ret;
++	uint32_t tach_period, crystal_clock_freq;
++	bool stop = 0;
++
++	if (!speed)
++		return -EINVAL;
++
++	mutex_lock(&(smu->mutex));
++	ret = smu_v11_0_smc_fan_control(smu, stop);
++	if (ret)
++		goto set_fan_speed_rpm_failed;
++
++	crystal_clock_freq = amdgpu_asic_get_xclk(adev);
++	tach_period = 60 * crystal_clock_freq * 10000 / (8 * speed);
++	WREG32_SOC15(THM, 0, mmCG_TACH_CTRL,
++		     REG_SET_FIELD(RREG32_SOC15(THM, 0, mmCG_TACH_CTRL),
++				   CG_TACH_CTRL, TARGET_PERIOD,
++				   tach_period));
++
++	ret = smu_v11_0_set_fan_static_mode(smu, FDO_PWM_MODE_STATIC_RPM);
++
++set_fan_speed_rpm_failed:
++	mutex_unlock(&(smu->mutex));
++	return ret;
++}
++
+ static const struct smu_funcs smu_v11_0_funcs = {
+ 	.init_microcode = smu_v11_0_init_microcode,
+ 	.load_microcode = smu_v11_0_load_microcode,
+@@ -1919,6 +1949,7 @@ static const struct smu_funcs smu_v11_0_funcs = {
+ 	.set_fan_control_mode = smu_v11_0_set_fan_control_mode,
+ 	.get_fan_speed_percent = smu_v11_0_get_fan_speed_percent,
+ 	.set_fan_speed_percent = smu_v11_0_set_fan_speed_percent,
++	.set_fan_speed_rpm = smu_v11_0_set_fan_speed_rpm,
+ };
+ 
+ void smu_v11_0_set_smu_funcs(struct smu_context *smu)
+-- 
+2.17.1
+

@@ -1,0 +1,90 @@
+From cbbad757e62e5f6f8f3bdc529c13f60a2c6a4ee8 Mon Sep 17 00:00:00 2001
+From: Emily Deng <Emily.Deng@amd.com>
+Date: Fri, 31 May 2019 17:30:39 +0800
+Subject: [PATCH 2034/2940] drm/amdgpu/sriov: Correct some register program
+ method
+
+For the VF, some registers only could be programmed with RLC.
+
+Change-Id: I14780879b50e22ebd2df09de99aafaed9ff37440
+Signed-off-by: Emily Deng <Emily.Deng@amd.com>
+Reviewed-by: Trigger Huang <Trigger.Huang@amd.com>
+---
+ drivers/gpu/drm/amd/amdgpu/gfx_v9_0.c    | 10 +++++-----
+ drivers/gpu/drm/amd/amdgpu/gfxhub_v1_0.c |  8 ++++----
+ 2 files changed, 9 insertions(+), 9 deletions(-)
+
+diff --git a/drivers/gpu/drm/amd/amdgpu/gfx_v9_0.c b/drivers/gpu/drm/amd/amdgpu/gfx_v9_0.c
+index 19adde732c25..879b496ebde8 100644
+--- a/drivers/gpu/drm/amd/amdgpu/gfx_v9_0.c
++++ b/drivers/gpu/drm/amd/amdgpu/gfx_v9_0.c
+@@ -1929,19 +1929,19 @@ static void gfx_v9_0_constants_init(struct amdgpu_device *adev)
+ 					    SH_MEM_ALIGNMENT_MODE_UNALIGNED);
+ 			tmp = REG_SET_FIELD(tmp, SH_MEM_CONFIG, RETRY_DISABLE,
+ 					    1);
+-			WREG32_SOC15(GC, 0, mmSH_MEM_CONFIG, tmp);
+-			WREG32_SOC15(GC, 0, mmSH_MEM_BASES, 0);
++			WREG32_SOC15_RLC(GC, 0, mmSH_MEM_CONFIG, tmp);
++			WREG32_SOC15_RLC(GC, 0, mmSH_MEM_BASES, 0);
+ 		} else {
+ 			tmp = REG_SET_FIELD(0, SH_MEM_CONFIG, ALIGNMENT_MODE,
+ 					    SH_MEM_ALIGNMENT_MODE_UNALIGNED);
+ 			tmp = REG_SET_FIELD(tmp, SH_MEM_CONFIG, RETRY_DISABLE,
+ 					    1);
+-			WREG32_SOC15(GC, 0, mmSH_MEM_CONFIG, tmp);
++			WREG32_SOC15_RLC(GC, 0, mmSH_MEM_CONFIG, tmp);
+ 			tmp = REG_SET_FIELD(0, SH_MEM_BASES, PRIVATE_BASE,
+ 				(adev->gmc.private_aperture_start >> 48));
+ 			tmp = REG_SET_FIELD(tmp, SH_MEM_BASES, SHARED_BASE,
+ 				(adev->gmc.shared_aperture_start >> 48));
+-			WREG32_SOC15(GC, 0, mmSH_MEM_BASES, tmp);
++			WREG32_SOC15_RLC(GC, 0, mmSH_MEM_BASES, tmp);
+ 		}
+ 	}
+ 	soc15_grbm_select(adev, 0, 0, 0, 0);
+@@ -3050,7 +3050,7 @@ static int gfx_v9_0_kiq_init_register(struct amdgpu_ring *ring)
+ 					(adev->doorbell_index.userqueue_end * 2) << 2);
+ 	}
+ 
+-	WREG32_SOC15(GC, 0, mmCP_HQD_PQ_DOORBELL_CONTROL,
++	WREG32_SOC15_RLC(GC, 0, mmCP_HQD_PQ_DOORBELL_CONTROL,
+ 	       mqd->cp_hqd_pq_doorbell_control);
+ 
+ 	/* reset read and write pointers, similar to CP_RB0_WPTR/_RPTR */
+diff --git a/drivers/gpu/drm/amd/amdgpu/gfxhub_v1_0.c b/drivers/gpu/drm/amd/amdgpu/gfxhub_v1_0.c
+index 4c5df304adbd..44eda670d948 100644
+--- a/drivers/gpu/drm/amd/amdgpu/gfxhub_v1_0.c
++++ b/drivers/gpu/drm/amd/amdgpu/gfxhub_v1_0.c
+@@ -141,12 +141,12 @@ static void gfxhub_v1_0_init_cache_regs(struct amdgpu_device *adev)
+ 	tmp = REG_SET_FIELD(tmp, VM_L2_CNTL, PDE_FAULT_CLASSIFICATION, 0);
+ 	tmp = REG_SET_FIELD(tmp, VM_L2_CNTL, CONTEXT1_IDENTITY_ACCESS_MODE, 1);
+ 	tmp = REG_SET_FIELD(tmp, VM_L2_CNTL, IDENTITY_MODE_FRAGMENT_SIZE, 0);
+-	WREG32_SOC15(GC, 0, mmVM_L2_CNTL, tmp);
++	WREG32_SOC15_RLC(GC, 0, mmVM_L2_CNTL, tmp);
+ 
+ 	tmp = RREG32_SOC15(GC, 0, mmVM_L2_CNTL2);
+ 	tmp = REG_SET_FIELD(tmp, VM_L2_CNTL2, INVALIDATE_ALL_L1_TLBS, 1);
+ 	tmp = REG_SET_FIELD(tmp, VM_L2_CNTL2, INVALIDATE_L2_CACHE, 1);
+-	WREG32_SOC15(GC, 0, mmVM_L2_CNTL2, tmp);
++	WREG32_SOC15_RLC(GC, 0, mmVM_L2_CNTL2, tmp);
+ 
+ 	tmp = mmVM_L2_CNTL3_DEFAULT;
+ 	if (adev->gmc.translate_further) {
+@@ -158,12 +158,12 @@ static void gfxhub_v1_0_init_cache_regs(struct amdgpu_device *adev)
+ 		tmp = REG_SET_FIELD(tmp, VM_L2_CNTL3,
+ 				    L2_CACHE_BIGK_FRAGMENT_SIZE, 6);
+ 	}
+-	WREG32_SOC15(GC, 0, mmVM_L2_CNTL3, tmp);
++	WREG32_SOC15_RLC(GC, 0, mmVM_L2_CNTL3, tmp);
+ 
+ 	tmp = mmVM_L2_CNTL4_DEFAULT;
+ 	tmp = REG_SET_FIELD(tmp, VM_L2_CNTL4, VMC_TAP_PDE_REQUEST_PHYSICAL, 0);
+ 	tmp = REG_SET_FIELD(tmp, VM_L2_CNTL4, VMC_TAP_PTE_REQUEST_PHYSICAL, 0);
+-	WREG32_SOC15(GC, 0, mmVM_L2_CNTL4, tmp);
++	WREG32_SOC15_RLC(GC, 0, mmVM_L2_CNTL4, tmp);
+ }
+ 
+ static void gfxhub_v1_0_enable_system_domain(struct amdgpu_device *adev)
+-- 
+2.17.1
+

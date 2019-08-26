@@ -1,0 +1,57 @@
+From a6ff60931bbe44f217a5251bb19192e497f3f9a7 Mon Sep 17 00:00:00 2001
+From: Oak Zeng <Oak.Zeng@amd.com>
+Date: Mon, 17 Dec 2018 19:42:58 -0600
+Subject: [PATCH 1103/2940] drm/amdgpu: Add per device sdma_doorbell_range
+ field
+
+Different ASIC has different sdma doorbell range. Add
+a per device sdma_doorbell_range field and initialize
+it.
+
+Signed-off-by: Oak Zeng <Oak.Zeng@amd.com>
+Reviewed-by: Philip Yang <Philip.Yang@amd.com>
+Signed-off-by: Alex Deucher <alexander.deucher@amd.com>
+---
+ drivers/gpu/drm/amd/amdgpu/amdgpu_doorbell.h | 2 ++
+ drivers/gpu/drm/amd/amdgpu/vega10_reg_init.c | 1 +
+ drivers/gpu/drm/amd/amdgpu/vega20_reg_init.c | 1 +
+ 3 files changed, 4 insertions(+)
+
+diff --git a/drivers/gpu/drm/amd/amdgpu/amdgpu_doorbell.h b/drivers/gpu/drm/amd/amdgpu/amdgpu_doorbell.h
+index 35a0c05f454c..1cfec06f81d4 100644
+--- a/drivers/gpu/drm/amd/amdgpu/amdgpu_doorbell.h
++++ b/drivers/gpu/drm/amd/amdgpu/amdgpu_doorbell.h
+@@ -72,6 +72,8 @@ struct amdgpu_doorbell_index {
+ 		} uvd_vce;
+ 	};
+ 	uint32_t max_assignment;
++	/* Per engine SDMA doorbell size in dword */
++	uint32_t sdma_doorbell_range;
+ };
+ 
+ typedef enum _AMDGPU_DOORBELL_ASSIGNMENT
+diff --git a/drivers/gpu/drm/amd/amdgpu/vega10_reg_init.c b/drivers/gpu/drm/amd/amdgpu/vega10_reg_init.c
+index b75d17ba59e2..4b5d60ea3e78 100644
+--- a/drivers/gpu/drm/amd/amdgpu/vega10_reg_init.c
++++ b/drivers/gpu/drm/amd/amdgpu/vega10_reg_init.c
+@@ -83,5 +83,6 @@ void vega10_doorbell_index_init(struct amdgpu_device *adev)
+ 	adev->doorbell_index.uvd_vce.vce_ring6_7 = AMDGPU_DOORBELL64_VCE_RING6_7;
+ 	/* In unit of dword doorbell */
+ 	adev->doorbell_index.max_assignment = AMDGPU_DOORBELL64_MAX_ASSIGNMENT << 1;
++	adev->doorbell_index.sdma_doorbell_range = 4;
+ }
+ 
+diff --git a/drivers/gpu/drm/amd/amdgpu/vega20_reg_init.c b/drivers/gpu/drm/amd/amdgpu/vega20_reg_init.c
+index 63c542cfabfa..53716c593b2b 100644
+--- a/drivers/gpu/drm/amd/amdgpu/vega20_reg_init.c
++++ b/drivers/gpu/drm/amd/amdgpu/vega20_reg_init.c
+@@ -86,5 +86,6 @@ void vega20_doorbell_index_init(struct amdgpu_device *adev)
+ 	adev->doorbell_index.uvd_vce.vce_ring4_5 = AMDGPU_VEGA20_DOORBELL64_VCE_RING4_5;
+ 	adev->doorbell_index.uvd_vce.vce_ring6_7 = AMDGPU_VEGA20_DOORBELL64_VCE_RING6_7;
+ 	adev->doorbell_index.max_assignment = AMDGPU_VEGA20_DOORBELL_MAX_ASSIGNMENT << 1;
++	adev->doorbell_index.sdma_doorbell_range = 20;
+ }
+ 
+-- 
+2.17.1
+

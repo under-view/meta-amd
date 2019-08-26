@@ -1,0 +1,33 @@
+From 96feb7cbc0ff770f549407563e70c73e8be3f74d Mon Sep 17 00:00:00 2001
+From: Yrjan Skrimstad <yrjan@skrimstad.net>
+Date: Thu, 30 May 2019 02:08:21 +0200
+Subject: [PATCH 2677/2940] drm/amd/powerplay/smu7_hwmgr: replace blocking
+ delay with non-blocking
+
+This driver currently contains a repeated 500ms blocking delay call
+which causes frequent major buffer underruns in PulseAudio. This patch
+fixes this issue by replacing the blocking delay with a non-blocking
+sleep call.
+
+Signed-off-by: Yrjan Skrimstad <yrjan@skrimstad.net>
+Signed-off-by: Alex Deucher <alexander.deucher@amd.com>
+---
+ drivers/gpu/drm/amd/powerplay/hwmgr/smu7_hwmgr.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/drivers/gpu/drm/amd/powerplay/hwmgr/smu7_hwmgr.c b/drivers/gpu/drm/amd/powerplay/hwmgr/smu7_hwmgr.c
+index 16591be8b0ca..10d66e3c7a9f 100644
+--- a/drivers/gpu/drm/amd/powerplay/hwmgr/smu7_hwmgr.c
++++ b/drivers/gpu/drm/amd/powerplay/hwmgr/smu7_hwmgr.c
+@@ -3494,7 +3494,7 @@ static int smu7_get_gpu_power(struct pp_hwmgr *hwmgr, u32 *query)
+ 							ixSMU_PM_STATUS_95, 0);
+ 
+ 	for (i = 0; i < 10; i++) {
+-		mdelay(500);
++		msleep(500);
+ 		smum_send_msg_to_smc(hwmgr, PPSMC_MSG_PmStatusLogSample);
+ 		tmp = cgs_read_ind_register(hwmgr->device,
+ 						CGS_IND_REG__SMC,
+-- 
+2.17.1
+

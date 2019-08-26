@@ -1,0 +1,31 @@
+From 4d696ba148d45e93d81d432f9756167640575e00 Mon Sep 17 00:00:00 2001
+From: Colin Ian King <colin.king@canonical.com>
+Date: Tue, 16 Apr 2019 12:59:26 +0100
+Subject: [PATCH 1797/2940] drm/amdgpu: fix spelling mistake "gateing" ->
+ "gating"
+
+There is a spelling mistake in a DRM_INFO message. Fix it.
+
+Reviewed-by: Mukesh Ojha <mojha@codeaurora.org>
+Signed-off-by: Colin Ian King <colin.king@canonical.com>
+Signed-off-by: Alex Deucher <alexander.deucher@amd.com>
+---
+ drivers/gpu/drm/amd/amdgpu/vce_v2_0.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/drivers/gpu/drm/amd/amdgpu/vce_v2_0.c b/drivers/gpu/drm/amd/amdgpu/vce_v2_0.c
+index bed78a778e3f..40363ca6c5f1 100644
+--- a/drivers/gpu/drm/amd/amdgpu/vce_v2_0.c
++++ b/drivers/gpu/drm/amd/amdgpu/vce_v2_0.c
+@@ -283,7 +283,7 @@ static int vce_v2_0_stop(struct amdgpu_device *adev)
+ 	}
+ 
+ 	if (vce_v2_0_wait_for_idle(adev)) {
+-		DRM_INFO("VCE is busy, Can't set clock gateing");
++		DRM_INFO("VCE is busy, Can't set clock gating");
+ 		return 0;
+ 	}
+ 
+-- 
+2.17.1
+

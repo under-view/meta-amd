@@ -1,0 +1,37 @@
+From d8aec262495a97021b7f2334c1461de475613bba Mon Sep 17 00:00:00 2001
+From: shaoyunl <shaoyun.liu@amd.com>
+Date: Mon, 15 Apr 2019 11:22:38 -0400
+Subject: [PATCH 1792/2940] drm/powerplay : send SMC message to set XGMI pstate
+
+Send message with parameter to SMC to set xgmi pstate
+
+Change-Id: I5d90cffd63690f31f0df62c206b263d300f14234
+Signed-off-by: shaoyunl <shaoyun.liu@amd.com>
+Reviewed-by: Evan Quan <evan.quan@amd.com>
+---
+ drivers/gpu/drm/amd/powerplay/smu_v11_0.c | 9 +++++++--
+ 1 file changed, 7 insertions(+), 2 deletions(-)
+
+diff --git a/drivers/gpu/drm/amd/powerplay/smu_v11_0.c b/drivers/gpu/drm/amd/powerplay/smu_v11_0.c
+index c478b38662d0..92903a4cc4d8 100644
+--- a/drivers/gpu/drm/amd/powerplay/smu_v11_0.c
++++ b/drivers/gpu/drm/amd/powerplay/smu_v11_0.c
+@@ -1896,8 +1896,13 @@ static int smu_v11_0_set_fan_speed_rpm(struct smu_context *smu,
+ static int smu_v11_0_set_xgmi_pstate(struct smu_context *smu,
+ 				     uint32_t pstate)
+ {
+-	/* send msg to SMU to set pstate */
+-	return 0;
++	int ret = 0;
++	mutex_lock(&(smu->mutex));
++	ret = smu_send_smc_msg_with_param(smu,
++					  SMU_MSG_SetXgmiMode,
++					  pstate ? XGMI_STATE_D0 : XGMI_STATE_D3);
++	mutex_unlock(&(smu->mutex));
++	return ret;
+ }
+ 
+ static const struct smu_funcs smu_v11_0_funcs = {
+-- 
+2.17.1
+

@@ -1,0 +1,41 @@
+From 1b9a51f1ffe4334d187f56e4732e479d18c3831c Mon Sep 17 00:00:00 2001
+From: Likun Gao <Likun.Gao@amd.com>
+Date: Mon, 17 Dec 2018 20:59:42 +0800
+Subject: [PATCH 1378/2940] drm/amd/powerplay: update hw fini function to
+ relase some memory
+
+Release memory of table_context->driver_pptable and
+table_context->ppt_information when smu hw fini.
+
+Signed-off-by: Likun Gao <Likun.Gao@amd.com>
+Reviewed-by: Huang Rui <ray.huang@amd.com>
+Reviewed-by: Kevin Wang <Kevin1.Wang@amd.com>
+Acked-by: Alex Deucher <alexander.deucher@amd.com>
+---
+ drivers/gpu/drm/amd/powerplay/amdgpu_smu.c | 5 +++++
+ 1 file changed, 5 insertions(+)
+
+diff --git a/drivers/gpu/drm/amd/powerplay/amdgpu_smu.c b/drivers/gpu/drm/amd/powerplay/amdgpu_smu.c
+index c85316617951..e4da464655f8 100644
+--- a/drivers/gpu/drm/amd/powerplay/amdgpu_smu.c
++++ b/drivers/gpu/drm/amd/powerplay/amdgpu_smu.c
+@@ -434,11 +434,16 @@ static int smu_hw_fini(void *handle)
+ {
+ 	struct amdgpu_device *adev = (struct amdgpu_device *)handle;
+ 	struct smu_context *smu = &adev->smu;
++	struct smu_table_context *table_context = &smu->smu_table;
+ 	int ret = 0;
+ 
+ 	if (adev->asic_type < CHIP_VEGA20)
+ 		return -EINVAL;
+ 
++	if (!table_context->driver_pptable)
++		return -EINVAL;
++	kfree(table_context->driver_pptable);
++
+ 	ret = smu_fini_fb_allocations(smu);
+ 	if (ret)
+ 		return ret;
+-- 
+2.17.1
+

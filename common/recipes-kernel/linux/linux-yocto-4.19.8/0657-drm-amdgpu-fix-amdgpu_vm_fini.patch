@@ -1,0 +1,37 @@
+From a8f31404c26e100189d176a872eb4a1b81f6acd1 Mon Sep 17 00:00:00 2001
+From: =?UTF-8?q?Christian=20K=C3=B6nig?= <christian.koenig@amd.com>
+Date: Thu, 18 Oct 2018 14:29:28 +0200
+Subject: [PATCH 0657/2940] drm/amdgpu: fix amdgpu_vm_fini
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+We should not remove mappings in rbtree_postorder_for_each_entry_safe
+because that rebalances the tree.
+
+Signed-off-by: Christian König <christian.koenig@amd.com>
+Reviewed-by: Chunming Zhou <david1.zhou@amd.com>
+Signed-off-by: Alex Deucher <alexander.deucher@amd.com>
+---
+ drivers/gpu/drm/amd/amdgpu/amdgpu_vm.c | 4 +++-
+ 1 file changed, 3 insertions(+), 1 deletion(-)
+
+diff --git a/drivers/gpu/drm/amd/amdgpu/amdgpu_vm.c b/drivers/gpu/drm/amd/amdgpu/amdgpu_vm.c
+index 76d3ca78a1ee..66c976b5ef99 100644
+--- a/drivers/gpu/drm/amd/amdgpu/amdgpu_vm.c
++++ b/drivers/gpu/drm/amd/amdgpu/amdgpu_vm.c
+@@ -3201,8 +3201,10 @@ void amdgpu_vm_fini(struct amdgpu_device *adev, struct amdgpu_vm *vm)
+ 	}
+ 	rbtree_postorder_for_each_entry_safe(mapping, tmp,
+ 					     &vm->va.rb_root, rb) {
++		/* Don't remove the mapping here, we don't want to trigger a
++		 * rebalance and the tree is about to be destroyed anyway.
++		 */
+ 		list_del(&mapping->list);
+-		amdgpu_vm_it_remove(mapping, &vm->va);
+ 		kfree(mapping);
+ 	}
+ 	list_for_each_entry_safe(mapping, tmp, &vm->freed, list) {
+-- 
+2.17.1
+

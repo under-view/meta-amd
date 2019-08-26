@@ -1,0 +1,109 @@
+From 003f5bbb2b35ca6ffe539207447525800f7561bc Mon Sep 17 00:00:00 2001
+From: Gary Kattan <gary.kattan@amd.com>
+Date: Fri, 22 Feb 2019 12:51:18 -0800
+Subject: [PATCH 2010/2940] drm/amd/display: Implement CM dealpha and bias
+ interfaces
+
+Add vtable entries for de-alpha and bias color management interfaces.
+Move piece-wise transfer function registers to a helper list for future
+reuse.
+
+Signed-off-by: Gary Kattan <gary.kattan@amd.com>
+Reviewed-by: Nevenko Stupar <Nevenko.Stupar@amd.com>
+Acked-by: Leo Li <sunpeng.li@amd.com>
+---
+ .../amd/display/dc/dcn10/dcn10_cm_common.h    | 31 ++++++++++---------
+ drivers/gpu/drm/amd/display/dc/inc/hw/dpp.h   | 17 ++++++++++
+ 2 files changed, 34 insertions(+), 14 deletions(-)
+
+diff --git a/drivers/gpu/drm/amd/display/dc/dcn10/dcn10_cm_common.h b/drivers/gpu/drm/amd/display/dc/dcn10/dcn10_cm_common.h
+index 5ae4d69391a5..3b8cd7410498 100644
+--- a/drivers/gpu/drm/amd/display/dc/dcn10/dcn10_cm_common.h
++++ b/drivers/gpu/drm/amd/display/dc/dcn10/dcn10_cm_common.h
+@@ -38,6 +38,22 @@
+ 	type exp_resion_start_segment;\
+ 	type field_region_linear_slope
+ 
++#define TF_HELPER_REG_LIST \
++	uint32_t start_cntl_b; \
++	uint32_t start_cntl_g; \
++	uint32_t start_cntl_r; \
++	uint32_t start_slope_cntl_b; \
++	uint32_t start_slope_cntl_g; \
++	uint32_t start_slope_cntl_r; \
++	uint32_t start_end_cntl1_b; \
++	uint32_t start_end_cntl2_b; \
++	uint32_t start_end_cntl1_g; \
++	uint32_t start_end_cntl2_g; \
++	uint32_t start_end_cntl1_r; \
++	uint32_t start_end_cntl2_r; \
++	uint32_t region_start; \
++	uint32_t region_end
++
+ #define TF_CM_REG_FIELD_LIST(type) \
+ 	type csc_c11; \
+ 	type csc_c12
+@@ -54,20 +70,7 @@ struct xfer_func_reg {
+ 	struct xfer_func_shift shifts;
+ 	struct xfer_func_mask masks;
+ 
+-	uint32_t start_cntl_b;
+-	uint32_t start_cntl_g;
+-	uint32_t start_cntl_r;
+-	uint32_t start_slope_cntl_b;
+-	uint32_t start_slope_cntl_g;
+-	uint32_t start_slope_cntl_r;
+-	uint32_t start_end_cntl1_b;
+-	uint32_t start_end_cntl2_b;
+-	uint32_t start_end_cntl1_g;
+-	uint32_t start_end_cntl2_g;
+-	uint32_t start_end_cntl1_r;
+-	uint32_t start_end_cntl2_r;
+-	uint32_t region_start;
+-	uint32_t region_end;
++	TF_HELPER_REG_LIST;
+ };
+ 
+ struct cm_color_matrix_shift {
+diff --git a/drivers/gpu/drm/amd/display/dc/inc/hw/dpp.h b/drivers/gpu/drm/amd/display/dc/inc/hw/dpp.h
+index fb7967b39edb..b55c5a2e56e2 100644
+--- a/drivers/gpu/drm/amd/display/dc/inc/hw/dpp.h
++++ b/drivers/gpu/drm/amd/display/dc/inc/hw/dpp.h
+@@ -64,7 +64,22 @@ struct dcn_dpp_state {
+ 	uint32_t gamut_remap_c33_c34;
+ };
+ 
++struct CM_bias_params {
++	uint32_t cm_bias_cr_r;
++	uint32_t cm_bias_y_g;
++	uint32_t cm_bias_cb_b;
++	uint32_t cm_bias_format;
++};
++
+ struct dpp_funcs {
++
++	void (*dpp_program_cm_dealpha)(struct dpp *dpp_base,
++		uint32_t enable, uint32_t additive_blending);
++
++	void (*dpp_program_cm_bias)(
++		struct dpp *dpp_base,
++		struct CM_bias_params *bias_params);
++
+ 	void (*dpp_read_state)(struct dpp *dpp, struct dcn_dpp_state *s);
+ 
+ 	void (*dpp_reset)(struct dpp *dpp);
+@@ -155,9 +170,11 @@ struct dpp_funcs {
+ 			uint32_t width,
+ 			uint32_t height
+ 			);
++
+ 	void (*dpp_set_hdr_multiplier)(
+ 			struct dpp *dpp_base,
+ 			uint32_t multiplier);
++
+ 	void (*set_optional_cursor_attributes)(
+ 			struct dpp *dpp_base,
+ 			struct dpp_cursor_attributes *attr);
+-- 
+2.17.1
+

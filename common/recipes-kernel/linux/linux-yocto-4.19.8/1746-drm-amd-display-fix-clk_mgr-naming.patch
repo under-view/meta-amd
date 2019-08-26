@@ -1,0 +1,74 @@
+From 6deb38ad6778a50adc8b6c7a79d54bb3cd2554fc Mon Sep 17 00:00:00 2001
+From: Dmytro Laktyushkin <Dmytro.Laktyushkin@amd.com>
+Date: Wed, 20 Mar 2019 17:10:41 -0400
+Subject: [PATCH 1746/2940] drm/amd/display: fix clk_mgr naming
+
+clk_mgr is called dccg in dc_state, this change fixes that
+
+Signed-off-by: Dmytro Laktyushkin <Dmytro.Laktyushkin@amd.com>
+Reviewed-by: Eric Bernstein <Eric.Bernstein@amd.com>
+Acked-by: Leo Li <sunpeng.li@amd.com>
+---
+ drivers/gpu/drm/amd/display/dc/core/dc_link.c               | 2 +-
+ drivers/gpu/drm/amd/display/dc/core/dc_resource.c           | 2 +-
+ drivers/gpu/drm/amd/display/dc/dce110/dce110_hw_sequencer.c | 4 ++--
+ drivers/gpu/drm/amd/display/dc/inc/core_types.h             | 2 +-
+ 4 files changed, 5 insertions(+), 5 deletions(-)
+
+diff --git a/drivers/gpu/drm/amd/display/dc/core/dc_link.c b/drivers/gpu/drm/amd/display/dc/core/dc_link.c
+index fa14dffabc05..5428bb3fa90c 100644
+--- a/drivers/gpu/drm/amd/display/dc/core/dc_link.c
++++ b/drivers/gpu/drm/amd/display/dc/core/dc_link.c
+@@ -1399,7 +1399,7 @@ static enum dc_status enable_link_dp(
+ 
+ 	pipe_ctx->stream_res.pix_clk_params.requested_sym_clk =
+ 			link_settings.link_rate * LINK_RATE_REF_FREQ_IN_KHZ;
+-	state->dccg->funcs->update_clocks(state->dccg, state, false);
++	state->clk_mgr->funcs->update_clocks(state->clk_mgr, state, false);
+ 
+ 	dp_enable_link_phy(
+ 		link,
+diff --git a/drivers/gpu/drm/amd/display/dc/core/dc_resource.c b/drivers/gpu/drm/amd/display/dc/core/dc_resource.c
+index a972c446ec51..dab3ca29d04e 100644
+--- a/drivers/gpu/drm/amd/display/dc/core/dc_resource.c
++++ b/drivers/gpu/drm/amd/display/dc/core/dc_resource.c
+@@ -2064,7 +2064,7 @@ void dc_resource_state_construct(
+ 		const struct dc *dc,
+ 		struct dc_state *dst_ctx)
+ {
+-	dst_ctx->dccg = dc->res_pool->clk_mgr;
++	dst_ctx->clk_mgr = dc->res_pool->clk_mgr;
+ }
+ 
+ /**
+diff --git a/drivers/gpu/drm/amd/display/dc/dce110/dce110_hw_sequencer.c b/drivers/gpu/drm/amd/display/dc/dce110/dce110_hw_sequencer.c
+index 5179de470946..d683a4720769 100644
+--- a/drivers/gpu/drm/amd/display/dc/dce110/dce110_hw_sequencer.c
++++ b/drivers/gpu/drm/amd/display/dc/dce110/dce110_hw_sequencer.c
+@@ -1166,8 +1166,8 @@ static void build_audio_output(
+ 	if (pipe_ctx->stream->signal == SIGNAL_TYPE_DISPLAY_PORT ||
+ 			pipe_ctx->stream->signal == SIGNAL_TYPE_DISPLAY_PORT_MST) {
+ 		audio_output->pll_info.dp_dto_source_clock_in_khz =
+-				state->dccg->funcs->get_dp_ref_clk_frequency(
+-						state->dccg);
++				state->clk_mgr->funcs->get_dp_ref_clk_frequency(
++						state->clk_mgr);
+ 	}
+ 
+ 	audio_output->pll_info.feed_back_divider =
+diff --git a/drivers/gpu/drm/amd/display/dc/inc/core_types.h b/drivers/gpu/drm/amd/display/dc/inc/core_types.h
+index 69d645c7faae..69fd902da086 100644
+--- a/drivers/gpu/drm/amd/display/dc/inc/core_types.h
++++ b/drivers/gpu/drm/amd/display/dc/inc/core_types.h
+@@ -301,7 +301,7 @@ struct dc_state {
+ 	struct dcn_bw_internal_vars dcn_bw_vars;
+ #endif
+ 
+-	struct clk_mgr *dccg;
++	struct clk_mgr *clk_mgr;
+ 
+ 	struct {
+ 		bool full_update_needed : 1;
+-- 
+2.17.1
+

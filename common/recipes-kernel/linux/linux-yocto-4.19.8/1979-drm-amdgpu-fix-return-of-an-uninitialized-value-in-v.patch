@@ -1,0 +1,39 @@
+From a910b2e2007b9e1737d91770ee6fcd7851348446 Mon Sep 17 00:00:00 2001
+From: Colin Ian King <colin.king@canonical.com>
+Date: Fri, 10 May 2019 11:08:42 +0100
+Subject: [PATCH 1979/2940] drm/amdgpu: fix return of an uninitialized value in
+ variable ret
+
+In the case where is_enable is false and lo_base_addr is non-zero the
+variable ret has not been initialized and is being checked for non-zero
+and potentially garbage is being returned. Fix this by not returning
+ret but instead returning -EINVAL on the zero lo_base_addr case.
+
+Addresses-Coverity: ("Uninitialized scalar variable")
+Fixes: a6ac0b44bab9 ("drm/amdgpu: add df perfmon regs and funcs for xgmi")
+Reviewed-by: Nathan Chancellor <natechancellor@gmail.com>
+Signed-off-by: Colin Ian King <colin.king@canonical.com>
+Signed-off-by: Alex Deucher <alexander.deucher@amd.com>
+---
+ drivers/gpu/drm/amd/amdgpu/df_v3_6.c | 5 +----
+ 1 file changed, 1 insertion(+), 4 deletions(-)
+
+diff --git a/drivers/gpu/drm/amd/amdgpu/df_v3_6.c b/drivers/gpu/drm/amd/amdgpu/df_v3_6.c
+index 201c00411720..d449dc0e28d0 100644
+--- a/drivers/gpu/drm/amd/amdgpu/df_v3_6.c
++++ b/drivers/gpu/drm/amd/amdgpu/df_v3_6.c
+@@ -398,10 +398,7 @@ static int df_v3_6_start_xgmi_link_cntr(struct amdgpu_device *adev,
+ 				NULL);
+ 
+ 		if (lo_base_addr == 0)
+-			ret = -EINVAL;
+-
+-		if (ret)
+-			return ret;
++			return -EINVAL;
+ 
+ 		lo_val = RREG32_PCIE(lo_base_addr);
+ 
+-- 
+2.17.1
+

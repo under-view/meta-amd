@@ -1,0 +1,56 @@
+From e5df38816fd5edadf1a2a7bd40e2940e3ade7b77 Mon Sep 17 00:00:00 2001
+From: Hawking Zhang <Hawking.Zhang@amd.com>
+Date: Fri, 10 May 2019 11:05:13 -0500
+Subject: [PATCH 2251/2940] drm/amdgpu: avoid to use SOC15_REG_OFFSET in static
+ array for navi10
+
+Signed-off-by: Hawking Zhang <Hawking.Zhang@amd.com>
+Acked-by: Alex Deucher <alexander.deucher@amd.com>
+Signed-off-by: Alex Deucher <alexander.deucher@amd.com>
+---
+ drivers/gpu/drm/amd/amdgpu/soc15.c | 9 ---------
+ drivers/gpu/drm/amd/amdgpu/soc15.h | 8 ++++++++
+ 2 files changed, 8 insertions(+), 9 deletions(-)
+
+diff --git a/drivers/gpu/drm/amd/amdgpu/soc15.c b/drivers/gpu/drm/amd/amdgpu/soc15.c
+index 7fee24ea7863..fa2e2b1e5717 100644
+--- a/drivers/gpu/drm/amd/amdgpu/soc15.c
++++ b/drivers/gpu/drm/amd/amdgpu/soc15.c
+@@ -274,15 +274,6 @@ static bool soc15_read_bios_from_rom(struct amdgpu_device *adev,
+ 	return true;
+ }
+ 
+-struct soc15_allowed_register_entry {
+-	uint32_t hwip;
+-	uint32_t inst;
+-	uint32_t seg;
+-	uint32_t reg_offset;
+-	bool grbm_indexed;
+-};
+-
+-
+ static struct soc15_allowed_register_entry soc15_allowed_read_registers[] = {
+ 	{ SOC15_REG_ENTRY(GC, 0, mmGRBM_STATUS)},
+ 	{ SOC15_REG_ENTRY(GC, 0, mmGRBM_STATUS2)},
+diff --git a/drivers/gpu/drm/amd/amdgpu/soc15.h b/drivers/gpu/drm/amd/amdgpu/soc15.h
+index 48e824d52ad9..7a6b2cc6d9f5 100644
+--- a/drivers/gpu/drm/amd/amdgpu/soc15.h
++++ b/drivers/gpu/drm/amd/amdgpu/soc15.h
+@@ -52,6 +52,14 @@ struct soc15_reg_entry {
+ 	uint32_t instance;
+ };
+ 
++struct soc15_allowed_register_entry {
++	uint32_t hwip;
++	uint32_t inst;
++	uint32_t seg;
++	uint32_t reg_offset;
++	bool grbm_indexed;
++};
++
+ #define SOC15_REG_ENTRY(ip, inst, reg)	ip##_HWIP, inst, reg##_BASE_IDX, reg
+ 
+ #define SOC15_REG_ENTRY_OFFSET(entry)	(adev->reg_offset[entry.hwip][entry.inst][entry.seg] + entry.reg_offset)
+-- 
+2.17.1
+

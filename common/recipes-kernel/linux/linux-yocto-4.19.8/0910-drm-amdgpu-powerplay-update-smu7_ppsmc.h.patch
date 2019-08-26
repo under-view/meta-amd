@@ -1,0 +1,30 @@
+From d2dd29e74e77350eb9a977466b8d99f17814f210 Mon Sep 17 00:00:00 2001
+From: Alex Deucher <alexander.deucher@amd.com>
+Date: Thu, 29 Nov 2018 19:34:27 -0500
+Subject: [PATCH 0910/2940] drm/amdgpu/powerplay: update smu7_ppsmc.h
+
+Add new messages for polaris.
+
+Reviewed-by: Evan Quan <evan.quan@amd.com>
+Signed-off-by: Alex Deucher <alexander.deucher@amd.com>
+---
+ drivers/gpu/drm/amd/powerplay/inc/smu7_ppsmc.h | 3 +++
+ 1 file changed, 3 insertions(+)
+
+diff --git a/drivers/gpu/drm/amd/powerplay/inc/smu7_ppsmc.h b/drivers/gpu/drm/amd/powerplay/inc/smu7_ppsmc.h
+index c1a99dfe4913..6e19f4c7cf8f 100644
+--- a/drivers/gpu/drm/amd/powerplay/inc/smu7_ppsmc.h
++++ b/drivers/gpu/drm/amd/powerplay/inc/smu7_ppsmc.h
+@@ -397,6 +397,9 @@ typedef uint16_t PPSMC_Result;
+ 
+ #define PPSMC_MSG_SetVBITimeout               ((uint16_t) 0x306)
+ 
++#define PPSMC_MSG_EnableFFC                   ((uint16_t) 0x307)
++#define PPSMC_MSG_DisableFFC                  ((uint16_t) 0x308)
++
+ #define PPSMC_MSG_EnableDpmDidt               ((uint16_t) 0x309)
+ #define PPSMC_MSG_DisableDpmDidt              ((uint16_t) 0x30A)
+ 
+-- 
+2.17.1
+

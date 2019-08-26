@@ -1,0 +1,52 @@
+From d01faa97ae2e0b6a6598d3511b6f9e53cc2746ad Mon Sep 17 00:00:00 2001
+From: Nicholas Kazlauskas <nicholas.kazlauskas@amd.com>
+Date: Fri, 28 Jun 2019 13:39:41 -0400
+Subject: [PATCH 2851/2940] drm/amd/display: Expose audio inst from DC to DM
+
+[Why]
+In order to give pin notifications to the sound driver from DM we need
+to know whether audio is enabled on a stream and what pin it's using
+from DC.
+
+[How]
+Expose the instance via stream status if it's a mapped resource for
+the stream. It will be -1 if there's no audio mapped.
+
+Cc: Leo Li <sunpeng.li@amd.com>
+Cc: Harry Wentland <harry.wentland@amd.com>
+Signed-off-by: Nicholas Kazlauskas <nicholas.kazlauskas@amd.com>
+Reviewed-by: Alex Deucher <alexander.deucher@amd.com>
+---
+ drivers/gpu/drm/amd/display/dc/core/dc_resource.c | 3 +++
+ drivers/gpu/drm/amd/display/dc/dc_stream.h        | 1 +
+ 2 files changed, 4 insertions(+)
+
+diff --git a/drivers/gpu/drm/amd/display/dc/core/dc_resource.c b/drivers/gpu/drm/amd/display/dc/core/dc_resource.c
+index d10ebfd33a60..5b85139fb3ce 100644
+--- a/drivers/gpu/drm/amd/display/dc/core/dc_resource.c
++++ b/drivers/gpu/drm/amd/display/dc/core/dc_resource.c
+@@ -2008,6 +2008,9 @@ enum dc_status resource_map_pool_resources(
+ 		if (context->streams[i] == stream) {
+ 			context->stream_status[i].primary_otg_inst = pipe_ctx->stream_res.tg->inst;
+ 			context->stream_status[i].stream_enc_inst = pipe_ctx->stream_res.stream_enc->id;
++			context->stream_status[i].audio_inst =
++				pipe_ctx->stream_res.audio ? pipe_ctx->stream_res.audio->inst : -1;
++
+ 			return DC_OK;
+ 		}
+ 
+diff --git a/drivers/gpu/drm/amd/display/dc/dc_stream.h b/drivers/gpu/drm/amd/display/dc/dc_stream.h
+index e253a5c591f6..0fa1c26bc20d 100644
+--- a/drivers/gpu/drm/amd/display/dc/dc_stream.h
++++ b/drivers/gpu/drm/amd/display/dc/dc_stream.h
+@@ -42,6 +42,7 @@ struct dc_stream_status {
+ 	int primary_otg_inst;
+ 	int stream_enc_inst;
+ 	int plane_count;
++	int audio_inst;
+ 	struct timing_sync_info timing_sync_info;
+ 	struct dc_plane_state *plane_states[MAX_SURFACE_NUM];
+ };
+-- 
+2.17.1
+

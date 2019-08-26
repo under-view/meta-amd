@@ -1,0 +1,53 @@
+From 2ee4b9c73a5d02dc4a303adcf3168ab8dc348e5f Mon Sep 17 00:00:00 2001
+From: Oak Zeng <Oak.Zeng@amd.com>
+Date: Fri, 8 Feb 2019 10:56:42 -0600
+Subject: [PATCH 2750/2940] drm/amdkfd: Expose sdma engine numbers to topology
+
+Change-Id: I8ab90837fb704bb8874a99b2364b8c738dc9a111
+Signed-off-by: Oak Zeng <Oak.Zeng@amd.com>
+---
+ drivers/gpu/drm/amd/amdkfd/kfd_topology.c | 7 +++++++
+ drivers/gpu/drm/amd/amdkfd/kfd_topology.h | 2 ++
+ 2 files changed, 9 insertions(+)
+
+diff --git a/drivers/gpu/drm/amd/amdkfd/kfd_topology.c b/drivers/gpu/drm/amd/amdkfd/kfd_topology.c
+index 9c47c0d6d030..2ddbf7ccfb90 100644
+--- a/drivers/gpu/drm/amd/amdkfd/kfd_topology.c
++++ b/drivers/gpu/drm/amd/amdkfd/kfd_topology.c
+@@ -504,6 +504,10 @@ static ssize_t node_show(struct kobject *kobj, struct attribute *attr,
+ 			dev->node_props.drm_render_minor);
+ 	sysfs_show_64bit_prop(buffer, "hive_id",
+ 			dev->node_props.hive_id);
++	sysfs_show_32bit_prop(buffer, "num_sdma_engines",
++			dev->node_props.num_sdma_engines);
++	sysfs_show_32bit_prop(buffer, "num_sdma_xgmi_engines",
++			dev->node_props.num_sdma_xgmi_engines);
+ 
+ 	if (dev->gpu) {
+ 		log_max_watch_addr =
+@@ -1352,6 +1356,9 @@ int kfd_topology_add_device(struct kfd_dev *gpu)
+ 		gpu->shared_resources.drm_render_minor;
+ 
+ 	dev->node_props.hive_id = gpu->hive_id;
++	dev->node_props.num_sdma_engines = gpu->device_info->num_sdma_engines;
++	dev->node_props.num_sdma_xgmi_engines =
++				gpu->device_info->num_xgmi_sdma_engines;
+ 
+ 	kfd_fill_mem_clk_max_info(dev);
+ 	kfd_fill_iolink_non_crat_info(dev);
+diff --git a/drivers/gpu/drm/amd/amdkfd/kfd_topology.h b/drivers/gpu/drm/amd/amdkfd/kfd_topology.h
+index 7411457dc4f2..5b57801068b1 100644
+--- a/drivers/gpu/drm/amd/amdkfd/kfd_topology.h
++++ b/drivers/gpu/drm/amd/amdkfd/kfd_topology.h
+@@ -80,6 +80,8 @@ struct kfd_node_properties {
+ 	uint32_t max_engine_clk_fcompute;
+ 	uint32_t max_engine_clk_ccompute;
+ 	int32_t  drm_render_minor;
++	uint32_t num_sdma_engines;
++	uint32_t num_sdma_xgmi_engines;
+ 	uint16_t marketing_name[KFD_TOPOLOGY_PUBLIC_NAME_SIZE];
+ };
+ 
+-- 
+2.17.1
+

@@ -1,0 +1,80 @@
+From 0c9c2c10dcb1ff01d61da1a97a5e1e7762e33eee Mon Sep 17 00:00:00 2001
+From: =?UTF-8?q?Christian=20K=C3=B6nig?= <christian.koenig@amd.com>
+Date: Wed, 26 Sep 2018 13:37:24 +0200
+Subject: [PATCH 1038/2940] drm/amdgpu: add the IH to the IV trace
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+To distinct on which IH ring an IV was found.
+
+Signed-off-by: Christian König <christian.koenig@amd.com>
+Reviewed-by: Alex Deucher <alexander.deucher@amd.com>
+Signed-off-by: Alex Deucher <alexander.deucher@amd.com>
+---
+ drivers/gpu/drm/amd/amdgpu/amdgpu_irq.c   |  4 ++--
+ drivers/gpu/drm/amd/amdgpu/amdgpu_trace.h | 11 +++++++----
+ 2 files changed, 9 insertions(+), 6 deletions(-)
+
+diff --git a/drivers/gpu/drm/amd/amdgpu/amdgpu_irq.c b/drivers/gpu/drm/amd/amdgpu/amdgpu_irq.c
+index 4590c7042ba7..868f23bd3017 100644
+--- a/drivers/gpu/drm/amd/amdgpu/amdgpu_irq.c
++++ b/drivers/gpu/drm/amd/amdgpu/amdgpu_irq.c
+@@ -151,6 +151,8 @@ static void amdgpu_irq_callback(struct amdgpu_device *adev,
+ 	entry.iv_entry = (const uint32_t *)&ih->ring[ring_index];
+ 	amdgpu_ih_decode_iv(adev, &entry);
+ 
++	trace_amdgpu_iv(ih - &adev->irq.ih, &entry);
++
+ 	amdgpu_irq_dispatch(adev, &entry);
+ }
+ 
+@@ -369,8 +371,6 @@ void amdgpu_irq_dispatch(struct amdgpu_device *adev,
+ 	struct amdgpu_irq_src *src;
+ 	int r;
+ 
+-	trace_amdgpu_iv(entry);
+-
+ 	if (client_id >= AMDGPU_IRQ_CLIENTID_MAX) {
+ 		DRM_DEBUG("Invalid client_id in IV: %d\n", client_id);
+ 		return;
+diff --git a/drivers/gpu/drm/amd/amdgpu/amdgpu_trace.h b/drivers/gpu/drm/amd/amdgpu/amdgpu_trace.h
+index 626abca770a0..d3ca2424b5fe 100644
+--- a/drivers/gpu/drm/amd/amdgpu/amdgpu_trace.h
++++ b/drivers/gpu/drm/amd/amdgpu/amdgpu_trace.h
+@@ -76,9 +76,10 @@ TRACE_EVENT(amdgpu_mm_wreg,
+ );
+ 
+ TRACE_EVENT(amdgpu_iv,
+-	    TP_PROTO(struct amdgpu_iv_entry *iv),
+-	    TP_ARGS(iv),
++	    TP_PROTO(unsigned ih, struct amdgpu_iv_entry *iv),
++	    TP_ARGS(ih, iv),
+ 	    TP_STRUCT__entry(
++			     __field(unsigned, ih)
+ 			     __field(unsigned, client_id)
+ 			     __field(unsigned, src_id)
+ 			     __field(unsigned, ring_id)
+@@ -90,6 +91,7 @@ TRACE_EVENT(amdgpu_iv,
+ 			     __array(unsigned, src_data, 4)
+ 			    ),
+ 	    TP_fast_assign(
++			   __entry->ih = ih;
+ 			   __entry->client_id = iv->client_id;
+ 			   __entry->src_id = iv->src_id;
+ 			   __entry->ring_id = iv->ring_id;
+@@ -103,8 +105,9 @@ TRACE_EVENT(amdgpu_iv,
+ 			   __entry->src_data[2] = iv->src_data[2];
+ 			   __entry->src_data[3] = iv->src_data[3];
+ 			   ),
+-	    TP_printk("client_id:%u src_id:%u ring:%u vmid:%u timestamp: %llu pasid:%u src_data: %08x %08x %08x %08x",
+-		      __entry->client_id, __entry->src_id,
++	    TP_printk("ih:%u client_id:%u src_id:%u ring:%u vmid:%u "
++		      "timestamp: %llu pasid:%u src_data: %08x %08x %08x %08x",
++		      __entry->ih, __entry->client_id, __entry->src_id,
+ 		      __entry->ring_id, __entry->vmid,
+ 		      __entry->timestamp, __entry->pasid,
+ 		      __entry->src_data[0], __entry->src_data[1],
+-- 
+2.17.1
+

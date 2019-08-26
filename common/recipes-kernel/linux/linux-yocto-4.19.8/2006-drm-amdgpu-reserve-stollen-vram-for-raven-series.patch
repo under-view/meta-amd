@@ -1,0 +1,32 @@
+From 44514f9c4872a4c905d3611b1d76eff30cdc881d Mon Sep 17 00:00:00 2001
+From: Flora Cui <flora.cui@amd.com>
+Date: Tue, 28 May 2019 15:52:42 +0800
+Subject: [PATCH 2006/2940] drm/amdgpu: reserve stollen vram for raven series
+
+to avoid screen corruption during modprobe.
+
+Change-Id: I8671de6ed46285585dbe866832c6d2b835ca37f3
+Signed-off-by: Flora Cui <flora.cui@amd.com>
+Reviewed-by: Huang Rui <ray.huang@amd.com>
+---
+ drivers/gpu/drm/amd/amdgpu/gmc_v9_0.c | 3 +--
+ 1 file changed, 1 insertion(+), 2 deletions(-)
+
+diff --git a/drivers/gpu/drm/amd/amdgpu/gmc_v9_0.c b/drivers/gpu/drm/amd/amdgpu/gmc_v9_0.c
+index 2d6fb6dff58c..e4dbe9056bca 100644
+--- a/drivers/gpu/drm/amd/amdgpu/gmc_v9_0.c
++++ b/drivers/gpu/drm/amd/amdgpu/gmc_v9_0.c
+@@ -620,9 +620,8 @@ static bool gmc_v9_0_keep_stolen_memory(struct amdgpu_device *adev)
+ 	 */
+ 	switch (adev->asic_type) {
+ 	case CHIP_VEGA10:
+-		return true;
+ 	case CHIP_RAVEN:
+-		return (adev->pdev->device == 0x15d8);
++		return true;
+ 	case CHIP_VEGA12:
+ 	case CHIP_VEGA20:
+ 	default:
+-- 
+2.17.1
+

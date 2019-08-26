@@ -1,0 +1,46 @@
+From d533f5959316129f5e0a2805f0848967961cf7e0 Mon Sep 17 00:00:00 2001
+From: James Zhu <James.Zhu@amd.com>
+Date: Fri, 21 Sep 2018 14:47:45 -0400
+Subject: [PATCH 2111/2940] drm/amdgpu:Enable DPG mode on PCO
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+Add flag AMD_PG_SUPPORT_DPG to enable DPG mode on Picasso
+
+Signed-off-by: James Zhu <James.Zhu@amd.com>
+Reviewed-by: Alex Deucher <alexander.deucher@amd.com>
+Reviewed-by: Huang Rui <ray.huang@amd.com>
+Acked-by: Christian König <christian.koenig@amd.com>
+Signed-off-by: Alex Deucher <alexander.deucher@amd.com>
+Signed-off-by: Chaudhary Amit Kumar <Chaudharyamit.Kumar@amd.com>
+---
+ drivers/gpu/drm/amd/amdgpu/soc15.c | 5 +++--
+ 1 file changed, 3 insertions(+), 2 deletions(-)
+
+diff --git a/drivers/gpu/drm/amd/amdgpu/soc15.c b/drivers/gpu/drm/amd/amdgpu/soc15.c
+index 55c307aea3b6..78bd4fc07bab 100644
+--- a/drivers/gpu/drm/amd/amdgpu/soc15.c
++++ b/drivers/gpu/drm/amd/amdgpu/soc15.c
+@@ -604,7 +604,7 @@ int soc15_set_ip_blocks(struct amdgpu_device *adev)
+ 	if (adev->flags & AMD_IS_APU)
+ 		adev->nbio_funcs = &nbio_v7_0_funcs;
+ 	else if (adev->asic_type == CHIP_VEGA20)
+-		adev->nbio_funcs = &nbio_v7_0_funcs;
++		adev->nbio_funcs = &nbio_v7_4_funcs;
+ 	else
+ 		adev->nbio_funcs = &nbio_v6_1_funcs;
+ 
+@@ -971,7 +971,8 @@ static int soc15_common_early_init(void *handle)
+ 
+ 			adev->pg_flags = AMD_PG_SUPPORT_SDMA |
+ 				AMD_PG_SUPPORT_MMHUB |
+-				AMD_PG_SUPPORT_VCN;
++				AMD_PG_SUPPORT_VCN |
++				AMD_PG_SUPPORT_VCN_DPG;
+ 		} else {
+ 			adev->cg_flags = AMD_CG_SUPPORT_GFX_MGCG |
+ 				AMD_CG_SUPPORT_GFX_MGLS |
+-- 
+2.17.1
+

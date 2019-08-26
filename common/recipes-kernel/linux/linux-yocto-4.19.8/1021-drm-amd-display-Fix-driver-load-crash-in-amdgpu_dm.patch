@@ -1,0 +1,163 @@
+From d4a07893647a45787b711598287b29a7003a4111 Mon Sep 17 00:00:00 2001
+From: Leo Li <sunpeng.li@amd.com>
+Date: Tue, 27 Nov 2018 15:05:12 -0500
+Subject: [PATCH 1021/2940] drm/amd/display: Fix driver load crash in amdgpu_dm
+
+[Why]
+This fixes an regression introduced by:
+    drm/amd/display: add stream ID and otg instance in dc_stream_state
+
+During driver initialization, a null pointer deref is raised. This is
+caused by searching for a stream status in the dc->current_state before
+the dc_state swap happens at the end of dc_commit_state_no_check().
+Since the swap has not happened, the dc_state to be swapped in should
+be searched, and not dc->current_state.
+
+[How]
+Add a function that searches for the stream status within the given
+dc_state, instead of dc->current_state. Use that before the state swap
+happens in dc_commit_state_no_check().
+
+Also remove duplicate occurrences of this function in amdgpu_dm.c.
+
+Signed-off-by: Leo Li <sunpeng.li@amd.com>
+Reviewed-by: Harry Wentland <Harry.Wentland@amd.com>
+Acked-by: Nicholas Kazlauskas <Nicholas.Kazlauskas@amd.com>
+Signed-off-by: Alex Deucher <alexander.deucher@amd.com>
+Signed-off-by: Chaudhary Amit Kumar <Chaudharyamit.Kumar@amd.com>
+---
+ .../gpu/drm/amd/display/amdgpu_dm/amdgpu_dm.c | 22 +++----------
+ drivers/gpu/drm/amd/display/dc/core/dc.c      |  2 +-
+ .../gpu/drm/amd/display/dc/core/dc_stream.c   | 32 ++++++++++++++++---
+ drivers/gpu/drm/amd/display/dc/dc_stream.h    |  3 ++
+ 4 files changed, 35 insertions(+), 24 deletions(-)
+
+diff --git a/drivers/gpu/drm/amd/display/amdgpu_dm/amdgpu_dm.c b/drivers/gpu/drm/amd/display/amdgpu_dm/amdgpu_dm.c
+index 09acccfbffec..762a0d28e92c 100644
+--- a/drivers/gpu/drm/amd/display/amdgpu_dm/amdgpu_dm.c
++++ b/drivers/gpu/drm/amd/display/amdgpu_dm/amdgpu_dm.c
+@@ -4489,20 +4489,6 @@ static void prepare_flip_isr(struct amdgpu_crtc *acrtc)
+ 						 acrtc->crtc_id);
+ }
+ 
+-struct dc_stream_status *dc_state_get_stream_status(
+-	struct dc_state *state,
+-	struct dc_stream_state *stream)
+-{
+-	uint8_t i;
+-
+-	for (i = 0; i < state->stream_count; i++) {
+-		if (stream == state->streams[i])
+-			return &state->stream_status[i];
+-	}
+-
+-	return NULL;
+-}
+-
+ static void update_freesync_state_on_stream(
+         struct amdgpu_display_manager *dm,
+         struct dm_crtc_state *new_crtc_state,
+@@ -5108,8 +5094,8 @@ static void amdgpu_dm_atomic_commit_tail(struct drm_atomic_state *state)
+ 					dc_stream_get_status(dm_new_crtc_state->stream);
+ 
+ 			if (!status)
+-				status = dc_state_get_stream_status(dc_state,
+-								    dm_new_crtc_state->stream);
++				status = dc_stream_get_status_from_state(dc_state,
++									 dm_new_crtc_state->stream);
+ 
+ 			if (!status)
+ 				DC_ERR("got no status for stream %p on acrtc%p\n", dm_new_crtc_state->stream, acrtc);
+@@ -5872,8 +5858,8 @@ dm_determine_update_type_for_commit(struct dc *dc,
+ 					goto cleanup;
+ 				}
+ 
+-				status = dc_state_get_stream_status(old_dm_state->context,
+-								    new_dm_crtc_state->stream);
++				status = dc_stream_get_status_from_state(old_dm_state->context,
++									 new_dm_crtc_state->stream);
+ 
+ 				update_type = dc_check_update_surfaces_for_stream(dc, updates, num_plane,
+ 										  &stream_update, status);
+diff --git a/drivers/gpu/drm/amd/display/dc/core/dc.c b/drivers/gpu/drm/amd/display/dc/core/dc.c
+index d0971df201c8..1f6db8a147db 100644
+--- a/drivers/gpu/drm/amd/display/dc/core/dc.c
++++ b/drivers/gpu/drm/amd/display/dc/core/dc.c
+@@ -1071,7 +1071,7 @@ static enum dc_status dc_commit_state_no_check(struct dc *dc, struct dc_state *c
+ 			}
+ 		}
+ 
+-		status = dc_stream_get_status(context->streams[i]);
++		status = dc_stream_get_status_from_state(context, context->streams[i]);
+ 		context->streams[i]->out.otg_offset = status->primary_otg_inst;
+ 
+ 		CONN_MSG_MODE(link, "{%dx%d, %dx%d@%dKhz}",
+diff --git a/drivers/gpu/drm/amd/display/dc/core/dc_stream.c b/drivers/gpu/drm/amd/display/dc/core/dc_stream.c
+index e498a9aa8035..996298c35f42 100644
+--- a/drivers/gpu/drm/amd/display/dc/core/dc_stream.c
++++ b/drivers/gpu/drm/amd/display/dc/core/dc_stream.c
+@@ -160,20 +160,42 @@ struct dc_stream_state *dc_create_stream_for_sink(
+ 	return stream;
+ }
+ 
+-struct dc_stream_status *dc_stream_get_status(
++/**
++ * dc_stream_get_status_from_state - Get stream status from given dc state
++ * @state: DC state to find the stream status in
++ * @stream: The stream to get the stream status for
++ *
++ * The given stream is expected to exist in the given dc state. Otherwise, NULL
++ * will be returned.
++ */
++struct dc_stream_status *dc_stream_get_status_from_state(
++	struct dc_state *state,
+ 	struct dc_stream_state *stream)
+ {
+ 	uint8_t i;
+-	struct dc  *dc = stream->ctx->dc;
+ 
+-	for (i = 0; i < dc->current_state->stream_count; i++) {
+-		if (stream == dc->current_state->streams[i])
+-			return &dc->current_state->stream_status[i];
++	for (i = 0; i < state->stream_count; i++) {
++		if (stream == state->streams[i])
++			return &state->stream_status[i];
+ 	}
+ 
+ 	return NULL;
+ }
+ 
++/**
++ * dc_stream_get_status() - Get current stream status of the given stream state
++ * @stream: The stream to get the stream status for.
++ *
++ * The given stream is expected to exist in dc->current_state. Otherwise, NULL
++ * will be returned.
++ */
++struct dc_stream_status *dc_stream_get_status(
++	struct dc_stream_state *stream)
++{
++	struct dc *dc = stream->ctx->dc;
++	return dc_stream_get_status_from_state(dc->current_state, stream);
++}
++
+ /**
+  * dc_stream_set_cursor_attributes() - Update cursor attributes and set cursor surface address
+  */
+diff --git a/drivers/gpu/drm/amd/display/dc/dc_stream.h b/drivers/gpu/drm/amd/display/dc/dc_stream.h
+index 1e1e89e7c2c5..bfb741b980fb 100644
+--- a/drivers/gpu/drm/amd/display/dc/dc_stream.h
++++ b/drivers/gpu/drm/amd/display/dc/dc_stream.h
+@@ -278,6 +278,9 @@ void update_stream_signal(struct dc_stream_state *stream, struct dc_sink *sink);
+ void dc_stream_retain(struct dc_stream_state *dc_stream);
+ void dc_stream_release(struct dc_stream_state *dc_stream);
+ 
++struct dc_stream_status *dc_stream_get_status_from_state(
++	struct dc_state *state,
++	struct dc_stream_state *stream);
+ struct dc_stream_status *dc_stream_get_status(
+ 	struct dc_stream_state *dc_stream);
+ 
+-- 
+2.17.1
+

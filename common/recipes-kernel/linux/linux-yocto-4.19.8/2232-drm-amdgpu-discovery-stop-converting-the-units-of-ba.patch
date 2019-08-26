@@ -1,0 +1,37 @@
+From f44a93ad8b4777e064b22365c290b99101ff7ba6 Mon Sep 17 00:00:00 2001
+From: Xiaojie Yuan <xiaojie.yuan@amd.com>
+Date: Wed, 27 Mar 2019 20:27:20 +0800
+Subject: [PATCH 2232/2940] drm/amdgpu/discovery: stop converting the units of
+ base addresses
+
+the unit is already in dword
+
+Signed-off-by: Xiaojie Yuan <xiaojie.yuan@amd.com>
+Reviewed-by: Hawking Zhang <Hawking.Zhang@amd.com>
+Signed-off-by: Alex Deucher <alexander.deucher@amd.com>
+---
+ drivers/gpu/drm/amd/amdgpu/amdgpu_discovery.c | 6 +++---
+ 1 file changed, 3 insertions(+), 3 deletions(-)
+
+diff --git a/drivers/gpu/drm/amd/amdgpu/amdgpu_discovery.c b/drivers/gpu/drm/amd/amdgpu/amdgpu_discovery.c
+index 5f967ae8d4ed..697800c4741f 100644
+--- a/drivers/gpu/drm/amd/amdgpu/amdgpu_discovery.c
++++ b/drivers/gpu/drm/amd/amdgpu/amdgpu_discovery.c
+@@ -300,11 +300,11 @@ int amdgpu_discovery_reg_base_init(struct amdgpu_device *adev)
+ 
+ 					for (k = 0; k < num_base_address; k++) {
+ 						/*
+-						 * convert the endianness and unit (in dword) of base addresses in place,
++						 * convert the endianness of base addresses in place,
+ 						 * so that we don't need to convert them when accessing adev->reg_offset.
+ 						 */
+-						ip->base_address[k] = le32_to_cpu(ip->base_address[k]) >> 2;
+-						DRM_DEBUG("\t0x%08x\n", ip->base_address[k] << 2);
++						ip->base_address[k] = le32_to_cpu(ip->base_address[k]);
++						DRM_DEBUG("\t0x%08x\n", ip->base_address[k]);
+ 					}
+ 
+ 					adev->reg_offset[hw_ip][ip->number_instance] =
+-- 
+2.17.1
+

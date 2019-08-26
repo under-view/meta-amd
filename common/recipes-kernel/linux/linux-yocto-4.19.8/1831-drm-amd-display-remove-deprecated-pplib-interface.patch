@@ -1,0 +1,166 @@
+From 1fc1b37b6684602b87bc7c09dceb5696b9b52fcb Mon Sep 17 00:00:00 2001
+From: Eric Yang <Eric.Yang2@amd.com>
+Date: Wed, 10 Apr 2019 14:08:53 -0400
+Subject: [PATCH 1831/2940] drm/amd/display: remove deprecated pplib interface
+
+[Why]
+The new interface now replaces the old interface for all known
+configurations.
+
+Signed-off-by: Eric Yang <Eric.Yang2@amd.com>
+Reviewed-by: Tony Cheng <Tony.Cheng@amd.com>
+Acked-by: Leo Li <sunpeng.li@amd.com>
+Signed-off-by: Chaudhary Amit Kumar <Chaudharyamit.Kumar@amd.com>
+---
+ .../drm/amd/display/dc/dcn10/dcn10_clk_mgr.c  | 28 +++++--------------
+ drivers/gpu/drm/amd/display/dc/dm_pp_smu.h    | 23 ---------------
+ .../gpu/drm/amd/display/dc/inc/core_types.h   |  1 -
+ 3 files changed, 7 insertions(+), 45 deletions(-)
+
+diff --git a/drivers/gpu/drm/amd/display/dc/dcn10/dcn10_clk_mgr.c b/drivers/gpu/drm/amd/display/dc/dcn10/dcn10_clk_mgr.c
+index 6ef480df84ce..c3853a644514 100644
+--- a/drivers/gpu/drm/amd/display/dc/dcn10/dcn10_clk_mgr.c
++++ b/drivers/gpu/drm/amd/display/dc/dcn10/dcn10_clk_mgr.c
+@@ -151,9 +151,6 @@ static void dcn1_update_clocks(struct clk_mgr *clk_mgr,
+ 	struct dc *dc = clk_mgr->ctx->dc;
+ 	struct dc_debug_options *debug = &dc->debug;
+ 	struct dc_clocks *new_clocks = &context->bw_ctx.bw.dcn.clk;
+-	struct pp_smu_display_requirement_rv *smu_req_cur =
+-			&dc->res_pool->pp_smu_req;
+-	struct pp_smu_display_requirement_rv smu_req = *smu_req_cur;
+ 	struct pp_smu_funcs_rv *pp_smu = NULL;
+ 	bool send_request_to_increase = false;
+ 	bool send_request_to_lower = false;
+@@ -175,9 +172,6 @@ static void dcn1_update_clocks(struct clk_mgr *clk_mgr,
+ 		 */
+ 		if (pp_smu && pp_smu->set_display_count)
+ 			pp_smu->set_display_count(&pp_smu->pp_smu, display_count);
+-
+-		smu_req.display_count = display_count;
+-
+ 	}
+ 
+ 	if (new_clocks->dispclk_khz > clk_mgr->clks.dispclk_khz
+@@ -188,7 +182,6 @@ static void dcn1_update_clocks(struct clk_mgr *clk_mgr,
+ 
+ 	if (should_set_clock(safe_to_lower, new_clocks->phyclk_khz, clk_mgr->clks.phyclk_khz)) {
+ 		clk_mgr->clks.phyclk_khz = new_clocks->phyclk_khz;
+-
+ 		send_request_to_lower = true;
+ 	}
+ 
+@@ -198,14 +191,13 @@ static void dcn1_update_clocks(struct clk_mgr *clk_mgr,
+ 
+ 	if (should_set_clock(safe_to_lower, new_clocks->fclk_khz, clk_mgr->clks.fclk_khz)) {
+ 		clk_mgr->clks.fclk_khz = new_clocks->fclk_khz;
+-		smu_req.hard_min_fclk_mhz = new_clocks->fclk_khz / 1000;	
++
+ 		send_request_to_lower = true;
+ 	}
+ 
+ 	//DCF Clock
+ 	if (should_set_clock(safe_to_lower, new_clocks->dcfclk_khz, clk_mgr->clks.dcfclk_khz)) {
+ 		clk_mgr->clks.dcfclk_khz = new_clocks->dcfclk_khz;
+-		smu_req.hard_min_dcefclk_mhz = new_clocks->dcfclk_khz / 1000;
+ 
+ 		send_request_to_lower = true;
+ 	}
+@@ -213,7 +205,6 @@ static void dcn1_update_clocks(struct clk_mgr *clk_mgr,
+ 	if (should_set_clock(safe_to_lower,
+ 			new_clocks->dcfclk_deep_sleep_khz, clk_mgr->clks.dcfclk_deep_sleep_khz)) {
+ 		clk_mgr->clks.dcfclk_deep_sleep_khz = new_clocks->dcfclk_deep_sleep_khz;
+-		smu_req.min_deep_sleep_dcefclk_mhz = (new_clocks->dcfclk_deep_sleep_khz + 999) / 1000;
+ 
+ 		send_request_to_lower = true;
+ 	}
+@@ -226,10 +217,10 @@ static void dcn1_update_clocks(struct clk_mgr *clk_mgr,
+ 		if (pp_smu && pp_smu->set_hard_min_fclk_by_freq &&
+                                 pp_smu->set_hard_min_dcfclk_by_freq &&
+                                 pp_smu->set_min_deep_sleep_dcfclk) {
++                        pp_smu->set_hard_min_fclk_by_freq(&pp_smu->pp_smu, new_clocks->fclk_khz / 1000);
++                        pp_smu->set_hard_min_dcfclk_by_freq(&pp_smu->pp_smu, new_clocks->dcfclk_khz / 1000);
++                        pp_smu->set_min_deep_sleep_dcfclk(&pp_smu->pp_smu, (new_clocks->dcfclk_deep_sleep_khz + 999) / 1000);
+ 
+-                        pp_smu->set_hard_min_fclk_by_freq(&pp_smu->pp_smu, smu_req.hard_min_fclk_mhz);
+-                        pp_smu->set_hard_min_dcfclk_by_freq(&pp_smu->pp_smu, smu_req.hard_min_dcefclk_mhz);
+-                        pp_smu->set_min_deep_sleep_dcfclk(&pp_smu->pp_smu, smu_req.min_deep_sleep_dcefclk_mhz);
+                 }
+ 	}
+ 
+@@ -239,7 +230,6 @@ static void dcn1_update_clocks(struct clk_mgr *clk_mgr,
+ 			|| new_clocks->dispclk_khz == clk_mgr->clks.dispclk_khz) {
+ 		dcn1_ramp_up_dispclk_with_dpp(clk_mgr, new_clocks);
+ 		clk_mgr->clks.dispclk_khz = new_clocks->dispclk_khz;
+-
+ 		send_request_to_lower = true;
+ 	}
+ 
+@@ -248,16 +238,12 @@ static void dcn1_update_clocks(struct clk_mgr *clk_mgr,
+ 		if (pp_smu && pp_smu->set_hard_min_fclk_by_freq &&
+                                 pp_smu->set_hard_min_dcfclk_by_freq &&
+                                 pp_smu->set_min_deep_sleep_dcfclk) {
+-
+-                        pp_smu->set_hard_min_fclk_by_freq(&pp_smu->pp_smu, smu_req.hard_min_fclk_mhz);
+-                        pp_smu->set_hard_min_dcfclk_by_freq(&pp_smu->pp_smu, smu_req.hard_min_dcefclk_mhz);
+-                        pp_smu->set_min_deep_sleep_dcfclk(&pp_smu->pp_smu, smu_req.min_deep_sleep_dcefclk_mhz);
++                        pp_smu->set_hard_min_fclk_by_freq(&pp_smu->pp_smu, new_clocks->fclk_khz / 1000);
++                        pp_smu->set_hard_min_dcfclk_by_freq(&pp_smu->pp_smu, new_clocks->dcfclk_khz / 1000);
++                        pp_smu->set_min_deep_sleep_dcfclk(&pp_smu->pp_smu, (new_clocks->dcfclk_deep_sleep_khz + 999) / 1000);
+                 }
+ 
+ 	}
+-
+-
+-	*smu_req_cur = smu_req;
+ }
+ static const struct clk_mgr_funcs dcn1_funcs = {
+ 	.get_dp_ref_clk_frequency = dce12_get_dp_ref_freq_khz,
+diff --git a/drivers/gpu/drm/amd/display/dc/dm_pp_smu.h b/drivers/gpu/drm/amd/display/dc/dm_pp_smu.h
+index b9bb8ef06cd8..ef8876843a11 100644
+--- a/drivers/gpu/drm/amd/display/dc/dm_pp_smu.h
++++ b/drivers/gpu/drm/amd/display/dc/dm_pp_smu.h
+@@ -74,29 +74,6 @@ struct pp_smu_wm_range_sets {
+ 	struct pp_smu_wm_set_range writer_wm_sets[MAX_WATERMARK_SETS];
+ };
+ 
+-struct pp_smu_display_requirement_rv {
+-	/* PPSMC_MSG_SetDisplayCount: count
+-	 *  0 triggers S0i2 optimization
+-	 */
+-	unsigned int display_count;
+-
+-	/* PPSMC_MSG_SetHardMinFclkByFreq: mhz
+-	 *  FCLK will vary with DPM, but never below requested hard min
+-	 */
+-	unsigned int hard_min_fclk_mhz;
+-
+-	/* PPSMC_MSG_SetHardMinDcefclkByFreq: mhz
+-	 *  fixed clock at requested freq, either from FCH bypass or DFS
+-	 */
+-	unsigned int hard_min_dcefclk_mhz;
+-
+-	/* PPSMC_MSG_SetMinDeepSleepDcefclk: mhz
+-	 *  when DF is in cstate, dcf clock is further divided down
+-	 *  to just above given frequency
+-	 */
+-	unsigned int min_deep_sleep_dcefclk_mhz;
+-};
+-
+ struct pp_smu_funcs_rv {
+ 	struct pp_smu pp_smu;
+ 
+diff --git a/drivers/gpu/drm/amd/display/dc/inc/core_types.h b/drivers/gpu/drm/amd/display/dc/inc/core_types.h
+index 51e29a0f111d..8cbd3b57f7a2 100644
+--- a/drivers/gpu/drm/amd/display/dc/inc/core_types.h
++++ b/drivers/gpu/drm/amd/display/dc/inc/core_types.h
+@@ -145,7 +145,6 @@ struct resource_pool {
+ 	struct hubbub *hubbub;
+ 	struct mpc *mpc;
+ 	struct pp_smu_funcs *pp_smu;
+-	struct pp_smu_display_requirement_rv pp_smu_req;
+ 	struct dce_aux *engines[MAX_PIPES];
+ 	struct dce_i2c_hw *hw_i2cs[MAX_PIPES];
+ 	struct dce_i2c_sw *sw_i2cs[MAX_PIPES];
+-- 
+2.17.1
+

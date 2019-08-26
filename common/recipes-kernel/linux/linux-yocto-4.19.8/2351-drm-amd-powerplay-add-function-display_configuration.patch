@@ -1,0 +1,115 @@
+From 3ac00422d76d5dc2c382a7e9177fd3e9e80318b8 Mon Sep 17 00:00:00 2001
+From: Kevin Wang <kevin1.wang@amd.com>
+Date: Tue, 23 Apr 2019 14:16:52 +0800
+Subject: [PATCH 2351/2940] drm/amd/powerplay: add function
+ display_configuration_changed for navi10
+
+1.add callback function to support navi10 asic.
+2.Remove unnecessary logical code.
+
+Signed-off-by: Kevin Wang <kevin1.wang@amd.com>
+Reviewed-by: Huang Rui <ray.huang@amd.com>
+Signed-off-by: Alex Deucher <alexander.deucher@amd.com>
+---
+ drivers/gpu/drm/amd/powerplay/navi10_ppt.c | 25 ++++++++++++++++++++++
+ drivers/gpu/drm/amd/powerplay/smu_v11_0.c  | 16 ++++++++++++--
+ drivers/gpu/drm/amd/powerplay/vega20_ppt.c | 10 +--------
+ 3 files changed, 40 insertions(+), 11 deletions(-)
+
+diff --git a/drivers/gpu/drm/amd/powerplay/navi10_ppt.c b/drivers/gpu/drm/amd/powerplay/navi10_ppt.c
+index 569f788ce2f6..7e7e0a604aef 100644
+--- a/drivers/gpu/drm/amd/powerplay/navi10_ppt.c
++++ b/drivers/gpu/drm/amd/powerplay/navi10_ppt.c
+@@ -671,6 +671,30 @@ static int navi10_pre_display_config_changed(struct smu_context *smu)
+ 	return ret;
+ }
+ 
++static int navi10_display_config_changed(struct smu_context *smu)
++{
++	int ret = 0;
++
++	if ((smu->watermarks_bitmap & WATERMARKS_EXIST) &&
++	    !(smu->watermarks_bitmap & WATERMARKS_LOADED)) {
++		ret = smu_write_watermarks_table(smu);
++		if (ret)
++			return ret;
++
++		smu->watermarks_bitmap |= WATERMARKS_LOADED;
++	}
++
++	if ((smu->watermarks_bitmap & WATERMARKS_EXIST) &&
++	    smu_feature_is_supported(smu, SMU_FEATURE_DPM_DCEFCLK_BIT) &&
++	    smu_feature_is_supported(smu, SMU_FEATURE_DPM_SOCCLK_BIT)) {
++		ret = smu_send_smc_msg_with_param(smu, SMU_MSG_NumOfDisplays,
++						  smu->display_config->num_display);
++		if (ret)
++			return ret;
++	}
++
++	return ret;
++}
+ static const struct pptable_funcs navi10_ppt_funcs = {
+ 	.tables_init = navi10_tables_init,
+ 	.alloc_dpm_context = navi10_allocate_dpm_context,
+@@ -691,6 +715,7 @@ static const struct pptable_funcs navi10_ppt_funcs = {
+ 	.populate_umd_state_clk = navi10_populate_umd_state_clk,
+ 	.get_clock_by_type_with_latency = navi10_get_clock_by_type_with_latency,
+ 	.pre_display_config_changed = navi10_pre_display_config_changed,
++	.display_config_changed = navi10_display_config_changed,
+ };
+ 
+ void navi10_set_ppt_funcs(struct smu_context *smu)
+diff --git a/drivers/gpu/drm/amd/powerplay/smu_v11_0.c b/drivers/gpu/drm/amd/powerplay/smu_v11_0.c
+index fc5df68df694..957fb63b8d5e 100644
+--- a/drivers/gpu/drm/amd/powerplay/smu_v11_0.c
++++ b/drivers/gpu/drm/amd/powerplay/smu_v11_0.c
+@@ -714,9 +714,21 @@ static int smu_v11_0_write_pptable(struct smu_context *smu)
+ 
+ static int smu_v11_0_write_watermarks_table(struct smu_context *smu)
+ {
+-	return smu_update_table(smu, SMU_TABLE_WATERMARKS,
+-				smu->smu_table.tables[SMU_TABLE_WATERMARKS].cpu_addr,
++	int ret = 0;
++	struct smu_table_context *smu_table = &smu->smu_table;
++	struct smu_table *table = NULL;
++
++	table = &smu_table->tables[SMU_TABLE_WATERMARKS];
++	if (!table)
++		return -EINVAL;
++
++	if (!table->cpu_addr)
++		return -EINVAL;
++
++	ret = smu_update_table(smu, SMU_TABLE_WATERMARKS, table->cpu_addr,
+ 				true);
++
++	return ret;
+ }
+ 
+ static int smu_v11_0_set_deep_sleep_dcefclk(struct smu_context *smu, uint32_t clk)
+diff --git a/drivers/gpu/drm/amd/powerplay/vega20_ppt.c b/drivers/gpu/drm/amd/powerplay/vega20_ppt.c
+index 1f0f4d85fe23..55d1649d6111 100644
+--- a/drivers/gpu/drm/amd/powerplay/vega20_ppt.c
++++ b/drivers/gpu/drm/amd/powerplay/vega20_ppt.c
+@@ -1992,17 +1992,9 @@ static int vega20_display_config_changed(struct smu_context *smu)
+ {
+ 	int ret = 0;
+ 
+-	if (!smu->funcs)
+-		return -EINVAL;
+-
+-	if (!smu->smu_dpm.dpm_context ||
+-	    !smu->smu_table.tables ||
+-	    !smu->smu_table.tables[TABLE_WATERMARKS].cpu_addr)
+-		return -EINVAL;
+-
+ 	if ((smu->watermarks_bitmap & WATERMARKS_EXIST) &&
+ 	    !(smu->watermarks_bitmap & WATERMARKS_LOADED)) {
+-		ret = smu->funcs->write_watermarks_table(smu);
++		ret = smu_write_watermarks_table(smu);
+ 		if (ret) {
+ 			pr_err("Failed to update WMTABLE!");
+ 			return ret;
+-- 
+2.17.1
+

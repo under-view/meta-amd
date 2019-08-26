@@ -1,0 +1,35 @@
+From 3593efc2664e97250a146751f0ee4c694d4ed28b Mon Sep 17 00:00:00 2001
+From: Kevin Wang <kevin1.wang@amd.com>
+Date: Fri, 12 Jul 2019 14:42:12 +0800
+Subject: [PATCH 2866/2940] drm/amd/powerplay: add standard profile dpm support
+ for smu
+
+1. the standard dpm is not support before.
+2. use auto profile to adapt standard profile.
+
+Change-Id: I22edb463196a53d9b22c1d8747bc193f818afbc7
+Signed-off-by: Kevin Wang <kevin1.wang@amd.com>
+Reviewed-by: Evan Quan <evan.quan@amd.com>
+---
+ drivers/gpu/drm/amd/powerplay/amdgpu_smu.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/drivers/gpu/drm/amd/powerplay/amdgpu_smu.c b/drivers/gpu/drm/amd/powerplay/amdgpu_smu.c
+index 5b64eea4303a..f597ee9baf61 100644
+--- a/drivers/gpu/drm/amd/powerplay/amdgpu_smu.c
++++ b/drivers/gpu/drm/amd/powerplay/amdgpu_smu.c
+@@ -1379,10 +1379,10 @@ int smu_adjust_power_state_dynamic(struct smu_context *smu,
+ 			break;
+ 
+ 		case AMD_DPM_FORCED_LEVEL_AUTO:
++		case AMD_DPM_FORCED_LEVEL_PROFILE_STANDARD:
+ 			ret = smu_unforce_dpm_levels(smu);
+ 			break;
+ 
+-		case AMD_DPM_FORCED_LEVEL_PROFILE_STANDARD:
+ 		case AMD_DPM_FORCED_LEVEL_PROFILE_MIN_SCLK:
+ 		case AMD_DPM_FORCED_LEVEL_PROFILE_MIN_MCLK:
+ 		case AMD_DPM_FORCED_LEVEL_PROFILE_PEAK:
+-- 
+2.17.1
+

@@ -1,0 +1,110 @@
+From 94cf85c65a2797020b584cb74232cb9547d31d95 Mon Sep 17 00:00:00 2001
+From: Emily Deng <Emily.Deng@amd.com>
+Date: Fri, 4 Jan 2019 10:24:02 +0800
+Subject: [PATCH 1043/2940] drm/amdgpu/sriov: For finishing routine send rel
+ event after init failed
+
+When init fail, send rel init, req_fini and rel_fini to host for the
+finishing routine.
+
+Signed-off-by: Emily Deng <Emily.Deng@amd.com>
+Reviewed-by: Alex Deucher <alexander.deucher@amd.com>
+Signed-off-by: Alex Deucher <alexander.deucher@amd.com>
+---
+ drivers/gpu/drm/amd/amdgpu/amdgpu_device.c | 26 +++++++++++++---------
+ 1 file changed, 15 insertions(+), 11 deletions(-)
+
+diff --git a/drivers/gpu/drm/amd/amdgpu/amdgpu_device.c b/drivers/gpu/drm/amd/amdgpu/amdgpu_device.c
+index ee6b19c8b42a..1dbd85ee4492 100644
+--- a/drivers/gpu/drm/amd/amdgpu/amdgpu_device.c
++++ b/drivers/gpu/drm/amd/amdgpu/amdgpu_device.c
+@@ -1693,7 +1693,7 @@ static int amdgpu_device_ip_init(struct amdgpu_device *adev)
+ 		if (r) {
+ 			DRM_ERROR("sw_init of IP block <%s> failed %d\n",
+ 				  adev->ip_blocks[i].version->funcs->name, r);
+-			return r;
++			goto init_failed;
+ 		}
+ 		adev->ip_blocks[i].status.sw = true;
+ 
+@@ -1702,17 +1702,17 @@ static int amdgpu_device_ip_init(struct amdgpu_device *adev)
+ 			r = amdgpu_device_vram_scratch_init(adev);
+ 			if (r) {
+ 				DRM_ERROR("amdgpu_vram_scratch_init failed %d\n", r);
+-				return r;
++				goto init_failed;
+ 			}
+ 			r = adev->ip_blocks[i].version->funcs->hw_init((void *)adev);
+ 			if (r) {
+ 				DRM_ERROR("hw_init %d failed %d\n", i, r);
+-				return r;
++				goto init_failed;
+ 			}
+ 			r = amdgpu_device_wb_init(adev);
+ 			if (r) {
+ 				DRM_ERROR("amdgpu_device_wb_init failed %d\n", r);
+-				return r;
++				goto init_failed;
+ 			}
+ 			adev->ip_blocks[i].status.hw = true;
+ 
+@@ -1723,7 +1723,7 @@ static int amdgpu_device_ip_init(struct amdgpu_device *adev)
+ 								AMDGPU_CSA_SIZE);
+ 				if (r) {
+ 					DRM_ERROR("allocate CSA failed %d\n", r);
+-					return r;
++					goto init_failed;
+ 				}
+ 			}
+ 		}
+@@ -1731,30 +1731,32 @@ static int amdgpu_device_ip_init(struct amdgpu_device *adev)
+ 
+ 	r = amdgpu_ucode_create_bo(adev); /* create ucode bo when sw_init complete*/
+ 	if (r)
+-		return r;
++		goto init_failed;
+ 
+ 	r = amdgpu_device_ip_hw_init_phase1(adev);
+ 	if (r)
+-		return r;
++		goto init_failed;
+ 
+ 	r = amdgpu_device_fw_loading(adev);
+ 	if (r)
+-		return r;
++		goto init_failed;
+ 
+ 	r = amdgpu_device_ip_hw_init_phase2(adev);
+ 	if (r)
+-		return r;
++		goto init_failed;
+ 
+ 	if (adev->gmc.xgmi.num_physical_nodes > 1)
+ 		amdgpu_xgmi_add_device(adev);
+ 	amdgpu_amdkfd_device_init(adev);
+ 
++init_failed:
+ 	if (amdgpu_sriov_vf(adev)) {
+-		amdgpu_virt_init_data_exchange(adev);
++		if (!r)
++			amdgpu_virt_init_data_exchange(adev);
+ 		amdgpu_virt_release_full_gpu(adev, true);
+ 	}
+ 
+-	return 0;
++	return r;
+ }
+ 
+ /**
+@@ -2661,6 +2663,8 @@ int amdgpu_device_init(struct amdgpu_device *adev,
+ 		}
+ 		dev_err(adev->dev, "amdgpu_device_ip_init failed\n");
+ 		amdgpu_vf_error_put(adev, AMDGIM_ERROR_VF_AMDGPU_INIT_FAIL, 0, 0);
++		if (amdgpu_virt_request_full_gpu(adev, false))
++			amdgpu_virt_release_full_gpu(adev, false);
+ 		goto failed;
+ 	}
+ 
+-- 
+2.17.1
+

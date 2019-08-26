@@ -1,0 +1,42 @@
+From b4c5be81b1e5fa4ed6ae8b59d53940465859aeb9 Mon Sep 17 00:00:00 2001
+From: Sudheesh Mavila <sudheesh.mavila@amd.com>
+Date: Mon, 4 Feb 2019 11:49:01 +0530
+Subject: [PATCH 0613/2940] Revert "net: ethernet: xgbe: expand
+ PHY_GBIT_FEAUTRES"
+
+This reverts commit d525237a6994a1bc8fded940b39273fc3b7b616e.
+---
+ drivers/net/ethernet/amd/xgbe/xgbe-phy-v2.c | 10 ++++------
+ 1 file changed, 4 insertions(+), 6 deletions(-)
+
+diff --git a/drivers/net/ethernet/amd/xgbe/xgbe-phy-v2.c b/drivers/net/ethernet/amd/xgbe/xgbe-phy-v2.c
+index 151bdb629e8a..a7e03e3ecc93 100644
+--- a/drivers/net/ethernet/amd/xgbe/xgbe-phy-v2.c
++++ b/drivers/net/ethernet/amd/xgbe/xgbe-phy-v2.c
+@@ -878,9 +878,8 @@ static bool xgbe_phy_finisar_phy_quirks(struct xgbe_prv_data *pdata)
+ 	phy_write(phy_data->phydev, 0x04, 0x0d01);
+ 	phy_write(phy_data->phydev, 0x00, 0x9140);
+ 
+-	phy_data->phydev->supported = PHY_10BT_FEATURES |
+-				      PHY_100BT_FEATURES |
+-				      PHY_1000BT_FEATURES;
++	phy_data->phydev->supported = PHY_GBIT_FEATURES;
++	phy_data->phydev->advertising = phy_data->phydev->supported;
+ 	phy_support_asym_pause(phy_data->phydev);
+ 
+ 	netif_dbg(pdata, drv, pdata->netdev,
+@@ -951,9 +950,8 @@ static bool xgbe_phy_belfuse_phy_quirks(struct xgbe_prv_data *pdata)
+ 	reg = phy_read(phy_data->phydev, 0x00);
+ 	phy_write(phy_data->phydev, 0x00, reg & ~0x00800);
+ 
+-	phy_data->phydev->supported = (PHY_10BT_FEATURES |
+-				       PHY_100BT_FEATURES |
+-				       PHY_1000BT_FEATURES);
++	phy_data->phydev->supported = PHY_GBIT_FEATURES;
++	phy_data->phydev->advertising = phy_data->phydev->supported;
+ 	phy_support_asym_pause(phy_data->phydev);
+ 
+ 	netif_dbg(pdata, drv, pdata->netdev,
+-- 
+2.17.1
+

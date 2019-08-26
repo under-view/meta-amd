@@ -1,0 +1,83 @@
+From 6dd6008d611d29309ff586be9404d0d3c46bca35 Mon Sep 17 00:00:00 2001
+From: Hawking Zhang <Hawking.Zhang@amd.com>
+Date: Thu, 11 Jul 2019 22:02:02 +0800
+Subject: [PATCH 2854/2940] drm/amdgpu: switch to macro for psp bootloader
+ command
+
+The command will be sent to psp bootloader from driver
+to ask psp bootloader to exerise tOS, sys_drv and kdb loading
+
+Change-Id: I539dbf14650d96fb6c863ecb990100cc476940fa
+Signed-off-by: Hawking Zhang <Hawking.Zhang@amd.com>
+Reviewed-by: Alex Deucher <alexander.deucher@amd.com>
+Reviewed-by: Xiaojie Yuan <xiaojie.yuan@amd.com>
+---
+ drivers/gpu/drm/amd/amdgpu/amdgpu_psp.h | 6 ++++++
+ drivers/gpu/drm/amd/amdgpu/psp_v11_0.c  | 4 ++--
+ drivers/gpu/drm/amd/amdgpu/psp_v3_1.c   | 4 ++--
+ 3 files changed, 10 insertions(+), 4 deletions(-)
+
+diff --git a/drivers/gpu/drm/amd/amdgpu/amdgpu_psp.h b/drivers/gpu/drm/amd/amdgpu/amdgpu_psp.h
+index e28cf5e4016e..6dcad432de1b 100644
+--- a/drivers/gpu/drm/amd/amdgpu/amdgpu_psp.h
++++ b/drivers/gpu/drm/amd/amdgpu/amdgpu_psp.h
+@@ -42,6 +42,12 @@ struct psp_context;
+ struct psp_xgmi_node_info;
+ struct psp_xgmi_topology_info;
+ 
++enum psp_bootloader_cmd {
++	PSP_BL__LOAD_SYSDRV		= 0x10000,
++	PSP_BL__LOAD_SOSDRV		= 0x20000,
++	PSP_BL__LOAD_KEY_DATABASE	= 0x80000,
++};
++
+ enum psp_ring_type
+ {
+ 	PSP_RING_TYPE__INVALID = 0,
+diff --git a/drivers/gpu/drm/amd/amdgpu/psp_v11_0.c b/drivers/gpu/drm/amd/amdgpu/psp_v11_0.c
+index f32abfa579ac..4496b2e56627 100644
+--- a/drivers/gpu/drm/amd/amdgpu/psp_v11_0.c
++++ b/drivers/gpu/drm/amd/amdgpu/psp_v11_0.c
+@@ -222,7 +222,7 @@ static int psp_v11_0_bootloader_load_sysdrv(struct psp_context *psp)
+ 	/* Provide the sys driver to bootloader */
+ 	WREG32_SOC15(MP0, 0, mmMP0_SMN_C2PMSG_36,
+ 	       (uint32_t)(psp->fw_pri_mc_addr >> 20));
+-	psp_gfxdrv_command_reg = 1 << 16;
++	psp_gfxdrv_command_reg = PSP_BL__LOAD_SYSDRV;
+ 	WREG32_SOC15(MP0, 0, mmMP0_SMN_C2PMSG_35,
+ 	       psp_gfxdrv_command_reg);
+ 
+@@ -263,7 +263,7 @@ static int psp_v11_0_bootloader_load_sos(struct psp_context *psp)
+ 	/* Provide the PSP secure OS to bootloader */
+ 	WREG32_SOC15(MP0, 0, mmMP0_SMN_C2PMSG_36,
+ 	       (uint32_t)(psp->fw_pri_mc_addr >> 20));
+-	psp_gfxdrv_command_reg = 2 << 16;
++	psp_gfxdrv_command_reg = PSP_BL__LOAD_SOSDRV;
+ 	WREG32_SOC15(MP0, 0, mmMP0_SMN_C2PMSG_35,
+ 	       psp_gfxdrv_command_reg);
+ 
+diff --git a/drivers/gpu/drm/amd/amdgpu/psp_v3_1.c b/drivers/gpu/drm/amd/amdgpu/psp_v3_1.c
+index 3f5827764df0..ec3a05602f11 100644
+--- a/drivers/gpu/drm/amd/amdgpu/psp_v3_1.c
++++ b/drivers/gpu/drm/amd/amdgpu/psp_v3_1.c
+@@ -153,7 +153,7 @@ static int psp_v3_1_bootloader_load_sysdrv(struct psp_context *psp)
+ 	/* Provide the sys driver to bootloader */
+ 	WREG32_SOC15(MP0, 0, mmMP0_SMN_C2PMSG_36,
+ 	       (uint32_t)(psp->fw_pri_mc_addr >> 20));
+-	psp_gfxdrv_command_reg = 1 << 16;
++	psp_gfxdrv_command_reg = PSP_BL__LOAD_SYSDRV;
+ 	WREG32_SOC15(MP0, 0, mmMP0_SMN_C2PMSG_35,
+ 	       psp_gfxdrv_command_reg);
+ 
+@@ -216,7 +216,7 @@ static int psp_v3_1_bootloader_load_sos(struct psp_context *psp)
+ 	/* Provide the PSP secure OS to bootloader */
+ 	WREG32_SOC15(MP0, 0, mmMP0_SMN_C2PMSG_36,
+ 	       (uint32_t)(psp->fw_pri_mc_addr >> 20));
+-	psp_gfxdrv_command_reg = 2 << 16;
++	psp_gfxdrv_command_reg = PSP_BL__LOAD_SOSDRV;
+ 	WREG32_SOC15(MP0, 0, mmMP0_SMN_C2PMSG_35,
+ 	       psp_gfxdrv_command_reg);
+ 
+-- 
+2.17.1
+

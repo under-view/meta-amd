@@ -1,0 +1,113 @@
+From 1e59adfa50f0c87f048e2db6560c70c291d7573b Mon Sep 17 00:00:00 2001
+From: Yongqiang Sun <yongqiang.sun@amd.com>
+Date: Fri, 15 Feb 2019 17:05:43 -0500
+Subject: [PATCH 1587/2940] drm/amd/display: Combine field toggle macro and
+ sequence write macro.
+
+[Why]
+field toggle write is actual field sequence write with the same
+field name.
+
+[How]
+Use REG_UPDATE_SEQ_2 for both sequence write and toggle.
+Rename REG_UPDATE_1by1_3 to REG_UPDATE_SEQ_3.
+
+Signed-off-by: Yongqiang Sun <yongqiang.sun@amd.com>
+Reviewed-by: Tony Cheng <Tony.Cheng@amd.com>
+Acked-by: Leo Li <sunpeng.li@amd.com>
+---
+ drivers/gpu/drm/amd/display/dc/dce/dce_aux.c  | 22 +++++++++----------
+ .../drm/amd/display/dc/dcn10/dcn10_hubbub.c   |  5 +++--
+ .../gpu/drm/amd/display/dc/inc/reg_helper.h   |  9 ++------
+ 3 files changed, 16 insertions(+), 20 deletions(-)
+
+diff --git a/drivers/gpu/drm/amd/display/dc/dce/dce_aux.c b/drivers/gpu/drm/amd/display/dc/dce/dce_aux.c
+index 65b290d80143..c9b881ddd6b6 100644
+--- a/drivers/gpu/drm/amd/display/dc/dce/dce_aux.c
++++ b/drivers/gpu/drm/amd/display/dc/dce/dce_aux.c
+@@ -171,24 +171,24 @@ static void submit_channel_request(
+ 		 (request->action == I2CAUX_TRANSACTION_ACTION_I2C_WRITE_MOT)));
+ 	if (REG(AUXN_IMPCAL)) {
+ 		/* clear_aux_error */
+-		REG_UPDATE_SEQ(AUXN_IMPCAL, AUXN_CALOUT_ERROR_AK,
+-				1,
+-				0);
++		REG_UPDATE_SEQ_2(AUXN_IMPCAL,
++				AUXN_CALOUT_ERROR_AK, 1,
++				AUXN_CALOUT_ERROR_AK, 0);
+ 
+-		REG_UPDATE_SEQ(AUXP_IMPCAL, AUXP_CALOUT_ERROR_AK,
+-				1,
+-				0);
++		REG_UPDATE_SEQ_2(AUXP_IMPCAL,
++				AUXP_CALOUT_ERROR_AK, 1,
++				AUXP_CALOUT_ERROR_AK, 0);
+ 
+ 		/* force_default_calibrate */
+-		REG_UPDATE_1BY1_2(AUXN_IMPCAL,
++		REG_UPDATE_SEQ_2(AUXN_IMPCAL,
+ 				AUXN_IMPCAL_ENABLE, 1,
+ 				AUXN_IMPCAL_OVERRIDE_ENABLE, 0);
+ 
+ 		/* bug? why AUXN update EN and OVERRIDE_EN 1 by 1 while AUX P toggles OVERRIDE? */
+ 
+-		REG_UPDATE_SEQ(AUXP_IMPCAL, AUXP_IMPCAL_OVERRIDE_ENABLE,
+-				1,
+-				0);
++		REG_UPDATE_SEQ_2(AUXP_IMPCAL,
++				AUXP_IMPCAL_OVERRIDE_ENABLE, 1,
++				AUXP_IMPCAL_OVERRIDE_ENABLE, 0);
+ 	}
+ 	/* set the delay and the number of bytes to write */
+ 
+@@ -267,7 +267,7 @@ static int read_channel_reply(struct dce_aux *engine, uint32_t size,
+ 	if (!bytes_replied)
+ 		return -1;
+ 
+-	REG_UPDATE_1BY1_3(AUX_SW_DATA,
++	REG_UPDATE_SEQ_3(AUX_SW_DATA,
+ 			  AUX_SW_INDEX, 0,
+ 			  AUX_SW_AUTOINCREMENT_DISABLE, 1,
+ 			  AUX_SW_DATA_RW, 1);
+diff --git a/drivers/gpu/drm/amd/display/dc/dcn10/dcn10_hubbub.c b/drivers/gpu/drm/amd/display/dc/dcn10/dcn10_hubbub.c
+index e161ad836812..295cbd5b843f 100644
+--- a/drivers/gpu/drm/amd/display/dc/dcn10/dcn10_hubbub.c
++++ b/drivers/gpu/drm/amd/display/dc/dcn10/dcn10_hubbub.c
+@@ -258,8 +258,9 @@ void hubbub1_wm_change_req_wa(struct hubbub *hubbub)
+ {
+ 	struct dcn10_hubbub *hubbub1 = TO_DCN10_HUBBUB(hubbub);
+ 
+-	REG_UPDATE_SEQ(DCHUBBUB_ARB_WATERMARK_CHANGE_CNTL,
+-			DCHUBBUB_ARB_WATERMARK_CHANGE_REQUEST, 0, 1);
++	REG_UPDATE_SEQ_2(DCHUBBUB_ARB_WATERMARK_CHANGE_CNTL,
++			DCHUBBUB_ARB_WATERMARK_CHANGE_REQUEST, 0,
++			DCHUBBUB_ARB_WATERMARK_CHANGE_REQUEST, 1);
+ }
+ 
+ void hubbub1_program_watermarks(
+diff --git a/drivers/gpu/drm/amd/display/dc/inc/reg_helper.h b/drivers/gpu/drm/amd/display/dc/inc/reg_helper.h
+index 50b221f77a75..3ad739568e3b 100644
+--- a/drivers/gpu/drm/amd/display/dc/inc/reg_helper.h
++++ b/drivers/gpu/drm/amd/display/dc/inc/reg_helper.h
+@@ -379,16 +379,11 @@
+ /* macro to update a register field to specified values in given sequences.
+  * useful when toggling bits
+  */
+-#define REG_UPDATE_SEQ(reg, field, value1, value2) \
+-{	uint32_t val = REG_UPDATE(reg, field, value1); \
+-	REG_SET(reg, val, field, value2); }
+-
+-/* macro to update fields in register 1 field at a time in given order */
+-#define REG_UPDATE_1BY1_2(reg, f1, v1, f2, v2) \
++#define REG_UPDATE_SEQ_2(reg, f1, v1, f2, v2) \
+ {	uint32_t val = REG_UPDATE(reg, f1, v1); \
+ 	REG_SET(reg, val, f2, v2); }
+ 
+-#define REG_UPDATE_1BY1_3(reg, f1, v1, f2, v2, f3, v3) \
++#define REG_UPDATE_SEQ_3(reg, f1, v1, f2, v2, f3, v3) \
+ {	uint32_t val = REG_UPDATE(reg, f1, v1); \
+ 	val = REG_SET(reg, val, f2, v2); \
+ 	REG_SET(reg, val, f3, v3); }
+-- 
+2.17.1
+

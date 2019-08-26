@@ -1,0 +1,41 @@
+From be2faf3395cf4e0ed4a7efee1e37e0125ab91355 Mon Sep 17 00:00:00 2001
+From: Mauro Carvalho Chehab <mchehab+samsung@kernel.org>
+Date: Wed, 29 May 2019 20:23:42 -0300
+Subject: [PATCH 2041/2940] gpu: amdgpu: fix broken amdgpu_dma_buf.c references
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+This file was renamed, but docs weren't updated accordingly.
+
+	WARNING: kernel-doc './scripts/kernel-doc -rst -enable-lineno -function PRIME Buffer Sharing ./drivers/gpu/drm/amd/amdgpu/amdgpu_prime.c' failed with return code 1
+	WARNING: kernel-doc './scripts/kernel-doc -rst -enable-lineno -internal ./drivers/gpu/drm/amd/amdgpu/amdgpu_prime.c' failed with return code 2
+
+Fixes: 988076cd8c5c ("drm/amdgpu: rename amdgpu_prime.[ch] into amdgpu_dma_buf.[ch]")
+Reviewed-by: Christian König <christian.koenig@amd.com>
+Signed-off-by: Mauro Carvalho Chehab <mchehab+samsung@kernel.org>
+Signed-off-by: Alex Deucher <alexander.deucher@amd.com>
+---
+ Documentation/gpu/amdgpu.rst | 4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
+
+diff --git a/Documentation/gpu/amdgpu.rst b/Documentation/gpu/amdgpu.rst
+index 86138798128f..5acdd1842ea2 100644
+--- a/Documentation/gpu/amdgpu.rst
++++ b/Documentation/gpu/amdgpu.rst
+@@ -37,10 +37,10 @@ Buffer Objects
+ PRIME Buffer Sharing
+ --------------------
+ 
+-.. kernel-doc:: drivers/gpu/drm/amd/amdgpu/amdgpu_prime.c
++.. kernel-doc:: drivers/gpu/drm/amd/amdgpu/amdgpu_dma_buf.c
+    :doc: PRIME Buffer Sharing
+ 
+-.. kernel-doc:: drivers/gpu/drm/amd/amdgpu/amdgpu_prime.c
++.. kernel-doc:: drivers/gpu/drm/amd/amdgpu/amdgpu_dma_buf.c
+    :internal:
+ 
+ MMU Notifier
+-- 
+2.17.1
+

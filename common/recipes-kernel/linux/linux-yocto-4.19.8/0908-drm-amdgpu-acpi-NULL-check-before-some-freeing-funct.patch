@@ -1,0 +1,40 @@
+From 40d4c2e9b52b426bbc9cf13cccffaf7c4c89f907 Mon Sep 17 00:00:00 2001
+From: Wen Yang <wen.yang99@zte.com.cn>
+Date: Wed, 5 Dec 2018 15:43:19 +0800
+Subject: [PATCH 0908/2940] drm/amdgpu/acpi: NULL check before some freeing
+ functions is not needed
+
+kfree(NULL) is safe, so removes NULL check before freeing the mem.
+This patch also fix the ifnullfree.cocci warnings.
+
+Reviewed-by: Lyude Paul <lyude@redhat.com>
+Signed-off-by: Wen Yang <wen.yang99@zte.com.cn>
+CC: Alex Deucher <alexander.deucher@amd.com>
+CC: christian.koenig@amd.com
+CC: "David (ChunMing) Zhou" <David1.Zhou@amd.com>
+CC: David Airlie <airlied@linux.ie> (maintainer:DRM DRIVERS)
+CC: Lyude Paul <lyude@redhat.com>
+CC: Rex Zhu <Rex.Zhu@amd.com>
+CC: Jim Qu <Jim.Qu@amd.com>
+CC: amd-gfx@lists.freedesktop.org
+CC: dri-devel@lists.freedesktop.org
+Signed-off-by: Alex Deucher <alexander.deucher@amd.com>
+---
+ drivers/gpu/drm/amd/amdgpu/amdgpu_acpi.c | 3 +--
+ 1 file changed, 1 insertion(+), 2 deletions(-)
+
+diff --git a/drivers/gpu/drm/amd/amdgpu/amdgpu_acpi.c b/drivers/gpu/drm/amd/amdgpu/amdgpu_acpi.c
+index 47db65926d71..4376b17ca594 100644
+--- a/drivers/gpu/drm/amd/amdgpu/amdgpu_acpi.c
++++ b/drivers/gpu/drm/amd/amdgpu/amdgpu_acpi.c
+@@ -886,6 +886,5 @@ void amdgpu_acpi_get_backlight_caps(struct amdgpu_device *adev,
+ void amdgpu_acpi_fini(struct amdgpu_device *adev)
+ {
+ 	unregister_acpi_notifier(&adev->acpi_nb);
+-	if (adev->atif)
+-		kfree(adev->atif);
++	kfree(adev->atif);
+ }
+-- 
+2.17.1
+

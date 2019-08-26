@@ -1,0 +1,112 @@
+From 9cb35bf6b6b2b7460d6e4a0fdfeeb70ec618044e Mon Sep 17 00:00:00 2001
+From: Andrew Lunn <andrew@lunn.ch>
+Date: Wed, 12 Sep 2018 01:53:15 +0200
+Subject: [PATCH 0607/2940] net: ethernet: Add helper for MACs which support
+ asym pause
+
+Rather than have the MAC drivers manipulate phydev members to indicate
+they support Asym Pause, add a helper function.
+
+Signed-off-by: Andrew Lunn <andrew@lunn.ch>
+Reviewed-by: Florian Fainelli <f.fainelli@gmail.com>
+Signed-off-by: David S. Miller <davem@davemloft.net>
+Signed-off-by: Sudheesh Mavila <sudheesh.mavila@amd.com>
+---
+ drivers/net/ethernet/amd/xgbe/xgbe-phy-v2.c |  4 +--
+ drivers/net/phy/phy_device.c                | 30 +++++++++++++++++++++
+ include/linux/phy.h                         |  8 ++++++
+ 3 files changed, 40 insertions(+), 2 deletions(-)
+ mode change 100644 => 100755 drivers/net/phy/phy_device.c
+ mode change 100644 => 100755 include/linux/phy.h
+
+diff --git a/drivers/net/ethernet/amd/xgbe/xgbe-phy-v2.c b/drivers/net/ethernet/amd/xgbe/xgbe-phy-v2.c
+index 5f01b36a6f8a..a7e03e3ecc93 100644
+--- a/drivers/net/ethernet/amd/xgbe/xgbe-phy-v2.c
++++ b/drivers/net/ethernet/amd/xgbe/xgbe-phy-v2.c
+@@ -879,8 +879,8 @@ static bool xgbe_phy_finisar_phy_quirks(struct xgbe_prv_data *pdata)
+ 	phy_write(phy_data->phydev, 0x00, 0x9140);
+ 
+ 	phy_data->phydev->supported = PHY_GBIT_FEATURES;
+-	phy_data->phydev->supported |= SUPPORTED_Pause | SUPPORTED_Asym_Pause;
+ 	phy_data->phydev->advertising = phy_data->phydev->supported;
++	phy_support_asym_pause(phy_data->phydev);
+ 
+ 	netif_dbg(pdata, drv, pdata->netdev,
+ 		  "Finisar PHY quirk in place\n");
+@@ -951,8 +951,8 @@ static bool xgbe_phy_belfuse_phy_quirks(struct xgbe_prv_data *pdata)
+ 	phy_write(phy_data->phydev, 0x00, reg & ~0x00800);
+ 
+ 	phy_data->phydev->supported = PHY_GBIT_FEATURES;
+-	phy_data->phydev->supported |= SUPPORTED_Pause | SUPPORTED_Asym_Pause;
+ 	phy_data->phydev->advertising = phy_data->phydev->supported;
++	phy_support_asym_pause(phy_data->phydev);
+ 
+ 	netif_dbg(pdata, drv, pdata->netdev,
+ 		  "BelFuse PHY quirk in place\n");
+diff --git a/drivers/net/phy/phy_device.c b/drivers/net/phy/phy_device.c
+old mode 100644
+new mode 100755
+index 9ce93eb66fb0..55b7f5c10f77
+--- a/drivers/net/phy/phy_device.c
++++ b/drivers/net/phy/phy_device.c
+@@ -1915,6 +1915,36 @@ int phy_set_max_speed(struct phy_device *phydev, u32 max_speed)
+ }
+ EXPORT_SYMBOL(phy_set_max_speed);
+ 
++/**
++ * phy_support_sym_pause - Enable support of symmetrical pause
++ * @phydev: target phy_device struct
++ *
++ * Description: Called by the MAC to indicate is supports symmetrical
++ * Pause, but not asym pause.
++ */
++void phy_support_sym_pause(struct phy_device *phydev)
++{
++	linkmode_clear_bit(ETHTOOL_LINK_MODE_Asym_Pause_BIT, phydev->supported);
++	linkmode_set_bit(ETHTOOL_LINK_MODE_Pause_BIT, phydev->supported);
++	linkmode_copy(phydev->advertising, phydev->supported);
++}
++EXPORT_SYMBOL(phy_support_sym_pause);
++
++/**
++ * phy_support_asym_pause - Enable support of asym pause
++ * @phydev: target phy_device struct
++ *
++ * Description: Called by the MAC to indicate is supports Asym Pause.
++ */
++void phy_support_asym_pause(struct phy_device *phydev)
++{
++	linkmode_set_bit(ETHTOOL_LINK_MODE_Pause_BIT, phydev->supported);
++	linkmode_set_bit(ETHTOOL_LINK_MODE_Asym_Pause_BIT, phydev->supported);
++	linkmode_copy(phydev->advertising, phydev->supported);
++}
++EXPORT_SYMBOL(phy_support_asym_pause);
++
++
+ static void of_set_phy_supported(struct phy_device *phydev)
+ {
+ 	struct device_node *node = phydev->mdio.dev.of_node;
+diff --git a/include/linux/phy.h b/include/linux/phy.h
+old mode 100644
+new mode 100755
+index 2e86acadb9bc..18ab9e8d52e2
+--- a/include/linux/phy.h
++++ b/include/linux/phy.h
+@@ -1058,6 +1058,14 @@ int phy_mii_ioctl(struct phy_device *phydev, struct ifreq *ifr, int cmd);
+ int phy_start_interrupts(struct phy_device *phydev);
+ void phy_print_status(struct phy_device *phydev);
+ int phy_set_max_speed(struct phy_device *phydev, u32 max_speed);
++void phy_remove_link_mode(struct phy_device *phydev, u32 link_mode);
++void phy_support_sym_pause(struct phy_device *phydev);
++void phy_support_asym_pause(struct phy_device *phydev);
++void phy_set_sym_pause(struct phy_device *phydev, bool rx, bool tx,
++		       bool autoneg);
++void phy_set_asym_pause(struct phy_device *phydev, bool rx, bool tx);
++bool phy_validate_pause(struct phy_device *phydev,
++			struct ethtool_pauseparam *pp);
+ 
+ int phy_register_fixup(const char *bus_id, u32 phy_uid, u32 phy_uid_mask,
+ 		       int (*run)(struct phy_device *));
+-- 
+2.17.1
+

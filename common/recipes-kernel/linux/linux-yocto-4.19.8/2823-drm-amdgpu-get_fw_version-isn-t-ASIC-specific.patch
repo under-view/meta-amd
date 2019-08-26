@@ -1,0 +1,449 @@
+From 6c2129d6c91b54fcfef95405d0817f1caf64f5d5 Mon Sep 17 00:00:00 2001
+From: Amber Lin <Amber.Lin@amd.com>
+Date: Fri, 12 Apr 2019 11:07:16 -0400
+Subject: [PATCH 2823/2940] drm/amdgpu: get_fw_version isn't ASIC specific
+
+Method of getting firmware version is the same across ASICs, so remove
+them from ASIC-specific files and create one in amdgpu_amdkfd.c. This new
+created get_fw_version simply reads fw_version from adev->gfx than parsing
+the ucode header.
+
+Change-Id: I52042e76ff14c5eb00f2651c4c214c8738b3499e
+Signed-off-by: Amber Lin <Amber.Lin@amd.com>
+Reviewed-by: Felix Kuehling <Felix.Kuehling@amd.com>
+---
+ drivers/gpu/drm/amd/amdgpu/amdgpu_amdkfd.c    | 37 +++++++++++
+ drivers/gpu/drm/amd/amdgpu/amdgpu_amdkfd.h    | 14 +++++
+ .../gpu/drm/amd/amdgpu/amdgpu_amdkfd_gfx_v7.c | 61 -------------------
+ .../gpu/drm/amd/amdgpu/amdgpu_amdkfd_gfx_v8.c | 61 -------------------
+ .../gpu/drm/amd/amdgpu/amdgpu_amdkfd_gfx_v9.c | 54 ----------------
+ drivers/gpu/drm/amd/amdkfd/kfd_device.c       |  4 +-
+ .../gpu/drm/amd/include/kgd_kfd_interface.h   | 16 -----
+ 7 files changed, 53 insertions(+), 194 deletions(-)
+
+diff --git a/drivers/gpu/drm/amd/amdgpu/amdgpu_amdkfd.c b/drivers/gpu/drm/amd/amdgpu/amdgpu_amdkfd.c
+index b2657294b811..1a699e47777d 100644
+--- a/drivers/gpu/drm/amd/amdgpu/amdgpu_amdkfd.c
++++ b/drivers/gpu/drm/amd/amdgpu/amdgpu_amdkfd.c
+@@ -385,6 +385,43 @@ void amdgpu_amdkfd_free_gws(struct kgd_dev *kgd, void *mem_obj)
+ }
+ 
+ 
++uint32_t amdgpu_amdkfd_get_fw_version(struct kgd_dev *kgd,
++				      enum kgd_engine_type type)
++{
++	struct amdgpu_device *adev = (struct amdgpu_device *)kgd;
++
++	switch (type) {
++	case KGD_ENGINE_PFP:
++		return adev->gfx.pfp_fw_version;
++
++	case KGD_ENGINE_ME:
++		return adev->gfx.me_fw_version;
++
++	case KGD_ENGINE_CE:
++		return adev->gfx.ce_fw_version;
++
++	case KGD_ENGINE_MEC1:
++		return adev->gfx.mec_fw_version;
++
++	case KGD_ENGINE_MEC2:
++		return adev->gfx.mec2_fw_version;
++
++	case KGD_ENGINE_RLC:
++		return adev->gfx.rlc_fw_version;
++
++	case KGD_ENGINE_SDMA1:
++		return adev->sdma.instance[0].fw_version;
++
++	case KGD_ENGINE_SDMA2:
++		return adev->sdma.instance[1].fw_version;
++
++	default:
++		return 0;
++	}
++
++	return 0;
++}
++
+ void amdgpu_amdkfd_get_local_mem_info(struct kgd_dev *kgd,
+ 				      struct kfd_local_mem_info *mem_info)
+ {
+diff --git a/drivers/gpu/drm/amd/amdgpu/amdgpu_amdkfd.h b/drivers/gpu/drm/amd/amdgpu/amdgpu_amdkfd.h
+index 3a521cf36c90..5331d9c8c9f6 100644
+--- a/drivers/gpu/drm/amd/amdgpu/amdgpu_amdkfd.h
++++ b/drivers/gpu/drm/amd/amdgpu/amdgpu_amdkfd.h
+@@ -81,6 +81,18 @@ struct amdgpu_kfd_dev {
+ 	uint64_t vram_used;
+ };
+ 
++enum kgd_engine_type {
++	KGD_ENGINE_PFP = 1,
++	KGD_ENGINE_ME,
++	KGD_ENGINE_CE,
++	KGD_ENGINE_MEC1,
++	KGD_ENGINE_MEC2,
++	KGD_ENGINE_RLC,
++	KGD_ENGINE_SDMA1,
++	KGD_ENGINE_SDMA2,
++	KGD_ENGINE_MAX
++};
++
+ struct amdgpu_amdkfd_fence *amdgpu_amdkfd_fence_create(u64 context,
+ 						       struct mm_struct *mm);
+ bool amdkfd_fence_check_mm(struct dma_fence *f, struct mm_struct *mm);
+@@ -151,6 +163,8 @@ int amdgpu_amdkfd_alloc_gws(struct kgd_dev *kgd, size_t size, void **mem_obj);
+ void amdgpu_amdkfd_free_gws(struct kgd_dev *kgd, void *mem_obj);
+ int amdgpu_amdkfd_add_gws_to_process(void *info, void *gws, struct kgd_mem **mem);
+ int amdgpu_amdkfd_remove_gws_from_process(void *info, void *mem);
++uint32_t amdgpu_amdkfd_get_fw_version(struct kgd_dev *kgd,
++                                     enum kgd_engine_type type);
+ void amdgpu_amdkfd_get_local_mem_info(struct kgd_dev *kgd,
+ 				      struct kfd_local_mem_info *mem_info);
+ uint64_t amdgpu_amdkfd_get_gpu_clock_counter(struct kgd_dev *kgd);
+diff --git a/drivers/gpu/drm/amd/amdgpu/amdgpu_amdkfd_gfx_v7.c b/drivers/gpu/drm/amd/amdgpu/amdgpu_amdkfd_gfx_v7.c
+index 268d81d7bfa0..c73aac88d0ab 100644
+--- a/drivers/gpu/drm/amd/amdgpu/amdgpu_amdkfd_gfx_v7.c
++++ b/drivers/gpu/drm/amd/amdgpu/amdgpu_amdkfd_gfx_v7.c
+@@ -25,14 +25,12 @@
+ 
+ #include <linux/fdtable.h>
+ #include <linux/uaccess.h>
+-#include <linux/firmware.h>
+ #include <linux/mmu_context.h>
+ #include <drm/drmP.h>
+ #include "amdgpu.h"
+ #include "amdgpu_amdkfd.h"
+ #include "cikd.h"
+ #include "cik_sdma.h"
+-#include "amdgpu_ucode.h"
+ #include "gfx_v7_0.h"
+ #include "gca/gfx_7_2_d.h"
+ #include "gca/gfx_7_2_enum.h"
+@@ -142,7 +140,6 @@ static bool get_atc_vmid_pasid_mapping_valid(struct kgd_dev *kgd, uint8_t vmid);
+ static uint16_t get_atc_vmid_pasid_mapping_pasid(struct kgd_dev *kgd,
+ 							uint8_t vmid);
+ 
+-static uint16_t get_fw_version(struct kgd_dev *kgd, enum kgd_engine_type type);
+ static void set_scratch_backing_va(struct kgd_dev *kgd,
+ 					uint64_t va, uint32_t vmid);
+ static void set_vm_context_page_table_base(struct kgd_dev *kgd, uint32_t vmid,
+@@ -194,7 +191,6 @@ static const struct kfd2kgd_calls kfd2kgd = {
+ 	.address_watch_get_offset = kgd_address_watch_get_offset,
+ 	.get_atc_vmid_pasid_mapping_pasid = get_atc_vmid_pasid_mapping_pasid,
+ 	.get_atc_vmid_pasid_mapping_valid = get_atc_vmid_pasid_mapping_valid,
+-	.get_fw_version = get_fw_version,
+ 	.set_scratch_backing_va = set_scratch_backing_va,
+ 	.get_tile_config = get_tile_config,
+ 	.set_vm_context_page_table_base = set_vm_context_page_table_base,
+@@ -794,63 +790,6 @@ static void set_scratch_backing_va(struct kgd_dev *kgd,
+ 	unlock_srbm(kgd);
+ }
+ 
+-static uint16_t get_fw_version(struct kgd_dev *kgd, enum kgd_engine_type type)
+-{
+-	struct amdgpu_device *adev = (struct amdgpu_device *) kgd;
+-	const union amdgpu_firmware_header *hdr;
+-
+-	switch (type) {
+-	case KGD_ENGINE_PFP:
+-		hdr = (const union amdgpu_firmware_header *)
+-						adev->gfx.pfp_fw->data;
+-		break;
+-
+-	case KGD_ENGINE_ME:
+-		hdr = (const union amdgpu_firmware_header *)
+-						adev->gfx.me_fw->data;
+-		break;
+-
+-	case KGD_ENGINE_CE:
+-		hdr = (const union amdgpu_firmware_header *)
+-						adev->gfx.ce_fw->data;
+-		break;
+-
+-	case KGD_ENGINE_MEC1:
+-		hdr = (const union amdgpu_firmware_header *)
+-						adev->gfx.mec_fw->data;
+-		break;
+-
+-	case KGD_ENGINE_MEC2:
+-		hdr = (const union amdgpu_firmware_header *)
+-						adev->gfx.mec2_fw->data;
+-		break;
+-
+-	case KGD_ENGINE_RLC:
+-		hdr = (const union amdgpu_firmware_header *)
+-						adev->gfx.rlc_fw->data;
+-		break;
+-
+-	case KGD_ENGINE_SDMA1:
+-		hdr = (const union amdgpu_firmware_header *)
+-						adev->sdma.instance[0].fw->data;
+-		break;
+-
+-	case KGD_ENGINE_SDMA2:
+-		hdr = (const union amdgpu_firmware_header *)
+-						adev->sdma.instance[1].fw->data;
+-		break;
+-
+-	default:
+-		return 0;
+-	}
+-
+-	if (hdr == NULL)
+-		return 0;
+-
+-	/* Only 12 bit in use*/
+-	return hdr->common.ucode_version;
+-}
+-
+ static void set_vm_context_page_table_base(struct kgd_dev *kgd, uint32_t vmid,
+ 			uint64_t page_table_base)
+ {
+diff --git a/drivers/gpu/drm/amd/amdgpu/amdgpu_amdkfd_gfx_v8.c b/drivers/gpu/drm/amd/amdgpu/amdgpu_amdkfd_gfx_v8.c
+index f62110fe331b..930b45b863cd 100644
+--- a/drivers/gpu/drm/amd/amdgpu/amdgpu_amdkfd_gfx_v8.c
++++ b/drivers/gpu/drm/amd/amdgpu/amdgpu_amdkfd_gfx_v8.c
+@@ -26,12 +26,10 @@
+ #include <linux/module.h>
+ #include <linux/fdtable.h>
+ #include <linux/uaccess.h>
+-#include <linux/firmware.h>
+ #include <linux/mmu_context.h>
+ #include <drm/drmP.h>
+ #include "amdgpu.h"
+ #include "amdgpu_amdkfd.h"
+-#include "amdgpu_ucode.h"
+ #include "amdgpu_amdkfd_gfx_v8.h"
+ #include "gca/gfx_8_0_sh_mask.h"
+ #include "gca/gfx_8_0_d.h"
+@@ -105,7 +103,6 @@ static bool get_atc_vmid_pasid_mapping_valid(struct kgd_dev *kgd,
+ 		uint8_t vmid);
+ static uint16_t get_atc_vmid_pasid_mapping_pasid(struct kgd_dev *kgd,
+ 		uint8_t vmid);
+-static uint16_t get_fw_version(struct kgd_dev *kgd, enum kgd_engine_type type);
+ static void set_scratch_backing_va(struct kgd_dev *kgd,
+ 					uint64_t va, uint32_t vmid);
+ static void set_vm_context_page_table_base(struct kgd_dev *kgd, uint32_t vmid,
+@@ -158,7 +155,6 @@ static const struct kfd2kgd_calls kfd2kgd = {
+ 			get_atc_vmid_pasid_mapping_pasid,
+ 	.get_atc_vmid_pasid_mapping_valid =
+ 			get_atc_vmid_pasid_mapping_valid,
+-	.get_fw_version = get_fw_version,
+ 	.set_scratch_backing_va = set_scratch_backing_va,
+ 	.get_tile_config = get_tile_config,
+ 	.set_vm_context_page_table_base = set_vm_context_page_table_base,
+@@ -803,63 +799,6 @@ static void set_scratch_backing_va(struct kgd_dev *kgd,
+ 	unlock_srbm(kgd);
+ }
+ 
+-static uint16_t get_fw_version(struct kgd_dev *kgd, enum kgd_engine_type type)
+-{
+-	struct amdgpu_device *adev = (struct amdgpu_device *) kgd;
+-	const union amdgpu_firmware_header *hdr;
+-
+-	switch (type) {
+-	case KGD_ENGINE_PFP:
+-		hdr = (const union amdgpu_firmware_header *)
+-						adev->gfx.pfp_fw->data;
+-		break;
+-
+-	case KGD_ENGINE_ME:
+-		hdr = (const union amdgpu_firmware_header *)
+-						adev->gfx.me_fw->data;
+-		break;
+-
+-	case KGD_ENGINE_CE:
+-		hdr = (const union amdgpu_firmware_header *)
+-						adev->gfx.ce_fw->data;
+-		break;
+-
+-	case KGD_ENGINE_MEC1:
+-		hdr = (const union amdgpu_firmware_header *)
+-						adev->gfx.mec_fw->data;
+-		break;
+-
+-	case KGD_ENGINE_MEC2:
+-		hdr = (const union amdgpu_firmware_header *)
+-						adev->gfx.mec2_fw->data;
+-		break;
+-
+-	case KGD_ENGINE_RLC:
+-		hdr = (const union amdgpu_firmware_header *)
+-						adev->gfx.rlc_fw->data;
+-		break;
+-
+-	case KGD_ENGINE_SDMA1:
+-		hdr = (const union amdgpu_firmware_header *)
+-						adev->sdma.instance[0].fw->data;
+-		break;
+-
+-	case KGD_ENGINE_SDMA2:
+-		hdr = (const union amdgpu_firmware_header *)
+-						adev->sdma.instance[1].fw->data;
+-		break;
+-
+-	default:
+-		return 0;
+-	}
+-
+-	if (hdr == NULL)
+-		return 0;
+-
+-	/* Only 12 bit in use*/
+-	return hdr->common.ucode_version;
+-}
+-
+ static void set_vm_context_page_table_base(struct kgd_dev *kgd, uint32_t vmid,
+ 		uint64_t page_table_base)
+ {
+diff --git a/drivers/gpu/drm/amd/amdgpu/amdgpu_amdkfd_gfx_v9.c b/drivers/gpu/drm/amd/amdgpu/amdgpu_amdkfd_gfx_v9.c
+index dbe29d43e34a..e5c5eb799e23 100644
+--- a/drivers/gpu/drm/amd/amdgpu/amdgpu_amdkfd_gfx_v9.c
++++ b/drivers/gpu/drm/amd/amdgpu/amdgpu_amdkfd_gfx_v9.c
+@@ -26,12 +26,10 @@
+ #include <linux/module.h>
+ #include <linux/fdtable.h>
+ #include <linux/uaccess.h>
+-#include <linux/firmware.h>
+ #include <linux/mmu_context.h>
+ #include <drm/drmP.h>
+ #include "amdgpu.h"
+ #include "amdgpu_amdkfd.h"
+-#include "amdgpu_ucode.h"
+ #include "amdgpu_amdkfd_gfx_v8.h"
+ #include "soc15_hw_ip.h"
+ #include "gc/gc_9_0_offset.h"
+@@ -134,7 +132,6 @@ static uint16_t get_atc_vmid_pasid_mapping_pasid(struct kgd_dev *kgd,
+ 		uint8_t vmid);
+ static void set_vm_context_page_table_base(struct kgd_dev *kgd, uint32_t vmid,
+ 		uint64_t page_table_base);
+-static uint16_t get_fw_version(struct kgd_dev *kgd, enum kgd_engine_type type);
+ static void set_scratch_backing_va(struct kgd_dev *kgd,
+ 					uint64_t va, uint32_t vmid);
+ static int invalidate_tlbs(struct kgd_dev *kgd, uint16_t pasid);
+@@ -181,7 +178,6 @@ static const struct kfd2kgd_calls kfd2kgd = {
+ 			get_atc_vmid_pasid_mapping_pasid,
+ 	.get_atc_vmid_pasid_mapping_valid =
+ 			get_atc_vmid_pasid_mapping_valid,
+-	.get_fw_version = get_fw_version,
+ 	.set_scratch_backing_va = set_scratch_backing_va,
+ 	.get_tile_config = amdgpu_amdkfd_get_tile_config,
+ 	.set_vm_context_page_table_base = set_vm_context_page_table_base,
+@@ -1093,56 +1089,6 @@ static void set_scratch_backing_va(struct kgd_dev *kgd,
+ 	 */
+ }
+ 
+-/* FIXME: Does this need to be ASIC-specific code? */
+-static uint16_t get_fw_version(struct kgd_dev *kgd, enum kgd_engine_type type)
+-{
+-	struct amdgpu_device *adev = (struct amdgpu_device *) kgd;
+-	const union amdgpu_firmware_header *hdr;
+-
+-	switch (type) {
+-	case KGD_ENGINE_PFP:
+-		hdr = (const union amdgpu_firmware_header *)adev->gfx.pfp_fw->data;
+-		break;
+-
+-	case KGD_ENGINE_ME:
+-		hdr = (const union amdgpu_firmware_header *)adev->gfx.me_fw->data;
+-		break;
+-
+-	case KGD_ENGINE_CE:
+-		hdr = (const union amdgpu_firmware_header *)adev->gfx.ce_fw->data;
+-		break;
+-
+-	case KGD_ENGINE_MEC1:
+-		hdr = (const union amdgpu_firmware_header *)adev->gfx.mec_fw->data;
+-		break;
+-
+-	case KGD_ENGINE_MEC2:
+-		hdr = (const union amdgpu_firmware_header *)adev->gfx.mec2_fw->data;
+-		break;
+-
+-	case KGD_ENGINE_RLC:
+-		hdr = (const union amdgpu_firmware_header *)adev->gfx.rlc_fw->data;
+-		break;
+-
+-	case KGD_ENGINE_SDMA1:
+-		hdr = (const union amdgpu_firmware_header *)adev->sdma.instance[0].fw->data;
+-		break;
+-
+-	case KGD_ENGINE_SDMA2:
+-		hdr = (const union amdgpu_firmware_header *)adev->sdma.instance[1].fw->data;
+-		break;
+-
+-	default:
+-		return 0;
+-	}
+-
+-	if (hdr == NULL)
+-		return 0;
+-
+-	/* Only 12 bit in use*/
+-	return hdr->common.ucode_version;
+-}
+-
+ static void set_vm_context_page_table_base(struct kgd_dev *kgd, uint32_t vmid,
+ 		uint64_t page_table_base)
+ {
+diff --git a/drivers/gpu/drm/amd/amdkfd/kfd_device.c b/drivers/gpu/drm/amd/amdkfd/kfd_device.c
+index 79fd90511acd..bbab3c740dbe 100644
+--- a/drivers/gpu/drm/amd/amdkfd/kfd_device.c
++++ b/drivers/gpu/drm/amd/amdkfd/kfd_device.c
+@@ -557,9 +557,9 @@ bool kgd2kfd_device_init(struct kfd_dev *kfd,
+ 	unsigned int size;
+ 
+ 	kfd->ddev = ddev;
+-	kfd->mec_fw_version = kfd->kfd2kgd->get_fw_version(kfd->kgd,
++	kfd->mec_fw_version = amdgpu_amdkfd_get_fw_version(kfd->kgd,
+ 			KGD_ENGINE_MEC1);
+-	kfd->sdma_fw_version = kfd->kfd2kgd->get_fw_version(kfd->kgd,
++	kfd->sdma_fw_version = amdgpu_amdkfd_get_fw_version(kfd->kgd,
+ 			KGD_ENGINE_SDMA1);
+ 	kfd->shared_resources = *gpu_resources;
+ 
+diff --git a/drivers/gpu/drm/amd/include/kgd_kfd_interface.h b/drivers/gpu/drm/amd/include/kgd_kfd_interface.h
+index ffc93d12f6a5..66608a381400 100644
+--- a/drivers/gpu/drm/amd/include/kgd_kfd_interface.h
++++ b/drivers/gpu/drm/amd/include/kgd_kfd_interface.h
+@@ -88,18 +88,6 @@ enum kgd_memory_pool {
+ 	KGD_POOL_FRAMEBUFFER = 3,
+ };
+ 
+-enum kgd_engine_type {
+-	KGD_ENGINE_PFP = 1,
+-	KGD_ENGINE_ME,
+-	KGD_ENGINE_CE,
+-	KGD_ENGINE_MEC1,
+-	KGD_ENGINE_MEC2,
+-	KGD_ENGINE_RLC,
+-	KGD_ENGINE_SDMA1,
+-	KGD_ENGINE_SDMA2,
+-	KGD_ENGINE_MAX
+-};
+-
+ /**
+  * enum kfd_sched_policy
+  *
+@@ -234,8 +222,6 @@ struct tile_config {
+  * @hqd_sdma_destroy: Destructs and preempts the SDMA queue assigned to that
+  * SDMA hqd slot.
+  *
+- * @get_fw_version: Returns FW versions from the header
+- *
+  * @set_scratch_backing_va: Sets VA for scratch backing memory of a VMID.
+  * Only used for no cp scheduling mode
+  *
+@@ -315,8 +301,6 @@ struct kfd2kgd_calls {
+ 					struct kgd_dev *kgd,
+ 					uint8_t vmid);
+ 
+-	uint16_t (*get_fw_version)(struct kgd_dev *kgd,
+-				enum kgd_engine_type type);
+ 	void (*set_scratch_backing_va)(struct kgd_dev *kgd,
+ 				uint64_t va, uint32_t vmid);
+ 	int (*get_tile_config)(struct kgd_dev *kgd, struct tile_config *config);
+-- 
+2.17.1
+

@@ -1,0 +1,164 @@
+From 76eb58baf6b72cb137ec9f01e86bddfb326538ba Mon Sep 17 00:00:00 2001
+From: Kevin Wang <kevin1.wang@amd.com>
+Date: Tue, 21 May 2019 15:19:22 +0800
+Subject: [PATCH 2398/2940] drm/amd/powerplay: move od8_setting helper function
+ to vega20_ppt
+
+these callback functions is only used for vega20 asic, to be compatible
+other asics,need to move this code to vega20_ppt file
+
+Signed-off-by: Kevin Wang <kevin1.wang@amd.com>
+Reviewed-by: Huang Rui <ray.huang@amd.com>
+Signed-off-by: Alex Deucher <alexander.deucher@amd.com>
+---
+ .../gpu/drm/amd/powerplay/inc/amdgpu_smu.h    | 10 ------
+ drivers/gpu/drm/amd/powerplay/smu_v11_0.c     | 27 ----------------
+ drivers/gpu/drm/amd/powerplay/vega20_ppt.c    | 31 +++++++++++++++++--
+ 3 files changed, 29 insertions(+), 39 deletions(-)
+
+diff --git a/drivers/gpu/drm/amd/powerplay/inc/amdgpu_smu.h b/drivers/gpu/drm/amd/powerplay/inc/amdgpu_smu.h
+index 3936e81582de..2155f9435c72 100644
+--- a/drivers/gpu/drm/amd/powerplay/inc/amdgpu_smu.h
++++ b/drivers/gpu/drm/amd/powerplay/inc/amdgpu_smu.h
+@@ -561,9 +561,6 @@ struct pptable_funcs {
+ 	int (*print_clk_levels)(struct smu_context *smu, enum smu_clk_type clk_type, char *buf);
+ 	int (*force_clk_levels)(struct smu_context *smu, enum smu_clk_type clk_type, uint32_t mask);
+ 	int (*set_default_od8_settings)(struct smu_context *smu);
+-	int (*update_specified_od8_value)(struct smu_context *smu,
+-					  uint32_t index,
+-					  uint32_t value);
+ 	int (*get_od_percentage)(struct smu_context *smu, enum smu_clk_type clk_type);
+ 	int (*set_od_percentage)(struct smu_context *smu,
+ 				 enum smu_clk_type clk_type,
+@@ -678,9 +675,6 @@ struct smu_funcs
+ 	int (*set_od8_default_settings)(struct smu_context *smu,
+ 					bool initialize);
+ 	int (*conv_power_profile_to_pplib_workload)(int power_profile);
+-	int (*update_od8_settings)(struct smu_context *smu,
+-				   uint32_t index,
+-				   uint32_t value);
+ 	int (*get_current_rpm)(struct smu_context *smu, uint32_t *speed);
+ 	uint32_t (*get_fan_control_mode)(struct smu_context *smu);
+ 	int (*set_fan_control_mode)(struct smu_context *smu, uint32_t mode);
+@@ -741,8 +735,6 @@ struct smu_funcs
+ 	((smu)->funcs->init_max_sustainable_clocks ? (smu)->funcs->init_max_sustainable_clocks((smu)) : 0)
+ #define smu_set_od8_default_settings(smu, initialize) \
+ 	((smu)->funcs->set_od8_default_settings ? (smu)->funcs->set_od8_default_settings((smu), (initialize)) : 0)
+-#define smu_update_od8_settings(smu, index, value) \
+-	((smu)->funcs->update_od8_settings ? (smu)->funcs->update_od8_settings((smu), (index), (value)) : 0)
+ #define smu_get_current_rpm(smu, speed) \
+ 	((smu)->funcs->get_current_rpm ? (smu)->funcs->get_current_rpm((smu), (speed)) : 0)
+ #define smu_set_fan_speed_rpm(smu, speed) \
+@@ -779,8 +771,6 @@ struct smu_funcs
+ 	((smu)->ppt_funcs->populate_umd_state_clk ? (smu)->ppt_funcs->populate_umd_state_clk((smu)) : 0)
+ #define smu_set_default_od8_settings(smu) \
+ 	((smu)->ppt_funcs->set_default_od8_settings ? (smu)->ppt_funcs->set_default_od8_settings((smu)) : 0)
+-#define smu_update_specified_od8_value(smu, index, value) \
+-	((smu)->ppt_funcs->update_specified_od8_value ? (smu)->ppt_funcs->update_specified_od8_value((smu), (index), (value)) : 0)
+ #define smu_get_power_limit(smu, limit, def) \
+ 	((smu)->funcs->get_power_limit ? (smu)->funcs->get_power_limit((smu), (limit), (def)) : 0)
+ #define smu_set_power_limit(smu, limit) \
+diff --git a/drivers/gpu/drm/amd/powerplay/smu_v11_0.c b/drivers/gpu/drm/amd/powerplay/smu_v11_0.c
+index 35f14a2f1d2f..bb3daf271b74 100644
+--- a/drivers/gpu/drm/amd/powerplay/smu_v11_0.c
++++ b/drivers/gpu/drm/amd/powerplay/smu_v11_0.c
+@@ -1400,32 +1400,6 @@ static int smu_v11_0_set_od8_default_settings(struct smu_context *smu,
+ 	return 0;
+ }
+ 
+-static int smu_v11_0_update_od8_settings(struct smu_context *smu,
+-					uint32_t index,
+-					uint32_t value)
+-{
+-	struct smu_table_context *table_context = &smu->smu_table;
+-	int ret;
+-
+-	ret = smu_update_table(smu, SMU_TABLE_OVERDRIVE,
+-			       table_context->overdrive_table, false);
+-	if (ret) {
+-		pr_err("Failed to export over drive table!\n");
+-		return ret;
+-	}
+-
+-	smu_update_specified_od8_value(smu, index, value);
+-
+-	ret = smu_update_table(smu, SMU_TABLE_OVERDRIVE,
+-			       table_context->overdrive_table, true);
+-	if (ret) {
+-		pr_err("Failed to import over drive table!\n");
+-		return ret;
+-	}
+-
+-	return 0;
+-}
+-
+ static int smu_v11_0_get_current_rpm(struct smu_context *smu,
+ 				     uint32_t *current_rpm)
+ {
+@@ -1712,7 +1686,6 @@ static const struct smu_funcs smu_v11_0_funcs = {
+ 	.display_clock_voltage_request = smu_v11_0_display_clock_voltage_request,
+ 	.set_watermarks_for_clock_ranges = smu_v11_0_set_watermarks_for_clock_ranges,
+ 	.set_od8_default_settings = smu_v11_0_set_od8_default_settings,
+-	.update_od8_settings = smu_v11_0_update_od8_settings,
+ 	.get_current_rpm = smu_v11_0_get_current_rpm,
+ 	.get_fan_control_mode = smu_v11_0_get_fan_control_mode,
+ 	.set_fan_control_mode = smu_v11_0_set_fan_control_mode,
+diff --git a/drivers/gpu/drm/amd/powerplay/vega20_ppt.c b/drivers/gpu/drm/amd/powerplay/vega20_ppt.c
+index e6925e09ba19..dff85303c15e 100644
+--- a/drivers/gpu/drm/amd/powerplay/vega20_ppt.c
++++ b/drivers/gpu/drm/amd/powerplay/vega20_ppt.c
+@@ -2446,6 +2446,34 @@ static int vega20_update_specified_od8_value(struct smu_context *smu,
+ 	return 0;
+ }
+ 
++static int vega20_update_od8_settings(struct smu_context *smu,
++				      uint32_t index,
++				      uint32_t value)
++{
++	struct smu_table_context *table_context = &smu->smu_table;
++	int ret;
++
++	ret = smu_update_table(smu, SMU_TABLE_OVERDRIVE,
++			       table_context->overdrive_table, false);
++	if (ret) {
++		pr_err("Failed to export over drive table!\n");
++		return ret;
++	}
++
++	ret = vega20_update_specified_od8_value(smu, index, value);
++	if (ret)
++		return ret;
++
++	ret = smu_update_table(smu, SMU_TABLE_OVERDRIVE,
++			       table_context->overdrive_table, true);
++	if (ret) {
++		pr_err("Failed to import over drive table!\n");
++		return ret;
++	}
++
++	return 0;
++}
++
+ static int vega20_set_od_percentage(struct smu_context *smu,
+ 				    enum smu_clk_type clk_type,
+ 				    uint32_t value)
+@@ -2492,7 +2520,7 @@ static int vega20_set_od_percentage(struct smu_context *smu,
+ 	od_clk /= 100;
+ 	od_clk += golden_dpm_table->dpm_levels[golden_dpm_table->count - 1].value;
+ 
+-	ret = smu_update_od8_settings(smu, index, od_clk);
++	ret = vega20_update_od8_settings(smu, index, od_clk);
+ 	if (ret) {
+ 		pr_err("[Setoverdrive] failed to set od clk!\n");
+ 		goto set_od_failed;
+@@ -3204,7 +3232,6 @@ static const struct pptable_funcs vega20_ppt_funcs = {
+ 	.get_od_percentage = vega20_get_od_percentage,
+ 	.get_power_profile_mode = vega20_get_power_profile_mode,
+ 	.set_power_profile_mode = vega20_set_power_profile_mode,
+-	.update_specified_od8_value = vega20_update_specified_od8_value,
+ 	.set_od_percentage = vega20_set_od_percentage,
+ 	.od_edit_dpm_table = vega20_odn_edit_dpm_table,
+ 	.dpm_set_uvd_enable = vega20_dpm_set_uvd_enable,
+-- 
+2.17.1
+

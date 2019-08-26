@@ -1,0 +1,40 @@
+From 54a19a2500b483a217e65ebf5c4b5936bcf3150e Mon Sep 17 00:00:00 2001
+From: Evan Quan <evan.quan@amd.com>
+Date: Sun, 5 May 2019 11:00:50 +0800
+Subject: [PATCH 1904/2940] drm/amd/powerplay: check for invalid profile_exit
+ setting
+
+profile_exit performance level setting is valid only
+when current mode is in profile mode.
+
+Change-Id: I6940102d38dbb7a4b0233fce5277e1704672d8f4
+Signed-off-by: Evan Quan <evan.quan@amd.com>
+Reviewed-by: Tao Zhou <tao.zhou1@amd.com>
+---
+ drivers/gpu/drm/amd/amdgpu/amdgpu_pm.c | 10 ++++++++++
+ 1 file changed, 10 insertions(+)
+
+diff --git a/drivers/gpu/drm/amd/amdgpu/amdgpu_pm.c b/drivers/gpu/drm/amd/amdgpu/amdgpu_pm.c
+index e0789f0f2670..bd40d5d72508 100644
+--- a/drivers/gpu/drm/amd/amdgpu/amdgpu_pm.c
++++ b/drivers/gpu/drm/amd/amdgpu/amdgpu_pm.c
+@@ -351,6 +351,16 @@ static ssize_t amdgpu_set_dpm_forced_performance_level(struct device *dev,
+ 	if (current_level == level)
+ 		return count;
+ 
++	/* profile_exit setting is valid only when current mode is in profile mode */
++	if (!(current_level & (AMD_DPM_FORCED_LEVEL_PROFILE_STANDARD |
++	    AMD_DPM_FORCED_LEVEL_PROFILE_MIN_SCLK |
++	    AMD_DPM_FORCED_LEVEL_PROFILE_MIN_MCLK |
++	    AMD_DPM_FORCED_LEVEL_PROFILE_PEAK)) &&
++	    (level == AMD_DPM_FORCED_LEVEL_PROFILE_EXIT)) {
++		pr_err("Currently not in any profile mode!\n");
++		return -EINVAL;
++	}
++
+ 	if (is_support_sw_smu(adev)) {
+ 		mutex_lock(&adev->pm.mutex);
+ 		if (adev->pm.dpm.thermal_active) {
+-- 
+2.17.1
+

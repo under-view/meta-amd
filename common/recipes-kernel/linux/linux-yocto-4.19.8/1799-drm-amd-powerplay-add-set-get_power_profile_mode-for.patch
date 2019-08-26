@@ -1,0 +1,169 @@
+From 2ba91bc92cf29d34bdde080701d6c3f755b8a423 Mon Sep 17 00:00:00 2001
+From: Chengming Gui <Jack.Gui@amd.com>
+Date: Wed, 27 Mar 2019 11:30:00 +0800
+Subject: [PATCH 1799/2940] drm/amd/powerplay: add set/get_power_profile_mode
+ for Raven
+
+Signed-off-by: Chengming Gui <Jack.Gui@amd.com>
+---
+ .../gpu/drm/amd/powerplay/hwmgr/smu10_hwmgr.c | 91 +++++++++++++++++++
+ drivers/gpu/drm/amd/powerplay/inc/rv_ppsmc.h  |  1 -
+ drivers/gpu/drm/amd/powerplay/inc/smu10.h     | 14 +--
+ 3 files changed, 99 insertions(+), 7 deletions(-)
+
+diff --git a/drivers/gpu/drm/amd/powerplay/hwmgr/smu10_hwmgr.c b/drivers/gpu/drm/amd/powerplay/hwmgr/smu10_hwmgr.c
+index f32e3d0aaea6..b508b7220ab3 100644
+--- a/drivers/gpu/drm/amd/powerplay/hwmgr/smu10_hwmgr.c
++++ b/drivers/gpu/drm/amd/powerplay/hwmgr/smu10_hwmgr.c
+@@ -35,6 +35,7 @@
+ #include "smu10_hwmgr.h"
+ #include "power_state.h"
+ #include "soc15_common.h"
++#include "smu10.h"
+ 
+ #define SMU10_MAX_DEEPSLEEP_DIVIDER_ID     5
+ #define SMU10_MINIMUM_ENGINE_CLOCK         800   /* 8Mhz, the low boundary of engine clock allowed on this chip */
+@@ -1200,6 +1201,94 @@ static void smu10_powergate_vcn(struct pp_hwmgr *hwmgr, bool bgate)
+ 	}
+ }
+ 
++static int conv_power_profile_to_pplib_workload(int power_profile)
++{
++	int pplib_workload = 0;
++
++	switch (power_profile) {
++	case PP_SMC_POWER_PROFILE_BOOTUP_DEFAULT:
++		pplib_workload = WORKLOAD_DEFAULT_BIT;
++		break;
++	case PP_SMC_POWER_PROFILE_FULLSCREEN3D:
++		pplib_workload = WORKLOAD_PPLIB_FULL_SCREEN_3D_BIT;
++		break;
++	case PP_SMC_POWER_PROFILE_POWERSAVING:
++		pplib_workload = WORKLOAD_PPLIB_POWER_SAVING_BIT;
++		break;
++	case PP_SMC_POWER_PROFILE_VIDEO:
++		pplib_workload = WORKLOAD_PPLIB_VIDEO_BIT;
++		break;
++	case PP_SMC_POWER_PROFILE_VR:
++		pplib_workload = WORKLOAD_PPLIB_VR_BIT;
++		break;
++	case PP_SMC_POWER_PROFILE_COMPUTE:
++		pplib_workload = WORKLOAD_PPLIB_COMPUTE_BIT;
++		break;
++	}
++
++	return pplib_workload;
++}
++
++static int smu10_get_power_profile_mode(struct pp_hwmgr *hwmgr, char *buf)
++{
++	uint32_t i, size = 0;
++	static const uint8_t
++		profile_mode_setting[6][4] = {{70, 60, 0, 0,},
++						{70, 60, 1, 3,},
++						{90, 60, 0, 0,},
++						{70, 60, 0, 0,},
++						{70, 90, 0, 0,},
++						{30, 60, 0, 6,},
++						};
++	static const char *profile_name[6] = {
++					"BOOTUP_DEFAULT",
++					"3D_FULL_SCREEN",
++					"POWER_SAVING",
++					"VIDEO",
++					"VR",
++					"COMPUTE"};
++	static const char *title[6] = {"NUM",
++			"MODE_NAME",
++			"BUSY_SET_POINT",
++			"FPS",
++			"USE_RLC_BUSY",
++			"MIN_ACTIVE_LEVEL"};
++
++	if (!buf)
++		return -EINVAL;
++
++	size += sprintf(buf + size, "%s %16s %s %s %s %s\n",title[0],
++			title[1], title[2], title[3], title[4], title[5]);
++
++	for (i = 0; i <= PP_SMC_POWER_PROFILE_COMPUTE; i++)
++		size += sprintf(buf + size, "%3d %14s%s: %14d %3d %10d %14d\n",
++			i, profile_name[i], (i == hwmgr->power_profile_mode) ? "*" : " ",
++			profile_mode_setting[i][0], profile_mode_setting[i][1],
++			profile_mode_setting[i][2], profile_mode_setting[i][3]);
++
++	return size;
++}
++
++static int smu10_set_power_profile_mode(struct pp_hwmgr *hwmgr, long *input, uint32_t size)
++{
++	int workload_type = 0;
++
++	if (input[size] > PP_SMC_POWER_PROFILE_COMPUTE) {
++		pr_err("Invalid power profile mode %d\n", input[size]);
++		return -EINVAL;
++	}
++	hwmgr->power_profile_mode = input[size];
++
++	/* conv PP_SMC_POWER_PROFILE* to WORKLOAD_PPLIB_*_BIT */
++	workload_type =
++		conv_power_profile_to_pplib_workload(hwmgr->power_profile_mode);
++	smum_send_msg_to_smc_with_parameter(hwmgr, PPSMC_MSG_ActiveProcessNotify,
++						1 << workload_type);
++
++	return 0;
++}
++
++
+ static const struct pp_hwmgr_func smu10_hwmgr_funcs = {
+ 	.backend_init = smu10_hwmgr_backend_init,
+ 	.backend_fini = smu10_hwmgr_backend_fini,
+@@ -1241,6 +1330,8 @@ static const struct pp_hwmgr_func smu10_hwmgr_funcs = {
+ 	.powergate_sdma = smu10_powergate_sdma,
+ 	.set_hard_min_dcefclk_by_freq = smu10_set_hard_min_dcefclk_by_freq,
+ 	.set_hard_min_fclk_by_freq = smu10_set_hard_min_fclk_by_freq,
++	.get_power_profile_mode = smu10_get_power_profile_mode,
++	.set_power_profile_mode = smu10_set_power_profile_mode,
+ };
+ 
+ int smu10_init_function_pointers(struct pp_hwmgr *hwmgr)
+diff --git a/drivers/gpu/drm/amd/powerplay/inc/rv_ppsmc.h b/drivers/gpu/drm/amd/powerplay/inc/rv_ppsmc.h
+index a2991fa2e6f8..90879e4092a3 100644
+--- a/drivers/gpu/drm/amd/powerplay/inc/rv_ppsmc.h
++++ b/drivers/gpu/drm/amd/powerplay/inc/rv_ppsmc.h
+@@ -85,7 +85,6 @@
+ #define PPSMC_MSG_SetRccPfcPmeRestoreRegister   0x36
+ #define PPSMC_Message_Count                     0x37
+ 
+-
+ typedef uint16_t PPSMC_Result;
+ typedef int      PPSMC_Msg;
+ 
+diff --git a/drivers/gpu/drm/amd/powerplay/inc/smu10.h b/drivers/gpu/drm/amd/powerplay/inc/smu10.h
+index 9e837a5014c5..b96520528240 100644
+--- a/drivers/gpu/drm/amd/powerplay/inc/smu10.h
++++ b/drivers/gpu/drm/amd/powerplay/inc/smu10.h
+@@ -136,12 +136,14 @@
+ #define FEATURE_CORE_CSTATES_MASK     (1 << FEATURE_CORE_CSTATES_BIT)
+ 
+ /* Workload bits */
+-#define WORKLOAD_PPLIB_FULL_SCREEN_3D_BIT 0
+-#define WORKLOAD_PPLIB_VIDEO_BIT          2
+-#define WORKLOAD_PPLIB_VR_BIT             3
+-#define WORKLOAD_PPLIB_COMPUTE_BIT        4
+-#define WORKLOAD_PPLIB_CUSTOM_BIT         5
+-#define WORKLOAD_PPLIB_COUNT              6
++#define WORKLOAD_DEFAULT_BIT              0
++#define WORKLOAD_PPLIB_FULL_SCREEN_3D_BIT 1
++#define WORKLOAD_PPLIB_POWER_SAVING_BIT   2
++#define WORKLOAD_PPLIB_VIDEO_BIT          3
++#define WORKLOAD_PPLIB_VR_BIT             4
++#define WORKLOAD_PPLIB_COMPUTE_BIT        5
++#define WORKLOAD_PPLIB_CUSTOM_BIT         6
++#define WORKLOAD_PPLIB_COUNT              7
+ 
+ typedef struct {
+ 	/* MP1_EXT_SCRATCH0 */
+-- 
+2.17.1
+

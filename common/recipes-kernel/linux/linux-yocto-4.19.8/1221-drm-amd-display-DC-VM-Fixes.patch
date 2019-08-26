@@ -1,0 +1,107 @@
+From 9c756526a8640af0cd646c69ea35841746a2d9b7 Mon Sep 17 00:00:00 2001
+From: Eryk Brol <eryk.brol@amd.com>
+Date: Mon, 21 Jan 2019 14:40:16 -0500
+Subject: [PATCH 1221/2940] drm/amd/display: DC VM Fixes
+
+[Why]
+VM_helper needs to be intialized with the dc struct in order to fix
+an unallocated memory issue. System aperture settings should be
+initialized to 0 and guarded with a check to make sure vm_config
+is valid.
+
+[How]
+Allocate and free memory for vm_helper with other dc members.
+Check whether the vm_config valid bit is set before initializing
+aperture settings.
+
+Change-Id: I9083eb884492cb16ca767b03eeed41e46277133c
+Signed-off-by: Eryk Brol <eryk.brol@amd.com>
+Reviewed-by: Jun Lei <Jun.Lei@amd.com>
+Acked-by: Bhawanpreet Lakha <Bhawanpreet.Lakha@amd.com>
+---
+ drivers/gpu/drm/amd/display/dc/core/dc.c       |  1 -
+ .../gpu/drm/amd/display/dc/core/dc_vm_helper.c | 18 +++++++-----------
+ drivers/gpu/drm/amd/display/dc/dc.h            |  1 -
+ drivers/gpu/drm/amd/display/dc/inc/vm_helper.h |  7 ++++---
+ 4 files changed, 11 insertions(+), 16 deletions(-)
+
+diff --git a/drivers/gpu/drm/amd/display/dc/core/dc.c b/drivers/gpu/drm/amd/display/dc/core/dc.c
+index 7d79b8ed5702..3a83f24998c4 100644
+--- a/drivers/gpu/drm/amd/display/dc/core/dc.c
++++ b/drivers/gpu/drm/amd/display/dc/core/dc.c
+@@ -621,7 +621,6 @@ static bool construct(struct dc *dc,
+ #endif
+ 
+ 	enum dce_version dc_version = DCE_VERSION_UNKNOWN;
+-
+ 	dc_dceip = kzalloc(sizeof(*dc_dceip), GFP_KERNEL);
+ 	if (!dc_dceip) {
+ 		dm_error("%s: failed to create dceip\n", __func__);
+diff --git a/drivers/gpu/drm/amd/display/dc/core/dc_vm_helper.c b/drivers/gpu/drm/amd/display/dc/core/dc_vm_helper.c
+index e54b8ac339b2..6ce87b682a32 100644
+--- a/drivers/gpu/drm/amd/display/dc/core/dc_vm_helper.c
++++ b/drivers/gpu/drm/amd/display/dc/core/dc_vm_helper.c
+@@ -112,16 +112,12 @@ uint8_t get_vmid_for_ptb(struct vm_helper *vm_helper, int64_t ptb, uint8_t hubp_
+ 	return vmid;
+ }
+ 
+-struct vm_helper init_vm_helper(unsigned int num_vmid, unsigned int num_hubp)
++void init_vm_helper(struct vm_helper *vm_helper, unsigned int num_vmid, unsigned int num_hubp)
+ {
+-	static uint64_t ptb_assigned_to_vmid[MAX_VMID];
+-	static struct vmid_usage hubp_vmid_usage[MAX_HUBP];
+-
+-	return (struct vm_helper){
+-		.num_vmid = num_vmid,
+-		.num_hubp = num_hubp,
+-		.num_vmids_available = num_vmid - 1,
+-		.ptb_assigned_to_vmid = ptb_assigned_to_vmid,
+-		.hubp_vmid_usage = hubp_vmid_usage
+-	};
++	vm_helper->num_vmid = num_vmid;
++	vm_helper->num_hubp = num_hubp;
++	vm_helper->num_vmids_available = num_vmid - 1;
++
++	memset(vm_helper->hubp_vmid_usage, 0, sizeof(vm_helper->hubp_vmid_usage[0]) * MAX_HUBP);
++	memset(vm_helper->ptb_assigned_to_vmid, 0, sizeof(vm_helper->ptb_assigned_to_vmid[0]) * MAX_VMID);
+ }
+diff --git a/drivers/gpu/drm/amd/display/dc/dc.h b/drivers/gpu/drm/amd/display/dc/dc.h
+index 8b9a901491a7..fa6c90bda67d 100644
+--- a/drivers/gpu/drm/amd/display/dc/dc.h
++++ b/drivers/gpu/drm/amd/display/dc/dc.h
+@@ -265,7 +265,6 @@ struct dc_debug_data {
+ 	uint32_t auxErrorCount;
+ };
+ 
+-
+ struct dc_state;
+ struct resource_pool;
+ struct dce_hwseq;
+diff --git a/drivers/gpu/drm/amd/display/dc/inc/vm_helper.h b/drivers/gpu/drm/amd/display/dc/inc/vm_helper.h
+index a202206e22a3..193407f76a80 100644
+--- a/drivers/gpu/drm/amd/display/dc/inc/vm_helper.h
++++ b/drivers/gpu/drm/amd/display/dc/inc/vm_helper.h
+@@ -39,8 +39,8 @@ struct vm_helper {
+ 	unsigned int num_vmid;
+ 	unsigned int num_hubp;
+ 	unsigned int num_vmids_available;
+-	uint64_t *ptb_assigned_to_vmid;
+-	struct vmid_usage *hubp_vmid_usage;
++	uint64_t ptb_assigned_to_vmid[MAX_VMID];
++	struct vmid_usage hubp_vmid_usage[MAX_HUBP];
+ };
+ 
+ uint8_t get_vmid_for_ptb(
+@@ -48,7 +48,8 @@ uint8_t get_vmid_for_ptb(
+ 		int64_t ptb,
+ 		uint8_t pipe_idx);
+ 
+-struct vm_helper init_vm_helper(
++void init_vm_helper(
++	struct vm_helper *vm_helper,
+ 	unsigned int num_vmid,
+ 	unsigned int num_hubp);
+ 
+-- 
+2.17.1
+

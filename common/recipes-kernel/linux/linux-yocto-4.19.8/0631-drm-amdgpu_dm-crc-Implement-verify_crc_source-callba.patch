@@ -1,0 +1,81 @@
+From aadf9f9f8aa28ce55e24f71bc87373bf991edef8 Mon Sep 17 00:00:00 2001
+From: Mahesh Kumar <mahesh1.kumar@intel.com>
+Date: Fri, 13 Jul 2018 19:29:36 +0530
+Subject: [PATCH 0631/2940] drm/amdgpu_dm/crc: Implement verify_crc_source
+ callback
+
+This patch implements "verify_crc_source" callback function for
+AMD drm driver.
+
+Signed-off-by: Mahesh Kumar <mahesh1.kumar@intel.com>
+Cc: dri-devel@lists.freedesktop.org
+Reviewed-by: Maarten Lankhorst <maarten.lankhorst@linux.intel.com>
+Acked-by: Leo Li <sunpeng.li@amd.com>
+Signed-off-by: Maarten Lankhorst <maarten.lankhorst@linux.intel.com>
+Link: https://patchwork.freedesktop.org/patch/msgid/20180713135942.25061-5-mahesh1.kumar@intel.com
+---
+ .../gpu/drm/amd/display/amdgpu_dm/amdgpu_dm.c    |  1 +
+ .../gpu/drm/amd/display/amdgpu_dm/amdgpu_dm.h    |  4 ++++
+ .../drm/amd/display/amdgpu_dm/amdgpu_dm_crc.c    | 16 ++++++++++++++++
+ 3 files changed, 21 insertions(+)
+
+diff --git a/drivers/gpu/drm/amd/display/amdgpu_dm/amdgpu_dm.c b/drivers/gpu/drm/amd/display/amdgpu_dm/amdgpu_dm.c
+index 5c2813bb58be..a7a3832ff848 100644
+--- a/drivers/gpu/drm/amd/display/amdgpu_dm/amdgpu_dm.c
++++ b/drivers/gpu/drm/amd/display/amdgpu_dm/amdgpu_dm.c
+@@ -2882,6 +2882,7 @@ static const struct drm_crtc_funcs amdgpu_dm_crtc_funcs = {
+ 	.atomic_duplicate_state = dm_crtc_duplicate_state,
+ 	.atomic_destroy_state = dm_crtc_destroy_state,
+ 	.set_crc_source = amdgpu_dm_crtc_set_crc_source,
++	.verify_crc_source = amdgpu_dm_crtc_verify_crc_source,
+ 	.enable_vblank = dm_enable_vblank,
+ 	.disable_vblank = dm_disable_vblank,
+ };
+diff --git a/drivers/gpu/drm/amd/display/amdgpu_dm/amdgpu_dm.h b/drivers/gpu/drm/amd/display/amdgpu_dm/amdgpu_dm.h
+index dd940a81247b..186698e509cd 100644
+--- a/drivers/gpu/drm/amd/display/amdgpu_dm/amdgpu_dm.h
++++ b/drivers/gpu/drm/amd/display/amdgpu_dm/amdgpu_dm.h
+@@ -247,9 +247,13 @@ void amdgpu_dm_update_freesync_caps(struct drm_connector *connector,
+ #ifdef CONFIG_DEBUG_FS
+ int amdgpu_dm_crtc_set_crc_source(struct drm_crtc *crtc, const char *src_name,
+ 				  size_t *values_cnt);
++int amdgpu_dm_crtc_verify_crc_source(struct drm_crtc *crtc,
++				     const char *src_name,
++				     size_t *values_cnt);
+ void amdgpu_dm_crtc_handle_crc_irq(struct drm_crtc *crtc);
+ #else
+ #define amdgpu_dm_crtc_set_crc_source NULL
++#define amdgpu_dm_crtc_verify_crc_source NULL
+ #define amdgpu_dm_crtc_handle_crc_irq(x)
+ #endif
+ 
+diff --git a/drivers/gpu/drm/amd/display/amdgpu_dm/amdgpu_dm_crc.c b/drivers/gpu/drm/amd/display/amdgpu_dm/amdgpu_dm_crc.c
+index 9bfb040352e9..16b679faadbd 100644
+--- a/drivers/gpu/drm/amd/display/amdgpu_dm/amdgpu_dm_crc.c
++++ b/drivers/gpu/drm/amd/display/amdgpu_dm/amdgpu_dm_crc.c
+@@ -46,6 +46,22 @@ static enum amdgpu_dm_pipe_crc_source dm_parse_crc_source(const char *source)
+ 	return AMDGPU_DM_PIPE_CRC_SOURCE_INVALID;
+ }
+ 
++int
++amdgpu_dm_crtc_verify_crc_source(struct drm_crtc *crtc, const char *src_name,
++				 size_t *values_cnt)
++{
++	enum amdgpu_dm_pipe_crc_source source = dm_parse_crc_source(src_name);
++
++	if (source < 0) {
++		DRM_DEBUG_DRIVER("Unknown CRC source %s for CRTC%d\n",
++				 src_name, crtc->index);
++		return -EINVAL;
++	}
++
++	*values_cnt = 3;
++	return 0;
++}
++
+ int amdgpu_dm_crtc_set_crc_source(struct drm_crtc *crtc, const char *src_name,
+ 			   size_t *values_cnt)
+ {
+-- 
+2.17.1
+

@@ -1,0 +1,71 @@
+From e07c0dd316661618aca592471f1042af25246772 Mon Sep 17 00:00:00 2001
+From: Felix Kuehling <Felix.Kuehling@amd.com>
+Date: Mon, 20 Aug 2018 20:15:00 -0400
+Subject: [PATCH 2693/2940] drm/amdkfd: Report SDMA firmware version in the
+ topology
+
+Also save the version in struct kfd_dev so we only need to query
+it once.
+
+Signed-off-by: Philip Yang <Philip.Yang@amd.com>
+Signed-off-by: Felix Kuehling <Felix.Kuehling@amd.com>
+Acked-by: Alex Deucher <alexander.deucher@amd.com>
+Signed-off-by: Alex Deucher <alexander.deucher@amd.com>
+---
+ drivers/gpu/drm/amd/amdkfd/kfd_device.c   | 4 ++++
+ drivers/gpu/drm/amd/amdkfd/kfd_priv.h     | 4 ++++
+ drivers/gpu/drm/amd/amdkfd/kfd_topology.c | 6 +++---
+ 3 files changed, 11 insertions(+), 3 deletions(-)
+
+diff --git a/drivers/gpu/drm/amd/amdkfd/kfd_device.c b/drivers/gpu/drm/amd/amdkfd/kfd_device.c
+index b5095c0b4f5a..4f7c0a79bbf5 100644
+--- a/drivers/gpu/drm/amd/amdkfd/kfd_device.c
++++ b/drivers/gpu/drm/amd/amdkfd/kfd_device.c
+@@ -405,6 +405,10 @@ bool kgd2kfd_device_init(struct kfd_dev *kfd,
+ {
+ 	unsigned int size;
+ 
++	kfd->mec_fw_version = kfd->kfd2kgd->get_fw_version(kfd->kgd,
++			KGD_ENGINE_MEC1);
++	kfd->sdma_fw_version = kfd->kfd2kgd->get_fw_version(kfd->kgd,
++			KGD_ENGINE_SDMA1);
+ 	kfd->shared_resources = *gpu_resources;
+ 
+ 	kfd->vm_info.first_vmid_kfd = ffs(gpu_resources->compute_vmid_bitmap)-1;
+diff --git a/drivers/gpu/drm/amd/amdkfd/kfd_priv.h b/drivers/gpu/drm/amd/amdkfd/kfd_priv.h
+index 7f2b6576c5e1..73b8df95eb89 100644
+--- a/drivers/gpu/drm/amd/amdkfd/kfd_priv.h
++++ b/drivers/gpu/drm/amd/amdkfd/kfd_priv.h
+@@ -275,6 +275,10 @@ struct kfd_dev {
+ 	/* Debug manager */
+ 	struct kfd_dbgmgr           *dbgmgr;
+ 
++	/* Firmware versions */
++	uint16_t mec_fw_version;
++	uint16_t sdma_fw_version;
++
+ 	/* Maximum process number mapped to HW scheduler */
+ 	unsigned int max_proc_per_quantum;
+ 
+diff --git a/drivers/gpu/drm/amd/amdkfd/kfd_topology.c b/drivers/gpu/drm/amd/amdkfd/kfd_topology.c
+index fbba1fed447f..54ff7fe03e78 100644
+--- a/drivers/gpu/drm/amd/amdkfd/kfd_topology.c
++++ b/drivers/gpu/drm/amd/amdkfd/kfd_topology.c
+@@ -482,11 +482,11 @@ static ssize_t node_show(struct kobject *kobj, struct attribute *attr,
+ 				(unsigned long long int) 0);
+ 
+ 		sysfs_show_32bit_prop(buffer, "fw_version",
+-			dev->gpu->kfd2kgd->get_fw_version(
+-						dev->gpu->kgd,
+-						KGD_ENGINE_MEC1));
++				dev->gpu->mec_fw_version);
+ 		sysfs_show_32bit_prop(buffer, "capability",
+ 				dev->node_props.capability);
++		sysfs_show_32bit_prop(buffer, "sdma_fw_version",
++				dev->gpu->sdma_fw_version);
+ 	}
+ 
+ 	return sysfs_show_32bit_prop(buffer, "max_engine_clk_ccompute",
+-- 
+2.17.1
+

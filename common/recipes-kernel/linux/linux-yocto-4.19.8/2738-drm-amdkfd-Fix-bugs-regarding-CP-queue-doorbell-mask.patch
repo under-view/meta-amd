@@ -1,0 +1,145 @@
+From fa2213e7be9818edd2a9ce4c17ac8572ef291282 Mon Sep 17 00:00:00 2001
+From: Yong Zhao <Yong.Zhao@amd.com>
+Date: Wed, 13 Feb 2019 13:15:05 -0500
+Subject: [PATCH 2738/2940] drm/amdkfd: Fix bugs regarding CP queue doorbell
+ mask on SOC15
+
+Reserved doorbells for SDMA IH and VCN were not properly masked out
+when allocating doorbells for CP user queues. This patch fixed that.
+
+Change-Id: I670adfc3fd7725d2ed0bd9665cb7f69f8b9023c2
+Signed-off-by: Yong Zhao <Yong.Zhao@amd.com>
+Reviewed-by: Felix Kuehling <Felix.Kuehling@amd.com>
+---
+ drivers/gpu/drm/amd/amdgpu/amdgpu_amdkfd.c    | 34 +++++++------------
+ drivers/gpu/drm/amd/amdkfd/kfd_priv.h         | 11 ++++++
+ drivers/gpu/drm/amd/amdkfd/kfd_process.c      | 14 +++++---
+ .../gpu/drm/amd/include/kgd_kfd_interface.h   | 15 ++++----
+ 4 files changed, 39 insertions(+), 35 deletions(-)
+
+diff --git a/drivers/gpu/drm/amd/amdgpu/amdgpu_amdkfd.c b/drivers/gpu/drm/amd/amdgpu/amdgpu_amdkfd.c
+index 1372d6dcdb6a..ea15e27f61f9 100644
+--- a/drivers/gpu/drm/amd/amdgpu/amdgpu_amdkfd.c
++++ b/drivers/gpu/drm/amd/amdgpu/amdgpu_amdkfd.c
+@@ -174,28 +174,20 @@ void amdgpu_amdkfd_device_init(struct amdgpu_device *adev)
+ 				&gpu_resources.doorbell_physical_address,
+ 				&gpu_resources.doorbell_aperture_size,
+ 				&gpu_resources.doorbell_start_offset);
++		/* Since SOC15, BIF starts to statically use the
++                 * lower 12 bits of doorbell addresses for routing
++                 * based on settings in registers like
++                 * SDMA0_DOORBELL_RANGE etc..
++                 * In order to route a doorbell to CP engine, the lower
++                 * 12 bits of its address has to be outside the range
++                 * set for SDMA, VCN, and IH blocks.
++                 */
+ 		if (adev->asic_type >= CHIP_VEGA10) {
+-			/* On SOC15 the BIF is involved in routing
+-			 * doorbells using the low 12 bits of the
+-			 * address. Communicate the assignments to
+-			 * KFD. KFD uses two doorbell pages per
+-			 * process in case of 64-bit doorbells so we
+-			 * can use each doorbell assignment twice.
+-			 */
+-			gpu_resources.sdma_doorbell[0][i] =
+-				adev->doorbell_index.sdma_engine[0] + (i >> 1);
+-			gpu_resources.sdma_doorbell[0][i+1] =
+-				adev->doorbell_index.sdma_engine[0] + 0x200 + (i >> 1);
+-			gpu_resources.sdma_doorbell[1][i] =
+-				adev->doorbell_index.sdma_engine[1] + (i >> 1);
+-			gpu_resources.sdma_doorbell[1][i+1] =
+-				adev->doorbell_index.sdma_engine[1] + 0x200 + (i >> 1);
+-		}
+-		/* Doorbells 0x0f0-0ff and 0x2f0-2ff are reserved for
+-		* SDMA, IH and VCN. So don't use them for the CP.
+-		*/
+-		gpu_resources.reserved_doorbell_mask = 0x1f0;
+-		gpu_resources.reserved_doorbell_val  = 0x0f0;
++                        gpu_resources.non_cp_doorbells_start =
++                                        adev->doorbell_index.first_non_cp;
++                        gpu_resources.non_cp_doorbells_end =
++                                        adev->doorbell_index.last_non_cp;
++                }
+ 
+ 		kgd2kfd_device_init(adev->kfd.dev, &gpu_resources);
+ 	}
+diff --git a/drivers/gpu/drm/amd/amdkfd/kfd_priv.h b/drivers/gpu/drm/amd/amdkfd/kfd_priv.h
+index 8758175d1fd4..b0102b9426bf 100644
+--- a/drivers/gpu/drm/amd/amdkfd/kfd_priv.h
++++ b/drivers/gpu/drm/amd/amdkfd/kfd_priv.h
+@@ -103,6 +103,17 @@
+ 
+ #define KFD_KERNEL_QUEUE_SIZE 2048
+ 
++/*
++ * 512 = 0x200
++ * The doorbell index distance between SDMA RLC (2*i) and (2*i+1) in the
++ * same SDMA engine on SOC15, which has 8-byte doorbells for SDMA.
++ * 512 8-byte doorbell distance (i.e. one page away) ensures that SDMA RLC
++ * (2*i+1) doorbells (in terms of the lower 12 bit address) lie exactly in
++ * the OFFSET and SIZE set in registers like BIF_SDMA0_DOORBELL_RANGE.
++ */
++#define KFD_QUEUE_DOORBELL_MIRROR_OFFSET 512
++
++
+ /*
+  * Kernel module parameter to specify maximum number of supported queues per
+  * device
+diff --git a/drivers/gpu/drm/amd/amdkfd/kfd_process.c b/drivers/gpu/drm/amd/amdkfd/kfd_process.c
+index 6b99f6b9fdc8..7632d66cb218 100644
+--- a/drivers/gpu/drm/amd/amdkfd/kfd_process.c
++++ b/drivers/gpu/drm/amd/amdkfd/kfd_process.c
+@@ -607,13 +607,17 @@ static int init_doorbell_bitmap(struct qcm_process_device *qpd,
+ 	if (!qpd->doorbell_bitmap)
+ 		return -ENOMEM;
+ 
+-	/* Mask out any reserved doorbells */
+-	for (i = 0; i < KFD_MAX_NUM_OF_QUEUES_PER_PROCESS; i++)
+-		if ((dev->shared_resources.reserved_doorbell_mask & i) ==
+-		    dev->shared_resources.reserved_doorbell_val) {
++	/* Mask out doorbells reserved for SDMA, IH, and VCN on SOC15. */
++	for (i = 0; i < KFD_MAX_NUM_OF_QUEUES_PER_PROCESS / 2; i++) {
++		if (i >= dev->shared_resources.non_cp_doorbells_start
++			&& i <= dev->shared_resources.non_cp_doorbells_end) {
+ 			set_bit(i, qpd->doorbell_bitmap);
+-			pr_debug("reserved doorbell 0x%03x\n", i);
++			set_bit(i + KFD_QUEUE_DOORBELL_MIRROR_OFFSET,
++				qpd->doorbell_bitmap);
++			pr_debug("reserved doorbell 0x%03x and 0x%03x\n", i,
++				i + KFD_QUEUE_DOORBELL_MIRROR_OFFSET);
+ 		}
++	}
+ 
+ 	return 0;
+ }
+diff --git a/drivers/gpu/drm/amd/include/kgd_kfd_interface.h b/drivers/gpu/drm/amd/include/kgd_kfd_interface.h
+index ec2757b058cd..7e44dcd15cdc 100644
+--- a/drivers/gpu/drm/amd/include/kgd_kfd_interface.h
++++ b/drivers/gpu/drm/amd/include/kgd_kfd_interface.h
+@@ -113,17 +113,14 @@ struct kgd2kfd_shared_resources {
+ 	/* Doorbell assignments (SOC15 and later chips only). Only
+ 	 * specific doorbells are routed to each SDMA engine. Others
+ 	 * are routed to IH and VCN. They are not usable by the CP.
+-	 *
+-	 * Any doorbell number D that satisfies the following condition
+-	 * is reserved: (D & reserved_doorbell_mask) == reserved_doorbell_val
+-	 *
+-	 * KFD currently uses 1024 (= 0x3ff) doorbells per process. If
+-	 * doorbells 0x0f0-0x0f7 and 0x2f-0x2f7 are reserved, that means
+-	 * mask would be set to 0x1f8 and val set to 0x0f0.
+ 	 */
+ 	unsigned int sdma_doorbell[2][2];
+-	unsigned int reserved_doorbell_mask;
+-	unsigned int reserved_doorbell_val;
++
++	/* From SOC15 onward, the doorbell index range not usable for CP
++         * queues.
++         */
++        uint32_t non_cp_doorbells_start;
++        uint32_t non_cp_doorbells_end;
+ 
+ 	/* Base address of doorbell aperture. */
+ 	phys_addr_t doorbell_physical_address;
+-- 
+2.17.1
+

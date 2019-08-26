@@ -1,0 +1,186 @@
+From f5fad37b85a812830cca146061848f4e32148870 Mon Sep 17 00:00:00 2001
+From: Kent Russell <kent.russell@amd.com>
+Date: Wed, 15 May 2019 08:35:29 -0400
+Subject: [PATCH 1993/2940] drm/amdgpu: Add Unique Identifier sysfs file
+ unique_id v2
+
+Add a file that provides a Unique ID for the GPU.
+This will persist across machines and is guaranteed to be unique.
+This is only available for GFX9 and newer, so older ASICs will not
+have this file in the sysfs pool
+
+v2: Store it in adev for ASICs that don't have a hwmgr
+
+Change-Id: I3c673f78efcc5bf93ca58d65edbe39fc3a86b42a
+Signed-off-by: Kent Russell <kent.russell@amd.com>
+---
+ drivers/gpu/drm/amd/amdgpu/amdgpu.h           |  2 ++
+ drivers/gpu/drm/amd/amdgpu/amdgpu_pm.c        | 32 +++++++++++++++++++
+ .../drm/amd/powerplay/hwmgr/vega10_hwmgr.c    |  9 ++++++
+ .../drm/amd/powerplay/hwmgr/vega12_hwmgr.c    | 10 ++++++
+ .../drm/amd/powerplay/hwmgr/vega20_hwmgr.c    | 10 ++++++
+ 5 files changed, 63 insertions(+)
+
+diff --git a/drivers/gpu/drm/amd/amdgpu/amdgpu.h b/drivers/gpu/drm/amd/amdgpu/amdgpu.h
+index 6c22dc3ec317..e79bcfc1499c 100644
+--- a/drivers/gpu/drm/amd/amdgpu/amdgpu.h
++++ b/drivers/gpu/drm/amd/amdgpu/amdgpu.h
+@@ -996,6 +996,8 @@ struct amdgpu_device {
+ 	long				sdma_timeout;
+ 	long				video_timeout;
+ 	long				compute_timeout;
++
++	uint64_t			unique_id;
+ };
+ 
+ static inline struct amdgpu_device *amdgpu_ttm_adev(struct ttm_bo_device *bdev)
+diff --git a/drivers/gpu/drm/amd/amdgpu/amdgpu_pm.c b/drivers/gpu/drm/amd/amdgpu/amdgpu_pm.c
+index adba9ea03e63..a73e1903d29b 100644
+--- a/drivers/gpu/drm/amd/amdgpu/amdgpu_pm.c
++++ b/drivers/gpu/drm/amd/amdgpu/amdgpu_pm.c
+@@ -1368,6 +1368,29 @@ static ssize_t amdgpu_get_pcie_bw(struct device *dev,
+ 			count0, count1, pcie_get_mps(adev->pdev));
+ }
+ 
++/**
++ * DOC: unique_id
++ *
++ * The amdgpu driver provides a sysfs API for providing a unique ID for the GPU
++ * The file unique_id is used for this.
++ * This will provide a Unique ID that will persist from machine to machine
++ *
++ * NOTE: This will only work for GFX9 and newer. This file will be absent
++ * on unsupported ASICs (GFX8 and older)
++ */
++static ssize_t amdgpu_get_unique_id(struct device *dev,
++		struct device_attribute *attr,
++		char *buf)
++{
++	struct drm_device *ddev = dev_get_drvdata(dev);
++	struct amdgpu_device *adev = ddev->dev_private;
++
++	if (adev->unique_id)
++		return snprintf(buf, PAGE_SIZE, "%016llx\n", adev->unique_id);
++
++	return 0;
++}
++
+ static DEVICE_ATTR(power_dpm_state, S_IRUGO | S_IWUSR, amdgpu_get_dpm_state, amdgpu_set_dpm_state);
+ static DEVICE_ATTR(power_dpm_force_performance_level, S_IRUGO | S_IWUSR,
+ 		   amdgpu_get_dpm_forced_performance_level,
+@@ -1418,6 +1441,7 @@ static DEVICE_ATTR(pcie_bw, S_IRUGO, amdgpu_get_pcie_bw, NULL);
+ static DEVICE_ATTR(ppfeatures, S_IRUGO | S_IWUSR,
+ 		amdgpu_get_ppfeature_status,
+ 		amdgpu_set_ppfeature_status);
++static DEVICE_ATTR(unique_id, S_IRUGO, amdgpu_get_unique_id, NULL);
+ 
+ static ssize_t amdgpu_hwmon_show_temp(struct device *dev,
+ 				      struct device_attribute *attr,
+@@ -2814,6 +2838,12 @@ int amdgpu_pm_sysfs_init(struct amdgpu_device *adev)
+ 			return ret;
+ 		}
+ 	}
++	if (adev->unique_id)
++		ret = device_create_file(adev->dev, &dev_attr_unique_id);
++	if (ret) {
++		DRM_ERROR("failed to create device file unique_id\n");
++		return ret;
++	}
+ 	ret = amdgpu_debugfs_pm_init(adev);
+ 	if (ret) {
+ 		DRM_ERROR("Failed to register debugfs file for dpm!\n");
+@@ -2875,6 +2905,8 @@ void amdgpu_pm_sysfs_fini(struct amdgpu_device *adev)
+ 		device_remove_file(adev->dev, &dev_attr_mem_busy_percent);
+ 	if (!(adev->flags & AMD_IS_APU))
+ 		device_remove_file(adev->dev, &dev_attr_pcie_bw);
++	if (adev->unique_id)
++		device_remove_file(adev->dev, &dev_attr_unique_id);
+ 	if ((adev->asic_type >= CHIP_VEGA10) &&
+ 	    !(adev->flags & AMD_IS_APU))
+ 		device_remove_file(adev->dev, &dev_attr_ppfeatures);
+diff --git a/drivers/gpu/drm/amd/powerplay/hwmgr/vega10_hwmgr.c b/drivers/gpu/drm/amd/powerplay/hwmgr/vega10_hwmgr.c
+index f90f0f3a6ab7..bc904d1977e3 100644
+--- a/drivers/gpu/drm/amd/powerplay/hwmgr/vega10_hwmgr.c
++++ b/drivers/gpu/drm/amd/powerplay/hwmgr/vega10_hwmgr.c
+@@ -356,6 +356,7 @@ static void vega10_init_dpm_defaults(struct pp_hwmgr *hwmgr)
+ 	struct vega10_hwmgr *data = hwmgr->backend;
+ 	int i;
+ 	uint32_t sub_vendor_id, hw_revision;
++	uint32_t top32, bottom32;
+ 	struct amdgpu_device *adev = hwmgr->adev;
+ 
+ 	vega10_initialize_power_tune_defaults(hwmgr);
+@@ -499,6 +500,14 @@ static void vega10_init_dpm_defaults(struct pp_hwmgr *hwmgr)
+ 		(hw_revision == 0) &&
+ 		(sub_vendor_id != 0x1002))
+ 		data->smu_features[GNLD_PCC_LIMIT].supported = true;
++
++	/* Get the SN to turn into a Unique ID */
++	smum_send_msg_to_smc(hwmgr, PPSMC_MSG_ReadSerialNumTop32);
++	top32 = smum_get_argument(hwmgr);
++	smum_send_msg_to_smc(hwmgr, PPSMC_MSG_ReadSerialNumBottom32);
++	bottom32 = smum_get_argument(hwmgr);
++
++	adev->unique_id = ((uint64_t)bottom32 << 32) | top32;
+ }
+ 
+ #ifdef PPLIB_VEGA10_EVV_SUPPORT
+diff --git a/drivers/gpu/drm/amd/powerplay/hwmgr/vega12_hwmgr.c b/drivers/gpu/drm/amd/powerplay/hwmgr/vega12_hwmgr.c
+index 1a909dda37c7..efb6d3762feb 100644
+--- a/drivers/gpu/drm/amd/powerplay/hwmgr/vega12_hwmgr.c
++++ b/drivers/gpu/drm/amd/powerplay/hwmgr/vega12_hwmgr.c
+@@ -289,6 +289,8 @@ static int vega12_set_features_platform_caps(struct pp_hwmgr *hwmgr)
+ static void vega12_init_dpm_defaults(struct pp_hwmgr *hwmgr)
+ {
+ 	struct vega12_hwmgr *data = (struct vega12_hwmgr *)(hwmgr->backend);
++	struct amdgpu_device *adev = hwmgr->adev;
++	uint32_t top32, bottom32;
+ 	int i;
+ 
+ 	data->smu_features[GNLD_DPM_PREFETCHER].smu_feature_id =
+@@ -353,6 +355,14 @@ static void vega12_init_dpm_defaults(struct pp_hwmgr *hwmgr)
+ 			((data->registry_data.disallowed_features >> i) & 1) ?
+ 			false : true;
+ 	}
++
++	/* Get the SN to turn into a Unique ID */
++	smum_send_msg_to_smc(hwmgr, PPSMC_MSG_ReadSerialNumTop32);
++	top32 = smum_get_argument(hwmgr);
++	smum_send_msg_to_smc(hwmgr, PPSMC_MSG_ReadSerialNumBottom32);
++	bottom32 = smum_get_argument(hwmgr);
++
++	adev->unique_id = ((uint64_t)bottom32 << 32) | top32;
+ }
+ 
+ static int vega12_set_private_data_based_on_pptable(struct pp_hwmgr *hwmgr)
+diff --git a/drivers/gpu/drm/amd/powerplay/hwmgr/vega20_hwmgr.c b/drivers/gpu/drm/amd/powerplay/hwmgr/vega20_hwmgr.c
+index d18f34d4a51e..f27c6fbb192e 100644
+--- a/drivers/gpu/drm/amd/powerplay/hwmgr/vega20_hwmgr.c
++++ b/drivers/gpu/drm/amd/powerplay/hwmgr/vega20_hwmgr.c
+@@ -324,6 +324,8 @@ static int vega20_set_features_platform_caps(struct pp_hwmgr *hwmgr)
+ static void vega20_init_dpm_defaults(struct pp_hwmgr *hwmgr)
+ {
+ 	struct vega20_hwmgr *data = (struct vega20_hwmgr *)(hwmgr->backend);
++	struct amdgpu_device *adev = hwmgr->adev;
++	uint32_t top32, bottom32;
+ 	int i;
+ 
+ 	data->smu_features[GNLD_DPM_PREFETCHER].smu_feature_id =
+@@ -393,6 +395,14 @@ static void vega20_init_dpm_defaults(struct pp_hwmgr *hwmgr)
+ 			((data->registry_data.disallowed_features >> i) & 1) ?
+ 			false : true;
+ 	}
++
++	/* Get the SN to turn into a Unique ID */
++	smum_send_msg_to_smc(hwmgr, PPSMC_MSG_ReadSerialNumTop32);
++	top32 = smum_get_argument(hwmgr);
++	smum_send_msg_to_smc(hwmgr, PPSMC_MSG_ReadSerialNumBottom32);
++	bottom32 = smum_get_argument(hwmgr);
++
++	adev->unique_id = ((uint64_t)bottom32 << 32) | top32;
+ }
+ 
+ static int vega20_set_private_data_based_on_pptable(struct pp_hwmgr *hwmgr)
+-- 
+2.17.1
+

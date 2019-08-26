@@ -1,0 +1,90 @@
+From 0229cda0e95fd0971bd8d8d7516d7f6544c017b5 Mon Sep 17 00:00:00 2001
+From: =?UTF-8?q?Nicolai=20H=C3=A4hnle?= <nicolai.haehnle@amd.com>
+Date: Fri, 12 Jul 2019 15:35:55 +0200
+Subject: [PATCH 2882/2940] drm/amdgpu/gfx10: set
+ SH_MEM_CONFIG.INITIAL_INST_PREFETCH
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+Prefetch mode 0 is not supported and can lead to hangs with certain very
+specific code patterns. Set a sound prefetch mode for all VMIDs rather
+than forcing all shaders to set the prefetch mode at the beginning.
+
+Reduce code duplication a bit while we're at it. Note that the 64-bit
+address mode enum and the retry all enum are both 0, so the only
+functional change is in the INITIAL_INST_PREFETCH field.
+
+Signed-off-by: Nicolai Hähnle <nicolai.haehnle@amd.com>
+Reviewed-by: Marek Olšák <marek.olsak@amd.com>
+Acked-by: Felix Kuehling <Felix.Kuehling@amd.com>
+---
+ drivers/gpu/drm/amd/amdgpu/gfx_v10_0.c | 27 ++++++++++----------------
+ 1 file changed, 10 insertions(+), 17 deletions(-)
+
+diff --git a/drivers/gpu/drm/amd/amdgpu/gfx_v10_0.c b/drivers/gpu/drm/amd/amdgpu/gfx_v10_0.c
+index cf864be7c3eb..e7c6fc61b237 100644
+--- a/drivers/gpu/drm/amd/amdgpu/gfx_v10_0.c
++++ b/drivers/gpu/drm/amd/amdgpu/gfx_v10_0.c
+@@ -164,6 +164,13 @@ static const struct soc15_reg_golden golden_settings_gc_10_1_nv14[] =
+ 	/* Pending on emulation bring up */
+ };
+ 
++#define DEFAULT_SH_MEM_CONFIG \
++	((SH_MEM_ADDRESS_MODE_64 << SH_MEM_CONFIG__ADDRESS_MODE__SHIFT) | \
++	 (SH_MEM_ALIGNMENT_MODE_UNALIGNED << SH_MEM_CONFIG__ALIGNMENT_MODE__SHIFT) | \
++	 (SH_MEM_RETRY_MODE_ALL << SH_MEM_CONFIG__RETRY_MODE__SHIFT) | \
++	 (3 << SH_MEM_CONFIG__INITIAL_INST_PREFETCH__SHIFT))
++
++
+ static void gfx_v10_0_set_ring_funcs(struct amdgpu_device *adev);
+ static void gfx_v10_0_set_irq_funcs(struct amdgpu_device *adev);
+ static void gfx_v10_0_set_gds_init(struct amdgpu_device *adev);
+@@ -1490,7 +1497,6 @@ static u32 gfx_v10_0_init_pa_sc_tile_steering_override(struct amdgpu_device *ade
+ static void gfx_v10_0_init_compute_vmid(struct amdgpu_device *adev)
+ {
+ 	int i;
+-	uint32_t sh_mem_config;
+ 	uint32_t sh_mem_bases;
+ 
+ 	/*
+@@ -1501,15 +1507,11 @@ static void gfx_v10_0_init_compute_vmid(struct amdgpu_device *adev)
+ 	 */
+ 	sh_mem_bases = DEFAULT_SH_MEM_BASES | (DEFAULT_SH_MEM_BASES << 16);
+ 
+-	sh_mem_config = SH_MEM_ADDRESS_MODE_64 |
+-			SH_MEM_ALIGNMENT_MODE_UNALIGNED <<
+-			SH_MEM_CONFIG__ALIGNMENT_MODE__SHIFT;
+-
+ 	mutex_lock(&adev->srbm_mutex);
+ 	for (i = FIRST_COMPUTE_VMID; i < LAST_COMPUTE_VMID; i++) {
+ 		nv_grbm_select(adev, 0, 0, 0, i);
+ 		/* CP and shaders */
+-		WREG32_SOC15(GC, 0, mmSH_MEM_CONFIG, sh_mem_config);
++		WREG32_SOC15(GC, 0, mmSH_MEM_CONFIG, DEFAULT_SH_MEM_CONFIG);
+ 		WREG32_SOC15(GC, 0, mmSH_MEM_BASES, sh_mem_bases);
+ 	}
+ 	nv_grbm_select(adev, 0, 0, 0, 0);
+@@ -1604,17 +1606,8 @@ static void gfx_v10_0_constants_init(struct amdgpu_device *adev)
+ 	for (i = 0; i < adev->vm_manager.id_mgr[AMDGPU_GFXHUB].num_ids; i++) {
+ 		nv_grbm_select(adev, 0, 0, 0, i);
+ 		/* CP and shaders */
+-		if (i == 0) {
+-			tmp = REG_SET_FIELD(0, SH_MEM_CONFIG, ALIGNMENT_MODE,
+-					    SH_MEM_ALIGNMENT_MODE_UNALIGNED);
+-			tmp = REG_SET_FIELD(tmp, SH_MEM_CONFIG, RETRY_MODE, 0);
+-			WREG32_SOC15(GC, 0, mmSH_MEM_CONFIG, tmp);
+-			WREG32_SOC15(GC, 0, mmSH_MEM_BASES, 0);
+-		} else {
+-			tmp = REG_SET_FIELD(0, SH_MEM_CONFIG, ALIGNMENT_MODE,
+-					    SH_MEM_ALIGNMENT_MODE_UNALIGNED);
+-			tmp = REG_SET_FIELD(tmp, SH_MEM_CONFIG, RETRY_MODE, 0);
+-			WREG32_SOC15(GC, 0, mmSH_MEM_CONFIG, tmp);
++		WREG32_SOC15(GC, 0, mmSH_MEM_CONFIG, DEFAULT_SH_MEM_CONFIG);
++		if (i != 0) {
+ 			tmp = REG_SET_FIELD(0, SH_MEM_BASES, PRIVATE_BASE,
+ 				(adev->gmc.private_aperture_start >> 48));
+ 			tmp = REG_SET_FIELD(tmp, SH_MEM_BASES, SHARED_BASE,
+-- 
+2.17.1
+

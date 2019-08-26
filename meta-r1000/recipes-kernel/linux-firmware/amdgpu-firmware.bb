@@ -10,7 +10,6 @@ SRC_URI = "file://raven2_asd.bin \
 	   file://raven2_mec.bin \
 	   file://raven2_pfp.bin \
 	   file://raven2_rlc.bin \
-	   file://raven2_sdma1.bin \
 	   file://raven2_sdma.bin \
 	   file://raven2_vcn.bin \
 	   file://LICENSE"

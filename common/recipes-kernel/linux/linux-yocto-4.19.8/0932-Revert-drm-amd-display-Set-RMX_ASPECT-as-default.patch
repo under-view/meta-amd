@@ -1,0 +1,53 @@
+From ba1b9e01c302d42f61a2eec554243481c8aa100b Mon Sep 17 00:00:00 2001
+From: Nicholas Kazlauskas <nicholas.kazlauskas@amd.com>
+Date: Fri, 7 Dec 2018 12:15:01 -0500
+Subject: [PATCH 0932/2940] Revert "drm/amd/display: Set RMX_ASPECT as default"
+
+This reverts commit 91b66c47ba3468f7882ea4a84d5e0e0c186b638f.
+
+Forcing RMX_ASPECT as default uses the preferred/native mode's timings
+for any mode the user selects and scales the image. This provides a
+a consistently nicer result in the case where the selected mode's
+refresh rate matches the native mode's refresh but this isn't always
+the case.
+
+For example, if the monitor is 1080p@144Hz and the preferred mode is
+60Hz then even if the user selects 1080p@144Hz as their selected mode
+they'll get 1080p@60Hz.
+
+Signed-off-by: Nicholas Kazlauskas <nicholas.kazlauskas@amd.com>
+Acked-by: Alex Deucher <alexander.deucher@amd.com>
+Reviewed-by: Leo Li <sunpeng.li@amd.com>
+Signed-off-by: Alex Deucher <alexander.deucher@amd.com>
+---
+ drivers/gpu/drm/amd/display/amdgpu_dm/amdgpu_dm.c | 6 ++----
+ 1 file changed, 2 insertions(+), 4 deletions(-)
+
+diff --git a/drivers/gpu/drm/amd/display/amdgpu_dm/amdgpu_dm.c b/drivers/gpu/drm/amd/display/amdgpu_dm/amdgpu_dm.c
+index 5e5eebe9a59d..ee4c5ccfdc6a 100644
+--- a/drivers/gpu/drm/amd/display/amdgpu_dm/amdgpu_dm.c
++++ b/drivers/gpu/drm/amd/display/amdgpu_dm/amdgpu_dm.c
+@@ -3118,10 +3118,8 @@ int amdgpu_dm_connector_atomic_set_property(struct drm_connector *connector,
+ 			rmx_type = RMX_FULL;
+ 			break;
+ 		case DRM_MODE_SCALE_NONE:
+-			rmx_type = RMX_OFF;
+-			break;
+ 		default:
+-			rmx_type = RMX_ASPECT;
++			rmx_type = RMX_OFF;
+ 			break;
+ 		}
+ 
+@@ -3246,7 +3244,7 @@ void amdgpu_dm_connector_funcs_reset(struct drm_connector *connector)
+ 	state = kzalloc(sizeof(*state), GFP_KERNEL);
+ 
+ 	if (state) {
+-		state->scaling = RMX_ASPECT;
++		state->scaling = RMX_OFF;
+ 		state->underscan_enable = false;
+ 		state->underscan_hborder = 0;
+ 		state->underscan_vborder = 0;
+-- 
+2.17.1
+

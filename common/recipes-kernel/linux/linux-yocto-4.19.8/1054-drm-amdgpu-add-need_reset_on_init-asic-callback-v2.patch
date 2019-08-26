@@ -1,0 +1,43 @@
+From 75e702c42c627b911971979550c7bf0521a70635 Mon Sep 17 00:00:00 2001
+From: Alex Deucher <alexander.deucher@amd.com>
+Date: Wed, 31 Oct 2018 23:54:27 -0500
+Subject: [PATCH 1054/2940] drm/amdgpu: add need_reset_on_init asic callback
+ (v2)
+
+Used to determine if we need to reset the asic on init due
+to the driver having been previously loaded or not shutdown
+cleanly.  E.g., kexec or VM passthrough.
+
+v2: rebase
+
+Reviewed-by: Evan Quan <evan.quan@amd.com>
+Reviewed-by: Felix Kuehling <Felix.Kuehling@amd.com>
+Signed-off-by: Alex Deucher <alexander.deucher@amd.com>
+---
+ drivers/gpu/drm/amd/amdgpu/amdgpu.h | 3 +++
+ 1 file changed, 3 insertions(+)
+
+diff --git a/drivers/gpu/drm/amd/amdgpu/amdgpu.h b/drivers/gpu/drm/amd/amdgpu/amdgpu.h
+index 7f8cba98d154..b4bbaeaa050b 100644
+--- a/drivers/gpu/drm/amd/amdgpu/amdgpu.h
++++ b/drivers/gpu/drm/amd/amdgpu/amdgpu.h
+@@ -551,6 +551,8 @@ struct amdgpu_asic_funcs {
+ 	/* PCIe bandwidth usage */
+ 	void (*get_pcie_usage)(struct amdgpu_device *adev, uint64_t *count0,
+ 			       uint64_t *count1);
++	/* do we need to reset the asic at init time (e.g., kexec) */
++	bool (*need_reset_on_init)(struct amdgpu_device *adev);
+ };
+ 
+ /*
+@@ -1083,6 +1085,7 @@ int emu_soc_asic_init(struct amdgpu_device *adev);
+ #define amdgpu_asic_need_full_reset(adev) (adev)->asic_funcs->need_full_reset((adev))
+ #define amdgpu_asic_init_doorbell_index(adev) (adev)->asic_funcs->init_doorbell_index((adev))
+ #define amdgpu_asic_get_pcie_usage(adev, cnt0, cnt1) ((adev)->asic_funcs->get_pcie_usage((adev), (cnt0), (cnt1)))
++#define amdgpu_asic_need_reset_on_init(adev) (adev)->asic_funcs->need_reset_on_init((adev))
+ 
+ /* Common functions */
+ bool amdgpu_device_should_recover_gpu(struct amdgpu_device *adev);
+-- 
+2.17.1
+

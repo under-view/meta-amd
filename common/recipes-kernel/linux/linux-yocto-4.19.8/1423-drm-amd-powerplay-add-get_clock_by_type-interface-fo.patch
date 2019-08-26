@@ -1,0 +1,61 @@
+From 52e7d320e01abf3379d3f4b442b60d1489f58c9e Mon Sep 17 00:00:00 2001
+From: Huang Rui <ray.huang@amd.com>
+Date: Fri, 11 Jan 2019 17:12:04 +0800
+Subject: [PATCH 1423/2940] drm/amd/powerplay: add get_clock_by_type interface
+ for display
+
+This patch adds get_clock_by_type interface for display, in smu v11 didn't have
+the implementation.
+
+Signed-off-by: Huang Rui <ray.huang@amd.com>
+Reviewed-by: Evan Quan <evan.quan@amd.com>
+Reviewed-by: Kevin Wang <Kevin1.Wang@amd.com>
+Acked-by: Alex Deucher <alexander.deucher@amd.com>
+---
+ drivers/gpu/drm/amd/display/amdgpu_dm/amdgpu_dm_pp_smu.c | 6 ++++++
+ drivers/gpu/drm/amd/powerplay/inc/amdgpu_smu.h           | 5 +++++
+ 2 files changed, 11 insertions(+)
+
+diff --git a/drivers/gpu/drm/amd/display/amdgpu_dm/amdgpu_dm_pp_smu.c b/drivers/gpu/drm/amd/display/amdgpu_dm/amdgpu_dm_pp_smu.c
+index 378cae80ebe0..7f3c789e1017 100644
+--- a/drivers/gpu/drm/amd/display/amdgpu_dm/amdgpu_dm_pp_smu.c
++++ b/drivers/gpu/drm/amd/display/amdgpu_dm/amdgpu_dm_pp_smu.c
+@@ -313,6 +313,12 @@ bool dm_pp_get_clock_levels_by_type(
+ 		if (adev->powerplay.pp_funcs->get_clock_by_type(pp_handle,
+ 			dc_to_pp_clock_type(clk_type), &pp_clks)) {
+ 		/* Error in pplib. Provide default values. */
++			return true;
++		}
++	} else if (adev->smu.funcs && adev->smu.funcs->get_clock_by_type) {
++		if (smu_get_clock_by_type(&adev->smu,
++					  dc_to_pp_clock_type(clk_type),
++					  &pp_clks)) {
+ 			get_default_clock_levels(clk_type, dc_clks);
+ 			return true;
+ 		}
+diff --git a/drivers/gpu/drm/amd/powerplay/inc/amdgpu_smu.h b/drivers/gpu/drm/amd/powerplay/inc/amdgpu_smu.h
+index 144f7065b129..aecab25ceee8 100644
+--- a/drivers/gpu/drm/amd/powerplay/inc/amdgpu_smu.h
++++ b/drivers/gpu/drm/amd/powerplay/inc/amdgpu_smu.h
+@@ -269,6 +269,9 @@ struct smu_funcs
+ 	int (*store_cc6_data)(struct smu_context *smu, uint32_t separation_time,
+ 			      bool cc6_disable, bool pstate_disable,
+ 			      bool pstate_switch_disable);
++	int (*get_clock_by_type)(struct smu_context *smu,
++				 enum amd_pp_clock_type type,
++				 struct amd_pp_clocks *clocks);
+ };
+ 
+ #define smu_init_microcode(smu) \
+@@ -370,6 +373,8 @@ struct smu_funcs
+ 	((smu)->funcs->set_active_display_count ? (smu)->funcs->set_active_display_count((smu), (count)) : 0)
+ #define smu_store_cc6_data(smu, st, cc6_dis, pst_dis, pst_sw_dis) \
+ 	((smu)->funcs->store_cc6_data ? (smu)->funcs->store_cc6_data((smu), (st), (cc6_dis), (pst_dis), (pst_sw_dis)) : 0)
++#define smu_get_clock_by_type(smu, type, clocks) \
++	((smu)->funcs->get_clock_by_type ? (smu)->funcs->get_clock_by_type((smu), (type), (clocks)) : 0)
+ 
+ extern int smu_get_atom_data_table(struct smu_context *smu, uint32_t table,
+ 				   uint16_t *size, uint8_t *frev, uint8_t *crev,
+-- 
+2.17.1
+

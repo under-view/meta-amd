@@ -1,0 +1,95 @@
+From f2677e33f6019bb4f85345f80bd9b11d37d32693 Mon Sep 17 00:00:00 2001
+From: =?UTF-8?q?Christian=20K=C3=B6nig?= <christian.koenig@amd.com>
+Date: Wed, 7 Nov 2018 09:23:26 +0100
+Subject: [PATCH 0892/2940] drm/amdgpu: remove amdgpu_bo_backup_to_shadow
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+It is unused.
+
+Signed-off-by: Christian König <christian.koenig@amd.com>
+Reviewed-by: Alex Deucher <alexander.deucher@amd.com>
+Signed-off-by: Alex Deucher <alexander.deucher@amd.com>
+---
+ drivers/gpu/drm/amd/amdgpu/amdgpu_object.c | 47 ----------------------
+ drivers/gpu/drm/amd/amdgpu/amdgpu_object.h |  5 ---
+ 2 files changed, 52 deletions(-)
+
+diff --git a/drivers/gpu/drm/amd/amdgpu/amdgpu_object.c b/drivers/gpu/drm/amd/amdgpu/amdgpu_object.c
+index 4afea68fcd60..55cfbf509b15 100644
+--- a/drivers/gpu/drm/amd/amdgpu/amdgpu_object.c
++++ b/drivers/gpu/drm/amd/amdgpu/amdgpu_object.c
+@@ -640,53 +640,6 @@ int amdgpu_bo_create(struct amdgpu_device *adev,
+ 	return r;
+ }
+ 
+-/**
+- * amdgpu_bo_backup_to_shadow - Backs up an &amdgpu_bo buffer object
+- * @adev: amdgpu device object
+- * @ring: amdgpu_ring for the engine handling the buffer operations
+- * @bo: &amdgpu_bo buffer to be backed up
+- * @resv: reservation object with embedded fence
+- * @fence: dma_fence associated with the operation
+- * @direct: whether to submit the job directly
+- *
+- * Copies an &amdgpu_bo buffer object to its shadow object.
+- * Not used for now.
+- *
+- * Returns:
+- * 0 for success or a negative error code on failure.
+- */
+-int amdgpu_bo_backup_to_shadow(struct amdgpu_device *adev,
+-			       struct amdgpu_ring *ring,
+-			       struct amdgpu_bo *bo,
+-			       struct reservation_object *resv,
+-			       struct dma_fence **fence,
+-			       bool direct)
+-
+-{
+-	struct amdgpu_bo *shadow = bo->shadow;
+-	uint64_t bo_addr, shadow_addr;
+-	int r;
+-
+-	if (!shadow)
+-		return -EINVAL;
+-
+-	bo_addr = amdgpu_bo_gpu_offset(bo);
+-	shadow_addr = amdgpu_bo_gpu_offset(bo->shadow);
+-
+-	r = reservation_object_reserve_shared(bo->tbo.resv);
+-	if (r)
+-		goto err;
+-
+-	r = amdgpu_copy_buffer(ring, bo_addr, shadow_addr,
+-			       amdgpu_bo_size(bo), resv, fence,
+-			       direct, false);
+-	if (!r)
+-		amdgpu_bo_fence(bo, *fence, true);
+-
+-err:
+-	return r;
+-}
+-
+ /**
+  * amdgpu_bo_validate - validate an &amdgpu_bo buffer object
+  * @bo: pointer to the buffer object
+diff --git a/drivers/gpu/drm/amd/amdgpu/amdgpu_object.h b/drivers/gpu/drm/amd/amdgpu/amdgpu_object.h
+index b70359d86007..f86acdf3ef39 100644
+--- a/drivers/gpu/drm/amd/amdgpu/amdgpu_object.h
++++ b/drivers/gpu/drm/amd/amdgpu/amdgpu_object.h
+@@ -271,11 +271,6 @@ int amdgpu_bo_fault_reserve_notify(struct ttm_buffer_object *bo);
+ void amdgpu_bo_fence(struct amdgpu_bo *bo, struct dma_fence *fence,
+ 		     bool shared);
+ u64 amdgpu_bo_gpu_offset(struct amdgpu_bo *bo);
+-int amdgpu_bo_backup_to_shadow(struct amdgpu_device *adev,
+-			       struct amdgpu_ring *ring,
+-			       struct amdgpu_bo *bo,
+-			       struct reservation_object *resv,
+-			       struct dma_fence **fence, bool direct);
+ int amdgpu_bo_validate(struct amdgpu_bo *bo);
+ int amdgpu_bo_restore_shadow(struct amdgpu_bo *shadow,
+ 			     struct dma_fence **fence);
+-- 
+2.17.1
+

@@ -1,0 +1,123 @@
+From 489a5e0002b88467931a08237d0ae36606f422e8 Mon Sep 17 00:00:00 2001
+From: Likun Gao <Likun.Gao@amd.com>
+Date: Tue, 19 Feb 2019 18:18:46 +0800
+Subject: [PATCH 1490/2940] drm/amd/powerplay: support sysfs to get socclk,
+ fclk, dcefclk
+
+Add sys interface to get socclk, fclk and dcefclk for smu.
+
+Signed-off-by: Likun Gao <Likun.Gao@amd.com>
+Reviewed-by: Gui Chengming <Jack.Gui@amd.com>
+Reviewed-by: Alex Deucher <alexander.deucher@amd.com>
+---
+ drivers/gpu/drm/amd/amdgpu/amdgpu_pm.c     | 12 +++--
+ drivers/gpu/drm/amd/powerplay/vega20_ppt.c | 56 ++++++++++++++++++++++
+ 2 files changed, 65 insertions(+), 3 deletions(-)
+
+diff --git a/drivers/gpu/drm/amd/amdgpu/amdgpu_pm.c b/drivers/gpu/drm/amd/amdgpu/amdgpu_pm.c
+index d3efba85683f..99309153fb9e 100644
+--- a/drivers/gpu/drm/amd/amdgpu/amdgpu_pm.c
++++ b/drivers/gpu/drm/amd/amdgpu/amdgpu_pm.c
+@@ -906,7 +906,9 @@ static ssize_t amdgpu_get_pp_dpm_socclk(struct device *dev,
+ 	struct drm_device *ddev = dev_get_drvdata(dev);
+ 	struct amdgpu_device *adev = ddev->dev_private;
+ 
+-	if (adev->powerplay.pp_funcs->print_clock_levels)
++	if (is_support_sw_smu(adev))
++		return smu_print_clk_levels(&adev->smu, PP_SOCCLK, buf);
++	else if (adev->powerplay.pp_funcs->print_clock_levels)
+ 		return amdgpu_dpm_print_clock_levels(adev, PP_SOCCLK, buf);
+ 	else
+ 		return snprintf(buf, PAGE_SIZE, "\n");
+@@ -942,7 +944,9 @@ static ssize_t amdgpu_get_pp_dpm_fclk(struct device *dev,
+ 	struct drm_device *ddev = dev_get_drvdata(dev);
+ 	struct amdgpu_device *adev = ddev->dev_private;
+ 
+-	if (adev->powerplay.pp_funcs->print_clock_levels)
++	if (is_support_sw_smu(adev))
++		return smu_print_clk_levels(&adev->smu, PP_FCLK, buf);
++	else if (adev->powerplay.pp_funcs->print_clock_levels)
+ 		return amdgpu_dpm_print_clock_levels(adev, PP_FCLK, buf);
+ 	else
+ 		return snprintf(buf, PAGE_SIZE, "\n");
+@@ -978,7 +982,9 @@ static ssize_t amdgpu_get_pp_dpm_dcefclk(struct device *dev,
+ 	struct drm_device *ddev = dev_get_drvdata(dev);
+ 	struct amdgpu_device *adev = ddev->dev_private;
+ 
+-	if (adev->powerplay.pp_funcs->print_clock_levels)
++	if (is_support_sw_smu(adev))
++		return smu_print_clk_levels(&adev->smu, PP_DCEFCLK, buf);
++	else if (adev->powerplay.pp_funcs->print_clock_levels)
+ 		return amdgpu_dpm_print_clock_levels(adev, PP_DCEFCLK, buf);
+ 	else
+ 		return snprintf(buf, PAGE_SIZE, "\n");
+diff --git a/drivers/gpu/drm/amd/powerplay/vega20_ppt.c b/drivers/gpu/drm/amd/powerplay/vega20_ppt.c
+index 6aa94ee81b59..88803ad2cdd8 100644
+--- a/drivers/gpu/drm/amd/powerplay/vega20_ppt.c
++++ b/drivers/gpu/drm/amd/powerplay/vega20_ppt.c
+@@ -773,6 +773,62 @@ static int vega20_print_clk_levels(struct smu_context *smu,
+ 				? "*" : "");
+ 		break;
+ 
++	case PP_SOCCLK:
++		ret = smu_get_current_clk_freq(smu, PPCLK_SOCCLK, &now);
++		if (ret) {
++			pr_err("Attempt to get current socclk Failed!");
++			return ret;
++		}
++
++		single_dpm_table = &(dpm_table->soc_table);
++		ret = vega20_get_clk_table(smu, &clocks, single_dpm_table);
++		if (ret) {
++			pr_err("Attempt to get socclk levels Failed!");
++			return ret;
++		}
++
++		for (i = 0; i < clocks.num_levels; i++)
++			size += sprintf(buf + size, "%d: %uMhz %s\n",
++				i, clocks.data[i].clocks_in_khz / 1000,
++				(clocks.data[i].clocks_in_khz == now * 10)
++				? "*" : "");
++		break;
++
++	case PP_FCLK:
++		ret = smu_get_current_clk_freq(smu, PPCLK_FCLK, &now);
++		if (ret) {
++			pr_err("Attempt to get current fclk Failed!");
++			return ret;
++		}
++
++		single_dpm_table = &(dpm_table->fclk_table);
++		for (i = 0; i < single_dpm_table->count; i++)
++			size += sprintf(buf + size, "%d: %uMhz %s\n",
++				i, single_dpm_table->dpm_levels[i].value,
++				(single_dpm_table->dpm_levels[i].value == now / 100)
++				? "*" : "");
++		break;
++
++	case PP_DCEFCLK:
++		ret = smu_get_current_clk_freq(smu, PPCLK_DCEFCLK, &now);
++		if (ret) {
++			pr_err("Attempt to get current dcefclk Failed!");
++			return ret;
++		}
++
++		single_dpm_table = &(dpm_table->dcef_table);
++		ret = vega20_get_clk_table(smu, &clocks, single_dpm_table);
++		if (ret) {
++			pr_err("Attempt to get dcefclk levels Failed!");
++			return ret;
++		}
++
++		for (i = 0; i < clocks.num_levels; i++)
++			size += sprintf(buf + size, "%d: %uMhz %s\n",
++				i, clocks.data[i].clocks_in_khz / 1000,
++				(clocks.data[i].clocks_in_khz == now * 10) ? "*" : "");
++		break;
++
+ 	case PP_PCIE:
+ 		break;
+ 
+-- 
+2.17.1
+

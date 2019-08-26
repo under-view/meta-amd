@@ -1,0 +1,84 @@
+From 40900ef3621f36009b7483400532ace68c463e28 Mon Sep 17 00:00:00 2001
+From: Dmytro Laktyushkin <Dmytro.Laktyushkin@amd.com>
+Date: Fri, 8 Mar 2019 17:09:46 -0500
+Subject: [PATCH 1652/2940] drm/amd/display: add missing opp programming for
+ odm
+
+A number of places opp programming was missing for odm second pipe.
+This change fixes the oversight.
+
+Change-Id: I344c0480c76cf56a0b78a3547a5e5770d52fb547
+Signed-off-by: Dmytro Laktyushkin <Dmytro.Laktyushkin@amd.com>
+Reviewed-by: Tony Cheng <Tony.Cheng@amd.com>
+Acked-by: Bhawanpreet Lakha <Bhawanpreet.Lakha@amd.com>
+---
+ drivers/gpu/drm/amd/display/dc/core/dc_link.c          |  2 +-
+ drivers/gpu/drm/amd/display/dc/core/dc_link_dp.c       | 10 ++++------
+ .../drm/amd/display/dc/dce110/dce110_hw_sequencer.c    |  2 +-
+ 3 files changed, 6 insertions(+), 8 deletions(-)
+
+diff --git a/drivers/gpu/drm/amd/display/dc/core/dc_link.c b/drivers/gpu/drm/amd/display/dc/core/dc_link.c
+index ab9e22d931d3..f9e18e49a00f 100644
+--- a/drivers/gpu/drm/amd/display/dc/core/dc_link.c
++++ b/drivers/gpu/drm/amd/display/dc/core/dc_link.c
+@@ -2558,7 +2558,7 @@ void core_link_enable_stream(
+ 		struct dc_state *state,
+ 		struct pipe_ctx *pipe_ctx)
+ {
+-	struct dc  *core_dc = pipe_ctx->stream->ctx->dc;
++	struct dc *core_dc = pipe_ctx->stream->ctx->dc;
+ 	struct dc_stream_state *stream = pipe_ctx->stream;
+ 	enum dc_status status;
+ 	DC_LOGGER_INIT(pipe_ctx->stream->ctx->logger);
+diff --git a/drivers/gpu/drm/amd/display/dc/core/dc_link_dp.c b/drivers/gpu/drm/amd/display/dc/core/dc_link_dp.c
+index ef603f24c71c..72a88b1808fe 100644
+--- a/drivers/gpu/drm/amd/display/dc/core/dc_link_dp.c
++++ b/drivers/gpu/drm/amd/display/dc/core/dc_link_dp.c
+@@ -2710,6 +2710,7 @@ static void set_crtc_test_pattern(struct dc_link *link,
+ 	enum dc_color_depth color_depth = pipe_ctx->
+ 		stream->timing.display_color_depth;
+ 	struct bit_depth_reduction_params params;
++	struct output_pixel_processor *opp = pipe_ctx->stream_res.opp;
+ 
+ 	memset(&params, 0, sizeof(params));
+ 
+@@ -2749,8 +2750,7 @@ static void set_crtc_test_pattern(struct dc_link *link,
+ 	{
+ 		/* disable bit depth reduction */
+ 		pipe_ctx->stream->bit_depth_params = params;
+-		pipe_ctx->stream_res.opp->funcs->
+-			opp_program_bit_depth_reduction(pipe_ctx->stream_res.opp, &params);
++		opp->funcs->opp_program_bit_depth_reduction(opp, &params);
+ 		if (pipe_ctx->stream_res.tg->funcs->set_test_pattern)
+ 			pipe_ctx->stream_res.tg->funcs->set_test_pattern(pipe_ctx->stream_res.tg,
+ 				controller_test_pattern, color_depth);
+@@ -2759,11 +2759,9 @@ static void set_crtc_test_pattern(struct dc_link *link,
+ 	case DP_TEST_PATTERN_VIDEO_MODE:
+ 	{
+ 		/* restore bitdepth reduction */
+-		resource_build_bit_depth_reduction_params(pipe_ctx->stream,
+-					&params);
++		resource_build_bit_depth_reduction_params(pipe_ctx->stream, &params);
+ 		pipe_ctx->stream->bit_depth_params = params;
+-		pipe_ctx->stream_res.opp->funcs->
+-			opp_program_bit_depth_reduction(pipe_ctx->stream_res.opp, &params);
++		opp->funcs->opp_program_bit_depth_reduction(opp, &params);
+ 		if (pipe_ctx->stream_res.tg->funcs->set_test_pattern)
+ 			pipe_ctx->stream_res.tg->funcs->set_test_pattern(pipe_ctx->stream_res.tg,
+ 				CONTROLLER_DP_TEST_PATTERN_VIDEOMODE,
+diff --git a/drivers/gpu/drm/amd/display/dc/dce110/dce110_hw_sequencer.c b/drivers/gpu/drm/amd/display/dc/dce110/dce110_hw_sequencer.c
+index ed9222840523..1c0f7aca83dd 100644
+--- a/drivers/gpu/drm/amd/display/dc/dce110/dce110_hw_sequencer.c
++++ b/drivers/gpu/drm/amd/display/dc/dce110/dce110_hw_sequencer.c
+@@ -1377,7 +1377,7 @@ static enum dc_status apply_single_controller_ctx_to_hw(
+ 			pipe_ctx->stream_res.opp,
+ 			COLOR_SPACE_YCBCR601,
+ 			stream->timing.display_color_depth,
+-			pipe_ctx->stream->signal);
++			stream->signal);
+ 
+ 	pipe_ctx->stream_res.opp->funcs->opp_program_fmt(
+ 		pipe_ctx->stream_res.opp,
+-- 
+2.17.1
+

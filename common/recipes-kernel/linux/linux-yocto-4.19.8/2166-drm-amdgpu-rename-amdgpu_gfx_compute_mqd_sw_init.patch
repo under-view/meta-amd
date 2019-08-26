@@ -1,0 +1,109 @@
+From 47b91f9bdd8c7311c1996b22233bcbb935bfa78e Mon Sep 17 00:00:00 2001
+From: Hawking Zhang <Hawking.Zhang@amd.com>
+Date: Wed, 1 Aug 2018 12:03:20 +0800
+Subject: [PATCH 2166/2940] drm/amdgpu: rename amdgpu_gfx_compute_mqd_sw_init
+
+The function now will create mqd bos for both gfx queue and compute queue
+
+Signed-off-by: Hawking Zhang <Hawking.Zhang@amd.com>
+Reviewed-by: Jack Xiao <jack.xiao@amd.com>
+Reviewed-by: Alex Deucher <alexander.deucher@amd.com>
+Acked-by: Felix Kuehling <Felix.Kuehling@amd.com>
+Signed-off-by: Alex Deucher <alexander.deucher@amd.com>
+---
+ drivers/gpu/drm/amd/amdgpu/amdgpu_gfx.c | 8 ++++----
+ drivers/gpu/drm/amd/amdgpu/amdgpu_gfx.h | 6 +++---
+ drivers/gpu/drm/amd/amdgpu/gfx_v8_0.c   | 4 ++--
+ drivers/gpu/drm/amd/amdgpu/gfx_v9_0.c   | 4 ++--
+ 4 files changed, 11 insertions(+), 11 deletions(-)
+
+diff --git a/drivers/gpu/drm/amd/amdgpu/amdgpu_gfx.c b/drivers/gpu/drm/amd/amdgpu/amdgpu_gfx.c
+index 827eb53c9649..15e9f120ff84 100644
+--- a/drivers/gpu/drm/amd/amdgpu/amdgpu_gfx.c
++++ b/drivers/gpu/drm/amd/amdgpu/amdgpu_gfx.c
+@@ -360,9 +360,9 @@ int amdgpu_gfx_kiq_init(struct amdgpu_device *adev,
+ 	return 0;
+ }
+ 
+-/* create MQD for each compute queue */
+-int amdgpu_gfx_compute_mqd_sw_init(struct amdgpu_device *adev,
+-				   unsigned mqd_size)
++/* create MQD for each compute/gfx queue */
++int amdgpu_gfx_mqd_sw_init(struct amdgpu_device *adev,
++			   unsigned mqd_size)
+ {
+ 	struct amdgpu_ring *ring = NULL;
+ 	int r, i;
+@@ -411,7 +411,7 @@ int amdgpu_gfx_compute_mqd_sw_init(struct amdgpu_device *adev,
+ 	return 0;
+ }
+ 
+-void amdgpu_gfx_compute_mqd_sw_fini(struct amdgpu_device *adev)
++void amdgpu_gfx_mqd_sw_fini(struct amdgpu_device *adev)
+ {
+ 	struct amdgpu_ring *ring = NULL;
+ 	int i;
+diff --git a/drivers/gpu/drm/amd/amdgpu/amdgpu_gfx.h b/drivers/gpu/drm/amd/amdgpu/amdgpu_gfx.h
+index ce543bb969ad..f2441c02f9db 100644
+--- a/drivers/gpu/drm/amd/amdgpu/amdgpu_gfx.h
++++ b/drivers/gpu/drm/amd/amdgpu/amdgpu_gfx.h
+@@ -330,9 +330,9 @@ void amdgpu_gfx_kiq_fini(struct amdgpu_device *adev);
+ int amdgpu_gfx_kiq_init(struct amdgpu_device *adev,
+ 			unsigned hpd_size);
+ 
+-int amdgpu_gfx_compute_mqd_sw_init(struct amdgpu_device *adev,
+-				   unsigned mqd_size);
+-void amdgpu_gfx_compute_mqd_sw_fini(struct amdgpu_device *adev);
++int amdgpu_gfx_mqd_sw_init(struct amdgpu_device *adev,
++			   unsigned mqd_size);
++void amdgpu_gfx_mqd_sw_fini(struct amdgpu_device *adev);
+ 
+ void amdgpu_gfx_compute_queue_acquire(struct amdgpu_device *adev);
+ void amdgpu_gfx_graphics_queue_acquire(struct amdgpu_device *adev);
+diff --git a/drivers/gpu/drm/amd/amdgpu/gfx_v8_0.c b/drivers/gpu/drm/amd/amdgpu/gfx_v8_0.c
+index e117b22501ef..f56e98bdcf50 100644
+--- a/drivers/gpu/drm/amd/amdgpu/gfx_v8_0.c
++++ b/drivers/gpu/drm/amd/amdgpu/gfx_v8_0.c
+@@ -2042,7 +2042,7 @@ static int gfx_v8_0_sw_init(void *handle)
+ 		return r;
+ 
+ 	/* create MQD for all compute queues as well as KIQ for SRIOV case */
+-	r = amdgpu_gfx_compute_mqd_sw_init(adev, sizeof(struct vi_mqd_allocation));
++	r = amdgpu_gfx_mqd_sw_init(adev, sizeof(struct vi_mqd_allocation));
+ 	if (r)
+ 		return r;
+ 
+@@ -2065,7 +2065,7 @@ static int gfx_v8_0_sw_fini(void *handle)
+ 	for (i = 0; i < adev->gfx.num_compute_rings; i++)
+ 		amdgpu_ring_fini(&adev->gfx.compute_ring[i]);
+ 
+-	amdgpu_gfx_compute_mqd_sw_fini(adev);
++	amdgpu_gfx_mqd_sw_fini(adev);
+ 	amdgpu_gfx_kiq_free_ring(&adev->gfx.kiq.ring, &adev->gfx.kiq.irq);
+ 	amdgpu_gfx_kiq_fini(adev);
+ 
+diff --git a/drivers/gpu/drm/amd/amdgpu/gfx_v9_0.c b/drivers/gpu/drm/amd/amdgpu/gfx_v9_0.c
+index d5784db65785..c74b0b66e3f1 100644
+--- a/drivers/gpu/drm/amd/amdgpu/gfx_v9_0.c
++++ b/drivers/gpu/drm/amd/amdgpu/gfx_v9_0.c
+@@ -1757,7 +1757,7 @@ static int gfx_v9_0_sw_init(void *handle)
+ 		return r;
+ 
+ 	/* create MQD for all compute queues as wel as KIQ for SRIOV case */
+-	r = amdgpu_gfx_compute_mqd_sw_init(adev, sizeof(struct v9_mqd_allocation));
++	r = amdgpu_gfx_mqd_sw_init(adev, sizeof(struct v9_mqd_allocation));
+ 	if (r)
+ 		return r;
+ 
+@@ -1799,7 +1799,7 @@ static int gfx_v9_0_sw_fini(void *handle)
+ 	for (i = 0; i < adev->gfx.num_compute_rings; i++)
+ 		amdgpu_ring_fini(&adev->gfx.compute_ring[i]);
+ 
+-	amdgpu_gfx_compute_mqd_sw_fini(adev);
++	amdgpu_gfx_mqd_sw_fini(adev);
+ 	amdgpu_gfx_kiq_free_ring(&adev->gfx.kiq.ring, &adev->gfx.kiq.irq);
+ 	amdgpu_gfx_kiq_fini(adev);
+ 
+-- 
+2.17.1
+

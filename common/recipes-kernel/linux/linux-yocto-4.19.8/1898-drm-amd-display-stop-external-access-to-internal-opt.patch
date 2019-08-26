@@ -1,0 +1,423 @@
+From d35e81958bddf04442acc565941c67fd96dea6d9 Mon Sep 17 00:00:00 2001
+From: Dmytro Laktyushkin <Dmytro.Laktyushkin@amd.com>
+Date: Mon, 8 Apr 2019 15:49:52 -0400
+Subject: [PATCH 1898/2940] drm/amd/display: stop external access to internal
+ optc sync params
+
+These are internal otg params and should be handled as such.
+Thich change passes the params as function arguments.
+
+Change-Id: I84caccd330c59994865fe2157aa1af137122df12
+Signed-off-by: Dmytro Laktyushkin <Dmytro.Laktyushkin@amd.com>
+Reviewed-by: Eric Bernstein <Eric.Bernstein@amd.com>
+Acked-by: Bhawanpreet Lakha <Bhawanpreet Lakha@amd.com>
+---
+ .../display/dc/dce110/dce110_hw_sequencer.c   |  5 ++
+ .../amd/display/dc/dce110/dce110_resource.c   |  5 ++
+ .../dc/dce110/dce110_timing_generator.c       |  5 ++
+ .../dc/dce110/dce110_timing_generator.h       |  5 ++
+ .../dc/dce110/dce110_timing_generator_v.c     |  5 ++
+ .../dc/dce120/dce120_timing_generator.c       |  7 ++-
+ .../display/dc/dce80/dce80_timing_generator.c |  7 ++-
+ .../amd/display/dc/dcn10/dcn10_hw_sequencer.c | 25 +++++-----
+ .../gpu/drm/amd/display/dc/dcn10/dcn10_optc.c | 47 ++++++++++++++-----
+ .../gpu/drm/amd/display/dc/dcn10/dcn10_optc.h | 17 ++++++-
+ .../amd/display/dc/inc/hw/timing_generator.h  | 23 ++++-----
+ 11 files changed, 111 insertions(+), 40 deletions(-)
+
+diff --git a/drivers/gpu/drm/amd/display/dc/dce110/dce110_hw_sequencer.c b/drivers/gpu/drm/amd/display/dc/dce110/dce110_hw_sequencer.c
+index 7d7e93c87c28..5919716832a5 100644
+--- a/drivers/gpu/drm/amd/display/dc/dce110/dce110_hw_sequencer.c
++++ b/drivers/gpu/drm/amd/display/dc/dce110/dce110_hw_sequencer.c
+@@ -1299,6 +1299,11 @@ static enum dc_status dce110_enable_stream_timing(
+ 		pipe_ctx->stream_res.tg->funcs->program_timing(
+ 				pipe_ctx->stream_res.tg,
+ 				&stream->timing,
++				0,
++				0,
++				0,
++				0,
++				pipe_ctx->stream->signal,
+ 				true);
+ 	}
+ 
+diff --git a/drivers/gpu/drm/amd/display/dc/dce110/dce110_resource.c b/drivers/gpu/drm/amd/display/dc/dce110/dce110_resource.c
+index dcd04e9ea76b..35b58a085f5c 100644
+--- a/drivers/gpu/drm/amd/display/dc/dce110/dce110_resource.c
++++ b/drivers/gpu/drm/amd/display/dc/dce110/dce110_resource.c
+@@ -1097,6 +1097,11 @@ static struct pipe_ctx *dce110_acquire_underlay(
+ 
+ 		pipe_ctx->stream_res.tg->funcs->program_timing(pipe_ctx->stream_res.tg,
+ 				&stream->timing,
++				0,
++				0,
++				0,
++				0,
++				pipe_ctx->stream->signal,
+ 				false);
+ 
+ 		pipe_ctx->stream_res.tg->funcs->enable_advanced_request(
+diff --git a/drivers/gpu/drm/amd/display/dc/dce110/dce110_timing_generator.c b/drivers/gpu/drm/amd/display/dc/dce110/dce110_timing_generator.c
+index 1b2fe0df347f..5f7c2c5641c4 100644
+--- a/drivers/gpu/drm/amd/display/dc/dce110/dce110_timing_generator.c
++++ b/drivers/gpu/drm/amd/display/dc/dce110/dce110_timing_generator.c
+@@ -1952,6 +1952,11 @@ void dce110_tg_set_overscan_color(struct timing_generator *tg,
+ 
+ void dce110_tg_program_timing(struct timing_generator *tg,
+ 	const struct dc_crtc_timing *timing,
++	int vready_offset,
++	int vstartup_start,
++	int vupdate_offset,
++	int vupdate_width,
++	const enum signal_type signal,
+ 	bool use_vbios)
+ {
+ 	if (use_vbios)
+diff --git a/drivers/gpu/drm/amd/display/dc/dce110/dce110_timing_generator.h b/drivers/gpu/drm/amd/display/dc/dce110/dce110_timing_generator.h
+index 734d4965dab1..768ccf27ada9 100644
+--- a/drivers/gpu/drm/amd/display/dc/dce110/dce110_timing_generator.h
++++ b/drivers/gpu/drm/amd/display/dc/dce110/dce110_timing_generator.h
+@@ -256,6 +256,11 @@ void dce110_tg_set_overscan_color(struct timing_generator *tg,
+ 
+ void dce110_tg_program_timing(struct timing_generator *tg,
+ 	const struct dc_crtc_timing *timing,
++	int vready_offset,
++	int vstartup_start,
++	int vupdate_offset,
++	int vupdate_width,
++	const enum signal_type signal,
+ 	bool use_vbios);
+ 
+ bool dce110_tg_is_blanked(struct timing_generator *tg);
+diff --git a/drivers/gpu/drm/amd/display/dc/dce110/dce110_timing_generator_v.c b/drivers/gpu/drm/amd/display/dc/dce110/dce110_timing_generator_v.c
+index a3cef60380ed..a13a2f58944e 100644
+--- a/drivers/gpu/drm/amd/display/dc/dce110/dce110_timing_generator_v.c
++++ b/drivers/gpu/drm/amd/display/dc/dce110/dce110_timing_generator_v.c
+@@ -435,6 +435,11 @@ static void dce110_timing_generator_v_set_blank(struct timing_generator *tg,
+ 
+ static void dce110_timing_generator_v_program_timing(struct timing_generator *tg,
+ 	const struct dc_crtc_timing *timing,
++	int vready_offset,
++	int vstartup_start,
++	int vupdate_offset,
++	int vupdate_width,
++	const enum signal_type signal,
+ 	bool use_vbios)
+ {
+ 	if (use_vbios)
+diff --git a/drivers/gpu/drm/amd/display/dc/dce120/dce120_timing_generator.c b/drivers/gpu/drm/amd/display/dc/dce120/dce120_timing_generator.c
+index 04b866f0fa1f..5ebbbda77021 100644
+--- a/drivers/gpu/drm/amd/display/dc/dce120/dce120_timing_generator.c
++++ b/drivers/gpu/drm/amd/display/dc/dce120/dce120_timing_generator.c
+@@ -734,8 +734,13 @@ void dce120_tg_set_overscan_color(struct timing_generator *tg,
+ 		CRTC_OVERSCAN_COLOR_RED, overscan_color->color_r_cr);
+ }
+ 
+-void dce120_tg_program_timing(struct timing_generator *tg,
++static void dce120_tg_program_timing(struct timing_generator *tg,
+ 	const struct dc_crtc_timing *timing,
++	int vready_offset,
++	int vstartup_start,
++	int vupdate_offset,
++	int vupdate_width,
++	const enum signal_type signal,
+ 	bool use_vbios)
+ {
+ 	if (use_vbios)
+diff --git a/drivers/gpu/drm/amd/display/dc/dce80/dce80_timing_generator.c b/drivers/gpu/drm/amd/display/dc/dce80/dce80_timing_generator.c
+index 5c629ae487ec..0bd327c6adfd 100644
+--- a/drivers/gpu/drm/amd/display/dc/dce80/dce80_timing_generator.c
++++ b/drivers/gpu/drm/amd/display/dc/dce80/dce80_timing_generator.c
+@@ -107,12 +107,17 @@ static void program_pix_dur(struct timing_generator *tg, uint32_t pix_clk_100hz)
+ 
+ static void program_timing(struct timing_generator *tg,
+ 	const struct dc_crtc_timing *timing,
++	int vready_offset,
++	int vstartup_start,
++	int vupdate_offset,
++	int vupdate_width,
++	const enum signal_type signal,
+ 	bool use_vbios)
+ {
+ 	if (!use_vbios)
+ 		program_pix_dur(tg, timing->pix_clk_100hz);
+ 
+-	dce110_tg_program_timing(tg, timing, use_vbios);
++	dce110_tg_program_timing(tg, timing, 0, 0, 0, 0, 0, use_vbios);
+ }
+ 
+ static void dce80_timing_generator_enable_advanced_request(
+diff --git a/drivers/gpu/drm/amd/display/dc/dcn10/dcn10_hw_sequencer.c b/drivers/gpu/drm/amd/display/dc/dcn10/dcn10_hw_sequencer.c
+index 44a7a6c379c4..6c1c8065ab56 100644
+--- a/drivers/gpu/drm/amd/display/dc/dcn10/dcn10_hw_sequencer.c
++++ b/drivers/gpu/drm/amd/display/dc/dcn10/dcn10_hw_sequencer.c
+@@ -658,16 +658,15 @@ static enum dc_status dcn10_enable_stream_timing(
+ 		BREAK_TO_DEBUGGER();
+ 		return DC_ERROR_UNEXPECTED;
+ 	}
+-	pipe_ctx->stream_res.tg->dlg_otg_param.vready_offset = pipe_ctx->pipe_dlg_param.vready_offset;
+-	pipe_ctx->stream_res.tg->dlg_otg_param.vstartup_start = pipe_ctx->pipe_dlg_param.vstartup_start;
+-	pipe_ctx->stream_res.tg->dlg_otg_param.vupdate_offset = pipe_ctx->pipe_dlg_param.vupdate_offset;
+-	pipe_ctx->stream_res.tg->dlg_otg_param.vupdate_width = pipe_ctx->pipe_dlg_param.vupdate_width;
+-
+-	pipe_ctx->stream_res.tg->signal =  pipe_ctx->stream->signal;
+ 
+ 	pipe_ctx->stream_res.tg->funcs->program_timing(
+ 			pipe_ctx->stream_res.tg,
+ 			&stream->timing,
++			pipe_ctx->pipe_dlg_param.vready_offset,
++			pipe_ctx->pipe_dlg_param.vstartup_start,
++			pipe_ctx->pipe_dlg_param.vupdate_offset,
++			pipe_ctx->pipe_dlg_param.vupdate_width,
++			pipe_ctx->stream->signal,
+ 			true);
+ 
+ #if 0 /* move to after enable_crtc */
+@@ -2278,13 +2277,12 @@ static void program_all_pipe_in_tree(
+ 	if (pipe_ctx->top_pipe == NULL) {
+ 		bool blank = !is_pipe_tree_visible(pipe_ctx);
+ 
+-		pipe_ctx->stream_res.tg->dlg_otg_param.vready_offset = pipe_ctx->pipe_dlg_param.vready_offset;
+-		pipe_ctx->stream_res.tg->dlg_otg_param.vstartup_start = pipe_ctx->pipe_dlg_param.vstartup_start;
+-		pipe_ctx->stream_res.tg->dlg_otg_param.vupdate_offset = pipe_ctx->pipe_dlg_param.vupdate_offset;
+-		pipe_ctx->stream_res.tg->dlg_otg_param.vupdate_width = pipe_ctx->pipe_dlg_param.vupdate_width;
+-
+ 		pipe_ctx->stream_res.tg->funcs->program_global_sync(
+-				pipe_ctx->stream_res.tg);
++				pipe_ctx->stream_res.tg,
++				pipe_ctx->pipe_dlg_param.vready_offset,
++				pipe_ctx->pipe_dlg_param.vstartup_start,
++				pipe_ctx->pipe_dlg_param.vupdate_offset,
++				pipe_ctx->pipe_dlg_param.vupdate_width);
+ 
+ 		dc->hwss.blank_pixel_data(dc, pipe_ctx, blank);
+ 
+@@ -2788,7 +2786,6 @@ static void apply_front_porch_workaround(
+ 
+ int get_vupdate_offset_from_vsync(struct pipe_ctx *pipe_ctx)
+ {
+-	struct timing_generator *optc = pipe_ctx->stream_res.tg;
+ 	const struct dc_crtc_timing *dc_crtc_timing = &pipe_ctx->stream->timing;
+ 	struct dc_crtc_timing patched_crtc_timing;
+ 	int vesa_sync_start;
+@@ -2811,7 +2808,7 @@ int get_vupdate_offset_from_vsync(struct pipe_ctx *pipe_ctx)
+ 			* interlace_factor;
+ 
+ 	vertical_line_start = asic_blank_end -
+-			optc->dlg_otg_param.vstartup_start + 1;
++			pipe_ctx->pipe_dlg_param.vstartup_start + 1;
+ 
+ 	return vertical_line_start;
+ }
+diff --git a/drivers/gpu/drm/amd/display/dc/dcn10/dcn10_optc.c b/drivers/gpu/drm/amd/display/dc/dcn10/dcn10_optc.c
+index 5bc5ab0b48b9..3bddaedcb527 100644
+--- a/drivers/gpu/drm/amd/display/dc/dcn10/dcn10_optc.c
++++ b/drivers/gpu/drm/amd/display/dc/dcn10/dcn10_optc.c
+@@ -60,24 +60,33 @@ static void optc1_apply_front_porch_workaround(
+ }
+ 
+ void optc1_program_global_sync(
+-		struct timing_generator *optc)
++		struct timing_generator *optc,
++		int vready_offset,
++		int vstartup_start,
++		int vupdate_offset,
++		int vupdate_width)
+ {
+ 	struct optc *optc1 = DCN10TG_FROM_TG(optc);
+ 
+-	if (optc->dlg_otg_param.vstartup_start == 0) {
++	optc1->vready_offset = vready_offset;
++	optc1->vstartup_start = vstartup_start;
++	optc1->vupdate_offset = vupdate_offset;
++	optc1->vupdate_width = vupdate_width;
++
++	if (optc1->vstartup_start == 0) {
+ 		BREAK_TO_DEBUGGER();
+ 		return;
+ 	}
+ 
+ 	REG_SET(OTG_VSTARTUP_PARAM, 0,
+-		VSTARTUP_START, optc->dlg_otg_param.vstartup_start);
++		VSTARTUP_START, optc1->vstartup_start);
+ 
+ 	REG_SET_2(OTG_VUPDATE_PARAM, 0,
+-			VUPDATE_OFFSET, optc->dlg_otg_param.vupdate_offset,
+-			VUPDATE_WIDTH, optc->dlg_otg_param.vupdate_width);
++			VUPDATE_OFFSET, optc1->vupdate_offset,
++			VUPDATE_WIDTH, optc1->vupdate_width);
+ 
+ 	REG_SET(OTG_VREADY_PARAM, 0,
+-			VREADY_OFFSET, optc->dlg_otg_param.vready_offset);
++			VREADY_OFFSET, optc1->vready_offset);
+ }
+ 
+ static void optc1_disable_stereo(struct timing_generator *optc)
+@@ -132,6 +141,11 @@ void optc1_setup_vertical_interrupt2(
+ void optc1_program_timing(
+ 	struct timing_generator *optc,
+ 	const struct dc_crtc_timing *dc_crtc_timing,
++	int vready_offset,
++	int vstartup_start,
++	int vupdate_offset,
++	int vupdate_width,
++	const enum signal_type signal,
+ 	bool use_vbios)
+ {
+ 	struct dc_crtc_timing patched_crtc_timing;
+@@ -149,6 +163,11 @@ void optc1_program_timing(
+ 
+ 	struct optc *optc1 = DCN10TG_FROM_TG(optc);
+ 
++	optc1->signal = signal;
++	optc1->vready_offset = vready_offset;
++	optc1->vstartup_start = vstartup_start;
++	optc1->vupdate_offset = vupdate_offset;
++	optc1->vupdate_width = vupdate_width;
+ 	patched_crtc_timing = *dc_crtc_timing;
+ 	optc1_apply_front_porch_workaround(optc, &patched_crtc_timing);
+ 
+@@ -226,7 +245,7 @@ void optc1_program_timing(
+ 			patched_crtc_timing.v_addressable +
+ 			patched_crtc_timing.v_border_bottom);
+ 
+-	vertical_line_start = asic_blank_end - optc->dlg_otg_param.vstartup_start + 1;
++	vertical_line_start = asic_blank_end - optc1->vstartup_start + 1;
+ 	v_fp2 = 0;
+ 	if (vertical_line_start < 0)
+ 		v_fp2 = -vertical_line_start;
+@@ -243,9 +262,9 @@ void optc1_program_timing(
+ 		OTG_V_SYNC_A_POL, v_sync_polarity);
+ 
+ 	v_init = asic_blank_start;
+-	if (optc->signal == SIGNAL_TYPE_DISPLAY_PORT ||
+-		optc->signal == SIGNAL_TYPE_DISPLAY_PORT_MST ||
+-		optc->signal == SIGNAL_TYPE_EDP) {
++	if (optc1->signal == SIGNAL_TYPE_DISPLAY_PORT ||
++		optc1->signal == SIGNAL_TYPE_DISPLAY_PORT_MST ||
++		optc1->signal == SIGNAL_TYPE_EDP) {
+ 		start_point = 1;
+ 		if (patched_crtc_timing.flags.INTERLACE == 1)
+ 			field_num = 1;
+@@ -257,7 +276,7 @@ void optc1_program_timing(
+ 			REG_UPDATE(OTG_INTERLACE_CONTROL,
+ 					OTG_INTERLACE_ENABLE, 1);
+ 			v_init = v_init / 2;
+-			if ((optc->dlg_otg_param.vstartup_start/2)*2 > asic_blank_end)
++			if ((optc1->vstartup_start/2)*2 > asic_blank_end)
+ 				v_fp2 = v_fp2 / 2;
+ 		} else
+ 			REG_UPDATE(OTG_INTERLACE_CONTROL,
+@@ -277,7 +296,11 @@ void optc1_program_timing(
+ 			OTG_START_POINT_CNTL, start_point,
+ 			OTG_FIELD_NUMBER_CNTL, field_num);
+ 
+-	optc1_program_global_sync(optc);
++	optc1_program_global_sync(optc,
++			vready_offset,
++			vstartup_start,
++			vupdate_offset,
++			vupdate_width);
+ 
+ 	/* TODO
+ 	 * patched_crtc_timing.flags.HORZ_COUNT_BY_TWO == 1
+diff --git a/drivers/gpu/drm/amd/display/dc/dcn10/dcn10_optc.h b/drivers/gpu/drm/amd/display/dc/dcn10/dcn10_optc.h
+index 4eb9a898c237..7bb414c35d13 100644
+--- a/drivers/gpu/drm/amd/display/dc/dcn10/dcn10_optc.h
++++ b/drivers/gpu/drm/amd/display/dc/dcn10/dcn10_optc.h
+@@ -446,6 +446,12 @@ struct optc {
+ 	uint32_t min_v_sync_width;
+ 	uint32_t min_v_blank;
+ 	uint32_t min_v_blank_interlace;
++
++	int vstartup_start;
++	int vupdate_offset;
++	int vupdate_width;
++	int vready_offset;
++	enum signal_type signal;
+ };
+ 
+ void dcn10_timing_generator_init(struct optc *optc);
+@@ -481,6 +487,11 @@ bool optc1_validate_timing(
+ void optc1_program_timing(
+ 	struct timing_generator *optc,
+ 	const struct dc_crtc_timing *dc_crtc_timing,
++	int vready_offset,
++	int vstartup_start,
++	int vupdate_offset,
++	int vupdate_width,
++	const enum signal_type signal,
+ 	bool use_vbios);
+ 
+ void optc1_setup_vertical_interrupt0(
+@@ -495,7 +506,11 @@ void optc1_setup_vertical_interrupt2(
+ 		uint32_t start_line);
+ 
+ void optc1_program_global_sync(
+-		struct timing_generator *optc);
++		struct timing_generator *optc,
++		int vready_offset,
++		int vstartup_start,
++		int vupdate_offset,
++		int vupdate_width);
+ 
+ bool optc1_disable_crtc(struct timing_generator *optc);
+ 
+diff --git a/drivers/gpu/drm/amd/display/dc/inc/hw/timing_generator.h b/drivers/gpu/drm/amd/display/dc/inc/hw/timing_generator.h
+index 4eee1add8e64..e4b0de0089af 100644
+--- a/drivers/gpu/drm/amd/display/dc/inc/hw/timing_generator.h
++++ b/drivers/gpu/drm/amd/display/dc/inc/hw/timing_generator.h
+@@ -70,13 +70,6 @@ enum crtc_state {
+ 	CRTC_STATE_VACTIVE
+ };
+ 
+-struct _dlg_otg_param {
+-	int vstartup_start;
+-	int vupdate_offset;
+-	int vupdate_width;
+-	int vready_offset;
+-};
+-
+ struct vupdate_keepout_params {
+ 	int start_offset;
+ 	int end_offset;
+@@ -125,8 +118,6 @@ struct timing_generator {
+ 	const struct timing_generator_funcs *funcs;
+ 	struct dc_bios *bp;
+ 	struct dc_context *ctx;
+-	struct _dlg_otg_param dlg_otg_param;
+-	enum signal_type signal;
+ 	int inst;
+ };
+ 
+@@ -140,7 +131,13 @@ struct timing_generator_funcs {
+ 							const struct dc_crtc_timing *timing);
+ 	void (*program_timing)(struct timing_generator *tg,
+ 							const struct dc_crtc_timing *timing,
+-							bool use_vbios);
++							int vready_offset,
++							int vstartup_start,
++							int vupdate_offset,
++							int vupdate_width,
++							const enum signal_type signal,
++							bool use_vbios
++	);
+ 	void (*setup_vertical_interrupt0)(
+ 			struct timing_generator *optc,
+ 			uint32_t start_line,
+@@ -210,7 +207,11 @@ struct timing_generator_funcs {
+ 
+ 	bool (*arm_vert_intr)(struct timing_generator *tg, uint8_t width);
+ 
+-	void (*program_global_sync)(struct timing_generator *tg);
++	void (*program_global_sync)(struct timing_generator *tg,
++			int vready_offset,
++			int vstartup_start,
++			int vupdate_offset,
++			int vupdate_width);
+ 	void (*enable_optc_clock)(struct timing_generator *tg, bool enable);
+ 	void (*program_stereo)(struct timing_generator *tg,
+ 		const struct dc_crtc_timing *timing, struct crtc_stereo_flags *flags);
+-- 
+2.17.1
+

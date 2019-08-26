@@ -1,0 +1,88 @@
+From 82ba5608c754b14d5711ac008531bef35677f8f1 Mon Sep 17 00:00:00 2001
+From: Jack Xiao <Jack.Xiao@amd.com>
+Date: Mon, 1 Jul 2019 17:48:46 +0800
+Subject: [PATCH 2670/2940] drm/amdgpu: enable gfxoff code path for navi14
+
+Based on navi10 gfxoff logic, enable the related code
+path for navi14.
+
+Signed-off-by: Jack Xiao <Jack.Xiao@amd.com>
+Reviewed-by: Hawking Zhang <Hawking.Zhang@amd.com>
+Signed-off-by: Alex Deucher <alexander.deucher@amd.com>
+---
+ drivers/gpu/drm/amd/amdgpu/amdgpu_psp.c    | 4 +---
+ drivers/gpu/drm/amd/amdgpu/gfx_v10_0.c     | 1 +
+ drivers/gpu/drm/amd/amdgpu/gmc_v10_0.c     | 2 +-
+ drivers/gpu/drm/amd/powerplay/amdgpu_smu.c | 3 ---
+ drivers/gpu/drm/amd/powerplay/smu_v11_0.c  | 1 +
+ 5 files changed, 4 insertions(+), 7 deletions(-)
+
+diff --git a/drivers/gpu/drm/amd/amdgpu/amdgpu_psp.c b/drivers/gpu/drm/amd/amdgpu/amdgpu_psp.c
+index 3dcbee140dd5..8108808267fe 100644
+--- a/drivers/gpu/drm/amd/amdgpu/amdgpu_psp.c
++++ b/drivers/gpu/drm/amd/amdgpu/amdgpu_psp.c
+@@ -986,9 +986,7 @@ static int psp_np_fw_load(struct psp_context *psp)
+ 			return ret;
+ 
+ 		/* Start rlc autoload after psp recieved all the gfx firmware */
+-		if (ucode->ucode_id == AMDGPU_UCODE_ID_RLC_RESTORE_LIST_SRM_MEM ||
+-		    (adev->asic_type == CHIP_NAVI14 &&
+-		     ucode->ucode_id == AMDGPU_UCODE_ID_RLC_G)) {
++		if (ucode->ucode_id == AMDGPU_UCODE_ID_RLC_RESTORE_LIST_SRM_MEM) {
+ 			ret = psp_rlc_autoload(psp);
+ 			if (ret) {
+ 				DRM_ERROR("Failed to start rlc autoload\n");
+diff --git a/drivers/gpu/drm/amd/amdgpu/gfx_v10_0.c b/drivers/gpu/drm/amd/amdgpu/gfx_v10_0.c
+index 772437cd27b3..e5e3fc88de46 100644
+--- a/drivers/gpu/drm/amd/amdgpu/gfx_v10_0.c
++++ b/drivers/gpu/drm/amd/amdgpu/gfx_v10_0.c
+@@ -4105,6 +4105,7 @@ static int gfx_v10_0_set_powergating_state(void *handle,
+ 	bool enable = (state == AMD_PG_STATE_GATE) ? true : false;
+ 	switch (adev->asic_type) {
+ 	case CHIP_NAVI10:
++	case CHIP_NAVI14:
+ 		if (!enable) {
+ 			amdgpu_gfx_off_ctrl(adev, false);
+ 			cancel_delayed_work_sync(&adev->gfx.gfx_off_delay_work);
+diff --git a/drivers/gpu/drm/amd/amdgpu/gmc_v10_0.c b/drivers/gpu/drm/amd/amdgpu/gmc_v10_0.c
+index fcfd851c6bab..8fec1fd724ed 100644
+--- a/drivers/gpu/drm/amd/amdgpu/gmc_v10_0.c
++++ b/drivers/gpu/drm/amd/amdgpu/gmc_v10_0.c
+@@ -245,7 +245,7 @@ static void gmc_v10_0_flush_gpu_tlb(struct amdgpu_device *adev,
+ 
+ 	gmc_v10_0_flush_vm_hub(adev, vmid, AMDGPU_MMHUB, 0);
+ 	if (!adev->mman.buffer_funcs_enabled || !adev->ib_pool_ready ||
+-	    adev->asic_type != CHIP_NAVI10) {
++	    adev->asic_type > CHIP_NAVI14) {
+ 		gmc_v10_0_flush_vm_hub(adev, vmid, AMDGPU_GFXHUB, 0);
+ 		mutex_unlock(&adev->mman.gtt_window_lock);
+ 		return;
+diff --git a/drivers/gpu/drm/amd/powerplay/amdgpu_smu.c b/drivers/gpu/drm/amd/powerplay/amdgpu_smu.c
+index af593453dfc5..a6c2027cb27f 100644
+--- a/drivers/gpu/drm/amd/powerplay/amdgpu_smu.c
++++ b/drivers/gpu/drm/amd/powerplay/amdgpu_smu.c
+@@ -536,9 +536,6 @@ static int smu_early_init(void *handle)
+ 	smu->pm_enabled = !!amdgpu_dpm;
+ 	mutex_init(&smu->mutex);
+ 
+-	if (adev->asic_type == CHIP_NAVI14)
+-		adev->pm.pp_feature &= ~PP_GFXOFF_MASK;
+-
+ 	return smu_set_funcs(adev);
+ }
+ 
+diff --git a/drivers/gpu/drm/amd/powerplay/smu_v11_0.c b/drivers/gpu/drm/amd/powerplay/smu_v11_0.c
+index 8bf72bb716cf..9b72055e8139 100644
+--- a/drivers/gpu/drm/amd/powerplay/smu_v11_0.c
++++ b/drivers/gpu/drm/amd/powerplay/smu_v11_0.c
+@@ -1349,6 +1349,7 @@ static int smu_v11_0_gfx_off_control(struct smu_context *smu, bool enable)
+ 	case CHIP_VEGA20:
+ 		break;
+ 	case CHIP_NAVI10:
++	case CHIP_NAVI14:
+ 		if (!(adev->pm.pp_feature & PP_GFXOFF_MASK))
+ 			return 0;
+ 		mutex_lock(&smu->mutex);
+-- 
+2.17.1
+

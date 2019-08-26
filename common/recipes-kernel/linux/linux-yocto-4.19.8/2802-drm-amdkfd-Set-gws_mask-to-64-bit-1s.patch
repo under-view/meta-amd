@@ -1,0 +1,34 @@
+From b4b51dbec321f3af006c7e4337bddcac8350205a Mon Sep 17 00:00:00 2001
+From: Oak Zeng <Oak.Zeng@amd.com>
+Date: Fri, 14 Jun 2019 10:55:50 -0500
+Subject: [PATCH 2802/2940] drm/amdkfd: Set gws_mask to 64 bit 1s
+
+Previous kfd doesn't use gws so this mask was set to 0.
+Set it to 64 bit 1s because now kfd can use all 64 gws
+resources.
+
+Change-Id: Ic8217d6d135099f3395017bbc9c0fe94a739aa93
+Signed-off-by: Oak Zeng <Oak.Zeng@amd.com>
+Reviewed-by: Felix Kuehling <Felix.Kuehling@amd.com>
+---
+ drivers/gpu/drm/amd/amdkfd/kfd_device_queue_manager.c | 4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
+
+diff --git a/drivers/gpu/drm/amd/amdkfd/kfd_device_queue_manager.c b/drivers/gpu/drm/amd/amdkfd/kfd_device_queue_manager.c
+index d3b84cbe0d21..d4954a540956 100644
+--- a/drivers/gpu/drm/amd/amdkfd/kfd_device_queue_manager.c
++++ b/drivers/gpu/drm/amd/amdkfd/kfd_device_queue_manager.c
+@@ -1075,8 +1075,8 @@ static int set_sched_resources(struct device_queue_manager *dqm)
+ 
+ 		res.queue_mask |= (1ull << i);
+ 	}
+-	res.gws_mask = res.oac_mask = res.gds_heap_base =
+-						res.gds_heap_size = 0;
++	res.gws_mask = ~0ull;
++	res.oac_mask = res.gds_heap_base = res.gds_heap_size = 0;
+ 
+ 	pr_debug("Scheduling resources:\n"
+ 			"vmid mask: 0x%8X\n"
+-- 
+2.17.1
+

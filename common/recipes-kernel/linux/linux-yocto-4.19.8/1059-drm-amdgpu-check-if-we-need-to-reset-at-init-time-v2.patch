@@ -1,0 +1,46 @@
+From 5fcc1dee443acd74bee3e2d7040e1cf2fe2b4dd7 Mon Sep 17 00:00:00 2001
+From: Alex Deucher <alexander.deucher@amd.com>
+Date: Thu, 1 Nov 2018 00:02:01 -0500
+Subject: [PATCH 1059/2940] drm/amdgpu: check if we need to reset at init time
+ (v2)
+
+To deal with situations like kexec or GPU VM passthrough
+where the device may have been used previously without a
+proper GPU reset between.
+
+v2: rebase
+
+bug: https://bugs.freedesktop.org/show_bug.cgi?id=108585
+bug: https://bugs.freedesktop.org/show_bug.cgi?id=108754
+Reviewed-by: Evan Quan <evan.quan@amd.com>
+Reviewed-by: Felix Kuehling <Felix.Kuehling@amd.com>
+Signed-off-by: Alex Deucher <alexander.deucher@amd.com>
+---
+ drivers/gpu/drm/amd/amdgpu/amdgpu_device.c | 11 +++++++++++
+ 1 file changed, 11 insertions(+)
+
+diff --git a/drivers/gpu/drm/amd/amdgpu/amdgpu_device.c b/drivers/gpu/drm/amd/amdgpu/amdgpu_device.c
+index 2c9617b7d20f..2d04830daba1 100644
+--- a/drivers/gpu/drm/amd/amdgpu/amdgpu_device.c
++++ b/drivers/gpu/drm/amd/amdgpu/amdgpu_device.c
+@@ -2599,6 +2599,17 @@ int amdgpu_device_init(struct amdgpu_device *adev,
+ 	/* detect if we are with an SRIOV vbios */
+ 	amdgpu_device_detect_sriov_bios(adev);
+ 
++	/* check if we need to reset the asic
++	 *  E.g., driver was not cleanly unloaded previously, etc.
++	 */
++	if (amdgpu_asic_need_reset_on_init(adev)) {
++		r = amdgpu_asic_reset(adev);
++		if (r) {
++			dev_err(adev->dev, "asic reset on init failed\n");
++			goto failed;
++		}
++	}
++
+ 	/* Post card if necessary */
+ 	if (amdgpu_device_need_post(adev)) {
+ 		if (!adev->bios) {
+-- 
+2.17.1
+

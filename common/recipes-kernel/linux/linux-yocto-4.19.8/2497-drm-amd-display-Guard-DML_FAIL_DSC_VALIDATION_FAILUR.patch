@@ -1,0 +1,37 @@
+From 4406f714ebbef0108f6fb835345a2d69811f9046 Mon Sep 17 00:00:00 2001
+From: Leo Li <sunpeng.li@amd.com>
+Date: Thu, 28 Mar 2019 12:14:05 -0400
+Subject: [PATCH 2497/2940] drm/amd/display: Guard
+ DML_FAIL_DSC_VALIDATION_FAILURE
+
+[Why]
+Usage of this enum is DSC-only.
+
+[How]
+Guard it with CONFIG_DRM_AMD_DC_DSC_SUPPORT.
+
+Signed-off-by: Leo Li <sunpeng.li@amd.com>
+Reviewed-by: Harry Wentland <Harry.Wentland@amd.com>
+Acked-by: Bhawanpreet Lakha <Bhawanpreet.Lakha@amd.com>
+Signed-off-by: Alex Deucher <alexander.deucher@amd.com>
+---
+ drivers/gpu/drm/amd/display/dc/dml/display_mode_enums.h | 2 ++
+ 1 file changed, 2 insertions(+)
+
+diff --git a/drivers/gpu/drm/amd/display/dc/dml/display_mode_enums.h b/drivers/gpu/drm/amd/display/dc/dml/display_mode_enums.h
+index e8da21f04454..2a65af31eaa9 100644
+--- a/drivers/gpu/drm/amd/display/dc/dml/display_mode_enums.h
++++ b/drivers/gpu/drm/amd/display/dc/dml/display_mode_enums.h
+@@ -130,7 +130,9 @@ enum dm_validation_status {
+ 	DML_FAIL_DIO_SUPPORT,
+ 	DML_FAIL_NOT_ENOUGH_DSC,
+ 	DML_FAIL_DSC_CLK_REQUIRED,
++#ifdef CONFIG_DRM_AMD_DC_DSC_SUPPORT
+ 	DML_FAIL_DSC_VALIDATION_FAILURE,
++#endif
+ 	DML_FAIL_URGENT_LATENCY,
+ 	DML_FAIL_REORDERING_BUFFER,
+ 	DML_FAIL_DISPCLK_DPPCLK,
+-- 
+2.17.1
+

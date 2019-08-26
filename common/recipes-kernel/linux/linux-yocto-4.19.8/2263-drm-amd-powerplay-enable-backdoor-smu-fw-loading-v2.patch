@@ -1,0 +1,77 @@
+From 9338f948aabe412bbe71bec148263b20af9d5cd9 Mon Sep 17 00:00:00 2001
+From: Kenneth Feng <kenneth.feng@amd.com>
+Date: Sat, 2 Feb 2019 11:43:12 +0800
+Subject: [PATCH 2263/2940] drm/amd/powerplay: enable backdoor smu fw loading
+ (v2)
+
+enable backdoor smu fw loading on navi10
+
+v2: squash in define fix (Alex)
+
+Signed-off-by: Kenneth Feng <kenneth.feng@amd.com>
+Reviewed-by: Hawking Zhang <Hawking.Zhang@amd.com>
+Signed-off-by: Alex Deucher <alexander.deucher@amd.com>
+---
+ drivers/gpu/drm/amd/powerplay/inc/smu_v11_0.h |  1 +
+ drivers/gpu/drm/amd/powerplay/smu_v11_0.c     | 33 +++++++++++++++++++
+ 2 files changed, 34 insertions(+)
+
+diff --git a/drivers/gpu/drm/amd/powerplay/inc/smu_v11_0.h b/drivers/gpu/drm/amd/powerplay/inc/smu_v11_0.h
+index 02c965d64256..cd5e66b82ce1 100644
+--- a/drivers/gpu/drm/amd/powerplay/inc/smu_v11_0.h
++++ b/drivers/gpu/drm/amd/powerplay/inc/smu_v11_0.h
+@@ -30,6 +30,7 @@
+ #define MP0_SRAM			0x03900000
+ #define MP1_Public			0x03b00000
+ #define MP1_SRAM			0x03c00004
++#define MP1_SMC_SIZE		0x40000
+ 
+ /* address block */
+ #define smnMP1_FIRMWARE_FLAGS		0x3010024
+diff --git a/drivers/gpu/drm/amd/powerplay/smu_v11_0.c b/drivers/gpu/drm/amd/powerplay/smu_v11_0.c
+index 4dcbf6ee7e8e..2d55b825497f 100644
+--- a/drivers/gpu/drm/amd/powerplay/smu_v11_0.c
++++ b/drivers/gpu/drm/amd/powerplay/smu_v11_0.c
+@@ -207,6 +207,39 @@ static int smu_v11_0_init_microcode(struct smu_context *smu)
+ 
+ static int smu_v11_0_load_microcode(struct smu_context *smu)
+ {
++	struct amdgpu_device *adev = smu->adev;
++	const uint32_t *src;
++	const struct smc_firmware_header_v1_0 *hdr;
++	uint32_t addr_start = MP1_SRAM;
++	uint32_t i;
++	uint32_t mp1_fw_flags;
++
++	hdr = (const struct smc_firmware_header_v1_0 *)	adev->pm.fw->data;
++	src = (const uint32_t *)(adev->pm.fw->data +
++		le32_to_cpu(hdr->header.ucode_array_offset_bytes));
++
++	for (i = 1; i < MP1_SMC_SIZE/4 - 1; i++) {
++		WREG32_PCIE(addr_start, src[i]);
++		addr_start += 4;
++	}
++
++	WREG32_PCIE(MP1_Public | (smnMP1_PUB_CTRL & 0xffffffff),
++		1 & MP1_SMN_PUB_CTRL__RESET_MASK);
++	WREG32_PCIE(MP1_Public | (smnMP1_PUB_CTRL & 0xffffffff),
++		1 & ~MP1_SMN_PUB_CTRL__RESET_MASK);
++
++	for (i = 0; i < adev->usec_timeout; i++) {
++		mp1_fw_flags = RREG32_PCIE(MP1_Public |
++			(smnMP1_FIRMWARE_FLAGS & 0xffffffff));
++		if ((mp1_fw_flags & MP1_FIRMWARE_FLAGS__INTERRUPTS_ENABLED_MASK) >>
++			MP1_FIRMWARE_FLAGS__INTERRUPTS_ENABLED__SHIFT)
++			break;
++		udelay(1);
++	}
++
++	if (i == adev->usec_timeout)
++		return -ETIME;
++
+ 	return 0;
+ }
+ 
+-- 
+2.17.1
+

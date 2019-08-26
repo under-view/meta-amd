@@ -1,0 +1,52 @@
+From 542f65bd6b5df68582460688ba44997bf21f0253 Mon Sep 17 00:00:00 2001
+From: Chaudhary Amit Kumar <Chaudharyamit.Kumar@amd.com>
+Date: Mon, 24 Jun 2019 12:26:39 +0530
+Subject: [PATCH 2104/2940] fix boot issues with max_bpc max_requested_bpc
+ property added
+
+---
+ drivers/gpu/drm/amd/display/amdgpu_dm/amdgpu_dm.c |  3 +--
+ include/drm/drm_connector.h                       | 12 ++++++++++++
+ 2 files changed, 13 insertions(+), 2 deletions(-)
+
+diff --git a/drivers/gpu/drm/amd/display/amdgpu_dm/amdgpu_dm.c b/drivers/gpu/drm/amd/display/amdgpu_dm/amdgpu_dm.c
+index 1058c49ef588..7203ac71c582 100644
+--- a/drivers/gpu/drm/amd/display/amdgpu_dm/amdgpu_dm.c
++++ b/drivers/gpu/drm/amd/display/amdgpu_dm/amdgpu_dm.c
+@@ -3054,9 +3054,8 @@ static enum dc_color_depth
+ convert_color_depth_from_display_info(const struct drm_connector *connector,
+                                       const struct drm_connector_state *state)
+ {
+-	struct dm_connector_state *dm_conn_state =
+-		to_dm_connector_state(connector->state);
+ 	uint32_t bpc = connector->display_info.bpc;
++
+ 	if (!state)
+ 		state = connector->state;
+ 
+diff --git a/include/drm/drm_connector.h b/include/drm/drm_connector.h
+index a1ed3a6aafd8..930d3e315016 100644
+--- a/include/drm/drm_connector.h
++++ b/include/drm/drm_connector.h
+@@ -460,6 +460,18 @@ struct drm_connector_state {
+ 	 * drm_writeback_signal_completion()
+ 	 */
+ 	struct drm_writeback_job *writeback_job;
++
++        /**
++         * @max_requested_bpc: Connector property to limit the maximum bit
++         * depth of the pixels.
++         */
++        u8 max_requested_bpc;
++
++        /**
++         * @max_bpc: Connector max_bpc based on the requested max_bpc property
++         * and the connector bpc limitations obtained from edid.
++         */
++        u8 max_bpc;
+ };
+ 
+ /**
+-- 
+2.17.1
+

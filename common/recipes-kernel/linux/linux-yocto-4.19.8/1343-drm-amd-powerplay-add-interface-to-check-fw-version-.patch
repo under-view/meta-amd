@@ -1,0 +1,62 @@
+From 9b76baccab2c46a308e48de6f523b8177de10db2 Mon Sep 17 00:00:00 2001
+From: Huang Rui <ray.huang@amd.com>
+Date: Tue, 4 Dec 2018 21:51:23 +0800
+Subject: [PATCH 1343/2940] drm/amd/powerplay: add interface to check fw
+ version (v2)
+
+This patch adds interface to check fw version for smu.
+It's to send msg GetDriverIfVersion to check if the return value is equal with
+DRIVER_IF_VERSION of smc header.
+
+v2: add detailed info to describe this function
+
+Signed-off-by: Huang Rui <ray.huang@amd.com>
+Acked-by: Alex Deucher <alexander.deucher@amd.com>
+---
+ drivers/gpu/drm/amd/powerplay/amdgpu_smu.c     | 8 ++++++++
+ drivers/gpu/drm/amd/powerplay/inc/amdgpu_smu.h | 3 +++
+ 2 files changed, 11 insertions(+)
+
+diff --git a/drivers/gpu/drm/amd/powerplay/amdgpu_smu.c b/drivers/gpu/drm/amd/powerplay/amdgpu_smu.c
+index b40a3c15a1b3..519682541cae 100644
+--- a/drivers/gpu/drm/amd/powerplay/amdgpu_smu.c
++++ b/drivers/gpu/drm/amd/powerplay/amdgpu_smu.c
+@@ -184,6 +184,14 @@ static int smu_smc_table_hw_init(struct smu_context *smu)
+ 	if (ret)
+ 		return ret;
+ 
++	/*
++	 * Send msg GetDriverIfVersion to check if the return value is equal
++	 * with DRIVER_IF_VERSION of smc header.
++	 */
++	ret = smu_check_fw_version(smu);
++	if (ret)
++		return ret;
++
+ 	return 0;
+ }
+ 
+diff --git a/drivers/gpu/drm/amd/powerplay/inc/amdgpu_smu.h b/drivers/gpu/drm/amd/powerplay/inc/amdgpu_smu.h
+index da797771c885..95252653a665 100644
+--- a/drivers/gpu/drm/amd/powerplay/inc/amdgpu_smu.h
++++ b/drivers/gpu/drm/amd/powerplay/inc/amdgpu_smu.h
+@@ -44,6 +44,7 @@ struct smu_funcs
+ 	int (*check_pptable)(struct smu_context *smu);
+ 	int (*parse_pptable)(struct smu_context *smu);
+ 	int (*populate_smc_pptable)(struct smu_context *smu);
++	int (*check_fw_version)(struct smu_context *smu);
+ };
+ 
+ #define smu_init_microcode(smu) \
+@@ -66,6 +67,8 @@ struct smu_funcs
+ 	((smu)->funcs->parse_pptable ? (smu)->funcs->parse_pptable((smu)) : 0)
+ #define smu_populate_smc_pptable(smu) \
+ 	((smu)->funcs->populate_smc_pptable ? (smu)->funcs->populate_smc_pptable((smu)) : 0)
++#define smu_check_fw_version(smu) \
++	((smu)->funcs->check_fw_version ? (smu)->funcs->check_fw_version((smu)) : 0)
+ 
+ 
+ extern const struct amd_ip_funcs smu_ip_funcs;
+-- 
+2.17.1
+

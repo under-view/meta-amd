@@ -1,0 +1,181 @@
+From e337b91583716b49ad96098b9b0ab8c2f4554e4a Mon Sep 17 00:00:00 2001
+From: shaoyunl <shaoyun.liu@amd.com>
+Date: Wed, 20 Mar 2019 16:14:56 -0400
+Subject: [PATCH 1686/2940] drm/amdgpu: XGMI pstate switch initial support
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+Driver vote low to high pstate switch whenever there is an outstanding
+XGMI mapping request. Driver vote high to low pstate when all the
+outstanding XGMI mapping is terminated.
+
+Change-Id: I197501f853c47f844055c0e28c0ac00a1ff06607
+Signed-off-by: shaoyunl <shaoyun.liu@amd.com>
+Reviewed-by: Christian König <christian.koenig@amd.com>
+---
+ drivers/gpu/drm/amd/amdgpu/amdgpu_device.c |  4 ++++
+ drivers/gpu/drm/amd/amdgpu/amdgpu_object.h |  2 ++
+ drivers/gpu/drm/amd/amdgpu/amdgpu_vm.c     | 21 +++++++++++++++++++++
+ drivers/gpu/drm/amd/amdgpu/amdgpu_vm.h     |  4 ++++
+ drivers/gpu/drm/amd/amdgpu/amdgpu_xgmi.c   | 16 +++++++++++++++-
+ drivers/gpu/drm/amd/amdgpu/amdgpu_xgmi.h   | 10 ++++++++++
+ 6 files changed, 56 insertions(+), 1 deletion(-)
+
+diff --git a/drivers/gpu/drm/amd/amdgpu/amdgpu_device.c b/drivers/gpu/drm/amd/amdgpu/amdgpu_device.c
+index 93ca966cd7df..566b14f4c63f 100644
+--- a/drivers/gpu/drm/amd/amdgpu/amdgpu_device.c
++++ b/drivers/gpu/drm/amd/amdgpu/amdgpu_device.c
+@@ -2066,6 +2066,10 @@ static void amdgpu_device_ip_late_init_func_handler(struct work_struct *work)
+ 	r = amdgpu_device_enable_mgpu_fan_boost();
+ 	if (r)
+ 		DRM_ERROR("enable mgpu fan boost failed (%d).\n", r);
++
++	/*set to low pstate by default */
++	amdgpu_xgmi_set_pstate(adev, 0);
++
+ }
+ 
+ static void amdgpu_device_delay_enable_gfx_off(struct work_struct *work)
+diff --git a/drivers/gpu/drm/amd/amdgpu/amdgpu_object.h b/drivers/gpu/drm/amd/amdgpu/amdgpu_object.h
+index 888aced96b39..b27271290c33 100644
+--- a/drivers/gpu/drm/amd/amdgpu/amdgpu_object.h
++++ b/drivers/gpu/drm/amd/amdgpu/amdgpu_object.h
+@@ -72,6 +72,8 @@ struct amdgpu_bo_va {
+ 
+ 	/* If the mappings are cleared or filled */
+ 	bool				cleared;
++
++	bool				is_xgmi;
+ };
+ 
+ struct amdgpu_bo {
+diff --git a/drivers/gpu/drm/amd/amdgpu/amdgpu_vm.c b/drivers/gpu/drm/amd/amdgpu/amdgpu_vm.c
+index af7a420a1ef1..8492a38ffb37 100644
+--- a/drivers/gpu/drm/amd/amdgpu/amdgpu_vm.c
++++ b/drivers/gpu/drm/amd/amdgpu/amdgpu_vm.c
+@@ -34,6 +34,7 @@
+ #include "amdgpu_trace.h"
+ #include "amdgpu_amdkfd.h"
+ #include "amdgpu_gmc.h"
++#include "amdgpu_xgmi.h"
+ 
+ /**
+  * DOC: GPUVM
+@@ -2017,6 +2018,15 @@ struct amdgpu_bo_va *amdgpu_vm_bo_add(struct amdgpu_device *adev,
+ 	INIT_LIST_HEAD(&bo_va->valids);
+ 	INIT_LIST_HEAD(&bo_va->invalids);
+ 
++	if (bo && amdgpu_xgmi_same_hive(adev, amdgpu_ttm_adev(bo->tbo.bdev))) {
++		bo_va->is_xgmi = true;
++		mutex_lock(&adev->vm_manager.lock_pstate);
++		/* Power up XGMI if it can be potentially used */
++		if (++adev->vm_manager.xgmi_map_counter == 1)
++			amdgpu_xgmi_set_pstate(adev, 1);
++		mutex_unlock(&adev->vm_manager.lock_pstate);
++	}
++
+ 	return bo_va;
+ }
+ 
+@@ -2435,6 +2445,14 @@ void amdgpu_vm_bo_rmv(struct amdgpu_device *adev,
+ 	}
+ 
+ 	dma_fence_put(bo_va->last_pt_update);
++
++	if (bo && bo_va->is_xgmi) {
++		mutex_lock(&adev->vm_manager.lock_pstate);
++		if (--adev->vm_manager.xgmi_map_counter == 0)
++			amdgpu_xgmi_set_pstate(adev, 0);
++		mutex_unlock(&adev->vm_manager.lock_pstate);
++	}
++
+ 	kfree(bo_va);
+ }
+ 
+@@ -2892,6 +2910,9 @@ void amdgpu_vm_manager_init(struct amdgpu_device *adev)
+ 
+ 	idr_init(&adev->vm_manager.pasid_idr);
+ 	spin_lock_init(&adev->vm_manager.pasid_lock);
++
++	adev->vm_manager.xgmi_map_counter = 0;
++	mutex_init(&adev->vm_manager.lock_pstate);
+ }
+ 
+ /**
+diff --git a/drivers/gpu/drm/amd/amdgpu/amdgpu_vm.h b/drivers/gpu/drm/amd/amdgpu/amdgpu_vm.h
+index 753dedb436cd..0f8d4bcc71ab 100644
+--- a/drivers/gpu/drm/amd/amdgpu/amdgpu_vm.h
++++ b/drivers/gpu/drm/amd/amdgpu/amdgpu_vm.h
+@@ -324,6 +324,10 @@ struct amdgpu_vm_manager {
+ 	 */
+ 	struct idr				pasid_idr;
+ 	spinlock_t				pasid_lock;
++
++	/* counter of mapped memory through xgmi */
++	uint32_t				xgmi_map_counter;
++	struct mutex				lock_pstate;
+ };
+ 
+ #define amdgpu_vm_copy_pte(adev, ib, pe, src, count) ((adev)->vm_manager.vm_pte_funcs->copy_pte((ib), (pe), (src), (count)))
+diff --git a/drivers/gpu/drm/amd/amdgpu/amdgpu_xgmi.c b/drivers/gpu/drm/amd/amdgpu/amdgpu_xgmi.c
+index fcc4b05c745c..336834797af3 100644
+--- a/drivers/gpu/drm/amd/amdgpu/amdgpu_xgmi.c
++++ b/drivers/gpu/drm/amd/amdgpu/amdgpu_xgmi.c
+@@ -200,12 +200,26 @@ struct amdgpu_hive_info *amdgpu_get_xgmi_hive(struct amdgpu_device *adev, int lo
+ 
+ 	if (lock)
+ 		mutex_lock(&tmp->hive_lock);
+-
++	tmp->pstate = -1;
+ 	mutex_unlock(&xgmi_mutex);
+ 
+ 	return tmp;
+ }
+ 
++int amdgpu_xgmi_set_pstate(struct amdgpu_device *adev, int pstate)
++{
++	int ret = 0;
++	struct amdgpu_hive_info *hive = amdgpu_get_xgmi_hive(adev, 0);
++
++	if (!hive)
++		return 0;
++
++	if (hive->pstate == pstate)
++		return 0;
++	/* Todo : sent the message to SMU for pstate change */
++	return ret;
++}
++
+ int amdgpu_xgmi_update_topology(struct amdgpu_hive_info *hive, struct amdgpu_device *adev)
+ {
+ 	int ret = -EINVAL;
+diff --git a/drivers/gpu/drm/amd/amdgpu/amdgpu_xgmi.h b/drivers/gpu/drm/amd/amdgpu/amdgpu_xgmi.h
+index 24a3b0362f98..3e9c91e9a4bf 100644
+--- a/drivers/gpu/drm/amd/amdgpu/amdgpu_xgmi.h
++++ b/drivers/gpu/drm/amd/amdgpu/amdgpu_xgmi.h
+@@ -33,11 +33,21 @@ struct amdgpu_hive_info {
+ 	struct kobject *kobj;
+ 	struct device_attribute dev_attr;
+ 	struct amdgpu_device *adev;
++	int pstate; /*0 -- low , 1 -- high , -1 unknown*/
+ };
+ 
+ struct amdgpu_hive_info *amdgpu_get_xgmi_hive(struct amdgpu_device *adev, int lock);
+ int amdgpu_xgmi_update_topology(struct amdgpu_hive_info *hive, struct amdgpu_device *adev);
+ int amdgpu_xgmi_add_device(struct amdgpu_device *adev);
+ void amdgpu_xgmi_remove_device(struct amdgpu_device *adev);
++int amdgpu_xgmi_set_pstate(struct amdgpu_device *adev, int pstate);
++
++static inline bool amdgpu_xgmi_same_hive(struct amdgpu_device *adev,
++		struct amdgpu_device *bo_adev)
++{
++	return (adev != bo_adev &&
++		adev->gmc.xgmi.hive_id &&
++		adev->gmc.xgmi.hive_id == bo_adev->gmc.xgmi.hive_id);
++}
+ 
+ #endif
+-- 
+2.17.1
+

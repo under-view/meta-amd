@@ -1,0 +1,304 @@
+From 150082ed40f66c55c5f13c89eba5584cdde71f10 Mon Sep 17 00:00:00 2001
+From: Wesley Chalmers <Wesley.Chalmers@amd.com>
+Date: Wed, 24 Apr 2019 15:25:41 -0400
+Subject: [PATCH 1970/2940] drm/amd/display: Engine-specific encoder allocation
+
+[WHY]
+From DCE110 onward, we have the ability to assign DIG BE and FE
+separately for any display connector type; before, we could only do this
+for DP.
+
+Signed-off-by: Wesley Chalmers <Wesley.Chalmers@amd.com>
+Reviewed-by: Tony Cheng <Tony.Cheng@amd.com>
+Acked-by: Bhawanpreet Lakha <Bhawanpreet.Lakha@amd.com>
+---
+ .../gpu/drm/amd/display/dc/core/dc_resource.c | 42 +-----------------
+ .../amd/display/dc/dce100/dce100_resource.c   | 44 ++++++++++++++++++-
+ .../amd/display/dc/dce100/dce100_resource.h   |  5 +++
+ .../amd/display/dc/dce110/dce110_resource.c   | 35 ++++++++++++++-
+ .../amd/display/dc/dce110/dce110_resource.h   |  5 +++
+ .../amd/display/dc/dce112/dce112_resource.c   |  3 +-
+ .../amd/display/dc/dce120/dce120_resource.c   |  3 +-
+ .../drm/amd/display/dc/dce80/dce80_resource.c |  3 +-
+ .../drm/amd/display/dc/dcn10/dcn10_resource.c |  3 +-
+ .../gpu/drm/amd/display/dc/inc/core_types.h   |  5 +++
+ 10 files changed, 101 insertions(+), 47 deletions(-)
+
+diff --git a/drivers/gpu/drm/amd/display/dc/core/dc_resource.c b/drivers/gpu/drm/amd/display/dc/core/dc_resource.c
+index 3bb19890c9b7..30c8d7306021 100644
+--- a/drivers/gpu/drm/amd/display/dc/core/dc_resource.c
++++ b/drivers/gpu/drm/amd/display/dc/core/dc_resource.c
+@@ -1650,46 +1650,6 @@ static int acquire_first_free_pipe(
+ 	return -1;
+ }
+ 
+-static struct stream_encoder *find_first_free_match_stream_enc_for_link(
+-		struct resource_context *res_ctx,
+-		const struct resource_pool *pool,
+-		struct dc_stream_state *stream)
+-{
+-	int i;
+-	int j = -1;
+-	struct dc_link *link = stream->link;
+-
+-	for (i = 0; i < pool->stream_enc_count; i++) {
+-		if (!res_ctx->is_stream_enc_acquired[i] &&
+-				pool->stream_enc[i]) {
+-			/* Store first available for MST second display
+-			 * in daisy chain use case */
+-			j = i;
+-			if (pool->stream_enc[i]->id ==
+-					link->link_enc->preferred_engine)
+-				return pool->stream_enc[i];
+-		}
+-	}
+-
+-	/*
+-	 * below can happen in cases when stream encoder is acquired:
+-	 * 1) for second MST display in chain, so preferred engine already
+-	 * acquired;
+-	 * 2) for another link, which preferred engine already acquired by any
+-	 * MST configuration.
+-	 *
+-	 * If signal is of DP type and preferred engine not found, return last available
+-	 *
+-	 * TODO - This is just a patch up and a generic solution is
+-	 * required for non DP connectors.
+-	 */
+-
+-	if (j >= 0 && link->connector_signal == SIGNAL_TYPE_DISPLAY_PORT)
+-		return pool->stream_enc[j];
+-
+-	return NULL;
+-}
+-
+ static struct audio *find_first_free_audio(
+ 		struct resource_context *res_ctx,
+ 		const struct resource_pool *pool,
+@@ -2001,7 +1961,7 @@ enum dc_status resource_map_pool_resources(
+ 	pipe_ctx = &context->res_ctx.pipe_ctx[pipe_idx];
+ 
+ 	pipe_ctx->stream_res.stream_enc =
+-		find_first_free_match_stream_enc_for_link(
++		dc->res_pool->funcs->find_first_free_match_stream_enc_for_link(
+ 			&context->res_ctx, pool, stream);
+ 
+ 	if (!pipe_ctx->stream_res.stream_enc)
+diff --git a/drivers/gpu/drm/amd/display/dc/dce100/dce100_resource.c b/drivers/gpu/drm/amd/display/dc/dce100/dce100_resource.c
+index e938bf9986d3..d7a531e9700f 100644
+--- a/drivers/gpu/drm/amd/display/dc/dce100/dce100_resource.c
++++ b/drivers/gpu/drm/amd/display/dc/dce100/dce100_resource.c
+@@ -867,13 +867,55 @@ enum dc_status dce100_validate_plane(const struct dc_plane_state *plane_state, s
+ 	return DC_FAIL_SURFACE_VALIDATE;
+ }
+ 
++struct stream_encoder *dce100_find_first_free_match_stream_enc_for_link(
++		struct resource_context *res_ctx,
++		const struct resource_pool *pool,
++		struct dc_stream_state *stream)
++{
++	int i;
++	int j = -1;
++	struct dc_link *link = stream->link;
++
++	for (i = 0; i < pool->stream_enc_count; i++) {
++		if (!res_ctx->is_stream_enc_acquired[i] &&
++				pool->stream_enc[i]) {
++			/* Store first available for MST second display
++			 * in daisy chain use case
++			 */
++			j = i;
++			if (pool->stream_enc[i]->id ==
++					link->link_enc->preferred_engine)
++				return pool->stream_enc[i];
++		}
++	}
++
++	/*
++	 * below can happen in cases when stream encoder is acquired:
++	 * 1) for second MST display in chain, so preferred engine already
++	 * acquired;
++	 * 2) for another link, which preferred engine already acquired by any
++	 * MST configuration.
++	 *
++	 * If signal is of DP type and preferred engine not found, return last available
++	 *
++	 * TODO - This is just a patch up and a generic solution is
++	 * required for non DP connectors.
++	 */
++
++	if (j >= 0 && link->connector_signal == SIGNAL_TYPE_DISPLAY_PORT)
++		return pool->stream_enc[j];
++
++	return NULL;
++}
++
+ static const struct resource_funcs dce100_res_pool_funcs = {
+ 	.destroy = dce100_destroy_resource_pool,
+ 	.link_enc_create = dce100_link_encoder_create,
+ 	.validate_bandwidth = dce100_validate_bandwidth,
+ 	.validate_plane = dce100_validate_plane,
+ 	.add_stream_to_ctx = dce100_add_stream_to_ctx,
+-	.validate_global = dce100_validate_global
++	.validate_global = dce100_validate_global,
++	.find_first_free_match_stream_enc_for_link = dce100_find_first_free_match_stream_enc_for_link
+ };
+ 
+ static bool construct(
+diff --git a/drivers/gpu/drm/amd/display/dc/dce100/dce100_resource.h b/drivers/gpu/drm/amd/display/dc/dce100/dce100_resource.h
+index 2f366d66635d..fecab7c560f5 100644
+--- a/drivers/gpu/drm/amd/display/dc/dce100/dce100_resource.h
++++ b/drivers/gpu/drm/amd/display/dc/dce100/dce100_resource.h
+@@ -46,4 +46,9 @@ enum dc_status dce100_add_stream_to_ctx(
+ 		struct dc_state *new_ctx,
+ 		struct dc_stream_state *dc_stream);
+ 
++struct stream_encoder *dce100_find_first_free_match_stream_enc_for_link(
++		struct resource_context *res_ctx,
++		const struct resource_pool *pool,
++		struct dc_stream_state *stream);
++
+ #endif /* DCE100_RESOURCE_H_ */
+diff --git a/drivers/gpu/drm/amd/display/dc/dce110/dce110_resource.c b/drivers/gpu/drm/amd/display/dc/dce110/dce110_resource.c
+index 35b58a085f5c..f982c8b196cf 100644
+--- a/drivers/gpu/drm/amd/display/dc/dce110/dce110_resource.c
++++ b/drivers/gpu/drm/amd/display/dc/dce110/dce110_resource.c
+@@ -1134,6 +1134,38 @@ static void dce110_destroy_resource_pool(struct resource_pool **pool)
+ 	*pool = NULL;
+ }
+ 
++struct stream_encoder *dce110_find_first_free_match_stream_enc_for_link(
++		struct resource_context *res_ctx,
++		const struct resource_pool *pool,
++		struct dc_stream_state *stream)
++{
++	int i;
++	int j = -1;
++	struct dc_link *link = stream->link;
++
++	for (i = 0; i < pool->stream_enc_count; i++) {
++		if (!res_ctx->is_stream_enc_acquired[i] &&
++				pool->stream_enc[i]) {
++			/* Store first available for MST second display
++			 * in daisy chain use case
++			 */
++			j = i;
++			if (pool->stream_enc[i]->id ==
++					link->link_enc->preferred_engine)
++				return pool->stream_enc[i];
++		}
++	}
++
++	/*
++	 * For CZ and later, we can allow DIG FE and BE to differ for all display types
++	 */
++
++	if (j >= 0)
++		return pool->stream_enc[j];
++
++	return NULL;
++}
++
+ 
+ static const struct resource_funcs dce110_res_pool_funcs = {
+ 	.destroy = dce110_destroy_resource_pool,
+@@ -1142,7 +1174,8 @@ static const struct resource_funcs dce110_res_pool_funcs = {
+ 	.validate_plane = dce110_validate_plane,
+ 	.acquire_idle_pipe_for_layer = dce110_acquire_underlay,
+ 	.add_stream_to_ctx = dce110_add_stream_to_ctx,
+-	.validate_global = dce110_validate_global
++	.validate_global = dce110_validate_global,
++	.find_first_free_match_stream_enc_for_link = dce110_find_first_free_match_stream_enc_for_link
+ };
+ 
+ static bool underlay_create(struct dc_context *ctx, struct resource_pool *pool)
+diff --git a/drivers/gpu/drm/amd/display/dc/dce110/dce110_resource.h b/drivers/gpu/drm/amd/display/dc/dce110/dce110_resource.h
+index e5f168c1f8c8..aa4531e0800e 100644
+--- a/drivers/gpu/drm/amd/display/dc/dce110/dce110_resource.h
++++ b/drivers/gpu/drm/amd/display/dc/dce110/dce110_resource.h
+@@ -45,5 +45,10 @@ struct resource_pool *dce110_create_resource_pool(
+ 	struct dc *dc,
+ 	struct hw_asic_id asic_id);
+ 
++struct stream_encoder *dce110_find_first_free_match_stream_enc_for_link(
++		struct resource_context *res_ctx,
++		const struct resource_pool *pool,
++		struct dc_stream_state *stream);
++
+ #endif /* __DC_RESOURCE_DCE110_H__ */
+ 
+diff --git a/drivers/gpu/drm/amd/display/dc/dce112/dce112_resource.c b/drivers/gpu/drm/amd/display/dc/dce112/dce112_resource.c
+index a480b15f6885..cdf759b0f5f9 100644
+--- a/drivers/gpu/drm/amd/display/dc/dce112/dce112_resource.c
++++ b/drivers/gpu/drm/amd/display/dc/dce112/dce112_resource.c
+@@ -993,7 +993,8 @@ static const struct resource_funcs dce112_res_pool_funcs = {
+ 	.validate_bandwidth = dce112_validate_bandwidth,
+ 	.validate_plane = dce100_validate_plane,
+ 	.add_stream_to_ctx = dce112_add_stream_to_ctx,
+-	.validate_global = dce112_validate_global
++	.validate_global = dce112_validate_global,
++	.find_first_free_match_stream_enc_for_link = dce110_find_first_free_match_stream_enc_for_link
+ };
+ 
+ static void bw_calcs_data_update_from_pplib(struct dc *dc)
+diff --git a/drivers/gpu/drm/amd/display/dc/dce120/dce120_resource.c b/drivers/gpu/drm/amd/display/dc/dce120/dce120_resource.c
+index fa46caee958a..9e6a5d84b0a1 100644
+--- a/drivers/gpu/drm/amd/display/dc/dce120/dce120_resource.c
++++ b/drivers/gpu/drm/amd/display/dc/dce120/dce120_resource.c
+@@ -837,7 +837,8 @@ static const struct resource_funcs dce120_res_pool_funcs = {
+ 	.link_enc_create = dce120_link_encoder_create,
+ 	.validate_bandwidth = dce112_validate_bandwidth,
+ 	.validate_plane = dce100_validate_plane,
+-	.add_stream_to_ctx = dce112_add_stream_to_ctx
++	.add_stream_to_ctx = dce112_add_stream_to_ctx,
++	.find_first_free_match_stream_enc_for_link = dce110_find_first_free_match_stream_enc_for_link
+ };
+ 
+ static void bw_calcs_data_update_from_pplib(struct dc *dc)
+diff --git a/drivers/gpu/drm/amd/display/dc/dce80/dce80_resource.c b/drivers/gpu/drm/amd/display/dc/dce80/dce80_resource.c
+index 27d0cc394963..2c21135a8510 100644
+--- a/drivers/gpu/drm/amd/display/dc/dce80/dce80_resource.c
++++ b/drivers/gpu/drm/amd/display/dc/dce80/dce80_resource.c
+@@ -880,7 +880,8 @@ static const struct resource_funcs dce80_res_pool_funcs = {
+ 	.validate_bandwidth = dce80_validate_bandwidth,
+ 	.validate_plane = dce100_validate_plane,
+ 	.add_stream_to_ctx = dce100_add_stream_to_ctx,
+-	.validate_global = dce80_validate_global
++	.validate_global = dce80_validate_global,
++	.find_first_free_match_stream_enc_for_link = dce100_find_first_free_match_stream_enc_for_link
+ };
+ 
+ static bool dce80_construct(
+diff --git a/drivers/gpu/drm/amd/display/dc/dcn10/dcn10_resource.c b/drivers/gpu/drm/amd/display/dc/dcn10/dcn10_resource.c
+index ddb020a53098..97fb0a6ddf95 100644
+--- a/drivers/gpu/drm/amd/display/dc/dcn10/dcn10_resource.c
++++ b/drivers/gpu/drm/amd/display/dc/dcn10/dcn10_resource.c
+@@ -1247,7 +1247,8 @@ static const struct resource_funcs dcn10_res_pool_funcs = {
+ 	.validate_plane = dcn10_validate_plane,
+ 	.validate_global = dcn10_validate_global,
+ 	.add_stream_to_ctx = dcn10_add_stream_to_ctx,
+-	.get_default_swizzle_mode = dcn10_get_default_swizzle_mode
++	.get_default_swizzle_mode = dcn10_get_default_swizzle_mode,
++	.find_first_free_match_stream_enc_for_link = dce110_find_first_free_match_stream_enc_for_link
+ };
+ 
+ static uint32_t read_pipe_fuses(struct dc_context *ctx)
+diff --git a/drivers/gpu/drm/amd/display/dc/inc/core_types.h b/drivers/gpu/drm/amd/display/dc/inc/core_types.h
+index d61efa068c9a..539d34d3439c 100644
+--- a/drivers/gpu/drm/amd/display/dc/inc/core_types.h
++++ b/drivers/gpu/drm/amd/display/dc/inc/core_types.h
+@@ -123,6 +123,11 @@ struct resource_funcs {
+ 	enum dc_status (*get_default_swizzle_mode)(
+ 			struct dc_plane_state *plane_state);
+ 
++	struct stream_encoder *(*find_first_free_match_stream_enc_for_link)(
++			struct resource_context *res_ctx,
++			const struct resource_pool *pool,
++			struct dc_stream_state *stream);
++
+ };
+ 
+ struct audio_support{
+-- 
+2.17.1
+

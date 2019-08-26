@@ -1,0 +1,58 @@
+From e76ed7bede457843a83ac8f29c2ea54602629bc2 Mon Sep 17 00:00:00 2001
+From: Likun Gao <Likun.Gao@amd.com>
+Date: Wed, 12 Dec 2018 19:31:31 +0800
+Subject: [PATCH 1381/2940] drm/amd/powerplay: add function to set min dcef
+ deep sleep for smu11 (v2)
+
+Add smu_v11_0_set_min_dcef_deep_sleep function for smu11.
+
+v2: fix coding error about set_min_dcef_deep_sleep (Kevin)
+
+Signed-off-by: Kevin Wang <Kevin1.Wang@amd.com>
+Signed-off-by: Likun Gao <Likun.Gao@amd.com>
+Reviewed-by: Huang Rui <ray.huang@amd.com>
+Reviewed-by: Kevin Wang <Kevin1.Wang@amd.com>
+Acked-by: Alex Deucher <alexander.deucher@amd.com>
+---
+ drivers/gpu/drm/amd/powerplay/smu_v11_0.c | 18 ++++++++++++++++++
+ 1 file changed, 18 insertions(+)
+
+diff --git a/drivers/gpu/drm/amd/powerplay/smu_v11_0.c b/drivers/gpu/drm/amd/powerplay/smu_v11_0.c
+index 742876cd83ed..8553c47bbac6 100644
+--- a/drivers/gpu/drm/amd/powerplay/smu_v11_0.c
++++ b/drivers/gpu/drm/amd/powerplay/smu_v11_0.c
+@@ -613,6 +613,23 @@ static int smu_v11_0_write_pptable(struct smu_context *smu)
+ 	return ret;
+ }
+ 
++static int smu_v11_0_set_min_dcef_deep_sleep(struct smu_context *smu)
++{
++	int ret = 0;
++	struct smu_table_context *table_context = &smu->smu_table;
++
++	if (!table_context)
++		return -EINVAL;
++
++	ret = smu_send_smc_msg_with_param(smu,
++					  PPSMC_MSG_SetMinDeepSleepDcefclk,
++					  table_context->boot_values.dcefclk / 100);
++	if (ret)
++		pr_err("SMU11 attempt to set divider for DCEFCLK Failed!");
++
++	return ret;
++}
++
+ static const struct smu_funcs smu_v11_0_funcs = {
+ 	.init_microcode = smu_v11_0_init_microcode,
+ 	.load_microcode = smu_v11_0_load_microcode,
+@@ -632,6 +649,7 @@ static const struct smu_funcs smu_v11_0_funcs = {
+ 	.parse_pptable = smu_v11_0_parse_pptable,
+ 	.populate_smc_pptable = smu_v11_0_populate_smc_pptable,
+ 	.write_pptable = smu_v11_0_write_pptable,
++	.set_min_dcef_deep_sleep = smu_v11_0_set_min_dcef_deep_sleep,
+ };
+ 
+ void smu_v11_0_set_smu_funcs(struct smu_context *smu)
+-- 
+2.17.1
+

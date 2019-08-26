@@ -1,0 +1,35 @@
+From 63afd8e6021989363b39e049f7d1cd53f2b999d0 Mon Sep 17 00:00:00 2001
+From: Kevin Wang <Kevin1.Wang@amd.com>
+Date: Thu, 17 Jan 2019 13:46:08 +0800
+Subject: [PATCH 1419/2940] drm/amd/powerplay: implement sysfs of
+ pp_force_state for sw-smu
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+the SMU v11 doesn’t support pp_force_state so far, so we didn’t implement
+it.
+
+Signed-off-by: Kevin Wang <Kevin1.Wang@amd.com>
+Reviewed-by: Huang Rui <ray.huang@amd.com>
+Acked-by: Alex Deucher <alexander.deucher@amd.com>
+---
+ drivers/gpu/drm/amd/amdgpu/amdgpu_pm.c | 2 ++
+ 1 file changed, 2 insertions(+)
+
+diff --git a/drivers/gpu/drm/amd/amdgpu/amdgpu_pm.c b/drivers/gpu/drm/amd/amdgpu/amdgpu_pm.c
+index 569f7be61b53..896dcac33656 100644
+--- a/drivers/gpu/drm/amd/amdgpu/amdgpu_pm.c
++++ b/drivers/gpu/drm/amd/amdgpu/amdgpu_pm.c
+@@ -429,6 +429,8 @@ static ssize_t amdgpu_set_pp_force_state(struct device *dev,
+ 
+ 	if (strlen(buf) == 1)
+ 		adev->pp_force_state_enabled = false;
++	else if (is_support_sw_smu(adev))
++		adev->pp_force_state_enabled = false;
+ 	else if (adev->powerplay.pp_funcs->dispatch_tasks &&
+ 			adev->powerplay.pp_funcs->get_pp_num_states) {
+ 		struct pp_states_info data;
+-- 
+2.17.1
+

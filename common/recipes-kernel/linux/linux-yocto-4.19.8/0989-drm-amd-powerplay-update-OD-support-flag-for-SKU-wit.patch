@@ -1,0 +1,33 @@
+From 3c400baa59dfae21db4ccb75857fd1ab5cf231bb Mon Sep 17 00:00:00 2001
+From: Evan Quan <evan.quan@amd.com>
+Date: Mon, 7 Jan 2019 18:38:30 +0800
+Subject: [PATCH 0989/2940] drm/amd/powerplay: update OD support flag for SKU
+ with no OD capabilities
+
+For those ASICs with no overdrive capabilities, the OD support flag
+will be reset.
+
+Signed-off-by: Evan Quan <evan.quan@amd.com>
+Reviewed-by: Alex Deucher <alexander.deucher@amd.com>
+Signed-off-by: Alex Deucher <alexander.deucher@amd.com>
+---
+ drivers/gpu/drm/amd/powerplay/hwmgr/vega20_hwmgr.c | 3 +++
+ 1 file changed, 3 insertions(+)
+
+diff --git a/drivers/gpu/drm/amd/powerplay/hwmgr/vega20_hwmgr.c b/drivers/gpu/drm/amd/powerplay/hwmgr/vega20_hwmgr.c
+index 264ce8fe545f..8f6097c6a02b 100644
+--- a/drivers/gpu/drm/amd/powerplay/hwmgr/vega20_hwmgr.c
++++ b/drivers/gpu/drm/amd/powerplay/hwmgr/vega20_hwmgr.c
+@@ -980,6 +980,9 @@ static int vega20_od8_set_feature_capabilities(
+ 	    pp_table->FanZeroRpmEnable)
+ 		od_settings->overdrive8_capabilities |= OD8_FAN_ZERO_RPM_CONTROL;
+ 
++	if (!od_settings->overdrive8_capabilities)
++		hwmgr->od_enabled = false;
++
+ 	return 0;
+ }
+ 
+-- 
+2.17.1
+

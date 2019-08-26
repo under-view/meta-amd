@@ -1,0 +1,39 @@
+From 778c06b7ca6341522080a60653cf32a061a37210 Mon Sep 17 00:00:00 2001
+From: Alex Deucher <alexander.deucher@amd.com>
+Date: Sun, 2 Dec 2018 21:47:42 -0500
+Subject: [PATCH 0906/2940] drm/amdgpu/si: fix SI after doorbell rework
+
+SI does not use doorbells, move asic doorbell init later
+asic check.
+
+Fixes: https://bugs.freedesktop.org/show_bug.cgi?id=108920
+Reviewed-by: Oak Zeng <Oak.Zeng@amd.com>
+Signed-off-by: Alex Deucher <alexander.deucher@amd.com>
+---
+ drivers/gpu/drm/amd/amdgpu/amdgpu_device.c | 3 ++-
+ 1 file changed, 2 insertions(+), 1 deletion(-)
+
+diff --git a/drivers/gpu/drm/amd/amdgpu/amdgpu_device.c b/drivers/gpu/drm/amd/amdgpu/amdgpu_device.c
+index 24433648fd2e..e97b6af48551 100644
+--- a/drivers/gpu/drm/amd/amdgpu/amdgpu_device.c
++++ b/drivers/gpu/drm/amd/amdgpu/amdgpu_device.c
+@@ -515,7 +515,6 @@ void amdgpu_device_pci_config_reset(struct amdgpu_device *adev)
+  */
+ static int amdgpu_device_doorbell_init(struct amdgpu_device *adev)
+ {
+-	amdgpu_asic_init_doorbell_index(adev);
+ 
+ 	/* No doorbell on SI hardware generation */
+ 	if (adev->asic_type < CHIP_BONAIRE) {
+@@ -529,6 +528,8 @@ static int amdgpu_device_doorbell_init(struct amdgpu_device *adev)
+ 	if (pci_resource_flags(adev->pdev, 2) & IORESOURCE_UNSET)
+ 		return -EINVAL;
+ 
++	amdgpu_asic_init_doorbell_index(adev);
++
+ 	/* doorbell bar mapping */
+ 	adev->doorbell.base = pci_resource_start(adev->pdev, 2);
+ 	adev->doorbell.size = pci_resource_len(adev->pdev, 2);
+-- 
+2.17.1
+

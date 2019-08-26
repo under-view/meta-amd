@@ -1,0 +1,174 @@
+From e10c25a3c98ae4e1a4c832c7b387a8863f35320e Mon Sep 17 00:00:00 2001
+From: Shaoyun Liu <Shaoyun.Liu@amd.com>
+Date: Fri, 9 Feb 2018 16:29:14 -0500
+Subject: [PATCH 2696/2940] drm/amdkfd: Make the number of SDMA queues variable
+
+Vega20 supports 8 SDMA queues per engine
+
+Signed-off-by: Shaoyun Liu <Shaoyun.Liu@amd.com>
+Reviewed-by: Felix Kuehling <Felix.Kuehling@amd.com>
+Signed-off-by: Alex Deucher <alexander.deucher@amd.com>
+Signed-off-by: Felix Kuehling <Felix.Kuehling@amd.com>
+Acked-by: Alex Deucher <alexander.deucher@amd.com>
+Signed-off-by: Alex Deucher <alexander.deucher@amd.com>
+---
+ drivers/gpu/drm/amd/amdkfd/kfd_device.c             | 13 ++++++++++++-
+ .../gpu/drm/amd/amdkfd/kfd_device_queue_manager.c   |  6 ++++--
+ .../gpu/drm/amd/amdkfd/kfd_device_queue_manager.h   |  1 -
+ drivers/gpu/drm/amd/amdkfd/kfd_priv.h               |  1 +
+ 4 files changed, 17 insertions(+), 4 deletions(-)
+
+diff --git a/drivers/gpu/drm/amd/amdkfd/kfd_device.c b/drivers/gpu/drm/amd/amdkfd/kfd_device.c
+index 4f7c0a79bbf5..56f2bd0a0238 100644
+--- a/drivers/gpu/drm/amd/amdkfd/kfd_device.c
++++ b/drivers/gpu/drm/amd/amdkfd/kfd_device.c
+@@ -53,6 +53,7 @@ static const struct kfd_device_info kaveri_device_info = {
+ 	.needs_iommu_device = true,
+ 	.needs_pci_atomics = false,
+ 	.num_sdma_engines = 2,
++	.num_sdma_queues_per_engine = 2,
+ };
+ 
+ static const struct kfd_device_info carrizo_device_info = {
+@@ -69,6 +70,7 @@ static const struct kfd_device_info carrizo_device_info = {
+ 	.needs_iommu_device = true,
+ 	.needs_pci_atomics = false,
+ 	.num_sdma_engines = 2,
++	.num_sdma_queues_per_engine = 2,
+ };
+ 
+ static const struct kfd_device_info raven_device_info = {
+@@ -84,6 +86,7 @@ static const struct kfd_device_info raven_device_info = {
+ 	.needs_iommu_device = true,
+ 	.needs_pci_atomics = true,
+ 	.num_sdma_engines = 1,
++	.num_sdma_queues_per_engine = 2,
+ };
+ #endif
+ 
+@@ -101,6 +104,7 @@ static const struct kfd_device_info hawaii_device_info = {
+ 	.needs_iommu_device = false,
+ 	.needs_pci_atomics = false,
+ 	.num_sdma_engines = 2,
++	.num_sdma_queues_per_engine = 2,
+ };
+ 
+ static const struct kfd_device_info tonga_device_info = {
+@@ -116,6 +120,7 @@ static const struct kfd_device_info tonga_device_info = {
+ 	.needs_iommu_device = false,
+ 	.needs_pci_atomics = true,
+ 	.num_sdma_engines = 2,
++	.num_sdma_queues_per_engine = 2,
+ };
+ 
+ static const struct kfd_device_info fiji_device_info = {
+@@ -131,6 +136,7 @@ static const struct kfd_device_info fiji_device_info = {
+ 	.needs_iommu_device = false,
+ 	.needs_pci_atomics = true,
+ 	.num_sdma_engines = 2,
++	.num_sdma_queues_per_engine = 2,
+ };
+ 
+ static const struct kfd_device_info fiji_vf_device_info = {
+@@ -146,6 +152,7 @@ static const struct kfd_device_info fiji_vf_device_info = {
+ 	.needs_iommu_device = false,
+ 	.needs_pci_atomics = false,
+ 	.num_sdma_engines = 2,
++	.num_sdma_queues_per_engine = 2,
+ };
+ 
+ 
+@@ -162,6 +169,7 @@ static const struct kfd_device_info polaris10_device_info = {
+ 	.needs_iommu_device = false,
+ 	.needs_pci_atomics = true,
+ 	.num_sdma_engines = 2,
++	.num_sdma_queues_per_engine = 2,
+ };
+ 
+ static const struct kfd_device_info polaris10_vf_device_info = {
+@@ -177,6 +185,7 @@ static const struct kfd_device_info polaris10_vf_device_info = {
+ 	.needs_iommu_device = false,
+ 	.needs_pci_atomics = false,
+ 	.num_sdma_engines = 2,
++	.num_sdma_queues_per_engine = 2,
+ };
+ 
+ static const struct kfd_device_info polaris11_device_info = {
+@@ -192,6 +201,7 @@ static const struct kfd_device_info polaris11_device_info = {
+ 	.needs_iommu_device = false,
+ 	.needs_pci_atomics = true,
+ 	.num_sdma_engines = 2,
++	.num_sdma_queues_per_engine = 2,
+ };
+ 
+ static const struct kfd_device_info vega10_device_info = {
+@@ -207,6 +217,7 @@ static const struct kfd_device_info vega10_device_info = {
+ 	.needs_iommu_device = false,
+ 	.needs_pci_atomics = false,
+ 	.num_sdma_engines = 2,
++	.num_sdma_queues_per_engine = 2,
+ };
+ 
+ static const struct kfd_device_info vega10_vf_device_info = {
+@@ -222,9 +233,9 @@ static const struct kfd_device_info vega10_vf_device_info = {
+ 	.needs_iommu_device = false,
+ 	.needs_pci_atomics = false,
+ 	.num_sdma_engines = 2,
++	.num_sdma_queues_per_engine = 2,
+ };
+ 
+-
+ struct kfd_deviceid {
+ 	unsigned short did;
+ 	const struct kfd_device_info *device_info;
+diff --git a/drivers/gpu/drm/amd/amdkfd/kfd_device_queue_manager.c b/drivers/gpu/drm/amd/amdkfd/kfd_device_queue_manager.c
+index 1542c98112ac..bc2103bc1968 100644
+--- a/drivers/gpu/drm/amd/amdkfd/kfd_device_queue_manager.c
++++ b/drivers/gpu/drm/amd/amdkfd/kfd_device_queue_manager.c
+@@ -109,7 +109,7 @@ static unsigned int get_num_sdma_engines(struct device_queue_manager *dqm)
+ unsigned int get_num_sdma_queues(struct device_queue_manager *dqm)
+ {
+ 	return dqm->dev->device_info->num_sdma_engines
+-			* KFD_SDMA_QUEUES_PER_ENGINE;
++			* dqm->dev->device_info->num_sdma_queues_per_engine;
+ }
+ 
+ void program_sh_mem_settings(struct device_queue_manager *dqm,
+@@ -1864,7 +1864,9 @@ int dqm_debugfs_hqds(struct seq_file *m, void *data)
+ 	}
+ 
+ 	for (pipe = 0; pipe < get_num_sdma_engines(dqm); pipe++) {
+-		for (queue = 0; queue < KFD_SDMA_QUEUES_PER_ENGINE; queue++) {
++		for (queue = 0;
++		     queue < dqm->dev->device_info->num_sdma_queues_per_engine;
++		     queue++) {
+ 			r = dqm->dev->kfd2kgd->hqd_sdma_dump(
+ 				dqm->dev->kgd, pipe, queue, &dump, &n_regs);
+ 			if (r)
+diff --git a/drivers/gpu/drm/amd/amdkfd/kfd_device_queue_manager.h b/drivers/gpu/drm/amd/amdkfd/kfd_device_queue_manager.h
+index e7bd19d09845..70e38a2e23b9 100644
+--- a/drivers/gpu/drm/amd/amdkfd/kfd_device_queue_manager.h
++++ b/drivers/gpu/drm/amd/amdkfd/kfd_device_queue_manager.h
+@@ -33,7 +33,6 @@
+ 
+ #define KFD_UNMAP_LATENCY_MS			(4000)
+ #define QUEUE_PREEMPT_DEFAULT_TIMEOUT_MS (2 * KFD_UNMAP_LATENCY_MS + 1000)
+-#define KFD_SDMA_QUEUES_PER_ENGINE		(2)
+ 
+ struct device_process_node {
+ 	struct qcm_process_device *qpd;
+diff --git a/drivers/gpu/drm/amd/amdkfd/kfd_priv.h b/drivers/gpu/drm/amd/amdkfd/kfd_priv.h
+index e23ff42803f5..5c25a3f49b12 100644
+--- a/drivers/gpu/drm/amd/amdkfd/kfd_priv.h
++++ b/drivers/gpu/drm/amd/amdkfd/kfd_priv.h
+@@ -204,6 +204,7 @@ struct kfd_device_info {
+ 	bool needs_iommu_device;
+ 	bool needs_pci_atomics;
+ 	unsigned int num_sdma_engines;
++	unsigned int num_sdma_queues_per_engine;
+ };
+ 
+ struct kfd_mem_obj {
+-- 
+2.17.1
+

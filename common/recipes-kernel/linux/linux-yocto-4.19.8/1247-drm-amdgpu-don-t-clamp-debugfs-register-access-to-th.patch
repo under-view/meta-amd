@@ -1,0 +1,37 @@
+From 2d3494c61b735d186d70d764a8a92971f570a5f6 Mon Sep 17 00:00:00 2001
+From: Alex Deucher <alexander.deucher@amd.com>
+Date: Mon, 11 Feb 2019 16:49:47 -0500
+Subject: [PATCH 1247/2940] drm/amdgpu: don't clamp debugfs register access to
+ the BAR size
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+This prevents us from accessing extended registers in tools like
+umr.  The register access functions already check if the offset
+is beyond the BAR size and use the indirect accessors with locking
+so this is safe.
+
+Reviewed-by: Christian König <christian.koenig@amd.com>
+Signed-off-by: Alex Deucher <alexander.deucher@amd.com>
+---
+ drivers/gpu/drm/amd/amdgpu/amdgpu_debugfs.c | 3 ---
+ 1 file changed, 3 deletions(-)
+
+diff --git a/drivers/gpu/drm/amd/amdgpu/amdgpu_debugfs.c b/drivers/gpu/drm/amd/amdgpu/amdgpu_debugfs.c
+index dd9a4fb9ce39..4ae3ff9a1d4c 100644
+--- a/drivers/gpu/drm/amd/amdgpu/amdgpu_debugfs.c
++++ b/drivers/gpu/drm/amd/amdgpu/amdgpu_debugfs.c
+@@ -158,9 +158,6 @@ static int  amdgpu_debugfs_process_reg_op(bool read, struct file *f,
+ 	while (size) {
+ 		uint32_t value;
+ 
+-		if (*pos > adev->rmmio_size)
+-			goto end;
+-
+ 		if (read) {
+ 			value = RREG32(*pos >> 2);
+ 			r = put_user(value, (uint32_t *)buf);
+-- 
+2.17.1
+

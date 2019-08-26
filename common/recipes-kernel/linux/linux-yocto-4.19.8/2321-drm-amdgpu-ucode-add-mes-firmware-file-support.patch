@@ -1,0 +1,43 @@
+From e07f0bdc8c734ba91af1feea3e7f9b0b1909003c Mon Sep 17 00:00:00 2001
+From: Jack Xiao <Jack.Xiao@amd.com>
+Date: Mon, 15 Apr 2019 11:33:05 +0800
+Subject: [PATCH 2321/2940] drm/amdgpu/ucode: add mes firmware file support
+
+The newly added firmware struct is for mes firmware file.
+
+Signed-off-by: Jack Xiao <Jack.Xiao@amd.com>
+Reviewed-by: Hawking Zhang <Hawking.Zhang@amd.com>
+Signed-off-by: Alex Deucher <alexander.deucher@amd.com>
+---
+ drivers/gpu/drm/amd/amdgpu/amdgpu_ucode.h | 15 +++++++++++++++
+ 1 file changed, 15 insertions(+)
+
+diff --git a/drivers/gpu/drm/amd/amdgpu/amdgpu_ucode.h b/drivers/gpu/drm/amd/amdgpu/amdgpu_ucode.h
+index aaed8fe94ee3..37810e07304e 100644
+--- a/drivers/gpu/drm/amd/amdgpu/amdgpu_ucode.h
++++ b/drivers/gpu/drm/amd/amdgpu/amdgpu_ucode.h
+@@ -104,6 +104,21 @@ struct gfx_firmware_header_v1_0 {
+ 	uint32_t jt_size;  /* size of jt */
+ };
+ 
++/* version_major=1, version_minor=0 */
++struct mes_firmware_header_v1_0 {
++	struct common_firmware_header header;
++	uint32_t mes_ucode_version;
++	uint32_t mes_ucode_size_bytes;
++	uint32_t mes_ucode_offset_bytes;
++	uint32_t mes_ucode_data_version;
++	uint32_t mes_ucode_data_size_bytes;
++	uint32_t mes_ucode_data_offset_bytes;
++	uint32_t mes_uc_start_addr_lo;
++	uint32_t mes_uc_start_addr_hi;
++	uint32_t mes_data_start_addr_lo;
++	uint32_t mes_data_start_addr_hi;
++};
++
+ /* version_major=1, version_minor=0 */
+ struct rlc_firmware_header_v1_0 {
+ 	struct common_firmware_header header;
+-- 
+2.17.1
+

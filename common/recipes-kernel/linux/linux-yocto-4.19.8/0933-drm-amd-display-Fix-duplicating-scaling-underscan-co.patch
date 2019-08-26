@@ -1,0 +1,46 @@
+From 82a02b171093d8e4d724e959953fb0be613e6dec Mon Sep 17 00:00:00 2001
+From: Nicholas Kazlauskas <nicholas.kazlauskas@amd.com>
+Date: Fri, 7 Dec 2018 10:07:09 -0500
+Subject: [PATCH 0933/2940] drm/amd/display: Fix duplicating scaling/underscan
+ connector state
+
+[Why]
+These properties aren't being carried over when the atomic state.
+This tricks atomic check and commit tail into performing underscan
+and scaling operations when they aren't needed.
+
+With the patch that forced scaling/RMX_ASPECT on by default this
+results in many unnecessary surface updates and hangs under certain
+conditions.
+
+[How]
+Duplicate the properties.
+
+Fixes: 91b66c47ba34 ("drm/amd/display: Set RMX_ASPECT as default")
+
+Signed-off-by: Nicholas Kazlauskas <nicholas.kazlauskas@amd.com>
+Acked-by: Alex Deucher <alexander.deucher@amd.com>
+Reviewed-by: Leo Li <sunpeng.li@amd.com>
+Signed-off-by: Alex Deucher <alexander.deucher@amd.com>
+---
+ drivers/gpu/drm/amd/display/amdgpu_dm/amdgpu_dm.c | 4 ++++
+ 1 file changed, 4 insertions(+)
+
+diff --git a/drivers/gpu/drm/amd/display/amdgpu_dm/amdgpu_dm.c b/drivers/gpu/drm/amd/display/amdgpu_dm/amdgpu_dm.c
+index ee4c5ccfdc6a..4e6ebf30b54e 100644
+--- a/drivers/gpu/drm/amd/display/amdgpu_dm/amdgpu_dm.c
++++ b/drivers/gpu/drm/amd/display/amdgpu_dm/amdgpu_dm.c
+@@ -3270,6 +3270,10 @@ amdgpu_dm_connector_atomic_duplicate_state(struct drm_connector *connector)
+ 
+ 	new_state->freesync_capable = state->freesync_capable;
+ 	new_state->abm_level = state->abm_level;
++	new_state->scaling = state->scaling;
++	new_state->underscan_enable = state->underscan_enable;
++	new_state->underscan_hborder = state->underscan_hborder;
++	new_state->underscan_vborder = state->underscan_vborder;
+ 	new_state->max_bpc = state->max_bpc;
+ 
+ 	return &new_state->base;
+-- 
+2.17.1
+

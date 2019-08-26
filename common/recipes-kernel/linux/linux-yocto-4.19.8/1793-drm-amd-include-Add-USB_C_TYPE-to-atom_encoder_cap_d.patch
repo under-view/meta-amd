@@ -1,0 +1,32 @@
+From 6fb625509ea09576b50fa01411b801b02b75ccb4 Mon Sep 17 00:00:00 2001
+From: Leo Li <sunpeng.li@amd.com>
+Date: Tue, 16 Apr 2019 11:32:34 -0400
+Subject: [PATCH 1793/2940] drm/amd/include: Add USB_C_TYPE to
+ atom_encoder_cap_defs
+
+This is needed by DC to support EDID emulation on USB-C ports.
+
+CC: Samson Tam <Samson.Tam@amd.com>
+CC: Harry Wentland <harry.wentland@amd.com>
+CC: Alex Deucher <alexander.deucher@amd.com>
+Signed-off-by: Leo Li <sunpeng.li@amd.com>
+Reviewed-by: Alex Deucher <alexander.deucher@amd.com>
+---
+ drivers/gpu/drm/amd/include/atomfirmware.h | 1 +
+ 1 file changed, 1 insertion(+)
+
+diff --git a/drivers/gpu/drm/amd/include/atomfirmware.h b/drivers/gpu/drm/amd/include/atomfirmware.h
+index 4e78a8c0ed42..97477d7f6c9f 100644
+--- a/drivers/gpu/drm/amd/include/atomfirmware.h
++++ b/drivers/gpu/drm/amd/include/atomfirmware.h
+@@ -718,6 +718,7 @@ enum atom_encoder_caps_def
+   ATOM_ENCODER_CAP_RECORD_HBR2_EN               =0x02,         // DP1.2 HBR2 setting is qualified and HBR2 can be enabled 
+   ATOM_ENCODER_CAP_RECORD_HDMI6Gbps_EN          =0x04,         // HDMI2.0 6Gbps enable or not. 
+   ATOM_ENCODER_CAP_RECORD_HBR3_EN               =0x08,         // DP1.3 HBR3 is supported by board. 
++  ATOM_ENCODER_CAP_RECORD_USB_C_TYPE            =0x100,        // the DP connector is a USB-C type.
+ };
+ 
+ struct  atom_encoder_caps_record
+-- 
+2.17.1
+

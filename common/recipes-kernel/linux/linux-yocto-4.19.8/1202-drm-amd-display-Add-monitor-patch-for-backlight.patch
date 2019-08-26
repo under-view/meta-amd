@@ -1,0 +1,53 @@
+From bc1dbae20a4b3d122fc94fb14a2d0e316f677d03 Mon Sep 17 00:00:00 2001
+From: Xiaodong Yan <Xiaodong.Yan@amd.com>
+Date: Thu, 17 Jan 2019 00:18:01 +0800
+Subject: [PATCH 1202/2940] drm/amd/display: Add monitor patch for backlight
+
+off
+
+[Why]
+Different panel need different time from backlight disable to end of valid video data,
+if the time is too short, panel will flash when dpms off
+
+[How]
+Add monitor patch to control the time from backlight disable to end of valid video data,
+
+Change-Id: Iac651aa22197bce98b1c7c8537333891b87d474e
+Signed-off-by: Xiaodong Yan <Xiaodong.Yan@amd.com>
+Reviewed-by: Wenjing Liu <Wenjing.Liu@amd.com>
+Acked-by: Bhawanpreet Lakha <Bhawanpreet.Lakha@amd.com>
+---
+ drivers/gpu/drm/amd/display/dc/core/dc_link_hwss.c | 4 ++++
+ drivers/gpu/drm/amd/display/dc/dc_types.h          | 1 +
+ 2 files changed, 5 insertions(+)
+
+diff --git a/drivers/gpu/drm/amd/display/dc/core/dc_link_hwss.c b/drivers/gpu/drm/amd/display/dc/core/dc_link_hwss.c
+index 16d441d3af8a..f7f7515f65f4 100644
+--- a/drivers/gpu/drm/amd/display/dc/core/dc_link_hwss.c
++++ b/drivers/gpu/drm/amd/display/dc/core/dc_link_hwss.c
+@@ -119,6 +119,10 @@ bool edp_receiver_ready_T9(struct dc_link *link)
+ 			break;
+ 		udelay(100); //MAx T9
+ 	} while (++tries < 50);
++
++	if (link->local_sink->edid_caps.panel_patch.extra_delay_backlight_off > 0)
++		udelay(link->local_sink->edid_caps.panel_patch.extra_delay_backlight_off * 1000);
++
+ 	return result;
+ }
+ bool edp_receiver_ready_T7(struct dc_link *link)
+diff --git a/drivers/gpu/drm/amd/display/dc/dc_types.h b/drivers/gpu/drm/amd/display/dc/dc_types.h
+index 56e7f3dab15a..da2009a108cf 100644
+--- a/drivers/gpu/drm/amd/display/dc/dc_types.h
++++ b/drivers/gpu/drm/amd/display/dc/dc_types.h
+@@ -201,6 +201,7 @@ union display_content_support {
+ struct dc_panel_patch {
+ 	unsigned int dppowerup_delay;
+ 	unsigned int extra_t12_ms;
++	unsigned int extra_delay_backlight_off;
+ };
+ 
+ struct dc_edid_caps {
+-- 
+2.17.1
+

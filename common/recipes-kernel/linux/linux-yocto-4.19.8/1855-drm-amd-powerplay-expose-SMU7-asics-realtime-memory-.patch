@@ -1,0 +1,133 @@
+From b7587adfd54d26bdac4f6645978e5b2966fcdaeb Mon Sep 17 00:00:00 2001
+From: Evan Quan <evan.quan@amd.com>
+Date: Wed, 24 Apr 2019 15:46:50 +0800
+Subject: [PATCH 1855/2940] drm/amd/powerplay: expose SMU7 asics realtime
+ memory utilization
+
+Enable realtime memory utilization report on SMU7 asics.
+
+Change-Id: I0c090624048848aac69b78e7bdfb31e763cc6140
+Signed-off-by: Evan Quan <evan.quan@amd.com>
+Reviewed-by: Alex Deucher <alexander.deucher@amd.com>
+---
+ drivers/gpu/drm/amd/powerplay/hwmgr/smu7_hwmgr.c        | 5 ++++-
+ drivers/gpu/drm/amd/powerplay/inc/smumgr.h              | 1 +
+ drivers/gpu/drm/amd/powerplay/smumgr/ci_smumgr.c        | 2 ++
+ drivers/gpu/drm/amd/powerplay/smumgr/fiji_smumgr.c      | 2 ++
+ drivers/gpu/drm/amd/powerplay/smumgr/iceland_smumgr.c   | 2 ++
+ drivers/gpu/drm/amd/powerplay/smumgr/polaris10_smumgr.c | 2 ++
+ drivers/gpu/drm/amd/powerplay/smumgr/tonga_smumgr.c     | 2 ++
+ drivers/gpu/drm/amd/powerplay/smumgr/vegam_smumgr.c     | 2 ++
+ 8 files changed, 17 insertions(+), 1 deletion(-)
+
+diff --git a/drivers/gpu/drm/amd/powerplay/hwmgr/smu7_hwmgr.c b/drivers/gpu/drm/amd/powerplay/hwmgr/smu7_hwmgr.c
+index 048757e8f494..16591be8b0ca 100644
+--- a/drivers/gpu/drm/amd/powerplay/hwmgr/smu7_hwmgr.c
++++ b/drivers/gpu/drm/amd/powerplay/hwmgr/smu7_hwmgr.c
+@@ -3532,9 +3532,12 @@ static int smu7_read_sensor(struct pp_hwmgr *hwmgr, int idx,
+ 		*size = 4;
+ 		return 0;
+ 	case AMDGPU_PP_SENSOR_GPU_LOAD:
++	case AMDGPU_PP_SENSOR_MEM_LOAD:
+ 		offset = data->soft_regs_start + smum_get_offsetof(hwmgr,
+ 								SMU_SoftRegisters,
+-								AverageGraphicsActivity);
++								(idx == AMDGPU_PP_SENSOR_GPU_LOAD) ?
++								AverageGraphicsActivity:
++								AverageMemoryActivity);
+ 
+ 		activity_percent = cgs_read_ind_register(hwmgr->device, CGS_IND_REG__SMC, offset);
+ 		activity_percent += 0x80;
+diff --git a/drivers/gpu/drm/amd/powerplay/inc/smumgr.h b/drivers/gpu/drm/amd/powerplay/inc/smumgr.h
+index 82550a8a3a3f..c5288831aa15 100644
+--- a/drivers/gpu/drm/amd/powerplay/inc/smumgr.h
++++ b/drivers/gpu/drm/amd/powerplay/inc/smumgr.h
+@@ -41,6 +41,7 @@ enum SMU_MEMBER {
+ 	HandshakeDisables = 0,
+ 	VoltageChangeTimeout,
+ 	AverageGraphicsActivity,
++	AverageMemoryActivity,
+ 	PreVBlankGap,
+ 	VBlankTimeout,
+ 	UcodeLoadStatus,
+diff --git a/drivers/gpu/drm/amd/powerplay/smumgr/ci_smumgr.c b/drivers/gpu/drm/amd/powerplay/smumgr/ci_smumgr.c
+index 669bd0c2a16c..9ef57fcf7e78 100644
+--- a/drivers/gpu/drm/amd/powerplay/smumgr/ci_smumgr.c
++++ b/drivers/gpu/drm/amd/powerplay/smumgr/ci_smumgr.c
+@@ -2254,6 +2254,8 @@ static uint32_t ci_get_offsetof(uint32_t type, uint32_t member)
+ 			return offsetof(SMU7_SoftRegisters, VoltageChangeTimeout);
+ 		case AverageGraphicsActivity:
+ 			return offsetof(SMU7_SoftRegisters, AverageGraphicsA);
++		case AverageMemoryActivity:
++			return offsetof(SMU7_SoftRegisters, AverageMemoryA);
+ 		case PreVBlankGap:
+ 			return offsetof(SMU7_SoftRegisters, PreVBlankGap);
+ 		case VBlankTimeout:
+diff --git a/drivers/gpu/drm/amd/powerplay/smumgr/fiji_smumgr.c b/drivers/gpu/drm/amd/powerplay/smumgr/fiji_smumgr.c
+index bc8375cbf297..0ce85b73338e 100644
+--- a/drivers/gpu/drm/amd/powerplay/smumgr/fiji_smumgr.c
++++ b/drivers/gpu/drm/amd/powerplay/smumgr/fiji_smumgr.c
+@@ -2304,6 +2304,8 @@ static uint32_t fiji_get_offsetof(uint32_t type, uint32_t member)
+ 			return offsetof(SMU73_SoftRegisters, VoltageChangeTimeout);
+ 		case AverageGraphicsActivity:
+ 			return offsetof(SMU73_SoftRegisters, AverageGraphicsActivity);
++		case AverageMemoryActivity:
++			return offsetof(SMU73_SoftRegisters, AverageMemoryActivity);
+ 		case PreVBlankGap:
+ 			return offsetof(SMU73_SoftRegisters, PreVBlankGap);
+ 		case VBlankTimeout:
+diff --git a/drivers/gpu/drm/amd/powerplay/smumgr/iceland_smumgr.c b/drivers/gpu/drm/amd/powerplay/smumgr/iceland_smumgr.c
+index 375ccf6ff5f2..f24f13d77808 100644
+--- a/drivers/gpu/drm/amd/powerplay/smumgr/iceland_smumgr.c
++++ b/drivers/gpu/drm/amd/powerplay/smumgr/iceland_smumgr.c
+@@ -2219,6 +2219,8 @@ static uint32_t iceland_get_offsetof(uint32_t type, uint32_t member)
+ 			return offsetof(SMU71_SoftRegisters, VoltageChangeTimeout);
+ 		case AverageGraphicsActivity:
+ 			return offsetof(SMU71_SoftRegisters, AverageGraphicsActivity);
++		case AverageMemoryActivity:
++			return offsetof(SMU71_SoftRegisters, AverageMemoryActivity);
+ 		case PreVBlankGap:
+ 			return offsetof(SMU71_SoftRegisters, PreVBlankGap);
+ 		case VBlankTimeout:
+diff --git a/drivers/gpu/drm/amd/powerplay/smumgr/polaris10_smumgr.c b/drivers/gpu/drm/amd/powerplay/smumgr/polaris10_smumgr.c
+index 2d4cfe14f72e..0d8958e71b94 100644
+--- a/drivers/gpu/drm/amd/powerplay/smumgr/polaris10_smumgr.c
++++ b/drivers/gpu/drm/amd/powerplay/smumgr/polaris10_smumgr.c
+@@ -2313,6 +2313,8 @@ static uint32_t polaris10_get_offsetof(uint32_t type, uint32_t member)
+ 			return offsetof(SMU74_SoftRegisters, VoltageChangeTimeout);
+ 		case AverageGraphicsActivity:
+ 			return offsetof(SMU74_SoftRegisters, AverageGraphicsActivity);
++		case AverageMemoryActivity:
++			return offsetof(SMU74_SoftRegisters, AverageMemoryActivity);
+ 		case PreVBlankGap:
+ 			return offsetof(SMU74_SoftRegisters, PreVBlankGap);
+ 		case VBlankTimeout:
+diff --git a/drivers/gpu/drm/amd/powerplay/smumgr/tonga_smumgr.c b/drivers/gpu/drm/amd/powerplay/smumgr/tonga_smumgr.c
+index 3ed6c5f1e5cf..060c0f7f5238 100644
+--- a/drivers/gpu/drm/amd/powerplay/smumgr/tonga_smumgr.c
++++ b/drivers/gpu/drm/amd/powerplay/smumgr/tonga_smumgr.c
+@@ -2611,6 +2611,8 @@ static uint32_t tonga_get_offsetof(uint32_t type, uint32_t member)
+ 			return offsetof(SMU72_SoftRegisters, VoltageChangeTimeout);
+ 		case AverageGraphicsActivity:
+ 			return offsetof(SMU72_SoftRegisters, AverageGraphicsActivity);
++		case AverageMemoryActivity:
++			return offsetof(SMU72_SoftRegisters, AverageMemoryActivity);
+ 		case PreVBlankGap:
+ 			return offsetof(SMU72_SoftRegisters, PreVBlankGap);
+ 		case VBlankTimeout:
+diff --git a/drivers/gpu/drm/amd/powerplay/smumgr/vegam_smumgr.c b/drivers/gpu/drm/amd/powerplay/smumgr/vegam_smumgr.c
+index 1e69300f6175..d499204b2184 100644
+--- a/drivers/gpu/drm/amd/powerplay/smumgr/vegam_smumgr.c
++++ b/drivers/gpu/drm/amd/powerplay/smumgr/vegam_smumgr.c
+@@ -2167,6 +2167,8 @@ static uint32_t vegam_get_offsetof(uint32_t type, uint32_t member)
+ 			return offsetof(SMU75_SoftRegisters, VoltageChangeTimeout);
+ 		case AverageGraphicsActivity:
+ 			return offsetof(SMU75_SoftRegisters, AverageGraphicsActivity);
++		case AverageMemoryActivity:
++			return offsetof(SMU75_SoftRegisters, AverageMemoryActivity);
+ 		case PreVBlankGap:
+ 			return offsetof(SMU75_SoftRegisters, PreVBlankGap);
+ 		case VBlankTimeout:
+-- 
+2.17.1
+

@@ -1,0 +1,143 @@
+From eca4acd60b49f57a349a839b5e46e73b61c8d44a Mon Sep 17 00:00:00 2001
+From: Kevin Wang <Kevin1.Wang@amd.com>
+Date: Thu, 10 Jan 2019 12:33:23 +0800
+Subject: [PATCH 1407/2940] drm/amd/powerplay: implement is_support_sw_smu
+ function for new smu
+
+add this helper to check new sw-smu support.
+
+Signed-off-by: Kevin Wang <Kevin1.Wang@amd.com>
+Reviewed-by: Huang Rui <ray.huang@amd.com>
+Acked-by: Alex Deucher <alexander.deucher@amd.com>
+---
+ drivers/gpu/drm/amd/amdgpu/amdgpu_pm.c        |  4 ++--
+ drivers/gpu/drm/amd/amdgpu/soc15.c            |  2 +-
+ drivers/gpu/drm/amd/powerplay/amdgpu_smu.c    | 23 ++++++++++++++-----
+ .../gpu/drm/amd/powerplay/inc/amdgpu_smu.h    |  1 +
+ 4 files changed, 21 insertions(+), 9 deletions(-)
+
+diff --git a/drivers/gpu/drm/amd/amdgpu/amdgpu_pm.c b/drivers/gpu/drm/amd/amdgpu/amdgpu_pm.c
+index c124a90e1475..a5ca9c4ccbf5 100644
+--- a/drivers/gpu/drm/amd/amdgpu/amdgpu_pm.c
++++ b/drivers/gpu/drm/amd/amdgpu/amdgpu_pm.c
+@@ -712,7 +712,7 @@ static ssize_t amdgpu_get_pp_dpm_sclk(struct device *dev,
+ 	struct drm_device *ddev = dev_get_drvdata(dev);
+ 	struct amdgpu_device *adev = ddev->dev_private;
+ 
+-	if (adev->smu.ppt_funcs)
++	if (is_support_sw_smu(adev))
+ 		return smu_print_clk_levels(&adev->smu, PP_SCLK, buf);
+ 	else if (adev->powerplay.pp_funcs->print_clock_levels)
+ 		return amdgpu_dpm_print_clock_levels(adev, PP_SCLK, buf);
+@@ -786,7 +786,7 @@ static ssize_t amdgpu_get_pp_dpm_mclk(struct device *dev,
+ 	struct drm_device *ddev = dev_get_drvdata(dev);
+ 	struct amdgpu_device *adev = ddev->dev_private;
+ 
+-	if (adev->smu.ppt_funcs)
++	if (is_support_sw_smu(adev))
+ 		return smu_print_clk_levels(&adev->smu, PP_MCLK, buf);
+ 	else if (adev->powerplay.pp_funcs->print_clock_levels)
+ 		return amdgpu_dpm_print_clock_levels(adev, PP_MCLK, buf);
+diff --git a/drivers/gpu/drm/amd/amdgpu/soc15.c b/drivers/gpu/drm/amd/amdgpu/soc15.c
+index 21f920b3c4b7..edd72cc63044 100644
+--- a/drivers/gpu/drm/amd/amdgpu/soc15.c
++++ b/drivers/gpu/drm/amd/amdgpu/soc15.c
+@@ -605,7 +605,7 @@ int soc15_set_ip_blocks(struct amdgpu_device *adev)
+ 		amdgpu_device_ip_block_add(adev, &gfx_v9_0_ip_block);
+ 		amdgpu_device_ip_block_add(adev, &sdma_v4_0_ip_block);
+ 		if (!amdgpu_sriov_vf(adev)) {
+-			if (amdgpu_dpm == 1 && adev->asic_type >= CHIP_VEGA20)
++			if (is_support_sw_smu(adev))
+ 				amdgpu_device_ip_block_add(adev, &smu_v11_0_ip_block);
+ 			else
+ 				amdgpu_device_ip_block_add(adev, &pp_smu_ip_block);
+diff --git a/drivers/gpu/drm/amd/powerplay/amdgpu_smu.c b/drivers/gpu/drm/amd/powerplay/amdgpu_smu.c
+index 56095a400731..f35c2177d13d 100644
+--- a/drivers/gpu/drm/amd/powerplay/amdgpu_smu.c
++++ b/drivers/gpu/drm/amd/powerplay/amdgpu_smu.c
+@@ -65,6 +65,17 @@ int smu_update_table(struct smu_context *smu, uint32_t table_id,
+ 	return ret;
+ }
+ 
++bool is_support_sw_smu(struct amdgpu_device *adev)
++{
++	if (amdgpu_dpm != 1)
++		return false;
++
++	if (adev->asic_type >= CHIP_VEGA20)
++		return true;
++
++	return false;
++}
++
+ int smu_feature_init_dpm(struct smu_context *smu)
+ {
+ 	struct smu_feature *feature = &smu->smu_feature;
+@@ -222,7 +233,7 @@ static int smu_sw_init(void *handle)
+ 	struct smu_context *smu = &adev->smu;
+ 	int ret;
+ 
+-	if (adev->asic_type < CHIP_VEGA20)
++	if (!is_support_sw_smu(adev))
+ 		return -EINVAL;
+ 
+ 	smu->pool_size = adev->pm.smu_prv_buffer_size;
+@@ -252,7 +263,7 @@ static int smu_sw_fini(void *handle)
+ 	struct smu_context *smu = &adev->smu;
+ 	int ret;
+ 
+-	if (adev->asic_type < CHIP_VEGA20)
++	if (!is_support_sw_smu(adev))
+ 		return -EINVAL;
+ 
+ 	ret = smu_smc_table_sw_fini(smu);
+@@ -517,7 +528,7 @@ static int smu_hw_init(void *handle)
+ 	struct amdgpu_device *adev = (struct amdgpu_device *)handle;
+ 	struct smu_context *smu = &adev->smu;
+ 
+-	if (adev->asic_type < CHIP_VEGA20)
++	if (!is_support_sw_smu(adev))
+ 		return -EINVAL;
+ 
+ 	if (adev->firmware.load_type != AMDGPU_FW_LOAD_PSP) {
+@@ -576,7 +587,7 @@ static int smu_hw_fini(void *handle)
+ 	struct smu_table_context *table_context = &smu->smu_table;
+ 	int ret = 0;
+ 
+-	if (adev->asic_type < CHIP_VEGA20)
++	if (!is_support_sw_smu(adev))
+ 		return -EINVAL;
+ 
+ 	if (!table_context->driver_pptable)
+@@ -603,7 +614,7 @@ static int smu_suspend(void *handle)
+ {
+ 	struct amdgpu_device *adev = (struct amdgpu_device *)handle;
+ 
+-	if (adev->asic_type < CHIP_VEGA20)
++	if (!is_support_sw_smu(adev))
+ 		return -EINVAL;
+ 
+ 	return 0;
+@@ -615,7 +626,7 @@ static int smu_resume(void *handle)
+ 	struct amdgpu_device *adev = (struct amdgpu_device *)handle;
+ 	struct smu_context *smu = &adev->smu;
+ 
+-	if (adev->asic_type < CHIP_VEGA20)
++	if (!is_support_sw_smu(adev))
+ 		return -EINVAL;
+ 
+ 	pr_info("SMU is resuming...\n");
+diff --git a/drivers/gpu/drm/amd/powerplay/inc/amdgpu_smu.h b/drivers/gpu/drm/amd/powerplay/inc/amdgpu_smu.h
+index c159e4d731fe..51fb1f9b2abf 100644
+--- a/drivers/gpu/drm/amd/powerplay/inc/amdgpu_smu.h
++++ b/drivers/gpu/drm/amd/powerplay/inc/amdgpu_smu.h
+@@ -366,5 +366,6 @@ extern int smu_feature_set_supported(struct smu_context *smu, int feature_id, bo
+ 
+ int smu_update_table(struct smu_context *smu, uint32_t table_id,
+ 		     void *table_data, bool drv2smu);
++bool is_support_sw_smu(struct amdgpu_device *adev);
+ 
+ #endif
+-- 
+2.17.1
+

@@ -1,0 +1,164 @@
+From 1ac928b46d2168ba075d84f74259aec40906e3f2 Mon Sep 17 00:00:00 2001
+From: Huang Rui <ray.huang@amd.com>
+Date: Sun, 31 Mar 2019 11:53:28 +0800
+Subject: [PATCH 2291/2940] drm/amd/powerplay: add tables_init interface for
+ each asic
+
+The smc tables defines should be in the asic level.
+
+Signed-off-by: Huang Rui <ray.huang@amd.com>
+Reviewed-by: Kevin Wang <kevin1.wang@amd.com>
+Reviewed-by: Alex Deucher <alexander.deucher@amd.com>
+Reviewed-by: Hawking Zhang <Hawking.Zhang@amd.com>
+Signed-off-by: Alex Deucher <alexander.deucher@amd.com>
+---
+ drivers/gpu/drm/amd/powerplay/inc/amdgpu_smu.h |  3 +++
+ drivers/gpu/drm/amd/powerplay/inc/smu_v11_0.h  |  2 ++
+ drivers/gpu/drm/amd/powerplay/navi10_ppt.c     | 18 ++++++++++++++++++
+ drivers/gpu/drm/amd/powerplay/smu_v11_0.c      | 16 +---------------
+ drivers/gpu/drm/amd/powerplay/vega20_ppt.c     | 18 ++++++++++++++++++
+ 5 files changed, 42 insertions(+), 15 deletions(-)
+
+diff --git a/drivers/gpu/drm/amd/powerplay/inc/amdgpu_smu.h b/drivers/gpu/drm/amd/powerplay/inc/amdgpu_smu.h
+index 631e2fc1e055..57ab23d9ddfd 100644
+--- a/drivers/gpu/drm/amd/powerplay/inc/amdgpu_smu.h
++++ b/drivers/gpu/drm/amd/powerplay/inc/amdgpu_smu.h
+@@ -568,6 +568,7 @@ struct pptable_funcs {
+ 	int (*set_ppfeature_status)(struct smu_context *smu, uint64_t ppfeatures);
+ 	int (*get_ppfeature_status)(struct smu_context *smu, char *buf);
+ 	bool (*is_dpm_running)(struct smu_context *smu);
++	void (*tables_init)(struct smu_context *smu, struct smu_table *tables);
+ };
+ 
+ struct smu_funcs
+@@ -754,6 +755,8 @@ struct smu_funcs
+ 	((smu)->ppt_funcs->set_od_percentage ? (smu)->ppt_funcs->set_od_percentage((smu), (type), (value)) : 0)
+ #define smu_od_edit_dpm_table(smu, type, input, size) \
+ 	((smu)->ppt_funcs->od_edit_dpm_table ? (smu)->ppt_funcs->od_edit_dpm_table((smu), (type), (input), (size)) : 0)
++#define smu_tables_init(smu, tab) \
++	((smu)->ppt_funcs->tables_init ? (smu)->ppt_funcs->tables_init((smu), (tab)) : 0)
+ #define smu_start_thermal_control(smu) \
+ 	((smu)->funcs->start_thermal_control? (smu)->funcs->start_thermal_control((smu)) : 0)
+ #define smu_read_sensor(smu, sensor, data, size) \
+diff --git a/drivers/gpu/drm/amd/powerplay/inc/smu_v11_0.h b/drivers/gpu/drm/amd/powerplay/inc/smu_v11_0.h
+index dcc1ede97c04..a708c5d5b82e 100644
+--- a/drivers/gpu/drm/amd/powerplay/inc/smu_v11_0.h
++++ b/drivers/gpu/drm/amd/powerplay/inc/smu_v11_0.h
+@@ -40,6 +40,8 @@
+ #define TEMP_RANGE_MIN			(0)
+ #define TEMP_RANGE_MAX			(80 * 1000)
+ 
++#define SMU11_TOOL_SIZE			0x19000
++
+ #define CLK_MAP(clk, index) \
+ 	[SMU_##clk] = index
+ 
+diff --git a/drivers/gpu/drm/amd/powerplay/navi10_ppt.c b/drivers/gpu/drm/amd/powerplay/navi10_ppt.c
+index 5ab35fff88ba..2d0f764d4f19 100644
+--- a/drivers/gpu/drm/amd/powerplay/navi10_ppt.c
++++ b/drivers/gpu/drm/amd/powerplay/navi10_ppt.c
+@@ -376,6 +376,23 @@ static int navi10_store_powerplay_table(struct smu_context *smu)
+ 	return 0;
+ }
+ 
++static void navi10_tables_init(struct smu_context *smu, struct smu_table *tables)
++{
++	SMU_TABLE_INIT(tables, SMU_TABLE_PPTABLE, sizeof(PPTable_t),
++		       PAGE_SIZE, AMDGPU_GEM_DOMAIN_VRAM);
++	SMU_TABLE_INIT(tables, SMU_TABLE_WATERMARKS, sizeof(Watermarks_t),
++		       PAGE_SIZE, AMDGPU_GEM_DOMAIN_VRAM);
++	SMU_TABLE_INIT(tables, SMU_TABLE_SMU_METRICS, sizeof(SmuMetrics_t),
++		       PAGE_SIZE, AMDGPU_GEM_DOMAIN_VRAM);
++	SMU_TABLE_INIT(tables, SMU_TABLE_OVERDRIVE, sizeof(OverDriveTable_t),
++		       PAGE_SIZE, AMDGPU_GEM_DOMAIN_VRAM);
++	SMU_TABLE_INIT(tables, SMU_TABLE_PMSTATUSLOG, SMU11_TOOL_SIZE,
++		       PAGE_SIZE, AMDGPU_GEM_DOMAIN_VRAM);
++	SMU_TABLE_INIT(tables, SMU_TABLE_ACTIVITY_MONITOR_COEFF,
++		       sizeof(DpmActivityMonitorCoeffInt_t), PAGE_SIZE,
++	               AMDGPU_GEM_DOMAIN_VRAM);
++}
++
+ static int navi10_allocate_dpm_context(struct smu_context *smu)
+ {
+ 	struct smu_dpm_context *smu_dpm = &smu->smu_dpm;
+@@ -433,6 +450,7 @@ static int navi10_set_default_dpm_table(struct smu_context *smu)
+ }
+ 
+ static const struct pptable_funcs navi10_ppt_funcs = {
++	.tables_init = navi10_tables_init,
+ 	.alloc_dpm_context = navi10_allocate_dpm_context,
+ 	.store_powerplay_table = navi10_store_powerplay_table,
+ 	.check_powerplay_table = navi10_check_powerplay_table,
+diff --git a/drivers/gpu/drm/amd/powerplay/smu_v11_0.c b/drivers/gpu/drm/amd/powerplay/smu_v11_0.c
+index d05e263859a0..bfee0b413ca1 100644
+--- a/drivers/gpu/drm/amd/powerplay/smu_v11_0.c
++++ b/drivers/gpu/drm/amd/powerplay/smu_v11_0.c
+@@ -45,7 +45,6 @@
+ MODULE_FIRMWARE("amdgpu/vega20_smc.bin");
+ MODULE_FIRMWARE("amdgpu/navi10_smc.bin");
+ 
+-#define SMU11_TOOL_SIZE		0x19000
+ #define SMU11_THERMAL_MINIMUM_ALERT_TEMP      0
+ #define SMU11_THERMAL_MAXIMUM_ALERT_TEMP      255
+ 
+@@ -410,20 +409,7 @@ static int smu_v11_0_init_smc_tables(struct smu_context *smu)
+ 
+ 	smu_table->tables = tables;
+ 
+-	SMU_TABLE_INIT(tables, TABLE_PPTABLE, sizeof(PPTable_t),
+-		       PAGE_SIZE, AMDGPU_GEM_DOMAIN_VRAM);
+-	SMU_TABLE_INIT(tables, TABLE_WATERMARKS, sizeof(Watermarks_t),
+-		       PAGE_SIZE, AMDGPU_GEM_DOMAIN_VRAM);
+-	SMU_TABLE_INIT(tables, TABLE_SMU_METRICS, sizeof(SmuMetrics_t),
+-		       PAGE_SIZE, AMDGPU_GEM_DOMAIN_VRAM);
+-	SMU_TABLE_INIT(tables, TABLE_OVERDRIVE, sizeof(OverDriveTable_t),
+-		       PAGE_SIZE, AMDGPU_GEM_DOMAIN_VRAM);
+-	SMU_TABLE_INIT(tables, TABLE_PMSTATUSLOG, SMU11_TOOL_SIZE, PAGE_SIZE,
+-		       AMDGPU_GEM_DOMAIN_VRAM);
+-	SMU_TABLE_INIT(tables, TABLE_ACTIVITY_MONITOR_COEFF,
+-		       sizeof(DpmActivityMonitorCoeffInt_t),
+-		       PAGE_SIZE,
+-		       AMDGPU_GEM_DOMAIN_VRAM);
++	smu_tables_init(smu, tables);
+ 
+ 	ret = smu_v11_0_init_dpm_context(smu);
+ 	if (ret)
+diff --git a/drivers/gpu/drm/amd/powerplay/vega20_ppt.c b/drivers/gpu/drm/amd/powerplay/vega20_ppt.c
+index 17a954bd5aa4..d71b682002bd 100644
+--- a/drivers/gpu/drm/amd/powerplay/vega20_ppt.c
++++ b/drivers/gpu/drm/amd/powerplay/vega20_ppt.c
+@@ -255,6 +255,23 @@ static int vega20_get_smu_msg_index(struct smu_context *smc, uint32_t index)
+ 	return val;
+ }
+ 
++static void vega20_tables_init(struct smu_context *smu, struct smu_table *tables)
++{
++	SMU_TABLE_INIT(tables, SMU_TABLE_PPTABLE, sizeof(PPTable_t),
++		       PAGE_SIZE, AMDGPU_GEM_DOMAIN_VRAM);
++	SMU_TABLE_INIT(tables, SMU_TABLE_WATERMARKS, sizeof(Watermarks_t),
++		       PAGE_SIZE, AMDGPU_GEM_DOMAIN_VRAM);
++	SMU_TABLE_INIT(tables, SMU_TABLE_SMU_METRICS, sizeof(SmuMetrics_t),
++		       PAGE_SIZE, AMDGPU_GEM_DOMAIN_VRAM);
++	SMU_TABLE_INIT(tables, SMU_TABLE_OVERDRIVE, sizeof(OverDriveTable_t),
++		       PAGE_SIZE, AMDGPU_GEM_DOMAIN_VRAM);
++	SMU_TABLE_INIT(tables, SMU_TABLE_PMSTATUSLOG, SMU11_TOOL_SIZE,
++		       PAGE_SIZE, AMDGPU_GEM_DOMAIN_VRAM);
++	SMU_TABLE_INIT(tables, SMU_TABLE_ACTIVITY_MONITOR_COEFF,
++		       sizeof(DpmActivityMonitorCoeffInt_t), PAGE_SIZE,
++	               AMDGPU_GEM_DOMAIN_VRAM);
++}
++
+ static int vega20_allocate_dpm_context(struct smu_context *smu)
+ {
+ 	struct smu_dpm_context *smu_dpm = &smu->smu_dpm;
+@@ -2944,6 +2961,7 @@ static bool vega20_is_dpm_running(struct smu_context *smu)
+ }
+ 
+ static const struct pptable_funcs vega20_ppt_funcs = {
++	.tables_init = vega20_tables_init,
+ 	.alloc_dpm_context = vega20_allocate_dpm_context,
+ 	.store_powerplay_table = vega20_store_powerplay_table,
+ 	.check_powerplay_table = vega20_check_powerplay_table,
+-- 
+2.17.1
+

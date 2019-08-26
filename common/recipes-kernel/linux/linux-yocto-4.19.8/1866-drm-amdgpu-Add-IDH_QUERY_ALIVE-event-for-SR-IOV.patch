@@ -1,0 +1,45 @@
+From 976070d794c933df909fc6a14c0ac5bf3b3f3283 Mon Sep 17 00:00:00 2001
+From: Trigger Huang <Trigger.Huang@amd.com>
+Date: Tue, 30 Apr 2019 16:23:29 +0800
+Subject: [PATCH 1866/2940] drm/amdgpu: Add IDH_QUERY_ALIVE event for SR-IOV
+
+SR-IOV host side will send IDH_QUERY_ALIVE to guest VM to check
+if this guest VM is still alive (not destroyed). The only thing
+guest KMD need to do is to send ACK back to host.
+
+Signed-off-by: Trigger Huang <Trigger.Huang@amd.com>
+Acked-by: Alex Deucher <alexander.deucher@amd.com>
+---
+ drivers/gpu/drm/amd/amdgpu/mxgpu_ai.c | 3 +++
+ drivers/gpu/drm/amd/amdgpu/mxgpu_ai.h | 1 +
+ 2 files changed, 4 insertions(+)
+
+diff --git a/drivers/gpu/drm/amd/amdgpu/mxgpu_ai.c b/drivers/gpu/drm/amd/amdgpu/mxgpu_ai.c
+index 089952a1e6b0..64a7b1fb1d1b 100644
+--- a/drivers/gpu/drm/amd/amdgpu/mxgpu_ai.c
++++ b/drivers/gpu/drm/amd/amdgpu/mxgpu_ai.c
+@@ -372,6 +372,9 @@ static int xgpu_ai_mailbox_rcv_irq(struct amdgpu_device *adev,
+ 		if (amdgpu_sriov_runtime(adev))
+ 			schedule_work(&adev->virt.flr_work);
+ 		break;
++		case IDH_QUERY_ALIVE:
++			xgpu_ai_mailbox_send_ack(adev);
++			break;
+ 		/* READY_TO_ACCESS_GPU is fetched by kernel polling, IRQ can ignore
+ 		 * it byfar since that polling thread will handle it,
+ 		 * other msg like flr complete is not handled here.
+diff --git a/drivers/gpu/drm/amd/amdgpu/mxgpu_ai.h b/drivers/gpu/drm/amd/amdgpu/mxgpu_ai.h
+index 39d151b79153..077e91a33d62 100644
+--- a/drivers/gpu/drm/amd/amdgpu/mxgpu_ai.h
++++ b/drivers/gpu/drm/amd/amdgpu/mxgpu_ai.h
+@@ -49,6 +49,7 @@ enum idh_event {
+ 	IDH_FLR_NOTIFICATION_CMPL,
+ 	IDH_SUCCESS,
+ 	IDH_FAIL,
++	IDH_QUERY_ALIVE,
+ 	IDH_EVENT_MAX
+ };
+ 
+-- 
+2.17.1
+

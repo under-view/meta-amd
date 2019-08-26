@@ -1,0 +1,35 @@
+From 6fffe68a4f57d61ebce826815ceb16a44b527fc4 Mon Sep 17 00:00:00 2001
+From: Alex Deucher <alexander.deucher@amd.com>
+Date: Tue, 2 Jul 2019 11:39:50 -0500
+Subject: [PATCH 2619/2940] drm/amdgpu/display: fix interrupt client id for
+ navi
+
+All asics newer than vega10 use client ids, so simplify the
+check.
+
+Reviewed-by: Nicholas Kazlauskas <nicholas.kazlauskas@amd.com>
+Signed-off-by: Alex Deucher <alexander.deucher@amd.com>
+---
+ drivers/gpu/drm/amd/display/amdgpu_dm/amdgpu_dm.c | 6 +-----
+ 1 file changed, 1 insertion(+), 5 deletions(-)
+
+diff --git a/drivers/gpu/drm/amd/display/amdgpu_dm/amdgpu_dm.c b/drivers/gpu/drm/amd/display/amdgpu_dm/amdgpu_dm.c
+index b9160de37608..b74defadf2ed 100644
+--- a/drivers/gpu/drm/amd/display/amdgpu_dm/amdgpu_dm.c
++++ b/drivers/gpu/drm/amd/display/amdgpu_dm/amdgpu_dm.c
+@@ -1529,11 +1529,7 @@ static int dce110_register_irq_handlers(struct amdgpu_device *adev)
+ 	int i;
+ 	unsigned client_id = AMDGPU_IRQ_CLIENTID_LEGACY;
+ 
+-	if (adev->asic_type == CHIP_VEGA10 ||
+-	    adev->asic_type == CHIP_VEGA12 ||
+-	    adev->asic_type == CHIP_VEGA20 ||
+-	    adev->asic_type == CHIP_RAVEN  ||
+-	    adev->asic_type == CHIP_PICASSO)
++	if (adev->asic_type >= CHIP_VEGA10)
+ 		client_id = SOC15_IH_CLIENTID_DCE;
+ 
+ 	int_params.requested_polarity = INTERRUPT_POLARITY_DEFAULT;
+-- 
+2.17.1
+

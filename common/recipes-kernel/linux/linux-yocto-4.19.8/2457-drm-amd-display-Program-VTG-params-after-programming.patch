@@ -1,0 +1,71 @@
+From ef0f10b8c96999e25fc797af0ea6b85d6a1bd713 Mon Sep 17 00:00:00 2001
+From: Joshua Aberback <joshua.aberback@amd.com>
+Date: Mon, 29 Apr 2019 17:21:19 -0400
+Subject: [PATCH 2457/2940] drm/amd/display: Program VTG params after
+ programming Global Sync for DCN2
+
+[Why]
+VTG has a parameter FP2, which is defined as:
+    if VSTARTUP is before VSYNC:
+        FP2 = number of lines in between VSTARTUP and VSYNC
+    else
+        FP2 = 0
+Currently, FP2 is only programmed during "program_timing". However, the
+position of VSTARTUP is affected by the prefetching requirements on all pipes,
+so the position might change when we do memory request control on another pipe, so we need
+to make sure that FP2 stays up-to-date whenever we adjust VSTARTUP.
+
+[How]
+ - refactor VTG_CONTROL programming into a new function "set_vtg_params"
+ - call it after calling "program_global_sync"
+   - make sure it's called after because it relies on the cached dlg params
+
+Signed-off-by: Joshua Aberback <joshua.aberback@amd.com>
+Reviewed-by: Tony Cheng <Tony.Cheng@amd.com>
+Acked-by: Bhawanpreet Lakha <Bhawanpreet.Lakha@amd.com>
+Acked-by: Jun Lei <Jun.Lei@amd.com>
+Signed-off-by: Alex Deucher <alexander.deucher@amd.com>
+---
+ drivers/gpu/drm/amd/display/dc/dcn20/dcn20_hwseq.c | 6 ++++++
+ drivers/gpu/drm/amd/display/dc/dcn20/dcn20_optc.c  | 1 +
+ 2 files changed, 7 insertions(+)
+
+diff --git a/drivers/gpu/drm/amd/display/dc/dcn20/dcn20_hwseq.c b/drivers/gpu/drm/amd/display/dc/dcn20/dcn20_hwseq.c
+index 1fd89cc218a5..5bed89547410 100644
+--- a/drivers/gpu/drm/amd/display/dc/dcn20/dcn20_hwseq.c
++++ b/drivers/gpu/drm/amd/display/dc/dcn20/dcn20_hwseq.c
+@@ -1206,6 +1206,9 @@ static void dcn20_program_all_pipe_in_tree(
+ 				pipe_ctx->pipe_dlg_param.vupdate_offset,
+ 				pipe_ctx->pipe_dlg_param.vupdate_width);
+ 
++		pipe_ctx->stream_res.tg->funcs->set_vtg_params(
++				pipe_ctx->stream_res.tg, &pipe_ctx->stream->timing);
++
+ 		dc->hwss.blank_pixel_data(dc, pipe_ctx, blank);
+ 
+ 		if (dc->hwss.update_odm)
+@@ -1442,6 +1445,9 @@ bool dcn20_update_bandwidth(
+ 					pipe_ctx->pipe_dlg_param.vupdate_offset,
+ 					pipe_ctx->pipe_dlg_param.vupdate_width);
+ 
++			pipe_ctx->stream_res.tg->funcs->set_vtg_params(
++					pipe_ctx->stream_res.tg, &pipe_ctx->stream->timing);
++
+ 			dc->hwss.blank_pixel_data(dc, pipe_ctx, blank);
+ 		}
+ 
+diff --git a/drivers/gpu/drm/amd/display/dc/dcn20/dcn20_optc.c b/drivers/gpu/drm/amd/display/dc/dcn20/dcn20_optc.c
+index 875b48e450f8..cee1ed11ffe3 100644
+--- a/drivers/gpu/drm/amd/display/dc/dcn20/dcn20_optc.c
++++ b/drivers/gpu/drm/amd/display/dc/dcn20/dcn20_optc.c
+@@ -434,6 +434,7 @@ static struct timing_generator_funcs dcn20_tg_funcs = {
+ 		.get_optc_source = optc2_get_optc_source,
+ 		.set_gsl = optc2_set_gsl,
+ 		.set_gsl_source_select = optc2_set_gsl_source_select,
++		.set_vtg_params = optc1_set_vtg_params,
+ };
+ 
+ void dcn20_timing_generator_init(struct optc *optc1)
+-- 
+2.17.1
+

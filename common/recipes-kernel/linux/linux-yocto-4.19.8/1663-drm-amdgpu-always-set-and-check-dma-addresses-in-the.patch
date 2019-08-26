@@ -1,0 +1,87 @@
+From b4e043dc8a1ee3383fb06f1e6762c968c9d237b7 Mon Sep 17 00:00:00 2001
+From: =?UTF-8?q?Christian=20K=C3=B6nig?= <christian.koenig@amd.com>
+Date: Mon, 18 Mar 2019 12:24:03 +0100
+Subject: [PATCH 1663/2940] drm/amdgpu: always set and check dma addresses in
+ the VM code
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+Clean that up a bit and allow to always have the DMA addresses around.
+
+Signed-off-by: Christian König <christian.koenig@amd.com>
+Acked-by: Chunming Zhou <david1.zhou@amd.com>
+Reviewed-by: Felix Kuehling <Felix.Kuehling@amd.com>
+Signed-off-by: Chaudhary Amit Kumar <Chaudharyamit.Kumar@amd.com>
+---
+ drivers/gpu/drm/amd/amdgpu/amdgpu_vm.c | 20 +++++++++-----------
+ 1 file changed, 9 insertions(+), 11 deletions(-)
+
+diff --git a/drivers/gpu/drm/amd/amdgpu/amdgpu_vm.c b/drivers/gpu/drm/amd/amdgpu/amdgpu_vm.c
+index 4eb6cc4b269b..020e98225126 100644
+--- a/drivers/gpu/drm/amd/amdgpu/amdgpu_vm.c
++++ b/drivers/gpu/drm/amd/amdgpu/amdgpu_vm.c
+@@ -85,6 +85,13 @@ struct amdgpu_pte_update_params {
+ 	 */
+ 	struct amdgpu_vm *vm;
+ 
++	/**
++	 * @pages_addr:
++	 *
++	 * DMA addresses to use for mapping
++	 */
++	dma_addr_t *pages_addr;
++
+ 	/**
+ 	 * @src: address where to copy page table entries from
+ 	 */
+@@ -102,12 +109,6 @@ struct amdgpu_pte_update_params {
+ 		     struct amdgpu_bo *bo, uint64_t pe,
+ 		     uint64_t addr, unsigned count, uint32_t incr,
+ 		     uint64_t flags);
+-	/**
+-	 * @pages_addr:
+-	 *
+-	 * DMA addresses to use for mapping, used during VM update by CPU
+-	 */
+-	dma_addr_t *pages_addr;
+ };
+ 
+ /**
+@@ -1540,7 +1541,7 @@ static void amdgpu_vm_fragment(struct amdgpu_pte_update_params *params,
+ 	unsigned max_frag = params->adev->vm_manager.fragment_size;
+ 
+ 	/* system pages are non continuously */
+-	if (params->src || !(flags & AMDGPU_PTE_VALID)) {
++	if (params->pages_addr) {
+ 		*frag = 0;
+ 		*frag_end = end;
+ 		return;
+@@ -1720,15 +1721,13 @@ static int amdgpu_vm_bo_update_mapping(struct amdgpu_device *adev,
+ 	memset(&params, 0, sizeof(params));
+ 	params.adev = adev;
+ 	params.vm = vm;
++	params.pages_addr = pages_addr;
+ 
+ 	/* sync to everything on unmapping */
+ 	if (!(flags & AMDGPU_PTE_VALID))
+ 		owner = AMDGPU_FENCE_OWNER_UNDEFINED;
+ 
+ 	if (vm->use_cpu_for_update) {
+-		/* params.src is used as flag to indicate system Memory */
+-		if (pages_addr)
+-			params.src = ~0;
+ 
+ 		/* Wait for PT BOs to be idle. PTs share the same resv. object
+ 		 * as the root PD BO
+@@ -1745,7 +1744,6 @@ static int amdgpu_vm_bo_update_mapping(struct amdgpu_device *adev,
+ 		}
+ 
+ 		params.func = amdgpu_vm_cpu_set_ptes;
+-		params.pages_addr = pages_addr;
+ 		return amdgpu_vm_update_ptes(&params, start, last + 1,
+ 					     addr, flags);
+ 	}
+-- 
+2.17.1
+

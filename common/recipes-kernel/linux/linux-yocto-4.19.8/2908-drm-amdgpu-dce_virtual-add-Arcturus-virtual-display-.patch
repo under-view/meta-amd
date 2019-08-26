@@ -1,0 +1,32 @@
+From 868ba522730ffd6c36d4edef946aaeb44e455e5f Mon Sep 17 00:00:00 2001
+From: Le Ma <le.ma@amd.com>
+Date: Tue, 9 Jul 2019 09:23:11 -0500
+Subject: [PATCH 2908/2940] drm/amdgpu/dce_virtual: add Arcturus virtual
+ display support
+
+Virtual dce is a sw only display driver for emulation and
+virtualization and cases where we want to use a virtual
+display subsystem.
+
+Signed-off-by: Le Ma <le.ma@amd.com>
+Reviewed-by: Alex Deucher <alexander.deucher@amd.com>
+Signed-off-by: Alex Deucher <alexander.deucher@amd.com>
+---
+ drivers/gpu/drm/amd/amdgpu/dce_virtual.c | 1 +
+ 1 file changed, 1 insertion(+)
+
+diff --git a/drivers/gpu/drm/amd/amdgpu/dce_virtual.c b/drivers/gpu/drm/amd/amdgpu/dce_virtual.c
+index 4195b1172bdd..9b45f6e12c7c 100644
+--- a/drivers/gpu/drm/amd/amdgpu/dce_virtual.c
++++ b/drivers/gpu/drm/amd/amdgpu/dce_virtual.c
+@@ -455,6 +455,7 @@ static int dce_virtual_hw_init(void *handle)
+ 	case CHIP_VEGA10:
+ 	case CHIP_VEGA12:
+ 	case CHIP_VEGA20:
++	case CHIP_ARCTURUS:
+ 	case CHIP_NAVI10:
+ 	case CHIP_NAVI14:
+ 		break;
+-- 
+2.17.1
+

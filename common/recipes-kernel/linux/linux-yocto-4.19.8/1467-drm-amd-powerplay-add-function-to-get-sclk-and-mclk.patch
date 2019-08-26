@@ -1,0 +1,197 @@
+From a0c64c16ec52d1668637858871a0c5bbf2b6a0b0 Mon Sep 17 00:00:00 2001
+From: Likun Gao <Likun.Gao@amd.com>
+Date: Mon, 28 Jan 2019 19:12:10 +0800
+Subject: [PATCH 1467/2940] drm/amd/powerplay: add function to get sclk and
+ mclk
+
+Add function to get sclk and mclk for smu11.
+
+Signed-off-by: Likun Gao <Likun.Gao@amd.com>
+Reviewed-by: Huang Rui <ray.huang@amd.com>
+Acked-by: Alex Deucher <alexander.deucher@amd.com>
+---
+ drivers/gpu/drm/amd/amdgpu/amdgpu_dpm.c       | 16 ++++
+ drivers/gpu/drm/amd/amdgpu/amdgpu_dpm.h       | 10 +--
+ .../gpu/drm/amd/powerplay/inc/amdgpu_smu.h    |  6 ++
+ drivers/gpu/drm/amd/powerplay/smu_v11_0.c     | 84 +++++++++++++++++++
+ 4 files changed, 110 insertions(+), 6 deletions(-)
+
+diff --git a/drivers/gpu/drm/amd/amdgpu/amdgpu_dpm.c b/drivers/gpu/drm/amd/amdgpu/amdgpu_dpm.c
+index 344967df3137..523b8ab6b04e 100644
+--- a/drivers/gpu/drm/amd/amdgpu/amdgpu_dpm.c
++++ b/drivers/gpu/drm/amd/amdgpu/amdgpu_dpm.c
+@@ -904,3 +904,19 @@ amdgpu_get_vce_clock_state(void *handle, u32 idx)
+ 
+ 	return NULL;
+ }
++
++int amdgpu_dpm_get_sclk(struct amdgpu_device *adev, bool low)
++{
++	if (is_support_sw_smu(adev))
++		return smu_get_sclk(&adev->smu, low);
++	else
++		return (adev)->powerplay.pp_funcs->get_sclk((adev)->powerplay.pp_handle, (low));
++}
++
++int amdgpu_dpm_get_mclk(struct amdgpu_device *adev, bool low)
++{
++	if (is_support_sw_smu(adev))
++		return smu_get_mclk(&adev->smu, low);
++	else
++		return (adev)->powerplay.pp_funcs->get_mclk((adev)->powerplay.pp_handle, (low));
++}
+diff --git a/drivers/gpu/drm/amd/amdgpu/amdgpu_dpm.h b/drivers/gpu/drm/amd/amdgpu/amdgpu_dpm.h
+index 5b1539e72101..2fda77fec930 100644
+--- a/drivers/gpu/drm/amd/amdgpu/amdgpu_dpm.h
++++ b/drivers/gpu/drm/amd/amdgpu/amdgpu_dpm.h
+@@ -278,12 +278,6 @@ enum amdgpu_pcie_gen {
+ #define amdgpu_dpm_set_fan_speed_rpm(adev, s) \
+ 		((adev)->powerplay.pp_funcs->set_fan_speed_rpm)((adev)->powerplay.pp_handle, (s))
+ 
+-#define amdgpu_dpm_get_sclk(adev, l) \
+-		((adev)->powerplay.pp_funcs->get_sclk((adev)->powerplay.pp_handle, (l)))
+-
+-#define amdgpu_dpm_get_mclk(adev, l)  \
+-		((adev)->powerplay.pp_funcs->get_mclk((adev)->powerplay.pp_handle, (l)))
+-
+ #define amdgpu_dpm_force_performance_level(adev, l) \
+ 		((adev)->powerplay.pp_funcs->force_performance_level((adev)->powerplay.pp_handle, (l)))
+ 
+@@ -509,4 +503,8 @@ enum amdgpu_pcie_gen amdgpu_get_pcie_gen_support(struct amdgpu_device *adev,
+ struct amd_vce_state*
+ amdgpu_get_vce_clock_state(void *handle, u32 idx);
+ 
++extern int amdgpu_dpm_get_sclk(struct amdgpu_device *adev, bool low);
++
++extern int amdgpu_dpm_get_mclk(struct amdgpu_device *adev, bool low);
++
+ #endif
+diff --git a/drivers/gpu/drm/amd/powerplay/inc/amdgpu_smu.h b/drivers/gpu/drm/amd/powerplay/inc/amdgpu_smu.h
+index db050978020f..d7f26e178839 100644
+--- a/drivers/gpu/drm/amd/powerplay/inc/amdgpu_smu.h
++++ b/drivers/gpu/drm/amd/powerplay/inc/amdgpu_smu.h
+@@ -528,6 +528,8 @@ struct smu_funcs
+ 				   uint32_t value);
+ 	int (*dpm_set_uvd_enable)(struct smu_context *smu, bool enable);
+ 	int (*dpm_set_vce_enable)(struct smu_context *smu, bool enable);
++	uint32_t (*get_sclk)(struct smu_context *smu, bool low);
++	uint32_t (*get_mclk)(struct smu_context *smu, bool low);
+ };
+ 
+ #define smu_init_microcode(smu) \
+@@ -693,6 +695,10 @@ struct smu_funcs
+ 	((smu)->funcs->dpm_set_uvd_enable ? (smu)->funcs->dpm_set_uvd_enable((smu), (enable)) : 0)
+ #define smu_dpm_set_vce_enable(smu, enable) \
+ 	((smu)->funcs->dpm_set_vce_enable ? (smu)->funcs->dpm_set_vce_enable((smu), (enable)) : 0)
++#define smu_get_sclk(smu, low) \
++	((smu)->funcs->get_sclk ? (smu)->funcs->get_sclk((smu), (low)) : 0)
++#define smu_get_mclk(smu, low) \
++	((smu)->funcs->get_mclk ? (smu)->funcs->get_mclk((smu), (low)) : 0)
+ 
+ 
+ extern int smu_get_atom_data_table(struct smu_context *smu, uint32_t table,
+diff --git a/drivers/gpu/drm/amd/powerplay/smu_v11_0.c b/drivers/gpu/drm/amd/powerplay/smu_v11_0.c
+index 3ebf89b3f815..48174df19105 100644
+--- a/drivers/gpu/drm/amd/powerplay/smu_v11_0.c
++++ b/drivers/gpu/drm/amd/powerplay/smu_v11_0.c
+@@ -1258,6 +1258,88 @@ smu_v11_0_set_watermarks_for_clock_ranges(struct smu_context *smu, struct
+ 	return ret;
+ }
+ 
++static int smu_v11_0_get_clock_ranges(struct smu_context *smu,
++				      uint32_t *clock,
++				      PPCLK_e clock_select,
++				      bool max)
++{
++	int ret;
++	*clock = 0;
++	if (max) {
++		ret = smu_send_smc_msg_with_param(smu, SMU_MSG_GetMaxDpmFreq,
++					    (clock_select << 16));
++		if (ret) {
++			pr_err("[GetClockRanges] Failed to get max clock from SMC!\n");
++			return ret;
++		}
++		smu_read_smc_arg(smu, clock);
++	} else {
++		ret = smu_send_smc_msg_with_param(smu, SMU_MSG_GetMinDpmFreq,
++					    (clock_select << 16));
++		if (ret) {
++			pr_err("[GetClockRanges] Failed to get min clock from SMC!\n");
++			return ret;
++		}
++		smu_read_smc_arg(smu, clock);
++	}
++
++	return 0;
++}
++
++static uint32_t smu_v11_0_dpm_get_sclk(struct smu_context *smu, bool low)
++{
++	uint32_t gfx_clk;
++	int ret;
++
++	if (!smu_feature_is_enabled(smu, FEATURE_DPM_GFXCLK_BIT)) {
++		pr_err("[GetSclks]: gfxclk dpm not enabled!\n");
++		return -EPERM;
++	}
++
++	if (low) {
++		ret = smu_v11_0_get_clock_ranges(smu, &gfx_clk, PPCLK_GFXCLK, false);
++		if (ret) {
++			pr_err("[GetSclks]: fail to get min PPCLK_GFXCLK\n");
++			return ret;
++		}
++	} else {
++		ret = smu_v11_0_get_clock_ranges(smu, &gfx_clk, PPCLK_GFXCLK, true);
++		if (ret) {
++			pr_err("[GetSclks]: fail to get max PPCLK_GFXCLK\n");
++			return ret;
++		}
++	}
++
++	return (gfx_clk * 100);
++}
++
++static uint32_t smu_v11_0_dpm_get_mclk(struct smu_context *smu, bool low)
++{
++	uint32_t mem_clk;
++	int ret;
++
++	if (!smu_feature_is_enabled(smu, FEATURE_DPM_UCLK_BIT)) {
++		pr_err("[GetMclks]: memclk dpm not enabled!\n");
++		return -EPERM;
++	}
++
++	if (low) {
++		ret = smu_v11_0_get_clock_ranges(smu, &mem_clk, PPCLK_UCLK, false);
++		if (ret) {
++			pr_err("[GetMclks]: fail to get min PPCLK_UCLK\n");
++			return ret;
++		}
++	} else {
++		ret = smu_v11_0_get_clock_ranges(smu, &mem_clk, PPCLK_GFXCLK, true);
++		if (ret) {
++			pr_err("[GetMclks]: fail to get max PPCLK_UCLK\n");
++			return ret;
++		}
++	}
++
++	return (mem_clk * 100);
++}
++
+ static int smu_v11_0_set_od8_default_settings(struct smu_context *smu)
+ {
+ 	struct smu_table_context *table_context = &smu->smu_table;
+@@ -1658,6 +1740,8 @@ static const struct smu_funcs smu_v11_0_funcs = {
+ 	.set_deep_sleep_dcefclk = smu_v11_0_set_deep_sleep_dcefclk,
+ 	.display_clock_voltage_request = smu_v11_0_display_clock_voltage_request,
+ 	.set_watermarks_for_clock_ranges = smu_v11_0_set_watermarks_for_clock_ranges,
++	.get_sclk = smu_v11_0_dpm_get_sclk,
++	.get_mclk = smu_v11_0_dpm_get_mclk,
+ 	.set_od8_default_settings = smu_v11_0_set_od8_default_settings,
+ 	.get_activity_monitor_coeff = smu_v11_0_get_activity_monitor_coeff,
+ 	.set_activity_monitor_coeff = smu_v11_0_set_activity_monitor_coeff,
+-- 
+2.17.1
+

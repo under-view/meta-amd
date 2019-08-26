@@ -1,0 +1,28 @@
+From 29230dd03c03163b63112893c5bb36994b14cc83 Mon Sep 17 00:00:00 2001
+From: Alex Deucher <alexander.deucher@amd.com>
+Date: Mon, 22 Apr 2019 16:41:54 -0500
+Subject: [PATCH 2452/2940] drm/amd/display: updates for dcn20_update_bandwidth
+
+Pass extra parameter to validate_bandwidth() callback.
+
+Signed-off-by: Alex Deucher <alexander.deucher@amd.com>
+---
+ drivers/gpu/drm/amd/display/dc/dcn20/dcn20_hwseq.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/drivers/gpu/drm/amd/display/dc/dcn20/dcn20_hwseq.c b/drivers/gpu/drm/amd/display/dc/dcn20/dcn20_hwseq.c
+index 487a07cbeb93..3d5eb20ea9ba 100644
+--- a/drivers/gpu/drm/amd/display/dc/dcn20/dcn20_hwseq.c
++++ b/drivers/gpu/drm/amd/display/dc/dcn20/dcn20_hwseq.c
+@@ -1345,7 +1345,7 @@ bool dcn20_update_bandwidth(
+ 	int i;
+ 
+ 	/* recalculate DML parameters */
+-	if (!dc->res_pool->funcs->validate_bandwidth(dc, context)) {
++	if (!dc->res_pool->funcs->validate_bandwidth(dc, context, false)) {
+ 		return false;
+ 	}
+ 
+-- 
+2.17.1
+

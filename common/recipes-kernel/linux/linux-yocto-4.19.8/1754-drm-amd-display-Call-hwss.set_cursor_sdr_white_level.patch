@@ -1,0 +1,39 @@
+From 31c68fad2e57962d0e88b7552d4387806234c15f Mon Sep 17 00:00:00 2001
+From: SivapiriyanKumarasamy <sivapiriyan.kumarasamy@amd.com>
+Date: Mon, 25 Mar 2019 14:04:30 -0400
+Subject: [PATCH 1754/2940] drm/amd/display: Call
+ hwss.set_cursor_sdr_white_level, if available
+
+[Why]
+In HDR configurations, the cursor - in SDR - needs to have it's white
+level boosted.
+
+[How]
+Program the cursor boost in update_dchubp_dpp like the other cursor
+attributes.
+
+Signed-off-by: SivapiriyanKumarasamy <sivapiriyan.kumarasamy@amd.com>
+Reviewed-by: Anthony Koo <Anthony.Koo@amd.com>
+Acked-by: Leo Li <sunpeng.li@amd.com>
+Acked-by: Reza Amini <Reza.Amini@amd.com>
+---
+ drivers/gpu/drm/amd/display/dc/dcn10/dcn10_hw_sequencer.c | 3 +++
+ 1 file changed, 3 insertions(+)
+
+diff --git a/drivers/gpu/drm/amd/display/dc/dcn10/dcn10_hw_sequencer.c b/drivers/gpu/drm/amd/display/dc/dcn10/dcn10_hw_sequencer.c
+index 443804e85ae5..d750f5c42423 100644
+--- a/drivers/gpu/drm/amd/display/dc/dcn10/dcn10_hw_sequencer.c
++++ b/drivers/gpu/drm/amd/display/dc/dcn10/dcn10_hw_sequencer.c
+@@ -2137,6 +2137,9 @@ void update_dchubp_dpp(
+ 	if (pipe_ctx->stream->cursor_attributes.address.quad_part != 0) {
+ 		dc->hwss.set_cursor_position(pipe_ctx);
+ 		dc->hwss.set_cursor_attribute(pipe_ctx);
++
++		if (dc->hwss.set_cursor_sdr_white_level)
++			dc->hwss.set_cursor_sdr_white_level(pipe_ctx);
+ 	}
+ 
+ 	if (plane_state->update_flags.bits.full_update) {
+-- 
+2.17.1
+

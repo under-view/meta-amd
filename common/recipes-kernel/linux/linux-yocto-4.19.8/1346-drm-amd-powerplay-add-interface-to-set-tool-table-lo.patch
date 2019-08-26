@@ -1,0 +1,60 @@
+From 9df7316cdae6489b4b14eae82d609835ddcefa0e Mon Sep 17 00:00:00 2001
+From: Huang Rui <ray.huang@amd.com>
+Date: Tue, 4 Dec 2018 22:04:24 +0800
+Subject: [PATCH 1346/2940] drm/amd/powerplay: add interface to set tool table
+ location (v2)
+
+This patch adds interface to set tool table location for smu.
+Set PMSTATUSLOG table bo address with SetToolsDramAddr MSG for tools.
+
+v2: add detailed info to describe this function
+
+Signed-off-by: Huang Rui <ray.huang@amd.com>
+Acked-by: Alex Deucher <alexander.deucher@amd.com>
+---
+ drivers/gpu/drm/amd/powerplay/amdgpu_smu.c     | 7 ++++++-
+ drivers/gpu/drm/amd/powerplay/inc/amdgpu_smu.h | 3 +++
+ 2 files changed, 9 insertions(+), 1 deletion(-)
+
+diff --git a/drivers/gpu/drm/amd/powerplay/amdgpu_smu.c b/drivers/gpu/drm/amd/powerplay/amdgpu_smu.c
+index 5e22b154fff1..87c46cf32293 100644
+--- a/drivers/gpu/drm/amd/powerplay/amdgpu_smu.c
++++ b/drivers/gpu/drm/amd/powerplay/amdgpu_smu.c
+@@ -208,7 +208,12 @@ static int smu_smc_table_hw_init(struct smu_context *smu)
+ 	if (ret)
+ 		return ret;
+ 
+-	return 0;
++	/*
++	 * Set PMSTATUSLOG table bo address with SetToolsDramAddr MSG for tools.
++	 */
++	ret = smu_set_tool_table_location(smu);
++
++	return ret;
+ }
+ 
+ static int smu_hw_init(void *handle)
+diff --git a/drivers/gpu/drm/amd/powerplay/inc/amdgpu_smu.h b/drivers/gpu/drm/amd/powerplay/inc/amdgpu_smu.h
+index 90e80cd6f0fa..213c0bc77c3e 100644
+--- a/drivers/gpu/drm/amd/powerplay/inc/amdgpu_smu.h
++++ b/drivers/gpu/drm/amd/powerplay/inc/amdgpu_smu.h
+@@ -47,6 +47,7 @@ struct smu_funcs
+ 	int (*check_fw_version)(struct smu_context *smu);
+ 	int (*write_pptable)(struct smu_context *smu);
+ 	int (*set_min_dcef_deep_sleep)(struct smu_context *smu);
++	int (*set_tool_table_location)(struct smu_context *smu);
+ };
+ 
+ #define smu_init_microcode(smu) \
+@@ -75,6 +76,8 @@ struct smu_funcs
+ 	((smu)->funcs->write_pptable ? (smu)->funcs->write_pptable((smu)) : 0)
+ #define smu_set_min_dcef_deep_sleep(smu) \
+ 	((smu)->funcs->set_min_dcef_deep_sleep ? (smu)->funcs->set_min_dcef_deep_sleep((smu)) : 0)
++#define smu_set_tool_table_location(smu) \
++	((smu)->funcs->set_tool_table_location ? (smu)->funcs->set_tool_table_location((smu)) : 0)
+ 
+ 
+ extern const struct amd_ip_funcs smu_ip_funcs;
+-- 
+2.17.1
+

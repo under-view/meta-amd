@@ -1,0 +1,54 @@
+From 01cda5befa68711a4cea7d46d90a50db7d737ba7 Mon Sep 17 00:00:00 2001
+From: wentalou <Wentao.Lou@amd.com>
+Date: Thu, 24 Jan 2019 11:24:59 +0800
+Subject: [PATCH 1171/2940] drm/amdgpu: sriov restrict max_pfn below
+ AMDGPU_GMC_HOLE
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+sriov need to restrict max_pfn below AMDGPU_GMC_HOLE.
+access the hole results in a range fault interrupt IIRC.
+
+Change-Id: I0add197a24a54388a128a545056e9a9f0330abfb
+Signed-off-by: Wentao Lou <Wentao.Lou@amd.com>
+Reviewed-by: Christian König <christian.koenig@amd.com>
+---
+ drivers/gpu/drm/amd/amdgpu/amdgpu_csa.c | 3 +--
+ drivers/gpu/drm/amd/amdgpu/gmc_v9_0.c   | 6 +++++-
+ 2 files changed, 6 insertions(+), 3 deletions(-)
+
+diff --git a/drivers/gpu/drm/amd/amdgpu/amdgpu_csa.c b/drivers/gpu/drm/amd/amdgpu/amdgpu_csa.c
+index dd3bd01e3070..7e22be7ca68a 100644
+--- a/drivers/gpu/drm/amd/amdgpu/amdgpu_csa.c
++++ b/drivers/gpu/drm/amd/amdgpu/amdgpu_csa.c
+@@ -26,8 +26,7 @@
+ 
+ uint64_t amdgpu_csa_vaddr(struct amdgpu_device *adev)
+ {
+-	uint64_t addr = min(adev->vm_manager.max_pfn << AMDGPU_GPU_PAGE_SHIFT,
+-				AMDGPU_GMC_HOLE_START);
++	uint64_t addr = adev->vm_manager.max_pfn << AMDGPU_GPU_PAGE_SHIFT;
+ 
+ 	addr -= AMDGPU_VA_RESERVED_SIZE;
+ 	addr = amdgpu_gmc_sign_extend(addr);
+diff --git a/drivers/gpu/drm/amd/amdgpu/gmc_v9_0.c b/drivers/gpu/drm/amd/amdgpu/gmc_v9_0.c
+index bde354cd8012..c637dd270d87 100644
+--- a/drivers/gpu/drm/amd/amdgpu/gmc_v9_0.c
++++ b/drivers/gpu/drm/amd/amdgpu/gmc_v9_0.c
+@@ -1021,7 +1021,11 @@ static int gmc_v9_0_sw_init(void *handle)
+ 		 * vm size is 256TB (48bit), maximum size of Vega10,
+ 		 * block size 512 (9bit)
+ 		 */
+-		amdgpu_vm_adjust_size(adev, 256 * 1024, 9, 3, 48);
++		/* sriov restrict max_pfn below AMDGPU_GMC_HOLE */
++		if (amdgpu_sriov_vf(adev))
++			amdgpu_vm_adjust_size(adev, 256 * 1024, 9, 3, 47);
++		else
++			amdgpu_vm_adjust_size(adev, 256 * 1024, 9, 3, 48);
+ 		break;
+ 	default:
+ 		break;
+-- 
+2.17.1
+

@@ -1,0 +1,46 @@
+From 08ed41ba739119f36e5e8fbce44198577da01ec5 Mon Sep 17 00:00:00 2001
+From: Yongqiang Sun <yongqiang.sun@amd.com>
+Date: Thu, 11 Apr 2019 14:11:47 -0400
+Subject: [PATCH 2516/2940] drm/amd/display: Refactor program watermark.
+
+Refactor programming watermark function:
+Divided into urgent watermark, stutter watermark and pstate watermark.
+
+Signed-off-by: Yongqiang Sun <yongqiang.sun@amd.com>
+Reviewed-by: Tony Cheng <Tony.Cheng@amd.com>
+Acked-by: Bhawanpreet Lakha <Bhawanpreet.Lakha@amd.com>
+Signed-off-by: Alex Deucher <alexander.deucher@amd.com>
+---
+ drivers/gpu/drm/amd/display/dc/dcn20/dcn20_hubbub.c | 2 +-
+ drivers/gpu/drm/amd/display/dc/dcn20/dcn20_hubbub.h | 4 ++++
+ 2 files changed, 5 insertions(+), 1 deletion(-)
+
+diff --git a/drivers/gpu/drm/amd/display/dc/dcn20/dcn20_hubbub.c b/drivers/gpu/drm/amd/display/dc/dcn20/dcn20_hubbub.c
+index b3a99b10cfbd..d6705b40a57c 100644
+--- a/drivers/gpu/drm/amd/display/dc/dcn20/dcn20_hubbub.c
++++ b/drivers/gpu/drm/amd/display/dc/dcn20/dcn20_hubbub.c
+@@ -294,7 +294,7 @@ bool hubbub2_get_dcc_compression_cap(struct hubbub *hubbub,
+ 	return true;
+ }
+ 
+-static void hubbub2_setup_vmid_ptb(struct hubbub *hubbub,
++void hubbub2_setup_vmid_ptb(struct hubbub *hubbub,
+ 		uint64_t ptb,
+ 		uint8_t vmid)
+ {
+diff --git a/drivers/gpu/drm/amd/display/dc/dcn20/dcn20_hubbub.h b/drivers/gpu/drm/amd/display/dc/dcn20/dcn20_hubbub.h
+index cdd19f5887d7..6ca4a5a9f8c7 100644
+--- a/drivers/gpu/drm/amd/display/dc/dcn20/dcn20_hubbub.h
++++ b/drivers/gpu/drm/amd/display/dc/dcn20/dcn20_hubbub.h
+@@ -102,4 +102,8 @@ void hubbub2_get_dchub_ref_freq(struct hubbub *hubbub,
+ void hubbub2_wm_read_state(struct hubbub *hubbub,
+ 		struct dcn_hubbub_wm *wm);
+ 
++void hubbub2_setup_vmid_ptb(struct hubbub *hubbub,
++		uint64_t ptb,
++		uint8_t vmid);
++
+ #endif
+-- 
+2.17.1
+

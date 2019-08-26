@@ -1,0 +1,35 @@
+From b29f2905ee7d952b5297edc5771c12c7279abeab Mon Sep 17 00:00:00 2001
+From: Junwei Zhang <Jerry.Zhang@amd.com>
+Date: Wed, 24 Oct 2018 16:19:09 +0800
+Subject: [PATCH 0739/2940] drm/amdgpu: disable page queue on SDMA for Vega12
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+It blocks most of sanity tests, so disable it for now.
+
+Tested-by: Chen Gong <Curry.Gong@amd.com>
+Signed-off-by: Junwei Zhang <Jerry.Zhang@amd.com>
+Acked-by: Christian König <christian.koenig@amd.com>
+Signed-off-by: Alex Deucher <alexander.deucher@amd.com>
+---
+ drivers/gpu/drm/amd/amdgpu/sdma_v4_0.c | 3 ++-
+ 1 file changed, 2 insertions(+), 1 deletion(-)
+
+diff --git a/drivers/gpu/drm/amd/amdgpu/sdma_v4_0.c b/drivers/gpu/drm/amd/amdgpu/sdma_v4_0.c
+index 2b944db86950..ec1b2f3ec01e 100644
+--- a/drivers/gpu/drm/amd/amdgpu/sdma_v4_0.c
++++ b/drivers/gpu/drm/amd/amdgpu/sdma_v4_0.c
+@@ -1453,7 +1453,8 @@ static int sdma_v4_0_early_init(void *handle)
+ 		adev->sdma.has_page_queue = false;
+ 	} else {
+ 		adev->sdma.num_instances = 2;
+-		if (adev->asic_type != CHIP_VEGA20)
++		if (adev->asic_type != CHIP_VEGA20 &&
++				adev->asic_type != CHIP_VEGA12)
+ 			adev->sdma.has_page_queue = true;
+ 	}
+ 
+-- 
+2.17.1
+

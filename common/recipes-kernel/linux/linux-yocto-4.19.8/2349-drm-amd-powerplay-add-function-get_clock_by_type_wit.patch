@@ -1,0 +1,174 @@
+From d77924bd29b1fd2ef25bcf90295fc1f0f9280f51 Mon Sep 17 00:00:00 2001
+From: Kevin Wang <kevin1.wang@amd.com>
+Date: Fri, 19 Apr 2019 14:05:58 +0800
+Subject: [PATCH 2349/2940] drm/amd/powerplay: add function
+ get_clock_by_type_with_latency for navi10
+
+add callback function get_clock_by_type_with_latency for navi10 asic
+
+Signed-off-by: Kevin Wang <kevin1.wang@amd.com>
+Reviewed-by: Huang Rui <ray.huang@amd.com>
+Signed-off-by: Alex Deucher <alexander.deucher@amd.com>
+---
+ .../amd/display/amdgpu_dm/amdgpu_dm_pp_smu.c  | 19 +++++++++-
+ .../gpu/drm/amd/powerplay/inc/amdgpu_smu.h    |  6 ++--
+ drivers/gpu/drm/amd/powerplay/navi10_ppt.c    | 35 +++++++++++++++++++
+ drivers/gpu/drm/amd/powerplay/vega20_ppt.c    | 12 +++----
+ 4 files changed, 62 insertions(+), 10 deletions(-)
+
+diff --git a/drivers/gpu/drm/amd/display/amdgpu_dm/amdgpu_dm_pp_smu.c b/drivers/gpu/drm/amd/display/amdgpu_dm/amdgpu_dm_pp_smu.c
+index 905b28198352..e19df8bb4f68 100644
+--- a/drivers/gpu/drm/amd/display/amdgpu_dm/amdgpu_dm_pp_smu.c
++++ b/drivers/gpu/drm/amd/display/amdgpu_dm/amdgpu_dm_pp_smu.c
+@@ -149,6 +149,23 @@ static void get_default_clock_levels(
+ 	}
+ }
+ 
++static enum smu_clk_type dc_to_smu_clock_type(
++		enum dm_pp_clock_type dm_pp_clk_type)
++{
++#define DCCLK_MAP_SMUCLK(dcclk, smuclk) \
++	[dcclk] = smuclk
++
++	static int dc_clk_type_map[] = {
++		DCCLK_MAP_SMUCLK(DM_PP_CLOCK_TYPE_DISPLAY_CLK,	SMU_DISPCLK),
++		DCCLK_MAP_SMUCLK(DM_PP_CLOCK_TYPE_ENGINE_CLK,	SMU_GFXCLK),
++		DCCLK_MAP_SMUCLK(DM_PP_CLOCK_TYPE_MEMORY_CLK,	SMU_MCLK),
++		DCCLK_MAP_SMUCLK(DM_PP_CLOCK_TYPE_DCEFCLK,	SMU_DCEFCLK),
++		DCCLK_MAP_SMUCLK(DM_PP_CLOCK_TYPE_SOCCLK,	SMU_SOCCLK),
++	};
++
++	return dc_clk_type_map[dm_pp_clk_type];
++}
++
+ static enum amd_pp_clock_type dc_to_pp_clock_type(
+ 		enum dm_pp_clock_type dm_pp_clk_type)
+ {
+@@ -317,7 +334,7 @@ bool dm_pp_get_clock_levels_by_type(
+ 		}
+ 	} else if (adev->smu.funcs && adev->smu.funcs->get_clock_by_type) {
+ 		if (smu_get_clock_by_type(&adev->smu,
+-					  dc_to_pp_clock_type(clk_type),
++					  dc_to_smu_clock_type(clk_type),
+ 					  &pp_clks)) {
+ 			get_default_clock_levels(clk_type, dc_clks);
+ 			return true;
+diff --git a/drivers/gpu/drm/amd/powerplay/inc/amdgpu_smu.h b/drivers/gpu/drm/amd/powerplay/inc/amdgpu_smu.h
+index 8a4618084358..e05f4dd96f4b 100644
+--- a/drivers/gpu/drm/amd/powerplay/inc/amdgpu_smu.h
++++ b/drivers/gpu/drm/amd/powerplay/inc/amdgpu_smu.h
+@@ -552,7 +552,7 @@ struct pptable_funcs {
+ 				 enum PP_OD_DPM_TABLE_COMMAND type,
+ 				 long *input, uint32_t size);
+ 	int (*get_clock_by_type_with_latency)(struct smu_context *smu,
+-					      enum amd_pp_clock_type type,
++					      enum smu_clk_type clk_type,
+ 					      struct
+ 					      pp_clock_levels_with_latency
+ 					      *clocks);
+@@ -857,8 +857,8 @@ struct smu_funcs
+ 	((smu)->funcs->get_clock_by_type ? (smu)->funcs->get_clock_by_type((smu), (type), (clocks)) : 0)
+ #define smu_get_max_high_clocks(smu, clocks) \
+ 	((smu)->funcs->get_max_high_clocks ? (smu)->funcs->get_max_high_clocks((smu), (clocks)) : 0)
+-#define smu_get_clock_by_type_with_latency(smu, type, clocks) \
+-	((smu)->ppt_funcs->get_clock_by_type_with_latency ? (smu)->ppt_funcs->get_clock_by_type_with_latency((smu), (type), (clocks)) : 0)
++#define smu_get_clock_by_type_with_latency(smu, clk_type, clocks) \
++	((smu)->ppt_funcs->get_clock_by_type_with_latency ? (smu)->ppt_funcs->get_clock_by_type_with_latency((smu), (clk_type), (clocks)) : 0)
+ #define smu_get_clock_by_type_with_voltage(smu, type, clocks) \
+ 	((smu)->ppt_funcs->get_clock_by_type_with_voltage ? (smu)->ppt_funcs->get_clock_by_type_with_voltage((smu), (type), (clocks)) : 0)
+ #define smu_display_clock_voltage_request(smu, clock_req) \
+diff --git a/drivers/gpu/drm/amd/powerplay/navi10_ppt.c b/drivers/gpu/drm/amd/powerplay/navi10_ppt.c
+index 936dfe571e6a..214ceece428d 100644
+--- a/drivers/gpu/drm/amd/powerplay/navi10_ppt.c
++++ b/drivers/gpu/drm/amd/powerplay/navi10_ppt.c
+@@ -616,6 +616,40 @@ static int navi10_populate_umd_state_clk(struct smu_context *smu)
+ 	return ret;
+ }
+ 
++static int navi10_get_clock_by_type_with_latency(struct smu_context *smu,
++						 enum smu_clk_type clk_type,
++						 struct pp_clock_levels_with_latency *clocks)
++{
++	int ret = 0, i = 0;
++	uint32_t level_count = 0, freq = 0;
++
++	switch (clk_type) {
++	case SMU_GFXCLK:
++	case SMU_DCEFCLK:
++	case SMU_SOCCLK:
++		ret = smu_get_dpm_level_count(smu, clk_type, &level_count);
++		if (ret)
++			return ret;
++
++		level_count = min(level_count, (uint32_t)MAX_NUM_CLOCKS);
++		clocks->num_levels = level_count;
++
++		for (i = 0; i < level_count; i++) {
++			ret = smu_get_dpm_freq_by_index(smu, clk_type, i, &freq);
++			if (ret)
++				return ret;
++
++			clocks->data[i].clocks_in_khz = freq * 1000;
++			clocks->data[i].latency_in_us = 0;
++		}
++		break;
++	default:
++		break;
++	}
++
++	return ret;
++}
++
+ static const struct pptable_funcs navi10_ppt_funcs = {
+ 	.tables_init = navi10_tables_init,
+ 	.alloc_dpm_context = navi10_allocate_dpm_context,
+@@ -634,6 +668,7 @@ static const struct pptable_funcs navi10_ppt_funcs = {
+ 	.print_clk_levels = navi10_print_clk_levels,
+ 	.force_clk_levels = navi10_force_clk_levels,
+ 	.populate_umd_state_clk = navi10_populate_umd_state_clk,
++	.get_clock_by_type_with_latency = navi10_get_clock_by_type_with_latency,
+ };
+ 
+ void navi10_set_ppt_funcs(struct smu_context *smu)
+diff --git a/drivers/gpu/drm/amd/powerplay/vega20_ppt.c b/drivers/gpu/drm/amd/powerplay/vega20_ppt.c
+index 7ed8c7c36037..1f0f4d85fe23 100644
+--- a/drivers/gpu/drm/amd/powerplay/vega20_ppt.c
++++ b/drivers/gpu/drm/amd/powerplay/vega20_ppt.c
+@@ -1395,7 +1395,7 @@ static int vega20_force_clk_levels(struct smu_context *smu,
+ }
+ 
+ static int vega20_get_clock_by_type_with_latency(struct smu_context *smu,
+-						 enum amd_pp_clock_type type,
++						 enum smu_clk_type clk_type,
+ 						 struct pp_clock_levels_with_latency *clocks)
+ {
+ 	int ret;
+@@ -1407,20 +1407,20 @@ static int vega20_get_clock_by_type_with_latency(struct smu_context *smu,
+ 
+ 	mutex_lock(&smu->mutex);
+ 
+-	switch (type) {
+-	case amd_pp_sys_clock:
++	switch (clk_type) {
++	case SMU_GFXCLK:
+ 		single_dpm_table = &(dpm_table->gfx_table);
+ 		ret = vega20_get_clk_table(smu, clocks, single_dpm_table);
+ 		break;
+-	case amd_pp_mem_clock:
++	case SMU_MCLK:
+ 		single_dpm_table = &(dpm_table->mem_table);
+ 		ret = vega20_get_clk_table(smu, clocks, single_dpm_table);
+ 		break;
+-	case amd_pp_dcef_clock:
++	case SMU_DCEFCLK:
+ 		single_dpm_table = &(dpm_table->dcef_table);
+ 		ret = vega20_get_clk_table(smu, clocks, single_dpm_table);
+ 		break;
+-	case amd_pp_soc_clock:
++	case SMU_SOCCLK:
+ 		single_dpm_table = &(dpm_table->soc_table);
+ 		ret = vega20_get_clk_table(smu, clocks, single_dpm_table);
+ 		break;
+-- 
+2.17.1
+

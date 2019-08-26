@@ -1,0 +1,51 @@
+From a0a07ba5b0d225cc6b78246dd20eb9d36cb52f56 Mon Sep 17 00:00:00 2001
+From: Nikola Cornij <nikola.cornij@amd.com>
+Date: Wed, 27 Mar 2019 18:54:19 -0400
+Subject: [PATCH 2488/2940] drm/amd/display: Remove additional FEC link
+ bandwidth reduction
+
+[why]
+This is now done in the original link bandwidth calculation and DSC
+must not do this anymore.
+
+[how]
+Remove the line of code that should have been removed when transition
+to correctly applying FEC overhead was made.
+
+Signed-off-by: Nikola Cornij <nikola.cornij@amd.com>
+Reviewed-by: Wenjing Liu <Wenjing.Liu@amd.com>
+Acked-by: Bhawanpreet Lakha <Bhawanpreet.Lakha@amd.com>
+Signed-off-by: Alex Deucher <alexander.deucher@amd.com>
+---
+ drivers/gpu/drm/amd/display/dc/dsc/dc_dsc.c | 5 ++---
+ 1 file changed, 2 insertions(+), 3 deletions(-)
+
+diff --git a/drivers/gpu/drm/amd/display/dc/dsc/dc_dsc.c b/drivers/gpu/drm/amd/display/dc/dsc/dc_dsc.c
+index e71197d35d79..471eb9873885 100644
+--- a/drivers/gpu/drm/amd/display/dc/dsc/dc_dsc.c
++++ b/drivers/gpu/drm/amd/display/dc/dsc/dc_dsc.c
+@@ -311,19 +311,18 @@ static void get_dsc_bandwidth_range(
+  *
+  * Returns:
+  *     - 'true' if DSC was required by policy and was successfully applied
+- *     - 'false' if DSC was not necessary (e.g. if uncompressed stream fits 'target_bandwidth'),
++ *     - 'false' if DSC was not necessary (e.g. if uncompressed stream fits 'target_bandwidth_kbps'),
+  *        or if it couldn't be applied based on DSC policy.
+  */
+ static bool decide_dsc_target_bpp_x16(
+ 		const struct dc_dsc_policy *policy,
+ 		const struct dsc_enc_caps *dsc_common_caps,
+-		const int target_bandwidth,
++		const int target_bandwidth_kbps,
+ 		const struct dc_crtc_timing *timing,
+ 		int *target_bpp_x16)
+ {
+ 	bool should_use_dsc = false;
+ 	struct dc_dsc_bw_range range;
+-	float target_bandwidth_kbps = target_bandwidth * 0.97f; // 3% overhead for FEC
+ 
+ 	memset(&range, 0, sizeof(range));
+ 
+-- 
+2.17.1
+

@@ -1,0 +1,38 @@
+From 7b0537b57750c7e02f9eaef124f481503632a615 Mon Sep 17 00:00:00 2001
+From: xinhui pan <xinhui.pan@amd.com>
+Date: Tue, 5 Mar 2019 11:21:41 +0800
+Subject: [PATCH 1558/2940] drm/amdgpu: return err if input is not valid
+
+Signed-off-by: xinhui pan <xinhui.pan@amd.com>
+Reviewed-by: Feifei Xu <Feifei.Xu@amd.com>
+---
+ drivers/gpu/drm/amd/amdgpu/amdgpu_ras.c | 6 ++++++
+ 1 file changed, 6 insertions(+)
+
+diff --git a/drivers/gpu/drm/amd/amdgpu/amdgpu_ras.c b/drivers/gpu/drm/amd/amdgpu/amdgpu_ras.c
+index 8b1088dac686..1df6b03a3680 100644
+--- a/drivers/gpu/drm/amd/amdgpu/amdgpu_ras.c
++++ b/drivers/gpu/drm/amd/amdgpu/amdgpu_ras.c
+@@ -240,6 +240,9 @@ static int amdgpu_ras_debugfs_ctrl_parse_data(struct file *f,
+ 		op = 1;
+ 	else if (sscanf(str, "inject %32s %8s", block_name, err) == 2)
+ 		op = 2;
++	else if (sscanf(str, "%32s", block_name) == 1)
++		/* ascii string, but commands are not matched. */
++		return -EINVAL;
+ 
+ 	if (op != -1) {
+ 		if (amdgpu_ras_find_block_id_by_name(block_name, &block_id))
+@@ -352,6 +355,9 @@ static ssize_t amdgpu_ras_debugfs_ctrl_write(struct file *f, const char __user *
+ 	case 2:
+ 		ret = amdgpu_ras_error_inject(adev, &data.inject);
+ 		break;
++	default:
++		ret = -EINVAL;
++		break;
+ 	};
+ 
+ 	if (ret)
+-- 
+2.17.1
+

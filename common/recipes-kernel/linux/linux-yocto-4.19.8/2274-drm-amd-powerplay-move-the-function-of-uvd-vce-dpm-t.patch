@@ -1,0 +1,136 @@
+From 0823f74af788ee11b2fa7800a2599dc9800818e7 Mon Sep 17 00:00:00 2001
+From: Kevin Wang <kevin1.wang@amd.com>
+Date: Wed, 29 May 2019 23:11:28 -0500
+Subject: [PATCH 2274/2940] drm/amd/powerplay: move the function of uvd&vce dpm
+ to asic file
+
+Signed-off-by: Kevin Wang <kevin1.wang@amd.com>
+Reviewed-by: Huang Rui <ray.huang@amd.com>
+Signed-off-by: Alex Deucher <alexander.deucher@amd.com>
+---
+ .../gpu/drm/amd/powerplay/inc/amdgpu_smu.h    |  8 +++----
+ drivers/gpu/drm/amd/powerplay/smu_v11_0.c     | 24 -------------------
+ drivers/gpu/drm/amd/powerplay/vega20_ppt.c    | 24 +++++++++++++++++++
+ 3 files changed, 28 insertions(+), 28 deletions(-)
+
+diff --git a/drivers/gpu/drm/amd/powerplay/inc/amdgpu_smu.h b/drivers/gpu/drm/amd/powerplay/inc/amdgpu_smu.h
+index ca1c375bb101..57049af9a5a2 100644
+--- a/drivers/gpu/drm/amd/powerplay/inc/amdgpu_smu.h
++++ b/drivers/gpu/drm/amd/powerplay/inc/amdgpu_smu.h
+@@ -454,6 +454,8 @@ struct pptable_funcs {
+ 	int (*conv_profile_to_workload )(struct smu_context *smu, int power_profile);
+ 	enum amd_dpm_forced_level (*get_performance_level)(struct smu_context *smu);
+ 	int (*force_performance_level)(struct smu_context *smu, enum amd_dpm_forced_level level);
++	int (*dpm_set_uvd_enable)(struct smu_context *smu, bool enable);
++	int (*dpm_set_vce_enable)(struct smu_context *smu, bool enable);
+ 	int (*pre_display_config_changed)(struct smu_context *smu);
+ 	int (*display_config_changed)(struct smu_context *smu);
+ 	int (*apply_clocks_adjust_rules)(struct smu_context *smu);
+@@ -540,8 +542,6 @@ struct smu_funcs
+ 	int (*update_od8_settings)(struct smu_context *smu,
+ 				   uint32_t index,
+ 				   uint32_t value);
+-	int (*dpm_set_uvd_enable)(struct smu_context *smu, bool enable);
+-	int (*dpm_set_vce_enable)(struct smu_context *smu, bool enable);
+ 	uint32_t (*get_sclk)(struct smu_context *smu, bool low);
+ 	uint32_t (*get_mclk)(struct smu_context *smu, bool low);
+ 	int (*get_current_rpm)(struct smu_context *smu, uint32_t *speed);
+@@ -730,9 +730,9 @@ struct smu_funcs
+ #define smu_conv_profile_to_workload(smu, type) \
+ 	((smu)->ppt_funcs->conv_profile_to_workload ? (smu)->ppt_funcs->conv_profile_to_workload((smu), (type)) : 0)
+ #define smu_dpm_set_uvd_enable(smu, enable) \
+-	((smu)->funcs->dpm_set_uvd_enable ? (smu)->funcs->dpm_set_uvd_enable((smu), (enable)) : 0)
++	((smu)->ppt_funcs->dpm_set_uvd_enable ? (smu)->ppt_funcs->dpm_set_uvd_enable((smu), (enable)) : 0)
+ #define smu_dpm_set_vce_enable(smu, enable) \
+-	((smu)->funcs->dpm_set_vce_enable ? (smu)->funcs->dpm_set_vce_enable((smu), (enable)) : 0)
++	((smu)->ppt_funcs->dpm_set_vce_enable ? (smu)->ppt_funcs->dpm_set_vce_enable((smu), (enable)) : 0)
+ #define smu_get_sclk(smu, low) \
+ 	((smu)->funcs->get_sclk ? (smu)->funcs->get_sclk((smu), (low)) : 0)
+ #define smu_get_mclk(smu, low) \
+diff --git a/drivers/gpu/drm/amd/powerplay/smu_v11_0.c b/drivers/gpu/drm/amd/powerplay/smu_v11_0.c
+index f7dba32576ca..2cbf270bc1e1 100644
+--- a/drivers/gpu/drm/amd/powerplay/smu_v11_0.c
++++ b/drivers/gpu/drm/amd/powerplay/smu_v11_0.c
+@@ -1678,28 +1678,6 @@ static int smu_v11_0_update_od8_settings(struct smu_context *smu,
+ 	return 0;
+ }
+ 
+-static int smu_v11_0_dpm_set_uvd_enable(struct smu_context *smu, bool enable)
+-{
+-	if (!smu_feature_is_supported(smu, FEATURE_DPM_UVD_BIT))
+-		return 0;
+-
+-	if (enable == smu_feature_is_enabled(smu, FEATURE_DPM_UVD_BIT))
+-		return 0;
+-
+-	return smu_feature_set_enabled(smu, FEATURE_DPM_UVD_BIT, enable);
+-}
+-
+-static int smu_v11_0_dpm_set_vce_enable(struct smu_context *smu, bool enable)
+-{
+-	if (!smu_feature_is_supported(smu, FEATURE_DPM_VCE_BIT))
+-		return 0;
+-
+-	if (enable == smu_feature_is_enabled(smu, FEATURE_DPM_VCE_BIT))
+-		return 0;
+-
+-	return smu_feature_set_enabled(smu, FEATURE_DPM_VCE_BIT, enable);
+-}
+-
+ static int smu_v11_0_get_current_rpm(struct smu_context *smu,
+ 				     uint32_t *current_rpm)
+ {
+@@ -1918,8 +1896,6 @@ static const struct smu_funcs smu_v11_0_funcs = {
+ 	.get_mclk = smu_v11_0_dpm_get_mclk,
+ 	.set_od8_default_settings = smu_v11_0_set_od8_default_settings,
+ 	.update_od8_settings = smu_v11_0_update_od8_settings,
+-	.dpm_set_uvd_enable = smu_v11_0_dpm_set_uvd_enable,
+-	.dpm_set_vce_enable = smu_v11_0_dpm_set_vce_enable,
+ 	.get_current_rpm = smu_v11_0_get_current_rpm,
+ 	.get_fan_control_mode = smu_v11_0_get_fan_control_mode,
+ 	.set_fan_control_mode = smu_v11_0_set_fan_control_mode,
+diff --git a/drivers/gpu/drm/amd/powerplay/vega20_ppt.c b/drivers/gpu/drm/amd/powerplay/vega20_ppt.c
+index 10a70f8c7e9b..31c104233323 100644
+--- a/drivers/gpu/drm/amd/powerplay/vega20_ppt.c
++++ b/drivers/gpu/drm/amd/powerplay/vega20_ppt.c
+@@ -2599,6 +2599,28 @@ static int vega20_odn_edit_dpm_table(struct smu_context *smu,
+ 	return ret;
+ }
+ 
++static int vega20_dpm_set_uvd_enable(struct smu_context *smu, bool enable)
++{
++	if (!smu_feature_is_supported(smu, FEATURE_DPM_UVD_BIT))
++		return 0;
++
++	if (enable == smu_feature_is_enabled(smu, FEATURE_DPM_UVD_BIT))
++		return 0;
++
++	return smu_feature_set_enabled(smu, FEATURE_DPM_UVD_BIT, enable);
++}
++
++static int vega20_dpm_set_vce_enable(struct smu_context *smu, bool enable)
++{
++	if (!smu_feature_is_supported(smu, FEATURE_DPM_VCE_BIT))
++		return 0;
++
++	if (enable == smu_feature_is_enabled(smu, FEATURE_DPM_VCE_BIT))
++		return 0;
++
++	return smu_feature_set_enabled(smu, FEATURE_DPM_VCE_BIT, enable);
++}
++
+ static int vega20_get_enabled_smc_features(struct smu_context *smu,
+ 		uint64_t *features_enabled)
+ {
+@@ -2775,6 +2797,8 @@ static const struct pptable_funcs vega20_ppt_funcs = {
+ 	.update_specified_od8_value = vega20_update_specified_od8_value,
+ 	.set_od_percentage = vega20_set_od_percentage,
+ 	.od_edit_dpm_table = vega20_odn_edit_dpm_table,
++	.dpm_set_uvd_enable = vega20_dpm_set_uvd_enable,
++	.dpm_set_vce_enable = vega20_dpm_set_vce_enable,
+ 	.pre_display_config_changed = vega20_pre_display_config_changed,
+ 	.display_config_changed = vega20_display_config_changed,
+ 	.apply_clocks_adjust_rules = vega20_apply_clocks_adjust_rules,
+-- 
+2.17.1
+

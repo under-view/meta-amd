@@ -1,0 +1,35 @@
+From 3ac1a787f88c23208b8ae818d55983a632562493 Mon Sep 17 00:00:00 2001
+From: =?UTF-8?q?Christian=20K=C3=B6nig?= <christian.koenig@amd.com>
+Date: Tue, 14 Aug 2018 09:41:12 +0200
+Subject: [PATCH 0704/2940] drm/scheduler: trivial error handling fix
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+Return -ENOMEM when allocating the rq_list fails.
+
+Signed-off-by: Christian König <christian.koenig@amd.com>
+Reviewed-by: Huang Rui <ray.huang@amd.com>
+Reviewed-by: Andrey Grodzovsky <andrey.grodzovsky@amd.com>
+Signed-off-by: Alex Deucher <alexander.deucher@amd.com>
+---
+ drivers/gpu/drm/scheduler/gpu_scheduler.c | 3 +++
+ 1 file changed, 3 insertions(+)
+
+diff --git a/drivers/gpu/drm/scheduler/gpu_scheduler.c b/drivers/gpu/drm/scheduler/gpu_scheduler.c
+index cf88f8346ccc..1f65ede2b20e 100644
+--- a/drivers/gpu/drm/scheduler/gpu_scheduler.c
++++ b/drivers/gpu/drm/scheduler/gpu_scheduler.c
+@@ -191,6 +191,9 @@ int drm_sched_entity_init(struct drm_sched_entity *entity,
+ 	entity->num_rq_list = num_rq_list;
+ 	entity->rq_list = kcalloc(num_rq_list, sizeof(struct drm_sched_rq *),
+ 				GFP_KERNEL);
++	if (!entity->rq_list)
++		return -ENOMEM;
++
+ 	for (i = 0; i < num_rq_list; ++i)
+ 		entity->rq_list[i] = rq_list[i];
+ 	entity->last_scheduled = NULL;
+-- 
+2.17.1
+

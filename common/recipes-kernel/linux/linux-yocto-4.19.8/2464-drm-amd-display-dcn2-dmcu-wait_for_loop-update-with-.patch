@@ -1,0 +1,41 @@
+From 0f9c764d01eb89acc4acd777ab3149a198a2c211 Mon Sep 17 00:00:00 2001
+From: Charlene Liu <charlene.liu@amd.com>
+Date: Thu, 9 May 2019 13:04:07 -0400
+Subject: [PATCH 2464/2940] drm/amd/display: dcn2 dmcu wait_for_loop update
+ with dispclk.
+
+[Description]
+DMUB is using DPREF CLK, but DMCU still use displayclk.
+This is for updating DMCU wait_for_loop after display clock change.
+
+Signed-off-by: Charlene Liu <charlene.liu@amd.com>
+Reviewed-by: Krunoslav Kovac <Krunoslav.Kovac@amd.com>
+Acked-by: Leo Li <sunpeng.li@amd.com>
+Signed-off-by: Alex Deucher <alexander.deucher@amd.com>
+---
+ drivers/gpu/drm/amd/display/dc/clk_mgr/dcn20/dcn20_clk_mgr.c | 2 ++
+ 1 file changed, 2 insertions(+)
+
+diff --git a/drivers/gpu/drm/amd/display/dc/clk_mgr/dcn20/dcn20_clk_mgr.c b/drivers/gpu/drm/amd/display/dc/clk_mgr/dcn20/dcn20_clk_mgr.c
+index 9d0336a5f83f..ca3e40053978 100644
+--- a/drivers/gpu/drm/amd/display/dc/clk_mgr/dcn20/dcn20_clk_mgr.c
++++ b/drivers/gpu/drm/amd/display/dc/clk_mgr/dcn20/dcn20_clk_mgr.c
+@@ -175,6 +175,7 @@ void dcn2_update_clocks(struct clk_mgr *clk_mgr_base,
+ 	bool update_dispclk = false;
+ 	bool enter_display_off = false;
+ 	bool dpp_clock_lowered = false;
++	struct dmcu *dmcu = clk_mgr_base->ctx->dc->res_pool->dmcu;
+ 
+ 	display_count = get_active_display_cnt(dc, context);
+ 	if (dc->res_pool->pp_smu)
+@@ -357,6 +358,7 @@ void dcn20_clk_mgr_construct(
+ 		 * this works because the int part is on the right edge of the register
+ 		 * and the frac part is on the left edge
+ 		 */
++
+ 		pll_req = dc_fixpt_from_int(pll_req_reg & clk_mgr->clk_mgr_mask->FbMult_int);
+ 		pll_req.value |= pll_req_reg & clk_mgr->clk_mgr_mask->FbMult_frac;
+ 
+-- 
+2.17.1
+

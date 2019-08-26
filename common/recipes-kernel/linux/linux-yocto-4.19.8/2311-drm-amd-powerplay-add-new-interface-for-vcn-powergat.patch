@@ -1,0 +1,89 @@
+From 173b1b5b3e235bccb9ebbf8bfd5387720fbf4245 Mon Sep 17 00:00:00 2001
+From: Kenneth Feng <kenneth.feng@amd.com>
+Date: Thu, 18 Apr 2019 10:00:48 +0800
+Subject: [PATCH 2311/2940] drm/amd/powerplay: add new interface for vcn
+ powergating
+
+add new interface for vcn powrergating and vcn dpm as well.
+
+Signed-off-by: Kenneth Feng <kenneth.feng@amd.com>
+Signed-off-by: Jack Xiao <Jack.Xiao@amd.com>
+Reviewed-by: Alex Deucher <alexander.deucher@amd.com>
+Reviewed-by: Huang Rui <ray.huang@amd.com>
+Signed-off-by: Alex Deucher <alexander.deucher@amd.com>
+---
+ .../gpu/drm/amd/powerplay/inc/amdgpu_smu.h    |  4 +++
+ drivers/gpu/drm/amd/powerplay/navi10_ppt.c    | 28 +++++++++++++++++++
+ 2 files changed, 32 insertions(+)
+
+diff --git a/drivers/gpu/drm/amd/powerplay/inc/amdgpu_smu.h b/drivers/gpu/drm/amd/powerplay/inc/amdgpu_smu.h
+index 5fdf983d6dc6..8ab9d259b453 100644
+--- a/drivers/gpu/drm/amd/powerplay/inc/amdgpu_smu.h
++++ b/drivers/gpu/drm/amd/powerplay/inc/amdgpu_smu.h
+@@ -224,6 +224,10 @@ enum smu_message_type
+ 	SMU_MSG_PrepareMp1ForShutdown,
+ 	SMU_MSG_SetMGpuFanBoostLimitRpm,
+ 	SMU_MSG_GetAVFSVoltageByDpm,
++	SMU_MSG_PowerUpVcn,
++	SMU_MSG_PowerDownVcn,
++	SMU_MSG_PowerUpJpeg,
++	SMU_MSG_PowerDownJpeg,
+ 	SMU_MSG_MAX_COUNT,
+ };
+ 
+diff --git a/drivers/gpu/drm/amd/powerplay/navi10_ppt.c b/drivers/gpu/drm/amd/powerplay/navi10_ppt.c
+index 7fc7fd7c2fa0..e0d02a2458c5 100644
+--- a/drivers/gpu/drm/amd/powerplay/navi10_ppt.c
++++ b/drivers/gpu/drm/amd/powerplay/navi10_ppt.c
+@@ -97,6 +97,10 @@ static int navi10_message_map[SMU_MSG_MAX_COUNT] = {
+ 	MSG_MAP(ExitBaco,			PPSMC_MSG_ExitBaco),
+ 	MSG_MAP(PrepareMp1ForReset,		PPSMC_MSG_PrepareMp1ForReset),
+ 	MSG_MAP(PrepareMp1ForShutdown,		PPSMC_MSG_PrepareMp1ForShutdown),
++	MSG_MAP(PowerUpVcn,		PPSMC_MSG_PowerUpVcn),
++	MSG_MAP(PowerDownVcn,		PPSMC_MSG_PowerDownVcn),
++	MSG_MAP(PowerUpJpeg,		PPSMC_MSG_PowerUpJpeg),
++	MSG_MAP(PowerDownJpeg,		PPSMC_MSG_PowerDownJpeg),
+ };
+ 
+ static int navi10_clk_map[SMU_CLK_COUNT] = {
+@@ -470,6 +474,29 @@ static int navi10_set_default_dpm_table(struct smu_context *smu)
+ 	return 0;
+ }
+ 
++static int navi10_dpm_set_uvd_enable(struct smu_context *smu, bool enable)
++{
++	int ret = 0;
++	struct smu_power_context *smu_power = &smu->smu_power;
++	struct smu_power_gate *power_gate = &smu_power->power_gate;
++
++	if (enable && power_gate->uvd_gated) {
++		ret = smu_send_smc_msg_with_param(smu, SMU_MSG_PowerUpVcn, 1);
++		if (ret)
++			return ret;
++		power_gate->uvd_gated = false;
++	} else {
++		if (!enable && !power_gate->uvd_gated) {
++			ret = smu_send_smc_msg(smu, SMU_MSG_PowerDownVcn);
++			if (ret)
++				return ret;
++			power_gate->uvd_gated = true;
++		}
++	}
++
++	return 0;
++}
++
+ static const struct pptable_funcs navi10_ppt_funcs = {
+ 	.tables_init = navi10_tables_init,
+ 	.alloc_dpm_context = navi10_allocate_dpm_context,
+@@ -483,6 +510,7 @@ static const struct pptable_funcs navi10_ppt_funcs = {
+ 	.get_smu_power_index= navi10_get_pwr_src_index,
+ 	.get_allowed_feature_mask = navi10_get_allowed_feature_mask,
+ 	.set_default_dpm_table = navi10_set_default_dpm_table,
++	.dpm_set_uvd_enable = navi10_dpm_set_uvd_enable,
+ };
+ 
+ void navi10_set_ppt_funcs(struct smu_context *smu)
+-- 
+2.17.1
+

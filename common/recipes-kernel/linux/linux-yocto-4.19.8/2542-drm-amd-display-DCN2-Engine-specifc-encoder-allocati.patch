@@ -1,0 +1,37 @@
+From 69f76fed5dbd48a68f2a06a9015fc0e58346f333 Mon Sep 17 00:00:00 2001
+From: Wesley Chalmers <Wesley.Chalmers@amd.com>
+Date: Wed, 24 Apr 2019 15:25:41 -0400
+Subject: [PATCH 2542/2940] drm/amd/display: DCN2 Engine-specifc encoder
+ allocation
+
+[WHY]
+From DCE110 onward, we have the ability to assign DIG BE and FE
+separately for any display connector type; before, we could only do this
+for DP.
+
+Signed-off-by: Wesley Chalmers <Wesley.Chalmers@amd.com>
+Reviewed-by: Tony Cheng <Tony.Cheng@amd.com>
+Acked-by: Bhawanpreet Lakha <Bhawanpreet.Lakha@amd.com>
+Signed-off-by: Alex Deucher <alexander.deucher@amd.com>
+---
+ drivers/gpu/drm/amd/display/dc/dcn20/dcn20_resource.c | 3 ++-
+ 1 file changed, 2 insertions(+), 1 deletion(-)
+
+diff --git a/drivers/gpu/drm/amd/display/dc/dcn20/dcn20_resource.c b/drivers/gpu/drm/amd/display/dc/dcn20/dcn20_resource.c
+index ac65794c7fa6..8b4853dd4fd4 100644
+--- a/drivers/gpu/drm/amd/display/dc/dcn20/dcn20_resource.c
++++ b/drivers/gpu/drm/amd/display/dc/dcn20/dcn20_resource.c
+@@ -2446,8 +2446,9 @@ static struct resource_funcs dcn20_res_pool_funcs = {
+ 	.set_mcif_arb_params = dcn20_set_mcif_arb_params,
+ #ifdef CONFIG_DRM_AMD_DC_DSC_SUPPORT
+ 	.add_dsc_to_stream_resource = dcn20_add_dsc_to_stream_resource,
+-	.remove_dsc_from_stream_resource = dcn20_remove_dsc_from_stream_resource
++	.remove_dsc_from_stream_resource = dcn20_remove_dsc_from_stream_resource,
+ #endif
++	.find_first_free_match_stream_enc_for_link = dce110_find_first_free_match_stream_enc_for_link
+ };
+ 
+ bool dcn20_dwbc_create(struct dc_context *ctx, struct resource_pool *pool)
+-- 
+2.17.1
+

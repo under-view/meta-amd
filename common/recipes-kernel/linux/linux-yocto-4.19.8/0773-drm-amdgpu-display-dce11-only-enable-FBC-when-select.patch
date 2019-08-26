@@ -1,0 +1,32 @@
+From 2648793f970bff906fe7dd1d9260d007c5ca1437 Mon Sep 17 00:00:00 2001
+From: Alex Deucher <alexander.deucher@amd.com>
+Date: Fri, 2 Nov 2018 10:54:27 -0500
+Subject: [PATCH 0773/2940] drm/amdgpu/display/dce11: only enable FBC when
+ selected
+
+Causes a black screen on a Stoney laptop.
+
+Bug: https://bugs.freedesktop.org/show_bug.cgi?id=108577
+Reviewed-by: Harry Wentland <harry.wentland@amd.com>
+Signed-off-by: Alex Deucher <alexander.deucher@amd.com>
+---
+ drivers/gpu/drm/amd/display/dc/dce110/dce110_resource.c | 3 ++-
+ 1 file changed, 2 insertions(+), 1 deletion(-)
+
+diff --git a/drivers/gpu/drm/amd/display/dc/dce110/dce110_resource.c b/drivers/gpu/drm/amd/display/dc/dce110/dce110_resource.c
+index 1a90e1a38055..e33d11785b1f 100644
+--- a/drivers/gpu/drm/amd/display/dc/dce110/dce110_resource.c
++++ b/drivers/gpu/drm/amd/display/dc/dce110/dce110_resource.c
+@@ -1354,7 +1354,8 @@ static bool construct(
+ 		pool->base.sw_i2cs[i] = NULL;
+ 	}
+ 
+-	dc->fbc_compressor = dce110_compressor_create(ctx);
++	if (dc->config.fbc_support)
++		dc->fbc_compressor = dce110_compressor_create(ctx);
+ 
+ 	if (!underlay_create(ctx, &pool->base))
+ 		goto res_create_fail;
+-- 
+2.17.1
+

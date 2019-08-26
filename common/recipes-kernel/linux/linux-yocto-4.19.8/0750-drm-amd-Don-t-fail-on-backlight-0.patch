@@ -1,0 +1,65 @@
+From bc59d9d97142b3ecd7102adba9f17dca171d0411 Mon Sep 17 00:00:00 2001
+From: David Francis <David.Francis@amd.com>
+Date: Tue, 6 Nov 2018 11:06:04 -0500
+Subject: [PATCH 0750/2940] drm/amd: Don't fail on backlight = 0
+
+Amgpu's backlight update status function was
+returning 1 (an error value) when the backlight
+property was 0.  This breaks users that assume
+0 is a valid backlight value (which is a
+correct assumption)
+
+If the user passes in a backlight value of 0,
+tell them everything is fine, then write a value of
+1 to hardware.
+
+Signed-off-by: David Francis <David.Francis@amd.com>
+Bugzilla: https://bugs.freedesktop.org/108668
+Fixes: 416615ea9578 ("drm/amd/display: set backlight level limit to 1")
+Cc: Suresh.Guttula@amd.com
+Cc: Harry.Wentland@amd.com
+Cc: Samantham@posteo.net
+Signed-off-by: Alex Deucher <alexander.deucher@amd.com>
+---
+ .../gpu/drm/amd/display/amdgpu_dm/amdgpu_dm.c  | 18 ++++++++++--------
+ 1 file changed, 10 insertions(+), 8 deletions(-)
+
+diff --git a/drivers/gpu/drm/amd/display/amdgpu_dm/amdgpu_dm.c b/drivers/gpu/drm/amd/display/amdgpu_dm/amdgpu_dm.c
+index 9f13e65ed5f0..4f8dcde5dbe7 100644
+--- a/drivers/gpu/drm/amd/display/amdgpu_dm/amdgpu_dm.c
++++ b/drivers/gpu/drm/amd/display/amdgpu_dm/amdgpu_dm.c
+@@ -1572,21 +1572,23 @@ static int amdgpu_dm_backlight_update_status(struct backlight_device *bd)
+ {
+ 	struct amdgpu_display_manager *dm = bl_get_data(bd);
+ 
++	/* backlight_pwm_u16_16 parameter is in unsigned 32 bit, 16 bit integer
++	 * and 16 bit fractional, where 1.0 is max backlight value.
++	 * bd->props.brightness is 8 bit format and needs to be converted by
++	 * scaling via copy lower byte to upper byte of 16 bit value.
++	 */
++	uint32_t brightness = bd->props.brightness * 0x101;
++
+ 	/*
+ 	 * PWM interperts 0 as 100% rather than 0% because of HW
+-	 * limitation for level 0.So limiting minimum brightness level
++	 * limitation for level 0.  So limiting minimum brightness level
+ 	 * to 1.
+ 	 */
+ 	if (bd->props.brightness < 1)
+-		return 1;
++		brightness = 0x101;
+ 
+-	/* backlight_pwm_u16_16 parameter is in unsigned 32 bit, 16 bit integer
+-	 * and 16 bit fractional, where 1.0 is max backlight value.
+-	 * bd->props.brightness is 8 bit format and needs to be converted by
+-	 * scaling via copy lower byte to upper byte of 16 bit value.
+-	 */
+ 	if (dc_link_set_backlight_level(dm->backlight_link,
+-			(bd->props.brightness * 0x101), 0, 0))
++			brightness, 0, 0))
+ 		return 0;
+ 	else
+ 		return 1;
+-- 
+2.17.1
+

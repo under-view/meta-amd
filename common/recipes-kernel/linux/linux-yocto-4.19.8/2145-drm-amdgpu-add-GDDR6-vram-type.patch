@@ -1,0 +1,28 @@
+From cb0a6090ff8a1623ec42d7e76a2c0aeaec7d7aaf Mon Sep 17 00:00:00 2001
+From: Huang Rui <ray.huang@amd.com>
+Date: Tue, 18 Jul 2017 18:59:24 +0800
+Subject: [PATCH 2145/2940] drm/amdgpu: add GDDR6 vram type
+
+Signed-off-by: Huang Rui <ray.huang@amd.com>
+Reviewed-by: Alex Deucher <alexander.deucher@amd.com>
+Reviewed-by: Hawking Zhang <Hawking.Zhang@amd.com>
+Signed-off-by: Alex Deucher <alexander.deucher@amd.com>
+---
+ include/uapi/drm/amdgpu_drm.h | 1 +
+ 1 file changed, 1 insertion(+)
+
+diff --git a/include/uapi/drm/amdgpu_drm.h b/include/uapi/drm/amdgpu_drm.h
+index 694337ff6112..09d68e9ea75a 100644
+--- a/include/uapi/drm/amdgpu_drm.h
++++ b/include/uapi/drm/amdgpu_drm.h
+@@ -988,6 +988,7 @@ struct drm_amdgpu_info_firmware {
+ #define AMDGPU_VRAM_TYPE_HBM   6
+ #define AMDGPU_VRAM_TYPE_DDR3  7
+ #define AMDGPU_VRAM_TYPE_DDR4  8
++#define AMDGPU_VRAM_TYPE_GDDR6 9
+ 
+ #define AMDGPU_VRAM_TYPE_HBM_WIDTH 4096
+ 
+-- 
+2.17.1
+

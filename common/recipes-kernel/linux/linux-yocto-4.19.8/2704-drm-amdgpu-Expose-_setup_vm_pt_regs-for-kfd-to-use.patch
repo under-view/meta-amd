@@ -1,0 +1,115 @@
+From 7bd0ed9370c69998b553f3b83c1f1d5177e3977e Mon Sep 17 00:00:00 2001
+From: Yong Zhao <Yong.Zhao@amd.com>
+Date: Fri, 12 Oct 2018 15:22:46 -0400
+Subject: [PATCH 2704/2940] drm/amdgpu: Expose *_setup_vm_pt_regs for kfd to
+ use
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+kfd has the same need to set the VM page table base register, so expose
+them for kfd to use for better maintainability.
+
+Signed-off-by: Yong Zhao <Yong.Zhao@amd.com>
+Reviewed-by: Alex Deucher <alexander.deucher@amd.com>
+Reviewed-by: Felix Kuehling <Felix.Kuehling@amd.com>
+Reviewed-by: Christian König <christian.koenig@amd.com>
+Signed-off-by: Alex Deucher <alexander.deucher@amd.com>
+---
+ drivers/gpu/drm/amd/amdgpu/gfxhub_v1_0.c | 19 ++++++++++++-------
+ drivers/gpu/drm/amd/amdgpu/gmc_v9_0.h    |  6 ++++++
+ drivers/gpu/drm/amd/amdgpu/mmhub_v1_0.c  | 19 ++++++++++++-------
+ 3 files changed, 30 insertions(+), 14 deletions(-)
+
+diff --git a/drivers/gpu/drm/amd/amdgpu/gfxhub_v1_0.c b/drivers/gpu/drm/amd/amdgpu/gfxhub_v1_0.c
+index 20ddb1874bfb..9ffda0b3573e 100644
+--- a/drivers/gpu/drm/amd/amdgpu/gfxhub_v1_0.c
++++ b/drivers/gpu/drm/amd/amdgpu/gfxhub_v1_0.c
+@@ -35,20 +35,25 @@ u64 gfxhub_v1_0_get_mc_fb_offset(struct amdgpu_device *adev)
+ 	return (u64)RREG32_SOC15(GC, 0, mmMC_VM_FB_OFFSET) << 24;
+ }
+ 
+-static void gfxhub_v1_0_init_gart_pt_regs(struct amdgpu_device *adev)
++void gfxhub_v1_0_setup_vm_pt_regs(struct amdgpu_device *adev, uint32_t vmid,
++				uint64_t page_table_base)
+ {
+-	uint64_t value = amdgpu_gmc_pd_addr(adev->gart.bo);
++	/* two registers distance between mmVM_CONTEXT0_* to mmVM_CONTEXT1_* */
++	int offset = mmVM_CONTEXT1_PAGE_TABLE_BASE_ADDR_LO32
++			- mmVM_CONTEXT0_PAGE_TABLE_BASE_ADDR_LO32;
+ 
+-	WREG32_SOC15(GC, 0, mmVM_CONTEXT0_PAGE_TABLE_BASE_ADDR_LO32,
+-		     lower_32_bits(value));
++	WREG32_SOC15_OFFSET(GC, 0, mmVM_CONTEXT0_PAGE_TABLE_BASE_ADDR_LO32,
++				offset * vmid, lower_32_bits(page_table_base));
+ 
+-	WREG32_SOC15(GC, 0, mmVM_CONTEXT0_PAGE_TABLE_BASE_ADDR_HI32,
+-		     upper_32_bits(value));
++	WREG32_SOC15_OFFSET(GC, 0, mmVM_CONTEXT0_PAGE_TABLE_BASE_ADDR_HI32,
++				offset * vmid, upper_32_bits(page_table_base));
+ }
+ 
+ static void gfxhub_v1_0_init_gart_aperture_regs(struct amdgpu_device *adev)
+ {
+-	gfxhub_v1_0_init_gart_pt_regs(adev);
++	uint64_t pt_base = amdgpu_gmc_pd_addr(adev->gart.bo);
++
++	gfxhub_v1_0_setup_vm_pt_regs(adev, 0, pt_base);
+ 
+ 	WREG32_SOC15(GC, 0, mmVM_CONTEXT0_PAGE_TABLE_START_ADDR_LO32,
+ 		     (u32)(adev->gmc.gart_start >> 12));
+diff --git a/drivers/gpu/drm/amd/amdgpu/gmc_v9_0.h b/drivers/gpu/drm/amd/amdgpu/gmc_v9_0.h
+index 5c8deac65580..dc9a401fe997 100644
+--- a/drivers/gpu/drm/amd/amdgpu/gmc_v9_0.h
++++ b/drivers/gpu/drm/amd/amdgpu/gmc_v9_0.h
+@@ -37,4 +37,10 @@
+ extern const struct amd_ip_funcs gmc_v9_0_ip_funcs;
+ extern const struct amdgpu_ip_block_version gmc_v9_0_ip_block;
+ 
++/* amdgpu_amdkfd*.c */
++void gfxhub_v1_0_setup_vm_pt_regs(struct amdgpu_device *adev, uint32_t vmid,
++				uint64_t page_table_base);
++void mmhub_v1_0_setup_vm_pt_regs(struct amdgpu_device *adev, uint32_t vmid,
++				uint64_t page_table_base);
++
+ #endif
+diff --git a/drivers/gpu/drm/amd/amdgpu/mmhub_v1_0.c b/drivers/gpu/drm/amd/amdgpu/mmhub_v1_0.c
+index 4cd2e3b7c82d..34bd6606ba94 100644
+--- a/drivers/gpu/drm/amd/amdgpu/mmhub_v1_0.c
++++ b/drivers/gpu/drm/amd/amdgpu/mmhub_v1_0.c
+@@ -52,20 +52,25 @@ u64 mmhub_v1_0_get_fb_location(struct amdgpu_device *adev)
+ 	return base;
+ }
+ 
+-static void mmhub_v1_0_init_gart_pt_regs(struct amdgpu_device *adev)
++void mmhub_v1_0_setup_vm_pt_regs(struct amdgpu_device *adev, uint32_t vmid,
++				uint64_t page_table_base)
+ {
+-	uint64_t value = amdgpu_gmc_pd_addr(adev->gart.bo);
++	/* two registers distance between mmVM_CONTEXT0_* to mmVM_CONTEXT1_* */
++	int offset = mmVM_CONTEXT1_PAGE_TABLE_BASE_ADDR_LO32
++			- mmVM_CONTEXT0_PAGE_TABLE_BASE_ADDR_LO32;
+ 
+-	WREG32_SOC15(MMHUB, 0, mmVM_CONTEXT0_PAGE_TABLE_BASE_ADDR_LO32,
+-		     lower_32_bits(value));
++	WREG32_SOC15_OFFSET(MMHUB, 0, mmVM_CONTEXT0_PAGE_TABLE_BASE_ADDR_LO32,
++			offset * vmid, lower_32_bits(page_table_base));
+ 
+-	WREG32_SOC15(MMHUB, 0, mmVM_CONTEXT0_PAGE_TABLE_BASE_ADDR_HI32,
+-		     upper_32_bits(value));
++	WREG32_SOC15_OFFSET(MMHUB, 0, mmVM_CONTEXT0_PAGE_TABLE_BASE_ADDR_HI32,
++			offset * vmid, upper_32_bits(page_table_base));
+ }
+ 
+ static void mmhub_v1_0_init_gart_aperture_regs(struct amdgpu_device *adev)
+ {
+-	mmhub_v1_0_init_gart_pt_regs(adev);
++	uint64_t pt_base = amdgpu_gmc_pd_addr(adev->gart.bo);
++
++	mmhub_v1_0_setup_vm_pt_regs(adev, 0, pt_base);
+ 
+ 	WREG32_SOC15(MMHUB, 0, mmVM_CONTEXT0_PAGE_TABLE_START_ADDR_LO32,
+ 		     (u32)(adev->gmc.gart_start >> 12));
+-- 
+2.17.1
+

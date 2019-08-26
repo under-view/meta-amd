@@ -1,0 +1,348 @@
+From 852132541a4e58e318d38827b973f00f7bb9f409 Mon Sep 17 00:00:00 2001
+From: hersen wu <hersenxs.wu@amd.com>
+Date: Wed, 28 Nov 2018 16:55:47 -0500
+Subject: [PATCH 0920/2940] drm/amd/powerplay: rv dal-pplib interface refactor
+ powerplay part
+
+[WHY] clarify dal input parameters to pplib interface, remove
+un-used parameters. dal knows exactly which parameters needed
+and their effects at pplib and smu sides.
+
+current dal sequence for dcn1_update_clock to pplib:
+
+1.smu10_display_clock_voltage_request for dcefclk
+2.smu10_display_clock_voltage_request for fclk
+3.phm_store_dal_configuration_data {
+  set_min_deep_sleep_dcfclk
+  set_active_display_count
+  store_cc6_data --- this data never be referenced
+
+new sequence will be:
+
+1. set_display_count  --- need add new pplib interface
+2. set_min_deep_sleep_dcfclk -- new pplib interface
+3. set_hard_min_dcfclk_by_freq
+4. set_hard_min_fclk_by_freq
+
+after this code refactor, smu10_display_clock_voltage_request,
+phm_store_dal_configuration_data will not be needed for rv.
+
+[HOW] step 1: add new functions at pplib interface
+      step 2: add new functions at amdgpu dm and dc
+
+Signed-off-by: hersen wu <hersenxs.wu@amd.com>
+Reviewed-by: Rex Zhu <Rex.Zhu@amd.com>
+Signed-off-by: Alex Deucher <alexander.deucher@amd.com>
+---
+ .../gpu/drm/amd/include/kgd_pp_interface.h    |  4 +
+ drivers/gpu/drm/amd/powerplay/amd_powerplay.c | 82 ++++++++++++++++++-
+ .../drm/amd/powerplay/hwmgr/hardwaremanager.c | 45 +++++++++-
+ .../gpu/drm/amd/powerplay/hwmgr/smu10_hwmgr.c | 36 +++++++-
+ .../drm/amd/powerplay/inc/hardwaremanager.h   |  3 +
+ drivers/gpu/drm/amd/powerplay/inc/hwmgr.h     |  4 +-
+ 6 files changed, 165 insertions(+), 9 deletions(-)
+
+diff --git a/drivers/gpu/drm/amd/include/kgd_pp_interface.h b/drivers/gpu/drm/amd/include/kgd_pp_interface.h
+index 980e696989b1..1479ea1dc3e7 100644
+--- a/drivers/gpu/drm/amd/include/kgd_pp_interface.h
++++ b/drivers/gpu/drm/amd/include/kgd_pp_interface.h
+@@ -276,6 +276,10 @@ struct amd_pm_funcs {
+ 		struct amd_pp_simple_clock_info *clocks);
+ 	int (*notify_smu_enable_pwe)(void *handle);
+ 	int (*enable_mgpu_fan_boost)(void *handle);
++	int (*set_active_display_count)(void *handle, uint32_t count);
++	int (*set_hard_min_dcefclk_by_freq)(void *handle, uint32_t clock);
++	int (*set_hard_min_fclk_by_freq)(void *handle, uint32_t clock);
++	int (*set_min_deep_sleep_dcefclk)(void *handle, uint32_t clock);
+ };
+ 
+ #endif
+diff --git a/drivers/gpu/drm/amd/powerplay/amd_powerplay.c b/drivers/gpu/drm/amd/powerplay/amd_powerplay.c
+index b68c2e0fef01..9bc27f468d5b 100644
+--- a/drivers/gpu/drm/amd/powerplay/amd_powerplay.c
++++ b/drivers/gpu/drm/amd/powerplay/amd_powerplay.c
+@@ -725,7 +725,7 @@ static int pp_dpm_force_clock_level(void *handle,
+ 	}
+ 
+ 	if (hwmgr->dpm_level != AMD_DPM_FORCED_LEVEL_MANUAL) {
+-		pr_info("force clock level is for dpm manual mode only.\n");
++		pr_debug("force clock level is for dpm manual mode only.\n");
+ 		return -EINVAL;
+ 	}
+ 
+@@ -899,7 +899,7 @@ static int pp_set_power_profile_mode(void *handle, long *input, uint32_t size)
+ 	}
+ 
+ 	if (hwmgr->dpm_level != AMD_DPM_FORCED_LEVEL_MANUAL) {
+-		pr_info("power profile setting is for manual dpm mode only.\n");
++		pr_debug("power profile setting is for manual dpm mode only.\n");
+ 		return ret;
+ 	}
+ 
+@@ -1072,7 +1072,7 @@ static int pp_get_current_clocks(void *handle,
+ 					&hw_clocks, PHM_PerformanceLevelDesignation_Activity);
+ 
+ 	if (ret) {
+-		pr_info("Error in phm_get_clock_info \n");
++		pr_debug("Error in phm_get_clock_info \n");
+ 		mutex_unlock(&hwmgr->smu_lock);
+ 		return -EINVAL;
+ 	}
+@@ -1332,6 +1332,78 @@ static int pp_enable_mgpu_fan_boost(void *handle)
+ 	return 0;
+ }
+ 
++static int pp_set_min_deep_sleep_dcefclk(void *handle, uint32_t clock)
++{
++	struct pp_hwmgr *hwmgr = handle;
++
++	if (!hwmgr || !hwmgr->pm_en)
++		return -EINVAL;
++
++	if (hwmgr->hwmgr_func->set_min_deep_sleep_dcefclk == NULL) {
++		pr_debug("%s was not implemented.\n", __func__);
++		return -EINVAL;;
++	}
++
++	mutex_lock(&hwmgr->smu_lock);
++	hwmgr->hwmgr_func->set_min_deep_sleep_dcefclk(hwmgr, clock);
++	mutex_unlock(&hwmgr->smu_lock);
++
++	return 0;
++}
++
++static int pp_set_hard_min_dcefclk_by_freq(void *handle, uint32_t clock)
++{
++	struct pp_hwmgr *hwmgr = handle;
++
++	if (!hwmgr || !hwmgr->pm_en)
++		return -EINVAL;
++
++	if (hwmgr->hwmgr_func->set_hard_min_dcefclk_by_freq == NULL) {
++		pr_debug("%s was not implemented.\n", __func__);
++		return -EINVAL;;
++	}
++
++	mutex_lock(&hwmgr->smu_lock);
++	hwmgr->hwmgr_func->set_hard_min_dcefclk_by_freq(hwmgr, clock);
++	mutex_unlock(&hwmgr->smu_lock);
++
++	return 0;
++}
++
++static int pp_set_hard_min_fclk_by_freq(void *handle, uint32_t clock)
++{
++	struct pp_hwmgr *hwmgr = handle;
++
++	if (!hwmgr || !hwmgr->pm_en)
++		return -EINVAL;
++
++	if (hwmgr->hwmgr_func->set_hard_min_fclk_by_freq == NULL) {
++		pr_debug("%s was not implemented.\n", __func__);
++		return -EINVAL;;
++	}
++
++	mutex_lock(&hwmgr->smu_lock);
++	hwmgr->hwmgr_func->set_hard_min_fclk_by_freq(hwmgr, clock);
++	mutex_unlock(&hwmgr->smu_lock);
++
++	return 0;
++}
++
++static int pp_set_active_display_count(void *handle, uint32_t count)
++{
++	struct pp_hwmgr *hwmgr = handle;
++	int ret = 0;
++
++	if (!hwmgr || !hwmgr->pm_en)
++		return -EINVAL;
++
++	mutex_lock(&hwmgr->smu_lock);
++	ret = phm_set_active_display_count(hwmgr, count);
++	mutex_unlock(&hwmgr->smu_lock);
++
++	return ret;
++}
++
+ static const struct amd_pm_funcs pp_dpm_funcs = {
+ 	.load_firmware = pp_dpm_load_fw,
+ 	.wait_for_fw_loading_complete = pp_dpm_fw_loading_complete,
+@@ -1378,4 +1450,8 @@ static const struct amd_pm_funcs pp_dpm_funcs = {
+ 	.get_display_mode_validation_clocks = pp_get_display_mode_validation_clocks,
+ 	.notify_smu_enable_pwe = pp_notify_smu_enable_pwe,
+ 	.enable_mgpu_fan_boost = pp_enable_mgpu_fan_boost,
++	.set_active_display_count = pp_set_active_display_count,
++	.set_min_deep_sleep_dcefclk = pp_set_min_deep_sleep_dcefclk,
++	.set_hard_min_dcefclk_by_freq = pp_set_hard_min_dcefclk_by_freq,
++	.set_hard_min_fclk_by_freq = pp_set_hard_min_fclk_by_freq,
+ };
+diff --git a/drivers/gpu/drm/amd/powerplay/hwmgr/hardwaremanager.c b/drivers/gpu/drm/amd/powerplay/hwmgr/hardwaremanager.c
+index a2a7e0e94aa6..1f92a9f4c9e3 100644
+--- a/drivers/gpu/drm/amd/powerplay/hwmgr/hardwaremanager.c
++++ b/drivers/gpu/drm/amd/powerplay/hwmgr/hardwaremanager.c
+@@ -288,8 +288,8 @@ int phm_store_dal_configuration_data(struct pp_hwmgr *hwmgr,
+ 	if (display_config == NULL)
+ 		return -EINVAL;
+ 
+-	if (NULL != hwmgr->hwmgr_func->set_deep_sleep_dcefclk)
+-		hwmgr->hwmgr_func->set_deep_sleep_dcefclk(hwmgr, display_config->min_dcef_deep_sleep_set_clk);
++	if (NULL != hwmgr->hwmgr_func->set_min_deep_sleep_dcefclk)
++		hwmgr->hwmgr_func->set_min_deep_sleep_dcefclk(hwmgr, display_config->min_dcef_deep_sleep_set_clk);
+ 
+ 	for (index = 0; index < display_config->num_path_including_non_display; index++) {
+ 		if (display_config->displays[index].controller_id != 0)
+@@ -480,3 +480,44 @@ int phm_disable_smc_firmware_ctf(struct pp_hwmgr *hwmgr)
+ 
+ 	return hwmgr->hwmgr_func->disable_smc_firmware_ctf(hwmgr);
+ }
++
++int phm_set_active_display_count(struct pp_hwmgr *hwmgr, uint32_t count)
++{
++	PHM_FUNC_CHECK(hwmgr);
++
++	if (!hwmgr->hwmgr_func->set_active_display_count)
++		return -EINVAL;
++
++	return hwmgr->hwmgr_func->set_active_display_count(hwmgr, count);
++}
++
++int phm_set_min_deep_sleep_dcefclk(struct pp_hwmgr *hwmgr, uint32_t clock)
++{
++	PHM_FUNC_CHECK(hwmgr);
++
++	if (!hwmgr->hwmgr_func->set_min_deep_sleep_dcefclk)
++		return -EINVAL;
++
++	return hwmgr->hwmgr_func->set_min_deep_sleep_dcefclk(hwmgr, clock);
++}
++
++int phm_set_hard_min_dcefclk_by_freq(struct pp_hwmgr *hwmgr, uint32_t clock)
++{
++	PHM_FUNC_CHECK(hwmgr);
++
++	if (!hwmgr->hwmgr_func->set_hard_min_dcefclk_by_freq)
++		return -EINVAL;
++
++	return hwmgr->hwmgr_func->set_hard_min_dcefclk_by_freq(hwmgr, clock);
++}
++
++int phm_set_hard_min_fclk_by_freq(struct pp_hwmgr *hwmgr, uint32_t clock)
++{
++	PHM_FUNC_CHECK(hwmgr);
++
++	if (!hwmgr->hwmgr_func->set_hard_min_fclk_by_freq)
++		return -EINVAL;
++
++	return hwmgr->hwmgr_func->set_hard_min_fclk_by_freq(hwmgr, clock);
++}
++
+diff --git a/drivers/gpu/drm/amd/powerplay/hwmgr/smu10_hwmgr.c b/drivers/gpu/drm/amd/powerplay/hwmgr/smu10_hwmgr.c
+index dd18cb710391..f95c5f50eb0f 100644
+--- a/drivers/gpu/drm/amd/powerplay/hwmgr/smu10_hwmgr.c
++++ b/drivers/gpu/drm/amd/powerplay/hwmgr/smu10_hwmgr.c
+@@ -216,12 +216,12 @@ static inline uint32_t convert_10k_to_mhz(uint32_t clock)
+ 	return (clock + 99) / 100;
+ }
+ 
+-static int smu10_set_deep_sleep_dcefclk(struct pp_hwmgr *hwmgr, uint32_t clock)
++static int smu10_set_min_deep_sleep_dcefclk(struct pp_hwmgr *hwmgr, uint32_t clock)
+ {
+ 	struct smu10_hwmgr *smu10_data = (struct smu10_hwmgr *)(hwmgr->backend);
+ 
+ 	if (smu10_data->need_min_deep_sleep_dcefclk &&
+-	    smu10_data->deep_sleep_dcefclk != convert_10k_to_mhz(clock)) {
++		smu10_data->deep_sleep_dcefclk != convert_10k_to_mhz(clock)) {
+ 		smu10_data->deep_sleep_dcefclk = convert_10k_to_mhz(clock);
+ 		smum_send_msg_to_smc_with_parameter(hwmgr,
+ 					PPSMC_MSG_SetMinDeepSleepDcefclk,
+@@ -230,6 +230,34 @@ static int smu10_set_deep_sleep_dcefclk(struct pp_hwmgr *hwmgr, uint32_t clock)
+ 	return 0;
+ }
+ 
++static int smu10_set_hard_min_dcefclk_by_freq(struct pp_hwmgr *hwmgr, uint32_t clock)
++{
++	struct smu10_hwmgr *smu10_data = (struct smu10_hwmgr *)(hwmgr->backend);
++
++	if (smu10_data->dcf_actual_hard_min_freq &&
++		smu10_data->dcf_actual_hard_min_freq != convert_10k_to_mhz(clock)) {
++		smu10_data->dcf_actual_hard_min_freq = convert_10k_to_mhz(clock);
++		smum_send_msg_to_smc_with_parameter(hwmgr,
++					PPSMC_MSG_SetHardMinDcefclkByFreq,
++					smu10_data->dcf_actual_hard_min_freq);
++	}
++	return 0;
++}
++
++static int smu10_set_hard_min_fclk_by_freq(struct pp_hwmgr *hwmgr, uint32_t clock)
++{
++	struct smu10_hwmgr *smu10_data = (struct smu10_hwmgr *)(hwmgr->backend);
++
++	if (smu10_data->f_actual_hard_min_freq &&
++		smu10_data->f_actual_hard_min_freq != convert_10k_to_mhz(clock)) {
++		smu10_data->f_actual_hard_min_freq = convert_10k_to_mhz(clock);
++		smum_send_msg_to_smc_with_parameter(hwmgr,
++					PPSMC_MSG_SetHardMinFclkByFreq,
++					smu10_data->f_actual_hard_min_freq);
++	}
++	return 0;
++}
++
+ static int smu10_set_active_display_count(struct pp_hwmgr *hwmgr, uint32_t count)
+ {
+ 	struct smu10_hwmgr *smu10_data = (struct smu10_hwmgr *)(hwmgr->backend);
+@@ -1206,7 +1234,7 @@ static const struct pp_hwmgr_func smu10_hwmgr_funcs = {
+ 	.get_max_high_clocks = smu10_get_max_high_clocks,
+ 	.read_sensor = smu10_read_sensor,
+ 	.set_active_display_count = smu10_set_active_display_count,
+-	.set_deep_sleep_dcefclk = smu10_set_deep_sleep_dcefclk,
++	.set_min_deep_sleep_dcefclk = smu10_set_min_deep_sleep_dcefclk,
+ 	.dynamic_state_management_enable = smu10_enable_dpm_tasks,
+ 	.power_off_asic = smu10_power_off_asic,
+ 	.asic_setup = smu10_setup_asic_task,
+@@ -1217,6 +1245,8 @@ static const struct pp_hwmgr_func smu10_hwmgr_funcs = {
+ 	.display_clock_voltage_request = smu10_display_clock_voltage_request,
+ 	.powergate_gfx = smu10_gfx_off_control,
+ 	.powergate_sdma = smu10_powergate_sdma,
++	.set_hard_min_dcefclk_by_freq = smu10_set_hard_min_dcefclk_by_freq,
++	.set_hard_min_fclk_by_freq = smu10_set_hard_min_fclk_by_freq,
+ };
+ 
+ int smu10_init_function_pointers(struct pp_hwmgr *hwmgr)
+diff --git a/drivers/gpu/drm/amd/powerplay/inc/hardwaremanager.h b/drivers/gpu/drm/amd/powerplay/inc/hardwaremanager.h
+index 54fd0125d9cf..f4dab979a3a1 100644
+--- a/drivers/gpu/drm/amd/powerplay/inc/hardwaremanager.h
++++ b/drivers/gpu/drm/amd/powerplay/inc/hardwaremanager.h
+@@ -463,5 +463,8 @@ extern int phm_display_clock_voltage_request(struct pp_hwmgr *hwmgr,
+ 
+ extern int phm_get_max_high_clocks(struct pp_hwmgr *hwmgr, struct amd_pp_simple_clock_info *clocks);
+ extern int phm_disable_smc_firmware_ctf(struct pp_hwmgr *hwmgr);
++
++extern int phm_set_active_display_count(struct pp_hwmgr *hwmgr, uint32_t count);
++
+ #endif /* _HARDWARE_MANAGER_H_ */
+ 
+diff --git a/drivers/gpu/drm/amd/powerplay/inc/hwmgr.h b/drivers/gpu/drm/amd/powerplay/inc/hwmgr.h
+index fb0f96f7cdbc..0d298a0409f5 100644
+--- a/drivers/gpu/drm/amd/powerplay/inc/hwmgr.h
++++ b/drivers/gpu/drm/amd/powerplay/inc/hwmgr.h
+@@ -309,7 +309,7 @@ struct pp_hwmgr_func {
+ 	int (*avfs_control)(struct pp_hwmgr *hwmgr, bool enable);
+ 	int (*disable_smc_firmware_ctf)(struct pp_hwmgr *hwmgr);
+ 	int (*set_active_display_count)(struct pp_hwmgr *hwmgr, uint32_t count);
+-	int (*set_deep_sleep_dcefclk)(struct pp_hwmgr *hwmgr, uint32_t clock);
++	int (*set_min_deep_sleep_dcefclk)(struct pp_hwmgr *hwmgr, uint32_t clock);
+ 	int (*start_thermal_controller)(struct pp_hwmgr *hwmgr, struct PP_TemperatureRange *range);
+ 	int (*notify_cac_buffer_info)(struct pp_hwmgr *hwmgr,
+ 					uint32_t virtual_addr_low,
+@@ -332,6 +332,8 @@ struct pp_hwmgr_func {
+ 	int (*smus_notify_pwe)(struct pp_hwmgr *hwmgr);
+ 	int (*powergate_sdma)(struct pp_hwmgr *hwmgr, bool bgate);
+ 	int (*enable_mgpu_fan_boost)(struct pp_hwmgr *hwmgr);
++	int (*set_hard_min_dcefclk_by_freq)(struct pp_hwmgr *hwmgr, uint32_t clock);
++	int (*set_hard_min_fclk_by_freq)(struct pp_hwmgr *hwmgr, uint32_t clock);
+ };
+ 
+ struct pp_table_func {
+-- 
+2.17.1
+

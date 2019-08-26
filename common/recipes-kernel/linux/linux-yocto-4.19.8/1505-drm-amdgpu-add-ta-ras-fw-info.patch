@@ -1,0 +1,54 @@
+From 694eb56b352fade03ffcc5c8a070944b9160af01 Mon Sep 17 00:00:00 2001
+From: xinhui pan <xinhui.pan@amd.com>
+Date: Tue, 20 Nov 2018 10:32:00 +0800
+Subject: [PATCH 1505/2940] drm/amdgpu: add ta ras fw info
+
+Add ras fw part, xgmi and ras fw are combined together in ta binary.
+Reading the data from the info is not implemented yet.
+
+Signed-off-by: xinhui pan <xinhui.pan@amd.com>
+Reviewed-by: Alex Deucher <alexander.deucher@amd.com>
+---
+ drivers/gpu/drm/amd/amdgpu/amdgpu_psp.h | 4 ++++
+ drivers/gpu/drm/amd/amdgpu/psp_v11_0.c  | 7 +++++++
+ 2 files changed, 11 insertions(+)
+
+diff --git a/drivers/gpu/drm/amd/amdgpu/amdgpu_psp.h b/drivers/gpu/drm/amd/amdgpu/amdgpu_psp.h
+index 2ef98cc755d6..49c3942e469c 100644
+--- a/drivers/gpu/drm/amd/amdgpu/amdgpu_psp.h
++++ b/drivers/gpu/drm/amd/amdgpu/amdgpu_psp.h
+@@ -150,9 +150,13 @@ struct psp_context
+ 
+ 	/* xgmi ta firmware and buffer */
+ 	const struct firmware		*ta_fw;
++	uint32_t			ta_fw_version;
+ 	uint32_t			ta_xgmi_ucode_version;
+ 	uint32_t			ta_xgmi_ucode_size;
+ 	uint8_t				*ta_xgmi_start_addr;
++	uint32_t			ta_ras_ucode_version;
++	uint32_t			ta_ras_ucode_size;
++	uint8_t				*ta_ras_start_addr;
+ 	struct psp_xgmi_context		xgmi_context;
+ };
+ 
+diff --git a/drivers/gpu/drm/amd/amdgpu/psp_v11_0.c b/drivers/gpu/drm/amd/amdgpu/psp_v11_0.c
+index 15a29e2bcb22..0a94b0cef144 100644
+--- a/drivers/gpu/drm/amd/amdgpu/psp_v11_0.c
++++ b/drivers/gpu/drm/amd/amdgpu/psp_v11_0.c
+@@ -125,6 +125,13 @@ static int psp_v11_0_init_microcode(struct psp_context *psp)
+ 			le32_to_cpu(ta_hdr->header.ucode_array_offset_bytes);
+ 	}
+ 
++	adev->psp.ta_fw_version = le32_to_cpu(ta_hdr->header.ucode_version);
++
++	adev->psp.ta_ras_ucode_version = le32_to_cpu(ta_hdr->ta_ras_ucode_version);
++	adev->psp.ta_ras_ucode_size = le32_to_cpu(ta_hdr->ta_ras_size_bytes);
++	adev->psp.ta_ras_start_addr = (uint8_t *)adev->psp.ta_xgmi_start_addr +
++		le32_to_cpu(ta_hdr->ta_ras_offset_bytes);
++
+ 	return 0;
+ 
+ out2:
+-- 
+2.17.1
+

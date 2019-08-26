@@ -1,0 +1,40 @@
+From 609842ba18fa87c0567bd56a644d23d8ee8ee5a0 Mon Sep 17 00:00:00 2001
+From: "Kuehling, Felix" <Felix.Kuehling@amd.com>
+Date: Tue, 28 May 2019 15:29:03 -0400
+Subject: [PATCH 2050/2940] mm/hmm.c: only set FAULT_FLAG_ALLOW_RETRY for
+ non-blocking
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+Don't set this flag by default in hmm_vma_do_fault. It is set
+conditionally just a few lines below. Setting it unconditionally
+can lead to handle_mm_fault doing a non-blocking fault, returning
+-EBUSY and unlocking mmap_sem unexpectedly.
+
+Link: http://lkml.kernel.org/r/20190510195258.9930-3-Felix.Kuehling@amd.com
+Signed-off-by: Felix Kuehling <Felix.Kuehling@amd.com>
+Reviewed-by: Jérôme Glisse <jglisse@redhat.com>
+Cc: Alex Deucher <alex.deucher@amd.com>
+Cc: Dave Airlie <airlied@gmail.com>
+Signed-off-by: Andrew Morton <akpm@linux-foundation.org>
+---
+ mm/hmm.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/mm/hmm.c b/mm/hmm.c
+index 4609bde6997e..5f5e3217491c 100644
+--- a/mm/hmm.c
++++ b/mm/hmm.c
+@@ -331,7 +331,7 @@ struct hmm_vma_walk {
+ static int hmm_vma_do_fault(struct mm_walk *walk, unsigned long addr,
+ 			    bool write_fault, uint64_t *pfn)
+ {
+-	unsigned int flags = FAULT_FLAG_ALLOW_RETRY | FAULT_FLAG_REMOTE;
++	unsigned int flags = FAULT_FLAG_REMOTE;
+ 	struct hmm_vma_walk *hmm_vma_walk = walk->private;
+ 	struct hmm_range *range = hmm_vma_walk->range;
+ 	struct vm_area_struct *vma = walk->vma;
+-- 
+2.17.1
+

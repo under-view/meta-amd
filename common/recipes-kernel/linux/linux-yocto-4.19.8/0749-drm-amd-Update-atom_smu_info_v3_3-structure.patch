@@ -1,0 +1,43 @@
+From 8c650c2129f6405905e21c43d020332fcdd46afe Mon Sep 17 00:00:00 2001
+From: Leo Li <sunpeng.li@amd.com>
+Date: Tue, 30 Oct 2018 15:09:08 -0400
+Subject: [PATCH 0749/2940] drm/amd: Update atom_smu_info_v3_3 structure
+
+Mainly adding the WAFL spread spectrum info, for adjusting display
+clocks when XGMI is enabled.
+
+Signed-off-by: Leo Li <sunpeng.li@amd.com>
+Acked-by: Alex Deucher <alexander.deucher@amd.com>
+Signed-off-by: Alex Deucher <alexander.deucher@amd.com>
+---
+ drivers/gpu/drm/amd/include/atomfirmware.h | 7 +++++--
+ 1 file changed, 5 insertions(+), 2 deletions(-)
+
+diff --git a/drivers/gpu/drm/amd/include/atomfirmware.h b/drivers/gpu/drm/amd/include/atomfirmware.h
+index d2e7c0fa96c2..8eb0bb241210 100644
+--- a/drivers/gpu/drm/amd/include/atomfirmware.h
++++ b/drivers/gpu/drm/amd/include/atomfirmware.h
+@@ -1325,7 +1325,7 @@ struct atom_smu_info_v3_3 {
+   struct   atom_common_table_header  table_header;
+   uint8_t  smuip_min_ver;
+   uint8_t  smuip_max_ver;
+-  uint8_t  smu_rsd1;
++  uint8_t  waflclk_ss_mode;
+   uint8_t  gpuclk_ss_mode;
+   uint16_t sclk_ss_percentage;
+   uint16_t sclk_ss_rate_10hz;
+@@ -1355,7 +1355,10 @@ struct atom_smu_info_v3_3 {
+   uint32_t syspll3_1_vco_freq_10khz;
+   uint32_t bootup_fclk_10khz;
+   uint32_t bootup_waflclk_10khz;
+-  uint32_t reserved[3];
++  uint32_t smu_info_caps;
++  uint16_t waflclk_ss_percentage;    // in unit of 0.001%
++  uint16_t smuinitoffset;
++  uint32_t reserved;
+ };
+ 
+ /*
+-- 
+2.17.1
+

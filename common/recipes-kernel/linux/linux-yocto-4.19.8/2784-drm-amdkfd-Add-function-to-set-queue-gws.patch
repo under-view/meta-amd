@@ -1,0 +1,134 @@
+From 3535ffc356a59e592fad7c042996898625cef842 Mon Sep 17 00:00:00 2001
+From: Oak Zeng <Oak.Zeng@amd.com>
+Date: Mon, 6 May 2019 21:31:52 -0500
+Subject: [PATCH 2784/2940] drm/amdkfd: Add function to set queue gws
+
+Add functions in process queue manager to
+set/unset queue gws. Also set process's number
+of gws used. Currently only one queue in
+process can use and use all gws.
+
+Change-Id: I03e480c8692db3eabfc3a188cce8904d5d962ab7
+Signed-off-by: Oak Zeng <Oak.Zeng@amd.com>
+Reviewed-by: Felix Kuehling <Felix.Kuehling@amd.com>
+---
+ drivers/gpu/drm/amd/amdkfd/kfd_priv.h         |  6 ++
+ .../amd/amdkfd/kfd_process_queue_manager.c    | 57 +++++++++++++++++++
+ 2 files changed, 63 insertions(+)
+
+diff --git a/drivers/gpu/drm/amd/amdkfd/kfd_priv.h b/drivers/gpu/drm/amd/amdkfd/kfd_priv.h
+index f9417f834072..964f8c20cea3 100644
+--- a/drivers/gpu/drm/amd/amdkfd/kfd_priv.h
++++ b/drivers/gpu/drm/amd/amdkfd/kfd_priv.h
+@@ -559,6 +559,9 @@ struct queue_properties {
+  *
+  * @device: The kfd device that created this queue.
+  *
++ * @gws: Pointing to gws kgd_mem if this is a gws control queue; NULL
++ * otherwise.
++ *
+  * This structure represents user mode compute queues.
+  * It contains all the necessary data to handle such queues.
+  *
+@@ -580,6 +583,7 @@ struct queue {
+ 
+ 	struct kfd_process	*process;
+ 	struct kfd_dev		*device;
++	void *gws;
+ };
+ 
+ /*
+@@ -1032,6 +1036,8 @@ int pqm_update_queue(struct process_queue_manager *pqm, unsigned int qid,
+ 			struct queue_properties *p);
+ int pqm_set_cu_mask(struct process_queue_manager *pqm, unsigned int qid,
+ 			struct queue_properties *p);
++int pqm_set_gws(struct process_queue_manager *pqm, unsigned int qid,
++			void *gws);
+ struct kernel_queue *pqm_get_kernel_queue(struct process_queue_manager *pqm,
+ 						unsigned int qid);
+ int pqm_get_wave_state(struct process_queue_manager *pqm,
+diff --git a/drivers/gpu/drm/amd/amdkfd/kfd_process_queue_manager.c b/drivers/gpu/drm/amd/amdkfd/kfd_process_queue_manager.c
+index e652e25ede75..c2c570e6e54f 100644
+--- a/drivers/gpu/drm/amd/amdkfd/kfd_process_queue_manager.c
++++ b/drivers/gpu/drm/amd/amdkfd/kfd_process_queue_manager.c
+@@ -26,6 +26,7 @@
+ #include "kfd_device_queue_manager.h"
+ #include "kfd_priv.h"
+ #include "kfd_kernel_queue.h"
++#include "amdgpu_amdkfd.h"
+ 
+ static inline struct process_queue_node *get_queue_by_qid(
+ 			struct process_queue_manager *pqm, unsigned int qid)
+@@ -74,6 +75,55 @@ void kfd_process_dequeue_from_device(struct kfd_process_device *pdd)
+ 	pdd->already_dequeued = true;
+ }
+ 
++int pqm_set_gws(struct process_queue_manager *pqm, unsigned int qid,
++			void *gws)
++{
++	struct kfd_dev *dev = NULL;
++	struct process_queue_node *pqn;
++	struct kfd_process_device *pdd;
++	struct kgd_mem *mem = NULL;
++	int ret;
++
++	pqn = get_queue_by_qid(pqm, qid);
++	if (!pqn) {
++		pr_err("Queue id does not match any known queue\n");
++		return -EINVAL;
++	}
++
++	if (pqn->q)
++		dev = pqn->q->device;
++	if (WARN_ON(!dev))
++		return -ENODEV;
++
++	pdd = kfd_get_process_device_data(dev, pqm->process);
++	if (!pdd) {
++		pr_err("Process device data doesn't exist\n");
++		return -EINVAL;
++	}
++
++	/* Only allow one queue per process can have GWS assigned */
++	if (gws && pdd->qpd.num_gws)
++		return -EINVAL;
++
++	if (!gws && pdd->qpd.num_gws == 0)
++		return -EINVAL;
++
++	if (gws)
++		ret = amdgpu_amdkfd_add_gws_to_process(pdd->process->kgd_process_info,
++			gws, &mem);
++	else
++		ret = amdgpu_amdkfd_remove_gws_from_process(pdd->process->kgd_process_info,
++			pqn->q->gws);
++	if (unlikely(ret))
++		return ret;
++
++	pqn->q->gws = mem;
++	pdd->qpd.num_gws = gws ? amdgpu_amdkfd_get_num_gws(dev->kgd) : 0;
++
++	return pqn->q->device->dqm->ops.update_queue(pqn->q->device->dqm,
++							pqn->q);
++}
++
+ void kfd_process_dequeue_from_all_devices(struct kfd_process *p)
+ {
+ 	struct kfd_process_device *pdd;
+@@ -330,6 +380,13 @@ int pqm_destroy_queue(struct process_queue_manager *pqm, unsigned int qid)
+ 			if (retval != -ETIME)
+ 				goto err_destroy_queue;
+ 		}
++
++		if (pqn->q->gws) {
++			amdgpu_amdkfd_remove_gws_from_process(pqm->process->kgd_process_info,
++				pqn->q->gws);
++			pdd->qpd.num_gws = 0;
++		}
++
+ 		kfree(pqn->q->properties.cu_mask);
+ 		pqn->q->properties.cu_mask = NULL;
+ 		uninit_queue(pqn->q);
+-- 
+2.17.1
+

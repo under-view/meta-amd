@@ -1,0 +1,42 @@
+From b690e15f6cecfd9e1dda90875e37539b2d5f71e6 Mon Sep 17 00:00:00 2001
+From: Likun Gao <Likun.Gao@amd.com>
+Date: Fri, 4 Jan 2019 15:40:53 +0800
+Subject: [PATCH 1404/2940] drm/amd/powerplay: add function to set fan table to
+ control thermal
+
+Add function of smu_v11_0_set_thermal_fan_table to set fan table for
+smu11.
+
+Signed-off-by: Likun Gao <Likun.Gao@amd.com>
+Acked-by: Alex Deucher <alexander.deucher@amd.com>
+Reviewed-by: Huang Rui <ray.huang@amd.com>
+---
+ drivers/gpu/drm/amd/powerplay/smu_v11_0.c | 12 ++++++++++++
+ 1 file changed, 12 insertions(+)
+
+diff --git a/drivers/gpu/drm/amd/powerplay/smu_v11_0.c b/drivers/gpu/drm/amd/powerplay/smu_v11_0.c
+index 59e84581f449..55e9ed64f715 100644
+--- a/drivers/gpu/drm/amd/powerplay/smu_v11_0.c
++++ b/drivers/gpu/drm/amd/powerplay/smu_v11_0.c
+@@ -951,6 +951,18 @@ static int smu_v11_0_enable_thermal_alert(struct smu_context *smu)
+ 	return 0;
+ }
+ 
++static int smu_v11_0_set_thermal_fan_table(struct smu_context *smu)
++{
++	int ret;
++	struct smu_table_context *table_context = &smu->smu_table;
++	PPTable_t *pptable = table_context->driver_pptable;
++
++	ret = smu_send_smc_msg_with_param(smu, SMU_MSG_SetFanTemperatureTarget,
++			(uint32_t)pptable->FanTargetTemperature);
++
++	return ret;
++}
++
+ static const struct smu_funcs smu_v11_0_funcs = {
+ 	.init_microcode = smu_v11_0_init_microcode,
+ 	.load_microcode = smu_v11_0_load_microcode,
+-- 
+2.17.1
+

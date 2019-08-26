@@ -1,0 +1,105 @@
+From e94d1b9dc4a2d57d84c30b2662120ce4b8577e68 Mon Sep 17 00:00:00 2001
+From: Jim Qu <Jim.Qu@amd.com>
+Date: Wed, 7 Nov 2018 12:29:39 +0800
+Subject: [PATCH 1097/2940] drm/amdgpu: use BACO reset if platform support (v2)
+
+It will fall back to use mode1 reset if platform does not support BACO
+feature.
+
+v2: squash in warning fix (Alex)
+
+Signed-off-by: Jim Qu <Jim.Qu@amd.com>
+Reviewed-by: Alex Deucher <alexander.deucher@amd.com>
+Reviewed-by: Hawking Zhang <Hawking.Zhang@amd.com>
+Signed-off-by: Alex Deucher <alexander.deucher@amd.com>
+---
+ drivers/gpu/drm/amd/amdgpu/soc15.c | 61 ++++++++++++++++++++++++++++--
+ 1 file changed, 58 insertions(+), 3 deletions(-)
+
+diff --git a/drivers/gpu/drm/amd/amdgpu/soc15.c b/drivers/gpu/drm/amd/amdgpu/soc15.c
+index 4e560593859f..41a4455e2c98 100644
+--- a/drivers/gpu/drm/amd/amdgpu/soc15.c
++++ b/drivers/gpu/drm/amd/amdgpu/soc15.c
+@@ -389,14 +389,13 @@ void soc15_program_register_sequence(struct amdgpu_device *adev,
+ 
+ }
+ 
+-
+-static int soc15_asic_reset(struct amdgpu_device *adev)
++static int soc15_asic_mode1_reset(struct amdgpu_device *adev)
+ {
+ 	u32 i;
+ 
+ 	amdgpu_atombios_scratch_regs_engine_hung(adev, true);
+ 
+-	dev_info(adev->dev, "GPU reset\n");
++	dev_info(adev->dev, "GPU mode1 reset\n");
+ 
+ 	/* disable BM */
+ 	pci_clear_master(adev->pdev);
+@@ -421,6 +420,62 @@ static int soc15_asic_reset(struct amdgpu_device *adev)
+ 	return 0;
+ }
+ 
++static int soc15_asic_get_baco_capability(struct amdgpu_device *adev, bool *cap)
++{
++	void *pp_handle = adev->powerplay.pp_handle;
++	const struct amd_pm_funcs *pp_funcs = adev->powerplay.pp_funcs;
++
++	if (!pp_funcs || !pp_funcs->get_asic_baco_capability) {
++		*cap = false;
++		return -1;
++	}
++
++	return pp_funcs->get_asic_baco_capability(pp_handle, cap);
++}
++
++static int soc15_asic_baco_reset(struct amdgpu_device *adev)
++{
++	void *pp_handle = adev->powerplay.pp_handle;
++	const struct amd_pm_funcs *pp_funcs = adev->powerplay.pp_funcs;
++
++	if (!pp_funcs ||!pp_funcs->get_asic_baco_state ||!pp_funcs->set_asic_baco_state)
++		return -1;
++
++	/* enter BACO state */
++	if (pp_funcs->set_asic_baco_state(pp_handle, 1))
++		return -1;
++
++	/* exit BACO state */
++	if (pp_funcs->set_asic_baco_state(pp_handle, 0))
++		return -1;
++
++	dev_info(adev->dev, "GPU BACO reset\n");
++
++	return 0;
++}
++
++static int soc15_asic_reset(struct amdgpu_device *adev)
++{
++	int ret;
++	bool baco_reset;
++
++	switch (adev->asic_type) {
++	case CHIP_VEGA10:
++		soc15_asic_get_baco_capability(adev, &baco_reset);
++		break;
++	default:
++		baco_reset = false;
++		break;
++	}
++
++	if (baco_reset)
++		ret = soc15_asic_baco_reset(adev);
++	else
++		ret = soc15_asic_mode1_reset(adev);
++
++	return ret;
++}
++
+ /*static int soc15_set_uvd_clock(struct amdgpu_device *adev, u32 clock,
+ 			u32 cntl_reg, u32 status_reg)
+ {
+-- 
+2.17.1
+

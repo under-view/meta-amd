@@ -1,0 +1,89 @@
+From 23d7a488e4c126fd9f4bc1fae696288df0d14270 Mon Sep 17 00:00:00 2001
+From: Likun Gao <Likun.Gao@amd.com>
+Date: Fri, 11 Jan 2019 17:42:47 +0800
+Subject: [PATCH 1436/2940] drm/amd/powerplay: add golden dpm table to backup
+ default DPM table (v2)
+
+Backup default DPM table into golden dpm table.
+
+v2: fix dpm_context and golden_dpm_context kfree two times issue.
+
+Signed-off-by: Likun Gao <Likun.Gao@amd.com>
+Reviewed-by: Kevin Wang <kevin1.wang@amd.com>
+Reviewed-by: Evan Quan <evan.quan@amd.com>
+Acked-by: Alex Deucher <alexander.deucher@amd.com>
+---
+ drivers/gpu/drm/amd/powerplay/inc/amdgpu_smu.h |  3 ++-
+ drivers/gpu/drm/amd/powerplay/smu_v11_0.c      |  2 ++
+ drivers/gpu/drm/amd/powerplay/vega20_ppt.c     | 14 ++++++++++++++
+ 3 files changed, 18 insertions(+), 1 deletion(-)
+
+diff --git a/drivers/gpu/drm/amd/powerplay/inc/amdgpu_smu.h b/drivers/gpu/drm/amd/powerplay/inc/amdgpu_smu.h
+index 635c8b8e6d8d..9e376eea847d 100644
+--- a/drivers/gpu/drm/amd/powerplay/inc/amdgpu_smu.h
++++ b/drivers/gpu/drm/amd/powerplay/inc/amdgpu_smu.h
+@@ -201,8 +201,9 @@ struct smu_table_context
+ };
+ 
+ struct smu_dpm_context {
+-	void *dpm_context;
+ 	uint32_t dpm_context_size;
++	void *dpm_context;
++	void *golden_dpm_context;
+ };
+ 
+ struct smu_power_context {
+diff --git a/drivers/gpu/drm/amd/powerplay/smu_v11_0.c b/drivers/gpu/drm/amd/powerplay/smu_v11_0.c
+index 037d900c450c..534319f24eb0 100644
+--- a/drivers/gpu/drm/amd/powerplay/smu_v11_0.c
++++ b/drivers/gpu/drm/amd/powerplay/smu_v11_0.c
+@@ -272,7 +272,9 @@ static int smu_v11_0_fini_dpm_context(struct smu_context *smu)
+ 		return -EINVAL;
+ 
+ 	kfree(smu_dpm->dpm_context);
++	kfree(smu_dpm->golden_dpm_context);
+ 	smu_dpm->dpm_context = NULL;
++	smu_dpm->golden_dpm_context = NULL;
+ 	smu_dpm->dpm_context_size = 0;
+ 
+ 	return 0;
+diff --git a/drivers/gpu/drm/amd/powerplay/vega20_ppt.c b/drivers/gpu/drm/amd/powerplay/vega20_ppt.c
+index c398899320d1..aa7f41a59e82 100644
+--- a/drivers/gpu/drm/amd/powerplay/vega20_ppt.c
++++ b/drivers/gpu/drm/amd/powerplay/vega20_ppt.c
+@@ -136,11 +136,22 @@ static int vega20_allocate_dpm_context(struct smu_context *smu)
+ {
+ 	struct smu_dpm_context *smu_dpm = &smu->smu_dpm;
+ 
++	if (smu_dpm->dpm_context)
++		return -EINVAL;
++
+ 	smu_dpm->dpm_context = kzalloc(sizeof(struct vega20_dpm_table),
+ 				       GFP_KERNEL);
+ 	if (!smu_dpm->dpm_context)
+ 		return -ENOMEM;
+ 
++	if (smu_dpm->golden_dpm_context)
++		return -EINVAL;
++
++	smu_dpm->golden_dpm_context = kzalloc(sizeof(struct vega20_dpm_table),
++					      GFP_KERNEL);
++	if (!smu_dpm->golden_dpm_context)
++		return -ENOMEM;
++
+ 	smu_dpm->dpm_context_size = sizeof(struct vega20_dpm_table);
+ 
+ 	return 0;
+@@ -610,6 +621,9 @@ static int vega20_set_default_dpm_table(struct smu_context *smu)
+ 	}
+ 	vega20_init_single_dpm_state(&(single_dpm_table->dpm_state));
+ 
++	memcpy(smu_dpm->golden_dpm_context, dpm_table,
++	       sizeof(struct vega20_dpm_table));
++
+ 	return 0;
+ }
+ 
+-- 
+2.17.1
+

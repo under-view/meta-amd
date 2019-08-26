@@ -1,0 +1,65 @@
+From 69ea1b2e395ec1ccbe830d2f8e41507eed4944c5 Mon Sep 17 00:00:00 2001
+From: Andrey Grodzovsky <andrey.grodzovsky@amd.com>
+Date: Tue, 4 Dec 2018 16:56:14 +0530
+Subject: [PATCH 1282/2940] drm/sched: Refactor ring mirror list handling.
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+    Decauple sched threads stop and start and ring mirror
+    list handling from the policy of what to do about the
+    guilty jobs.
+    When stoppping the sched thread and detaching sched fences
+    from non signaled HW fenes wait for all signaled HW fences
+    to complete before rerunning the jobs.
+
+    v2: Fix resubmission of guilty job into HW after refactoring.
+
+    v4:
+    Full restart for all the jobs, not only from guilty ring.
+    Extract karma increase into standalone function.
+
+    v5:
+    Rework waiting for signaled jobs without relying on the job
+    struct itself as those might already be freed for non 'guilty'
+    job's schedulers.
+    Expose karma increase to drivers.
+
+    v6:
+    Use list_for_each_entry_safe_continue and drm_sched_process_job
+    in case fence already signaled.
+    Call drm_sched_increase_karma only once for amdgpu and add documentation.
+
+    v7:
+    Wait only for the latest job's fence.
+
+    Suggested-by: Christian Koenig <Christian.Koenig@amd.com>
+    Signed-off-by: Andrey Grodzovsky <andrey.grodzovsky@amd.com>
+    Reviewed-by: Christian König <christian.koenig@amd.com>
+    Signed-off-by: Alex Deucher <alexander.deucher@amd.com>
+
+Signed-off-by: Chaudhary Amit Kumar <Chaudharyamit.Kumar@amd.com>
+---
+ drivers/gpu/drm/scheduler/sched_main.c | 5 +----
+ 1 file changed, 1 insertion(+), 4 deletions(-)
+
+diff --git a/drivers/gpu/drm/scheduler/sched_main.c b/drivers/gpu/drm/scheduler/sched_main.c
+index 51f9cc315b55..e97ddef5185e 100644
+--- a/drivers/gpu/drm/scheduler/sched_main.c
++++ b/drivers/gpu/drm/scheduler/sched_main.c
+@@ -687,11 +687,8 @@ static int drm_sched_main(void *param)
+ 				DRM_ERROR("fence add callback failed (%d)\n",
+ 					  r);
+ 			dma_fence_put(fence);
+-		} else {
+-			if (s_fence->finished.error < 0)
+-				drm_sched_expel_job_unlocked(s_job);
++		} else
+ 			drm_sched_process_job(NULL, &sched_job->cb);
+-		}
+ 
+ 		wake_up(&sched->job_scheduled);
+ 	}
+-- 
+2.17.1
+

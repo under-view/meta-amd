@@ -1,0 +1,123 @@
+From 7d8590ac1372909dc1094bc92e36bc8936f490ac Mon Sep 17 00:00:00 2001
+From: Likun Gao <Likun.Gao@amd.com>
+Date: Fri, 4 Jan 2019 16:00:48 +0800
+Subject: [PATCH 1405/2940] drm/amd/powerplay: add function to start thermal
+ control
+
+Add function to start thermal control for smu11 when smu hw_init.
+
+Signed-off-by: Likun Gao <Likun.Gao@amd.com>
+Acked-by: Alex Deucher <alexander.deucher@amd.com>
+Reviewed-by: Huang Rui <ray.huang@amd.com>
+---
+ drivers/gpu/drm/amd/powerplay/amdgpu_smu.c    |  4 +++
+ .../gpu/drm/amd/powerplay/inc/amdgpu_smu.h    |  4 +++
+ drivers/gpu/drm/amd/powerplay/smu_v11_0.c     | 28 +++++++++++++++++++
+ drivers/gpu/drm/amd/powerplay/vega20_ppt.c    |  1 +
+ 4 files changed, 37 insertions(+)
+
+diff --git a/drivers/gpu/drm/amd/powerplay/amdgpu_smu.c b/drivers/gpu/drm/amd/powerplay/amdgpu_smu.c
+index cd04369c652b..172b84480d6c 100644
+--- a/drivers/gpu/drm/amd/powerplay/amdgpu_smu.c
++++ b/drivers/gpu/drm/amd/powerplay/amdgpu_smu.c
+@@ -518,6 +518,10 @@ static int smu_hw_init(void *handle)
+ 	if (ret)
+ 		goto failed;
+ 
++	ret = smu_start_thermal_control(smu);
++	if (ret)
++		goto failed;
++
+ 	mutex_unlock(&smu->mutex);
+ 
+ 	pr_info("SMU is initialized successfully!\n");
+diff --git a/drivers/gpu/drm/amd/powerplay/inc/amdgpu_smu.h b/drivers/gpu/drm/amd/powerplay/inc/amdgpu_smu.h
+index 4d12cd607b1a..fe86a7fdfebf 100644
+--- a/drivers/gpu/drm/amd/powerplay/inc/amdgpu_smu.h
++++ b/drivers/gpu/drm/amd/powerplay/inc/amdgpu_smu.h
+@@ -165,6 +165,7 @@ struct smu_table_context
+ 	uint32_t			table_count;
+ 	struct smu_table		memory_pool;
+ 	uint16_t                        software_shutdown_temp;
++	uint8_t                         thermal_controller_type;
+ };
+ 
+ struct smu_dpm_context {
+@@ -256,6 +257,7 @@ struct smu_funcs
+ 	int (*get_power_limit)(struct smu_context *smu);
+ 	int (*get_current_clk_freq)(struct smu_context *smu, uint32_t clk_id, uint32_t *value);
+ 	int (*init_max_sustainable_clocks)(struct smu_context *smu);
++	int (*start_thermal_control)(struct smu_context *smu);
+ };
+ 
+ #define smu_init_microcode(smu) \
+@@ -338,6 +340,8 @@ struct smu_funcs
+ 	((smu)->funcs->get_current_clk_freq? (smu)->funcs->get_current_clk_freq((smu), (clk_id), (value)) : 0)
+ #define smu_print_clk_levels(smu, type, buf) \
+ 	((smu)->ppt_funcs->print_clk_levels ? (smu)->ppt_funcs->print_clk_levels((smu), (type), (buf)) : 0)
++#define smu_start_thermal_control(smu) \
++	((smu)->funcs->start_thermal_control? (smu)->funcs->start_thermal_control((smu)) : 0)
+ 
+ #define smu_msg_get_index(smu, msg) \
+ 	((smu)->ppt_funcs? ((smu)->ppt_funcs->get_smu_msg_index? (smu)->ppt_funcs->get_smu_msg_index((smu), (msg)) : -EINVAL) : -EINVAL)
+diff --git a/drivers/gpu/drm/amd/powerplay/smu_v11_0.c b/drivers/gpu/drm/amd/powerplay/smu_v11_0.c
+index 55e9ed64f715..8ba6b9f71fdd 100644
+--- a/drivers/gpu/drm/amd/powerplay/smu_v11_0.c
++++ b/drivers/gpu/drm/amd/powerplay/smu_v11_0.c
+@@ -963,6 +963,33 @@ static int smu_v11_0_set_thermal_fan_table(struct smu_context *smu)
+ 	return ret;
+ }
+ 
++static int smu_v11_0_start_thermal_control(struct smu_context *smu)
++{
++	int ret = 0;
++	struct PP_TemperatureRange range;
++	struct amdgpu_device *adev = smu->adev;
++
++	smu_v11_0_get_thermal_range(smu, &range);
++
++	if (smu->smu_table.thermal_controller_type) {
++		ret = smu_v11_0_set_thermal_range(smu, &range);
++		if (ret)
++			return ret;
++
++		ret = smu_v11_0_enable_thermal_alert(smu);
++		if (ret)
++			return ret;
++		ret = smu_v11_0_set_thermal_fan_table(smu);
++		if (ret)
++			return ret;
++	}
++
++	adev->pm.dpm.thermal.min_temp = range.min;
++	adev->pm.dpm.thermal.max_temp = range.max;
++
++	return ret;
++}
++
+ static const struct smu_funcs smu_v11_0_funcs = {
+ 	.init_microcode = smu_v11_0_init_microcode,
+ 	.load_microcode = smu_v11_0_load_microcode,
+@@ -994,6 +1021,7 @@ static const struct smu_funcs smu_v11_0_funcs = {
+ 	.get_power_limit = smu_v11_0_get_power_limit,
+ 	.get_current_clk_freq = smu_v11_0_get_current_clk_freq,
+ 	.init_max_sustainable_clocks = smu_v11_0_init_max_sustainable_clocks,
++	.start_thermal_control = smu_v11_0_start_thermal_control,
+ };
+ 
+ void smu_v11_0_set_smu_funcs(struct smu_context *smu)
+diff --git a/drivers/gpu/drm/amd/powerplay/vega20_ppt.c b/drivers/gpu/drm/amd/powerplay/vega20_ppt.c
+index 45f3276a6fee..171cfc87989d 100644
+--- a/drivers/gpu/drm/amd/powerplay/vega20_ppt.c
++++ b/drivers/gpu/drm/amd/powerplay/vega20_ppt.c
+@@ -160,6 +160,7 @@ static int vega20_store_powerplay_table(struct smu_context *smu)
+ 	       sizeof(PPTable_t));
+ 
+ 	table_context->software_shutdown_temp = powerplay_table->usSoftwareShutdownTemp;
++	table_context->thermal_controller_type = powerplay_table->ucThermalControllerType;
+ 
+ 	return 0;
+ }
+-- 
+2.17.1
+

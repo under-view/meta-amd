@@ -1,0 +1,70 @@
+From 8feb2b6b12e1b325c13afee85535b347db1af9b6 Mon Sep 17 00:00:00 2001
+From: Eric Bernstein <eric.bernstein@amd.com>
+Date: Wed, 13 Feb 2019 17:56:38 -0500
+Subject: [PATCH 1584/2940] drm/amd/display: Free DCN version of stream encoder
+
+Cross a TODO item off the list. Cleanup SIGNAL_TYPE_HDMI_FRL, it's
+not currently supported.
+
+Signed-off-by: Eric Bernstein <eric.bernstein@amd.com>
+Reviewed-by: Dmytro Laktyushkin <Dmytro.Laktyushkin@amd.com>
+Acked-by: Leo Li <sunpeng.li@amd.com>
+---
+ drivers/gpu/drm/amd/display/dc/core/dc_resource.c     | 1 +
+ drivers/gpu/drm/amd/display/dc/dcn10/dcn10_resource.c | 8 +-------
+ drivers/gpu/drm/amd/display/dc/inc/core_types.h       | 1 +
+ 3 files changed, 3 insertions(+), 7 deletions(-)
+
+diff --git a/drivers/gpu/drm/amd/display/dc/core/dc_resource.c b/drivers/gpu/drm/amd/display/dc/core/dc_resource.c
+index a7de8088279c..90c819017806 100644
+--- a/drivers/gpu/drm/amd/display/dc/core/dc_resource.c
++++ b/drivers/gpu/drm/amd/display/dc/core/dc_resource.c
+@@ -260,6 +260,7 @@ bool resource_construct(
+ 			pool->stream_enc_count++;
+ 		}
+ 	}
++
+ 	dc->caps.dynamic_audio = false;
+ 	if (pool->audio_count < pool->stream_enc_count) {
+ 		dc->caps.dynamic_audio = true;
+diff --git a/drivers/gpu/drm/amd/display/dc/dcn10/dcn10_resource.c b/drivers/gpu/drm/amd/display/dc/dcn10/dcn10_resource.c
+index 3d82fdde2edf..e879829a34b9 100644
+--- a/drivers/gpu/drm/amd/display/dc/dcn10/dcn10_resource.c
++++ b/drivers/gpu/drm/amd/display/dc/dcn10/dcn10_resource.c
+@@ -874,10 +874,7 @@ static void destruct(struct dcn10_resource_pool *pool)
+ 
+ 	for (i = 0; i < pool->base.stream_enc_count; i++) {
+ 		if (pool->base.stream_enc[i] != NULL) {
+-			/* TODO: free dcn version of stream encoder once implemented
+-			 * rather than using virtual stream encoder
+-			 */
+-			kfree(pool->base.stream_enc[i]);
++			kfree(DCN10STRENC_FROM_STRENC(pool->base.stream_enc[i]));
+ 			pool->base.stream_enc[i] = NULL;
+ 		}
+ 	}
+@@ -930,9 +927,6 @@ static void destruct(struct dcn10_resource_pool *pool)
+ 		}
+ 	}
+ 
+-	for (i = 0; i < pool->base.stream_enc_count; i++)
+-		kfree(pool->base.stream_enc[i]);
+-
+ 	for (i = 0; i < pool->base.audio_count; i++) {
+ 		if (pool->base.audios[i])
+ 			dce_aud_destroy(&pool->base.audios[i]);
+diff --git a/drivers/gpu/drm/amd/display/dc/inc/core_types.h b/drivers/gpu/drm/amd/display/dc/inc/core_types.h
+index a40ea2251ad5..e86dfb32b99d 100644
+--- a/drivers/gpu/drm/amd/display/dc/inc/core_types.h
++++ b/drivers/gpu/drm/amd/display/dc/inc/core_types.h
+@@ -154,6 +154,7 @@ struct resource_pool {
+ 	unsigned int pipe_count;
+ 	unsigned int underlay_pipe_index;
+ 	unsigned int stream_enc_count;
++
+ 	unsigned int ref_clock_inKhz;
+ 	unsigned int timing_generator_count;
+ 
+-- 
+2.17.1
+

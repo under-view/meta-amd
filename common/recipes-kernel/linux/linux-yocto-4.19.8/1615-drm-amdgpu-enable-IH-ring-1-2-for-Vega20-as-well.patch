@@ -1,0 +1,60 @@
+From 3b80bc7b701e2884cad31e9d797b4cfee6cc5147 Mon Sep 17 00:00:00 2001
+From: =?UTF-8?q?Christian=20K=C3=B6nig?= <christian.koenig@amd.com>
+Date: Mon, 4 Mar 2019 19:59:36 +0100
+Subject: [PATCH 1615/2940] drm/amdgpu: enable IH ring 1&2 for Vega20 as well
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+That doesn't seem to have any negative effects.
+
+Signed-off-by: Christian König <christian.koenig@amd.com>
+Acked-by: Chunming Zhou <david1.zhou@amd.com>
+---
+ drivers/gpu/drm/amd/amdgpu/vega10_ih.c | 30 +++++++++++---------------
+ 1 file changed, 13 insertions(+), 17 deletions(-)
+
+diff --git a/drivers/gpu/drm/amd/amdgpu/vega10_ih.c b/drivers/gpu/drm/amd/amdgpu/vega10_ih.c
+index fa45234f020f..1b2f69a9a24e 100644
+--- a/drivers/gpu/drm/amd/amdgpu/vega10_ih.c
++++ b/drivers/gpu/drm/amd/amdgpu/vega10_ih.c
+@@ -469,23 +469,19 @@ static int vega10_ih_sw_init(void *handle)
+ 	adev->irq.ih.use_doorbell = true;
+ 	adev->irq.ih.doorbell_index = adev->doorbell_index.ih << 1;
+ 
+-	if (adev->asic_type == CHIP_VEGA10) {
+-		r = amdgpu_ih_ring_init(adev, &adev->irq.ih1, PAGE_SIZE, true);
+-		if (r)
+-			return r;
+-
+-		adev->irq.ih1.use_doorbell = true;
+-		adev->irq.ih1.doorbell_index =
+-			(adev->doorbell_index.ih + 1) << 1;
+-
+-		r = amdgpu_ih_ring_init(adev, &adev->irq.ih2, PAGE_SIZE, true);
+-		if (r)
+-			return r;
+-
+-		adev->irq.ih2.use_doorbell = true;
+-		adev->irq.ih2.doorbell_index =
+-			(adev->doorbell_index.ih + 2) << 1;
+-	}
++	r = amdgpu_ih_ring_init(adev, &adev->irq.ih1, PAGE_SIZE, true);
++	if (r)
++		return r;
++
++	adev->irq.ih1.use_doorbell = true;
++	adev->irq.ih1.doorbell_index = (adev->doorbell_index.ih + 1) << 1;
++
++	r = amdgpu_ih_ring_init(adev, &adev->irq.ih2, PAGE_SIZE, true);
++	if (r)
++		return r;
++
++	adev->irq.ih2.use_doorbell = true;
++	adev->irq.ih2.doorbell_index = (adev->doorbell_index.ih + 2) << 1;
+ 
+ 	r = amdgpu_irq_init(adev);
+ 
+-- 
+2.17.1
+

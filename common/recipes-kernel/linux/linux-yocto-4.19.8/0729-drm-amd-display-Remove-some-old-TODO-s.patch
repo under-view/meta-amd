@@ -1,0 +1,43 @@
+From 7d1fcc7e4a8d9092ed6890bc43b29041965f6568 Mon Sep 17 00:00:00 2001
+From: Eric Bernstein <eric.bernstein@amd.com>
+Date: Mon, 15 Oct 2018 16:40:38 -0400
+Subject: [PATCH 0729/2940] drm/amd/display: Remove some old TODO's
+
+They are no longer relevant
+
+Signed-off-by: Eric Bernstein <eric.bernstein@amd.com>
+Reviewed-by: Dmytro Laktyushkin <Dmytro.Laktyushkin@amd.com>
+Reviewed-by: Tony Cheng <Tony.Cheng@amd.com>
+Acked-by: Leo Li <sunpeng.li@amd.com>
+Signed-off-by: Alex Deucher <alexander.deucher@amd.com>
+---
+ drivers/gpu/drm/amd/display/dc/dcn10/dcn10_hw_sequencer.c | 6 ------
+ 1 file changed, 6 deletions(-)
+
+diff --git a/drivers/gpu/drm/amd/display/dc/dcn10/dcn10_hw_sequencer.c b/drivers/gpu/drm/amd/display/dc/dcn10/dcn10_hw_sequencer.c
+index 345fc0302e4e..e3e0fd449ad5 100644
+--- a/drivers/gpu/drm/amd/display/dc/dcn10/dcn10_hw_sequencer.c
++++ b/drivers/gpu/drm/amd/display/dc/dcn10/dcn10_hw_sequencer.c
+@@ -1944,10 +1944,6 @@ static void dcn10_update_mpcc(struct dc *dc, struct pipe_ctx *pipe_ctx)
+ 	struct mpc *mpc = dc->res_pool->mpc;
+ 	struct mpc_tree *mpc_tree_params = &(pipe_ctx->stream_res.opp->mpc_tree_params);
+ 
+-
+-
+-	/* TODO: proper fix once fpga works */
+-
+ 	if (dc->debug.visual_confirm == VISUAL_CONFIRM_HDR) {
+ 		dcn10_get_hdr_visual_confirm_color(
+ 				pipe_ctx, &blnd_cfg.black_color);
+@@ -2027,8 +2023,6 @@ static void update_scaler(struct pipe_ctx *pipe_ctx)
+ 	bool per_pixel_alpha =
+ 			pipe_ctx->plane_state->per_pixel_alpha && pipe_ctx->bottom_pipe;
+ 
+-	/* TODO: proper fix once fpga works */
+-
+ 	pipe_ctx->plane_res.scl_data.lb_params.alpha_en = per_pixel_alpha;
+ 	pipe_ctx->plane_res.scl_data.lb_params.depth = LB_PIXEL_DEPTH_30BPP;
+ 	/* scaler configuration */
+-- 
+2.17.1
+

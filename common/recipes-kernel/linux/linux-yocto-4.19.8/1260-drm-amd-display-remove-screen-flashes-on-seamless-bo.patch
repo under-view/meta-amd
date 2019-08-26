@@ -1,0 +1,130 @@
+From d43b80894a5101d140d4d3ccb3d321e1bd0f8371 Mon Sep 17 00:00:00 2001
+From: Anthony Koo <Anthony.Koo@amd.com>
+Date: Sun, 20 Jan 2019 01:54:01 -0500
+Subject: [PATCH 1260/2940] drm/amd/display: remove screen flashes on seamless
+ boot
+
+[Why]
+We want boot to desktop to be seamless
+
+[How]
+During init pipes, avoid touching the pipes where GOP has already
+enabled the HW to the state we want.
+
+Signed-off-by: Anthony Koo <Anthony.Koo@amd.com>
+Reviewed-by: Aric Cyr <Aric.Cyr@amd.com>
+Acked-by: Leo Li <sunpeng.li@amd.com>
+---
+ .../display/dc/dce110/dce110_hw_sequencer.c   | 10 ++++++-
+ .../amd/display/dc/dcn10/dcn10_hw_sequencer.c | 30 ++++++++++++++++++-
+ .../gpu/drm/amd/display/include/dal_asic_id.h |  3 ++
+ 3 files changed, 41 insertions(+), 2 deletions(-)
+
+diff --git a/drivers/gpu/drm/amd/display/dc/dce110/dce110_hw_sequencer.c b/drivers/gpu/drm/amd/display/dc/dce110/dce110_hw_sequencer.c
+index 0dc3f06bc90e..a28fade62752 100644
+--- a/drivers/gpu/drm/amd/display/dc/dce110/dce110_hw_sequencer.c
++++ b/drivers/gpu/drm/amd/display/dc/dce110/dce110_hw_sequencer.c
+@@ -1521,6 +1521,14 @@ void dce110_enable_accelerated_mode(struct dc *dc, struct dc_state *context)
+ 	struct dc_link *edp_link = get_link_for_edp(dc);
+ 	bool can_edp_fast_boot_optimize = false;
+ 	bool apply_edp_fast_boot_optimization = false;
++	bool can_apply_seamless_boot = false;
++
++	for (i = 0; i < context->stream_count; i++) {
++		if (context->streams[i]->apply_seamless_boot_optimization) {
++			can_apply_seamless_boot = true;
++			break;
++		}
++	}
+ 
+ 	if (edp_link) {
+ 		/* this seems to cause blank screens on DCE8 */
+@@ -1549,7 +1557,7 @@ void dce110_enable_accelerated_mode(struct dc *dc, struct dc_state *context)
+ 		}
+ 	}
+ 
+-	if (!apply_edp_fast_boot_optimization) {
++	if (!apply_edp_fast_boot_optimization && !can_apply_seamless_boot) {
+ 		if (edp_link_to_turnoff) {
+ 			/*turn off backlight before DP_blank and encoder powered down*/
+ 			dc->hwss.edp_backlight_control(edp_link_to_turnoff, false);
+diff --git a/drivers/gpu/drm/amd/display/dc/dcn10/dcn10_hw_sequencer.c b/drivers/gpu/drm/amd/display/dc/dcn10/dcn10_hw_sequencer.c
+index f508c4de0213..05e5aa13602f 100644
+--- a/drivers/gpu/drm/amd/display/dc/dcn10/dcn10_hw_sequencer.c
++++ b/drivers/gpu/drm/amd/display/dc/dcn10/dcn10_hw_sequencer.c
+@@ -959,9 +959,25 @@ static void dcn10_disable_plane(struct dc *dc, struct pipe_ctx *pipe_ctx)
+ static void dcn10_init_pipes(struct dc *dc, struct dc_state *context)
+ {
+ 	int i;
++	bool can_apply_seamless_boot = false;
++
++	for (i = 0; i < context->stream_count; i++) {
++		if (context->streams[i]->apply_seamless_boot_optimization) {
++			can_apply_seamless_boot = true;
++			break;
++		}
++	}
+ 
+ 	for (i = 0; i < dc->res_pool->pipe_count; i++) {
+ 		struct timing_generator *tg = dc->res_pool->timing_generators[i];
++		struct pipe_ctx *pipe_ctx = &context->res_ctx.pipe_ctx[i];
++
++		/* There is assumption that pipe_ctx is not mapping irregularly
++		 * to non-preferred front end. If pipe_ctx->stream is not NULL,
++		 * we will use the pipe, so don't disable
++		 */
++		if (pipe_ctx->stream != NULL)
++			continue;
+ 
+ 		if (tg->funcs->is_tg_enabled(tg))
+ 			tg->funcs->lock(tg);
+@@ -975,7 +991,9 @@ static void dcn10_init_pipes(struct dc *dc, struct dc_state *context)
+ 		}
+ 	}
+ 
+-	dc->res_pool->mpc->funcs->mpc_init(dc->res_pool->mpc);
++	/* Cannot reset the MPC mux if seamless boot */
++	if (!can_apply_seamless_boot)
++		dc->res_pool->mpc->funcs->mpc_init(dc->res_pool->mpc);
+ 
+ 	for (i = 0; i < dc->res_pool->pipe_count; i++) {
+ 		struct timing_generator *tg = dc->res_pool->timing_generators[i];
+@@ -983,6 +1001,16 @@ static void dcn10_init_pipes(struct dc *dc, struct dc_state *context)
+ 		struct dpp *dpp = dc->res_pool->dpps[i];
+ 		struct pipe_ctx *pipe_ctx = &context->res_ctx.pipe_ctx[i];
+ 
++		// W/A for issue with dc_post_update_surfaces_to_stream
++		hubp->power_gated = true;
++
++		/* There is assumption that pipe_ctx is not mapping irregularly
++		 * to non-preferred front end. If pipe_ctx->stream is not NULL,
++		 * we will use the pipe, so don't disable
++		 */
++		if (pipe_ctx->stream != NULL)
++			continue;
++
+ 		dpp->funcs->dpp_reset(dpp);
+ 
+ 		pipe_ctx->stream_res.tg = tg;
+diff --git a/drivers/gpu/drm/amd/display/include/dal_asic_id.h b/drivers/gpu/drm/amd/display/include/dal_asic_id.h
+index 4f501ddcfb8d..34d6fdcb32e2 100644
+--- a/drivers/gpu/drm/amd/display/include/dal_asic_id.h
++++ b/drivers/gpu/drm/amd/display/include/dal_asic_id.h
+@@ -131,6 +131,7 @@
+ #define INTERNAL_REV_RAVEN_A0             0x00    /* First spin of Raven */
+ #define RAVEN_A0 0x01
+ #define RAVEN_B0 0x21
++#define PICASSO_A0 0x41
+ #if defined(CONFIG_DRM_AMD_DC_DCN1_01)
+ /* DCN1_01 */
+ #define RAVEN2_A0 0x81
+@@ -165,4 +166,6 @@
+ 
+ #define	FAMILY_UNKNOWN 0xFF
+ 
++
++
+ #endif /* __DAL_ASIC_ID_H__ */
+-- 
+2.17.1
+

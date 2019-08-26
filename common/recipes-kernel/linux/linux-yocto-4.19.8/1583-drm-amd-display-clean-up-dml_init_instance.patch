@@ -1,0 +1,149 @@
+From 2a6df8c4f76f193668990aab833d2cc381cf3e38 Mon Sep 17 00:00:00 2001
+From: Dmytro Laktyushkin <Dmytro.Laktyushkin@amd.com>
+Date: Mon, 11 Feb 2019 17:18:41 -0500
+Subject: [PATCH 1583/2940] drm/amd/display: clean up dml_init_instance
+
+Get rid of DV style dml init in favour of the cleaner DC
+style.
+
+Signed-off-by: Dmytro Laktyushkin <Dmytro.Laktyushkin@amd.com>
+Reviewed-by: Charlene Liu <Charlene.Liu@amd.com>
+Acked-by: Leo Li <sunpeng.li@amd.com>
+---
+ .../drm/amd/display/dc/dcn10/dcn10_resource.c |  2 +-
+ .../drm/amd/display/dc/dml/display_mode_lib.c | 58 ++-----------------
+ .../drm/amd/display/dc/dml/display_mode_lib.h |  4 +-
+ .../amd/display/dc/dml/display_mode_structs.h |  1 +
+ .../display/dc/dml/display_rq_dlg_helpers.c   |  3 +
+ 5 files changed, 10 insertions(+), 58 deletions(-)
+
+diff --git a/drivers/gpu/drm/amd/display/dc/dcn10/dcn10_resource.c b/drivers/gpu/drm/amd/display/dc/dcn10/dcn10_resource.c
+index 9f1a009b19ee..3d82fdde2edf 100644
+--- a/drivers/gpu/drm/amd/display/dc/dcn10/dcn10_resource.c
++++ b/drivers/gpu/drm/amd/display/dc/dcn10/dcn10_resource.c
+@@ -1360,7 +1360,7 @@ static bool construct(
+ 		goto fail;
+ 	}
+ 
+-	dml_init_instance(&dc->dml, DML_PROJECT_RAVEN1);
++	dml_init_instance(&dc->dml, &dcn1_0_soc, &dcn1_0_ip, DML_PROJECT_RAVEN1);
+ 	memcpy(dc->dcn_ip, &dcn10_ip_defaults, sizeof(dcn10_ip_defaults));
+ 	memcpy(dc->dcn_soc, &dcn10_soc_defaults, sizeof(dcn10_soc_defaults));
+ 
+diff --git a/drivers/gpu/drm/amd/display/dc/dml/display_mode_lib.c b/drivers/gpu/drm/amd/display/dc/dml/display_mode_lib.c
+index a2bd3a651781..80ffd7d958b2 100644
+--- a/drivers/gpu/drm/amd/display/dc/dml/display_mode_lib.c
++++ b/drivers/gpu/drm/amd/display/dc/dml/display_mode_lib.c
+@@ -26,64 +26,14 @@
+ #include "display_mode_lib.h"
+ #include "dc_features.h"
+ 
+-extern const struct _vcs_dpi_ip_params_st dcn1_0_ip;
+-extern const struct _vcs_dpi_soc_bounding_box_st dcn1_0_soc;
+-
+-static void set_soc_bounding_box_v2(struct display_mode_lib *lib,
+-	const struct _vcs_dpi_soc_bounding_box_st *soc_bb)
+-{
+-	lib->soc =  *soc_bb;
+-}
+-
+-static void set_soc_bounding_box(struct _vcs_dpi_soc_bounding_box_st *soc, enum dml_project project)
+-{
+-	switch (project) {
+-	case DML_PROJECT_RAVEN1:
+-		*soc = dcn1_0_soc;
+-		break;
+-	default:
+-		ASSERT(0);
+-		break;
+-	}
+-}
+-
+-static void set_ip_params_v2(struct display_mode_lib *lib,
+-	const struct _vcs_dpi_ip_params_st *ip_params)
+-{
+-	lib->ip =  *ip_params;
+-}
+-
+-static void set_ip_params(struct _vcs_dpi_ip_params_st *ip, enum dml_project project)
+-{
+-	switch (project) {
+-	case DML_PROJECT_RAVEN1:
+-		*ip = dcn1_0_ip;
+-		break;
+-	default:
+-		ASSERT(0);
+-		break;
+-	}
+-}
+-
+-void dml_init_instance(struct display_mode_lib *lib, enum dml_project project)
+-{
+-	if (lib->project != project) {
+-		set_soc_bounding_box(&lib->soc, project);
+-		set_ip_params(&lib->ip, project);
+-		lib->project = project;
+-	}
+-}
+-
+-void dml_init_instance_v2(struct display_mode_lib *lib,
++void dml_init_instance(struct display_mode_lib *lib,
+ 		const struct _vcs_dpi_soc_bounding_box_st *soc_bb,
+ 		const struct _vcs_dpi_ip_params_st *ip_params,
+ 		enum dml_project project)
+ {
+-	if (lib->project != project) {
+-		set_soc_bounding_box_v2(lib, soc_bb);
+-		set_ip_params_v2(lib, ip_params);
+-		lib->project = project;
+-	}
++	lib->soc = *soc_bb;
++	lib->ip = *ip_params;
++	lib->project = project;
+ }
+ 
+ const char *dml_get_status_message(enum dm_validation_status status)
+diff --git a/drivers/gpu/drm/amd/display/dc/dml/display_mode_lib.h b/drivers/gpu/drm/amd/display/dc/dml/display_mode_lib.h
+index 93c0197ff272..1b546dba34bd 100644
+--- a/drivers/gpu/drm/amd/display/dc/dml/display_mode_lib.h
++++ b/drivers/gpu/drm/amd/display/dc/dml/display_mode_lib.h
+@@ -41,9 +41,7 @@ struct display_mode_lib {
+ 	struct dal_logger *logger;
+ };
+ 
+-void dml_init_instance(struct display_mode_lib *lib, enum dml_project project);
+-
+-void dml_init_instance_v2(struct display_mode_lib *lib,
++void dml_init_instance(struct display_mode_lib *lib,
+ 		const struct _vcs_dpi_soc_bounding_box_st *soc_bb,
+ 		const struct _vcs_dpi_ip_params_st *ip_params,
+ 		enum dml_project project);
+diff --git a/drivers/gpu/drm/amd/display/dc/dml/display_mode_structs.h b/drivers/gpu/drm/amd/display/dc/dml/display_mode_structs.h
+index 391183e3428f..d1771e3c0c92 100644
+--- a/drivers/gpu/drm/amd/display/dc/dml/display_mode_structs.h
++++ b/drivers/gpu/drm/amd/display/dc/dml/display_mode_structs.h
+@@ -416,6 +416,7 @@ struct _vcs_dpi_display_dlg_regs_st {
+ 	unsigned int refcyc_per_vm_group_flip;
+ 	unsigned int refcyc_per_vm_req_vblank;
+ 	unsigned int refcyc_per_vm_req_flip;
++	unsigned int refcyc_per_vm_dmdata;
+ };
+ 
+ struct _vcs_dpi_display_ttu_regs_st {
+diff --git a/drivers/gpu/drm/amd/display/dc/dml/display_rq_dlg_helpers.c b/drivers/gpu/drm/amd/display/dc/dml/display_rq_dlg_helpers.c
+index 48400d642610..e2d82aacd3bc 100644
+--- a/drivers/gpu/drm/amd/display/dc/dml/display_rq_dlg_helpers.c
++++ b/drivers/gpu/drm/amd/display/dc/dml/display_rq_dlg_helpers.c
+@@ -321,6 +321,9 @@ void print__dlg_regs_st(struct display_mode_lib *mode_lib, display_dlg_regs_st d
+ 	dml_print(
+ 			"DML_RQ_DLG_CALC:    xfc_reg_remote_surface_flip_latency = 0x%0x\n",
+ 			dlg_regs.xfc_reg_remote_surface_flip_latency);
++	dml_print(
++			"DML_RQ_DLG_CALC:    refcyc_per_vm_dmdata            = 0x%0x\n",
++			dlg_regs.refcyc_per_vm_dmdata);
+ 
+ 	dml_print("DML_RQ_DLG_CALC: =====================================\n");
+ }
+-- 
+2.17.1
+

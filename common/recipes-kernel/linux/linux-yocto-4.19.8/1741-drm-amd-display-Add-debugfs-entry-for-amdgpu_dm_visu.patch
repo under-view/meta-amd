@@ -1,0 +1,87 @@
+From c9fe247f73dd23858729952a4630f576210a6a8e Mon Sep 17 00:00:00 2001
+From: Nicholas Kazlauskas <nicholas.kazlauskas@amd.com>
+Date: Fri, 22 Mar 2019 10:11:14 -0400
+Subject: [PATCH 1741/2940] drm/amd/display: Add debugfs entry for
+ amdgpu_dm_visual_confirm
+
+[Why]
+DC provides a few visual confirmation debug options that can be
+dynamically changed at runtime to help debug surface programming issues
+but we don't have any way to access it from userspace.
+
+[How]
+Add the amdgpu_dm_visual_confirm debugfs entry.
+It accepts a string containing the DC visual confirm enum value using
+the debugfs attribute helpers.
+
+The debugfs_create_file_unsafe can be used instead of
+debugfs_create_file as per the documentation.
+
+v2: Use debugfs helpers for getting and setting the value (Christian)
+
+Cc: Leo Li <sunpeng.li@amd.com>
+Cc: Harry Wentland <harry.wentland@amd.com>
+Signed-off-by: Nicholas Kazlauskas <nicholas.kazlauskas@amd.com>
+Reviewed-by: Leo Li <sunpeng.li@amd.com>
+---
+ .../amd/display/amdgpu_dm/amdgpu_dm_debugfs.c | 39 ++++++++++++++++++-
+ 1 file changed, 38 insertions(+), 1 deletion(-)
+
+diff --git a/drivers/gpu/drm/amd/display/amdgpu_dm/amdgpu_dm_debugfs.c b/drivers/gpu/drm/amd/display/amdgpu_dm/amdgpu_dm_debugfs.c
+index 1a9e3d3dfa38..1d5fc5ad3bee 100644
+--- a/drivers/gpu/drm/amd/display/amdgpu_dm/amdgpu_dm_debugfs.c
++++ b/drivers/gpu/drm/amd/display/amdgpu_dm/amdgpu_dm_debugfs.c
+@@ -995,6 +995,35 @@ static const struct drm_info_list amdgpu_dm_debugfs_list[] = {
+ 	{"amdgpu_target_backlight_pwm", &target_backlight_read},
+ };
+ 
++/*
++ * Sets the DC visual confirm debug option from the given string.
++ * Example usage: echo 1 > /sys/kernel/debug/dri/0/amdgpu_visual_confirm
++ */
++static int visual_confirm_set(void *data, u64 val)
++{
++	struct amdgpu_device *adev = data;
++
++	adev->dm.dc->debug.visual_confirm = (enum visual_confirm)val;
++
++	return 0;
++}
++
++/*
++ * Reads the DC visual confirm debug option value into the given buffer.
++ * Example usage: cat /sys/kernel/debug/dri/0/amdgpu_dm_visual_confirm
++ */
++static int visual_confirm_get(void *data, u64 *val)
++{
++	struct amdgpu_device *adev = data;
++
++	*val = adev->dm.dc->debug.visual_confirm;
++
++	return 0;
++}
++
++DEFINE_DEBUGFS_ATTRIBUTE(visual_confirm_fops, visual_confirm_get,
++			 visual_confirm_set, "%llu\n");
++
+ int dtn_debugfs_init(struct amdgpu_device *adev)
+ {
+ 	static const struct file_operations dtn_log_fops = {
+@@ -1020,5 +1049,13 @@ int dtn_debugfs_init(struct amdgpu_device *adev)
+ 		adev,
+ 		&dtn_log_fops);
+ 
+-	return PTR_ERR_OR_ZERO(ent);
++	if (IS_ERR(ent))
++		return PTR_ERR(ent);
++
++	ent = debugfs_create_file_unsafe("amdgpu_dm_visual_confirm", 0644, root,
++					 adev, &visual_confirm_fops);
++	if (IS_ERR(ent))
++		return PTR_ERR(ent);
++
++	return 0;
+ }
+-- 
+2.17.1
+

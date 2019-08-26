@@ -1,0 +1,40 @@
+From dbd4525530fa2a01988823bc9c92e5e0fadce252 Mon Sep 17 00:00:00 2001
+From: Ken Chalmers <ken.chalmers@amd.com>
+Date: Fri, 15 Feb 2019 09:31:52 -0600
+Subject: [PATCH 1588/2940] drm/amd/display: Increase DP blank timeout from 30
+ ms to 50 ms
+
+[Why]
+At 24 Hz, a frame is 41.7 ms, so a 30 ms wait can (and does often)
+timeout.
+
+[How]
+Bump timeout from 30 ms to 50 ms.
+
+Signed-off-by: Ken Chalmers <ken.chalmers@amd.com>
+Reviewed-by: Tony Cheng <Tony.Cheng@amd.com>
+Acked-by: Leo Li <sunpeng.li@amd.com>
+---
+ drivers/gpu/drm/amd/display/dc/dcn10/dcn10_stream_encoder.c | 4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
+
+diff --git a/drivers/gpu/drm/amd/display/dc/dcn10/dcn10_stream_encoder.c b/drivers/gpu/drm/amd/display/dc/dcn10/dcn10_stream_encoder.c
+index b08254121251..d370152018f8 100644
+--- a/drivers/gpu/drm/amd/display/dc/dcn10/dcn10_stream_encoder.c
++++ b/drivers/gpu/drm/amd/display/dc/dcn10/dcn10_stream_encoder.c
+@@ -797,10 +797,10 @@ void enc1_stream_encoder_dp_blank(
+ 	 */
+ 	REG_UPDATE(DP_VID_STREAM_CNTL, DP_VID_STREAM_DIS_DEFER, 2);
+ 	/* Larger delay to wait until VBLANK - use max retry of
+-	 * 10us*3000=30ms. This covers 16.6ms of typical 60 Hz mode +
++	 * 10us*5000=50ms. This covers 41.7ms of minimum 24 Hz mode +
+ 	 * a little more because we may not trust delay accuracy.
+ 	 */
+-	max_retries = DP_BLANK_MAX_RETRY * 150;
++	max_retries = DP_BLANK_MAX_RETRY * 250;
+ 
+ 	/* disable DP stream */
+ 	REG_UPDATE(DP_VID_STREAM_CNTL, DP_VID_STREAM_ENABLE, 0);
+-- 
+2.17.1
+

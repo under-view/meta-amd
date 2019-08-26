@@ -1,0 +1,70 @@
+From f2c793b9eb007f794acd8bf4731bcaa2f6b1d853 Mon Sep 17 00:00:00 2001
+From: Harry Wentland <harry.wentland@amd.com>
+Date: Wed, 15 Aug 2018 16:49:27 -0500
+Subject: [PATCH 0110/2940] drm/amdgpu: fill in
+ amdgpu_dm_remove_sink_from_freesync_module
+
+Add code to tear down freesync modules when disabled.
+
+Signed-off-by: Harry Wentland <harry.wentland@amd.com>
+Signed-off-by: Alex Deucher <alexander.deucher@amd.com>
+---
+ .../gpu/drm/amd/display/amdgpu_dm/amdgpu_dm.c | 40 ++++++++++++++-----
+ 1 file changed, 29 insertions(+), 11 deletions(-)
+
+diff --git a/drivers/gpu/drm/amd/display/amdgpu_dm/amdgpu_dm.c b/drivers/gpu/drm/amd/display/amdgpu_dm/amdgpu_dm.c
+index 167ae8c6e8ee..e28ede06c582 100644
+--- a/drivers/gpu/drm/amd/display/amdgpu_dm/amdgpu_dm.c
++++ b/drivers/gpu/drm/amd/display/amdgpu_dm/amdgpu_dm.c
+@@ -5364,19 +5364,37 @@ void amdgpu_dm_add_sink_to_freesync_module(struct drm_connector *connector,
+ 			dm_con_state->freesync_capable = true;
+ 		}
+ 	}
+-
+-	/*
+-	 * TODO figure out how to notify user-mode or DRM of freesync caps
+-	 * once we figure out how to deal with freesync in an upstreamable
+-	 * fashion
+-	 */
+-
+ }
+ 
+ void amdgpu_dm_remove_sink_from_freesync_module(struct drm_connector *connector)
+ {
+-	/*
+-	 * TODO fill in once we figure out how to deal with freesync in
+-	 * an upstreamable fashion
+-	 */
++	struct amdgpu_dm_connector *amdgpu_dm_connector =
++			to_amdgpu_dm_connector(connector);
++	struct dm_connector_state *dm_con_state;
++	struct drm_device *dev = connector->dev;
++	struct amdgpu_device *adev = dev->dev_private;
++
++	if (!amdgpu_dm_connector->dc_sink || !adev->dm.freesync_module) {
++		DRM_ERROR("dc_sink NULL or no free_sync module.\n");
++		return;
++	}
++
++	if (!connector->state) {
++		DRM_ERROR("%s - Connector has no state", __func__);
++		return;
++	}
++
++	dm_con_state = to_dm_connector_state(connector->state);
++
++	amdgpu_dm_connector->min_vfreq = 0;
++	amdgpu_dm_connector->max_vfreq = 0;
++	amdgpu_dm_connector->pixel_clock_mhz = 0;
++
++	memset(&amdgpu_dm_connector->caps, 0, sizeof(amdgpu_dm_connector->caps));
++
++	dm_con_state->freesync_capable = false;
++
++	dm_con_state->user_enable.enable_for_gaming = false;
++	dm_con_state->user_enable.enable_for_static = false;
++	dm_con_state->user_enable.enable_for_video = false;
+ }
+-- 
+2.17.1
+

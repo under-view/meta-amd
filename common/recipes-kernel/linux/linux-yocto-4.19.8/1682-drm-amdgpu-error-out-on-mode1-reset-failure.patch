@@ -1,0 +1,49 @@
+From 0144f19a51b6d3aa948672506ff70e5d47a34b53 Mon Sep 17 00:00:00 2001
+From: Evan Quan <evan.quan@amd.com>
+Date: Fri, 15 Mar 2019 10:02:59 +0800
+Subject: [PATCH 1682/2940] drm/amdgpu: error out on mode1 reset failure
+
+The error return value should be correctly reflected.
+
+Change-Id: I93bf6fa77193d4e3f102a4e223aa8cb18cb525cc
+Signed-off-by: Evan Quan <evan.quan@amd.com>
+Reviewed-by: Feifei Xu <Feifei.Xu@amd.com>
+---
+ drivers/gpu/drm/amd/amdgpu/soc15.c | 7 +++++--
+ 1 file changed, 5 insertions(+), 2 deletions(-)
+
+diff --git a/drivers/gpu/drm/amd/amdgpu/soc15.c b/drivers/gpu/drm/amd/amdgpu/soc15.c
+index eb29162de439..6a7b0f198ce2 100644
+--- a/drivers/gpu/drm/amd/amdgpu/soc15.c
++++ b/drivers/gpu/drm/amd/amdgpu/soc15.c
+@@ -393,6 +393,7 @@ void soc15_program_register_sequence(struct amdgpu_device *adev,
+ static int soc15_asic_mode1_reset(struct amdgpu_device *adev)
+ {
+ 	u32 i;
++	int ret = 0;
+ 
+ 	amdgpu_atombios_scratch_regs_engine_hung(adev, true);
+ 
+@@ -403,7 +404,9 @@ static int soc15_asic_mode1_reset(struct amdgpu_device *adev)
+ 
+ 	pci_save_state(adev->pdev);
+ 
+-	psp_gpu_reset(adev);
++	ret = psp_gpu_reset(adev);
++	if (ret)
++		dev_err(adev->dev, "GPU mode1 reset failed\n");
+ 
+ 	pci_restore_state(adev->pdev);
+ 
+@@ -418,7 +421,7 @@ static int soc15_asic_mode1_reset(struct amdgpu_device *adev)
+ 
+ 	amdgpu_atombios_scratch_regs_engine_hung(adev, false);
+ 
+-	return 0;
++	return ret;
+ }
+ 
+ static int soc15_asic_get_baco_capability(struct amdgpu_device *adev, bool *cap)
+-- 
+2.17.1
+

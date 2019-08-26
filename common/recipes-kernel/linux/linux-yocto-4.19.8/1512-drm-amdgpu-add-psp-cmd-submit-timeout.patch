@@ -1,0 +1,40 @@
+From 9f6abf9fed8ee33265db1cf13cb52215e713ce77 Mon Sep 17 00:00:00 2001
+From: xinhui pan <xinhui.pan@amd.com>
+Date: Wed, 23 Jan 2019 11:35:31 +0800
+Subject: [PATCH 1512/2940] drm/amdgpu: add psp cmd submit timeout
+
+Signed-off-by: xinhui pan <xinhui.pan@amd.com>
+Reviewed-by: Alex Deucher <alexander.deucher@amd.com>
+Signed-off-by: Chaudhary Amit Kumar <Chaudharyamit.Kumar@amd.com>
+---
+ drivers/gpu/drm/amd/amdgpu/amdgpu_psp.c | 6 +++++-
+ 1 file changed, 5 insertions(+), 1 deletion(-)
+
+diff --git a/drivers/gpu/drm/amd/amdgpu/amdgpu_psp.c b/drivers/gpu/drm/amd/amdgpu/amdgpu_psp.c
+index 5abc07265107..e91e2118e5e3 100644
+--- a/drivers/gpu/drm/amd/amdgpu/amdgpu_psp.c
++++ b/drivers/gpu/drm/amd/amdgpu/amdgpu_psp.c
+@@ -121,6 +121,7 @@ psp_cmd_submit_buf(struct psp_context *psp,
+ {
+ 	int ret;
+ 	int index;
++	int timeout = 2000;
+ 
+ 	memset(psp->cmd_buf_mem, 0, PSP_CMD_BUFFER_SIZE);
+ 
+@@ -134,8 +135,11 @@ psp_cmd_submit_buf(struct psp_context *psp,
+                 return ret;
+         }
+ 
+-	while (*((unsigned int *)psp->fence_buf) != index)
++	while (*((unsigned int *)psp->fence_buf) != index) {
++                if (--timeout == 0)
++                        return -EINVAL;
+ 		msleep(1);
++	}
+ 	
+ 	/* In some cases, psp response status is not 0 even there is no
+ 	* problem while the command is submitted. Some version of PSP FW
+-- 
+2.17.1
+

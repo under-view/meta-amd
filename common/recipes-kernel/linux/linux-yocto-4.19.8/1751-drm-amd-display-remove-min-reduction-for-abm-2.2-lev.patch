@@ -1,0 +1,41 @@
+From 154b4570d11ff7a6dbaec35efd8a9dd2d58f0662 Mon Sep 17 00:00:00 2001
+From: Josip Pavic <Josip.Pavic@amd.com>
+Date: Thu, 21 Mar 2019 15:04:32 -0400
+Subject: [PATCH 1751/2940] drm/amd/display: remove min reduction for abm 2.2
+ level 3
+
+[Why]
+Image brightness compensation for solid color full screen images is
+expected to be optimal for ABM 2.2 at level 3. The min reduction that is
+currently being enforced prevents this from being achieved.
+
+[How]
+Remove the min reduction for ABM 2.2 at level 3
+
+Signed-off-by: Josip Pavic <Josip.Pavic@amd.com>
+Reviewed-by: Anthony Koo <Anthony.Koo@amd.com>
+Acked-by: Leo Li <sunpeng.li@amd.com>
+---
+ drivers/gpu/drm/amd/display/modules/power/power_helpers.c | 4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
+
+diff --git a/drivers/gpu/drm/amd/display/modules/power/power_helpers.c b/drivers/gpu/drm/amd/display/modules/power/power_helpers.c
+index efd386f3ca53..b3810b864676 100644
+--- a/drivers/gpu/drm/amd/display/modules/power/power_helpers.c
++++ b/drivers/gpu/drm/amd/display/modules/power/power_helpers.c
+@@ -43,10 +43,10 @@ static const unsigned char max_reduction_table[13] = {
+ 
+ /* Possible ABM 2.2 Min Reduction configs from least aggressive to most aggressive
+  *  0    1     2     3     4     5     6     7     8     9     10    11   12
+- * 100  100   100   100   100   100   100   90.2  85.1  80.0  80.0  75.3  75.3 %
++ * 100  100   100   100   100   100   100   100  100  92.2  83.1  75.3  75.3 %
+  */
+ static const unsigned char min_reduction_table_v_2_2[13] = {
+-0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xe6, 0xd9, 0xcc, 0xcc, 0xc0, 0xc0};
++0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xeb, 0xd4, 0xc0, 0xc0};
+ 
+ /* Possible ABM 2.2 Max Reduction configs from least aggressive to most aggressive
+  *  0    1     2     3     4     5     6     7     8     9     10    11   12
+-- 
+2.17.1
+

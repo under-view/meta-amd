@@ -1,0 +1,77 @@
+From 62e7213dc127c83bbc43133b3d2909603753d8f4 Mon Sep 17 00:00:00 2001
+From: Jay Cornwall <Jay.Cornwall@amd.com>
+Date: Thu, 31 Jan 2019 11:38:18 -0600
+Subject: [PATCH 2744/2940] drm/amdkfd: Preserve wave state after instruction
+ fetch MEM_VIOL
+
+If instruction fetch fails the wave cannot be halted and returned to
+the shader without raising MEM_VIOL again. Currently the wave is
+terminated if this occurs, but this loses information about the cause
+of the fault. The debugger would prefer the faulting wave state to be
+context-saved.
+
+Poll inside the trap handler until TRAPSTS.SAVECTX indicates context
+save is ready. Exit the poll loop and complete the remainder of the
+exception handler, then return to the shader. The next instruction
+fetch will be from the trap handler and not the faulting PC. Context
+save will then deschedule the wave and save its state.
+
+Change-Id: I22024d4a8175a6c07912f07ed14e3a7e60dfa0af
+Signed-off-by: Jay Cornwall <Jay.Cornwall@amd.com>
+---
+ drivers/gpu/drm/amd/amdkfd/cwsr_trap_handler.h        | 10 ++++++----
+ drivers/gpu/drm/amd/amdkfd/cwsr_trap_handler_gfx9.asm | 10 ++++++++--
+ 2 files changed, 14 insertions(+), 6 deletions(-)
+
+diff --git a/drivers/gpu/drm/amd/amdkfd/cwsr_trap_handler.h b/drivers/gpu/drm/amd/amdkfd/cwsr_trap_handler.h
+index ec9a9a99f808..097da0dd3b04 100644
+--- a/drivers/gpu/drm/amd/amdkfd/cwsr_trap_handler.h
++++ b/drivers/gpu/drm/amd/amdkfd/cwsr_trap_handler.h
+@@ -274,15 +274,17 @@ static const uint32_t cwsr_trap_gfx8_hex[] = {
+ 
+ 
+ static const uint32_t cwsr_trap_gfx9_hex[] = {
+-	0xbf820001, 0xbf82015d,
++	0xbf820001, 0xbf820161,
+ 	0xb8f8f802, 0x89788678,
+ 	0xb8f1f803, 0x866eff71,
+-	0x00000400, 0xbf850037,
++	0x00000400, 0xbf85003b,
+ 	0x866eff71, 0x00000800,
+ 	0xbf850003, 0x866eff71,
+-	0x00000100, 0xbf840008,
++	0x00000100, 0xbf84000c,
+ 	0x866eff78, 0x00002000,
+-	0xbf840001, 0xbf810000,
++	0xbf840005, 0xbf8e0010,
++	0xb8eef803, 0x866eff6e,
++	0x00000400, 0xbf84fffb,
+ 	0x8778ff78, 0x00002000,
+ 	0x80ec886c, 0x82ed806d,
+ 	0xb8eef807, 0x866fff6e,
+diff --git a/drivers/gpu/drm/amd/amdkfd/cwsr_trap_handler_gfx9.asm b/drivers/gpu/drm/amd/amdkfd/cwsr_trap_handler_gfx9.asm
+index 0bb9c577b3a2..6a010c9e55de 100644
+--- a/drivers/gpu/drm/amd/amdkfd/cwsr_trap_handler_gfx9.asm
++++ b/drivers/gpu/drm/amd/amdkfd/cwsr_trap_handler_gfx9.asm
+@@ -266,10 +266,16 @@ if (!EMU_RUN_HACK)
+ 
+ L_HALT_WAVE:
+     // If STATUS.HALT is set then this fault must come from SQC instruction fetch.
+-    // We cannot prevent further faults so just terminate the wavefront.
++    // We cannot prevent further faults. Spin wait until context saved.
+     s_and_b32       ttmp2, s_save_status, SQ_WAVE_STATUS_HALT_MASK
+     s_cbranch_scc0  L_NOT_ALREADY_HALTED
+-    s_endpgm
++
++L_WAIT_CTX_SAVE:
++    s_sleep         0x10
++    s_getreg_b32    ttmp2, hwreg(HW_REG_TRAPSTS)
++    s_and_b32       ttmp2, ttmp2, SQ_WAVE_TRAPSTS_SAVECTX_MASK
++    s_cbranch_scc0  L_WAIT_CTX_SAVE
++
+ L_NOT_ALREADY_HALTED:
+     s_or_b32        s_save_status, s_save_status, SQ_WAVE_STATUS_HALT_MASK
+ 
+-- 
+2.17.1
+

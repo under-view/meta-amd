@@ -1,0 +1,83 @@
+From e69e9007b78b1004c257d3d308bb837f4544a84a Mon Sep 17 00:00:00 2001
+From: Yong Zhao <Yong.Zhao@amd.com>
+Date: Wed, 9 Jan 2019 23:31:14 -0500
+Subject: [PATCH 2739/2940] drm/amdkfd: Optimize out sdma doorbell array in
+ kgd2kfd_shared_resources
+
+We can directly calculate sdma doorbell indexes in the process doorbell
+pages through the doorbell_index structure in amdgpu_device, so no need
+to cache them in kgd2kfd_shared_resources any more. This alleviates the
+adaptation needs when new SDMA configurations are introduced.
+
+Change-Id: Ic657799856ed0256f36b01e502ef0cab263b1f49
+Signed-off-by: Yong Zhao <Yong.Zhao@amd.com>
+Reviewed-by: Felix Kuehling <Felix.Kuehling@amd.com>
+---
+ drivers/gpu/drm/amd/amdgpu/amdgpu_amdkfd.c       |  3 ++-
+ .../drm/amd/amdkfd/kfd_device_queue_manager.c    | 16 +++++++++++-----
+ drivers/gpu/drm/amd/include/kgd_kfd_interface.h  |  4 ++--
+ 3 files changed, 15 insertions(+), 8 deletions(-)
+
+diff --git a/drivers/gpu/drm/amd/amdgpu/amdgpu_amdkfd.c b/drivers/gpu/drm/amd/amdgpu/amdgpu_amdkfd.c
+index ea15e27f61f9..01b35b0455ca 100644
+--- a/drivers/gpu/drm/amd/amdgpu/amdgpu_amdkfd.c
++++ b/drivers/gpu/drm/amd/amdgpu/amdgpu_amdkfd.c
+@@ -145,7 +145,8 @@ void amdgpu_amdkfd_device_init(struct amdgpu_device *adev)
+ 			.gpuvm_size = min(adev->vm_manager.max_pfn
+ 					  << AMDGPU_GPU_PAGE_SHIFT,
+ 					  AMDGPU_GMC_HOLE_START),
+-			.drm_render_minor = adev->ddev->render->index
++			.drm_render_minor = adev->ddev->render->index,
++			.sdma_doorbell_idx = adev->doorbell_index.sdma_engine,
+ 		};
+ 
+ 		/* this is going to have a few of the MSBs set that we need to
+diff --git a/drivers/gpu/drm/amd/amdkfd/kfd_device_queue_manager.c b/drivers/gpu/drm/amd/amdkfd/kfd_device_queue_manager.c
+index 8372556b52eb..c6c9530e704e 100644
+--- a/drivers/gpu/drm/amd/amdkfd/kfd_device_queue_manager.c
++++ b/drivers/gpu/drm/amd/amdkfd/kfd_device_queue_manager.c
+@@ -134,12 +134,18 @@ static int allocate_doorbell(struct qcm_process_device *qpd, struct queue *q)
+ 		 */
+ 		q->doorbell_id = q->properties.queue_id;
+ 	} else if (q->properties.type == KFD_QUEUE_TYPE_SDMA) {
+-		/* For SDMA queues on SOC15, use static doorbell
+-		 * assignments based on the engine and queue.
++		/* For SDMA queues on SOC15 with 8-byte doorbell, use static
++		 * doorbell assignments based on the engine and queue id.
++		 * The doobell index distance between RLC (2*i) and (2*i+1)
++		 * for a SDMA engine is 512.
+ 		 */
+-		q->doorbell_id = dev->shared_resources.sdma_doorbell
+-			[q->properties.sdma_engine_id]
+-			[q->properties.sdma_queue_id];
++		uint32_t *idx_offset =
++				dev->shared_resources.sdma_doorbell_idx;
++
++		q->doorbell_id = idx_offset[q->properties.sdma_engine_id]
++			+ (q->properties.sdma_queue_id & 1)
++			* KFD_QUEUE_DOORBELL_MIRROR_OFFSET
++			+ (q->properties.sdma_queue_id >> 1);
+ 	} else {
+ 		/* For CP queues on SOC15 reserve a free doorbell ID */
+ 		unsigned int found;
+diff --git a/drivers/gpu/drm/amd/include/kgd_kfd_interface.h b/drivers/gpu/drm/amd/include/kgd_kfd_interface.h
+index 7e44dcd15cdc..b71b684ad6fd 100644
+--- a/drivers/gpu/drm/amd/include/kgd_kfd_interface.h
++++ b/drivers/gpu/drm/amd/include/kgd_kfd_interface.h
+@@ -110,11 +110,11 @@ struct kgd2kfd_shared_resources {
+ 	/* Bit n == 1 means Queue n is available for KFD */
+ 	DECLARE_BITMAP(queue_bitmap, KGD_MAX_QUEUES);
+ 
+-	/* Doorbell assignments (SOC15 and later chips only). Only
++	/* SDMA doorbell assignments (SOC15 and later chips only). Only
+ 	 * specific doorbells are routed to each SDMA engine. Others
+ 	 * are routed to IH and VCN. They are not usable by the CP.
+ 	 */
+-	unsigned int sdma_doorbell[2][2];
++	uint32_t *sdma_doorbell_idx;
+ 
+ 	/* From SOC15 onward, the doorbell index range not usable for CP
+          * queues.
+-- 
+2.17.1
+

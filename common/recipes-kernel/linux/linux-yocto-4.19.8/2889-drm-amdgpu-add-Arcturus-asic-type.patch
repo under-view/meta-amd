@@ -1,0 +1,42 @@
+From 7f14d9030eb9c45d961117cc282b0079032dfeda Mon Sep 17 00:00:00 2001
+From: Le Ma <le.ma@amd.com>
+Date: Tue, 9 Jul 2019 09:16:01 -0500
+Subject: [PATCH 2889/2940] drm/amdgpu: add Arcturus asic type
+
+Add asic type for Arcturus.
+
+Signed-off-by: Le Ma <le.ma@amd.com>
+Reviewed-by: Hawking Zhang <Hawking.Zhang@amd.com>
+Signed-off-by: Alex Deucher <alexander.deucher@amd.com>
+---
+ drivers/gpu/drm/amd/amdgpu/amdgpu_device.c | 1 +
+ include/drm/amd_asic_type.h                | 1 +
+ 2 files changed, 2 insertions(+)
+
+diff --git a/drivers/gpu/drm/amd/amdgpu/amdgpu_device.c b/drivers/gpu/drm/amd/amdgpu/amdgpu_device.c
+index 6edc9d623148..4c650a6d18c4 100644
+--- a/drivers/gpu/drm/amd/amdgpu/amdgpu_device.c
++++ b/drivers/gpu/drm/amd/amdgpu/amdgpu_device.c
+@@ -98,6 +98,7 @@ static const char *amdgpu_asic_name[] = {
+ 	"VEGA12",
+ 	"VEGA20",
+ 	"RAVEN",
++	"ARCTURUS",
+ 	"NAVI10",
+ 	"NAVI14",
+ 	"LAST",
+diff --git a/include/drm/amd_asic_type.h b/include/drm/amd_asic_type.h
+index e0c4c9a6db83..5595483933aa 100644
+--- a/include/drm/amd_asic_type.h
++++ b/include/drm/amd_asic_type.h
+@@ -49,6 +49,7 @@ enum amd_asic_type {
+ 	CHIP_VEGA12,
+ 	CHIP_VEGA20,
+ 	CHIP_RAVEN,
++	CHIP_ARCTURUS,
+ 	CHIP_PICASSO,
+ 	CHIP_NAVI10,
+ 	CHIP_NAVI14,
+-- 
+2.17.1
+

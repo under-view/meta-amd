@@ -1,0 +1,108 @@
+From 787243da2aa5f0a7d4998ca3121eeed849399efa Mon Sep 17 00:00:00 2001
+From: Evan Quan <evan.quan@amd.com>
+Date: Thu, 24 Jan 2019 17:55:39 +0800
+Subject: [PATCH 1152/2940] drm/amd/powerplay: avoid frequent metrics table
+ export
+
+That's unnecessary. Also it makes more sense to show all the clocks
+on one metrics table export.
+
+Signed-off-by: Evan Quan <evan.quan@amd.com>
+Reviewed-by: Alex Deucher <alexander.deucher@amd.com>
+Signed-off-by: Alex Deucher <alexander.deucher@amd.com>
+---
+ .../drm/amd/powerplay/hwmgr/vega20_hwmgr.c    | 43 +++++++++++++------
+ .../drm/amd/powerplay/hwmgr/vega20_hwmgr.h    |  3 ++
+ 2 files changed, 33 insertions(+), 13 deletions(-)
+
+diff --git a/drivers/gpu/drm/amd/powerplay/hwmgr/vega20_hwmgr.c b/drivers/gpu/drm/amd/powerplay/hwmgr/vega20_hwmgr.c
+index 13f124125f5a..7b49a9a13a4a 100644
+--- a/drivers/gpu/drm/amd/powerplay/hwmgr/vega20_hwmgr.c
++++ b/drivers/gpu/drm/amd/powerplay/hwmgr/vega20_hwmgr.c
+@@ -1958,16 +1958,36 @@ static uint32_t vega20_dpm_get_mclk(struct pp_hwmgr *hwmgr, bool low)
+ 	return (mem_clk * 100);
+ }
+ 
++static int vega20_get_metrics_table(struct pp_hwmgr *hwmgr, SmuMetrics_t *metrics_table)
++{
++	struct vega20_hwmgr *data =
++			(struct vega20_hwmgr *)(hwmgr->backend);
++	int ret = 0;
++
++	if (!data->metrics_time || time_after(jiffies, data->metrics_time + HZ / 2)) {
++		ret = smum_smc_table_manager(hwmgr, (uint8_t *)metrics_table,
++				TABLE_SMU_METRICS, true);
++		if (ret) {
++			pr_info("Failed to export SMU metrics table!\n");
++			return ret;
++		}
++		memcpy(&data->metrics_table, metrics_table, sizeof(SmuMetrics_t));
++		data->metrics_time = jiffies;
++	} else
++		memcpy(metrics_table, &data->metrics_table, sizeof(SmuMetrics_t));
++
++	return ret;
++}
++
+ static int vega20_get_gpu_power(struct pp_hwmgr *hwmgr,
+ 		uint32_t *query)
+ {
+ 	int ret = 0;
+ 	SmuMetrics_t metrics_table;
+ 
+-	ret = smum_smc_table_manager(hwmgr, (uint8_t *)&metrics_table, TABLE_SMU_METRICS, true);
+-	PP_ASSERT_WITH_CODE(!ret,
+-			"Failed to export SMU METRICS table!",
+-			return ret);
++	ret = vega20_get_metrics_table(hwmgr, &metrics_table);
++	if (ret)
++		return ret;
+ 
+ 	*query = metrics_table.CurrSocketPower << 8;
+ 
+@@ -1998,10 +2018,9 @@ static int vega20_get_current_activity_percent(struct pp_hwmgr *hwmgr,
+ 	int ret = 0;
+ 	SmuMetrics_t metrics_table;
+ 
+-	ret = smum_smc_table_manager(hwmgr, (uint8_t *)&metrics_table, TABLE_SMU_METRICS, true);
+-	PP_ASSERT_WITH_CODE(!ret,
+-			"Failed to export SMU METRICS table!",
+-			return ret);
++	ret = vega20_get_metrics_table(hwmgr, &metrics_table);
++	if (ret)
++		return ret;
+ 
+ 	*activity_percent = metrics_table.AverageGfxActivity;
+ 
+@@ -2019,11 +2038,9 @@ static int vega20_read_sensor(struct pp_hwmgr *hwmgr, int idx,
+ 
+ 	switch (idx) {
+ 	case AMDGPU_PP_SENSOR_GFX_SCLK:
+-		ret = smum_smc_table_manager(hwmgr, (uint8_t *)&metrics_table,
+-				TABLE_SMU_METRICS, true);
+-		PP_ASSERT_WITH_CODE(!ret,
+-				"Failed to export SMU METRICS table!",
+-				return ret);
++		ret = vega20_get_metrics_table(hwmgr, &metrics_table);
++		if (ret)
++			return ret;
+ 
+ 		*((uint32_t *)value) = metrics_table.AverageGfxclkFrequency * 100;
+ 		*size = 4;
+diff --git a/drivers/gpu/drm/amd/powerplay/hwmgr/vega20_hwmgr.h b/drivers/gpu/drm/amd/powerplay/hwmgr/vega20_hwmgr.h
+index 25faaa5c5b10..37f5f5e657da 100644
+--- a/drivers/gpu/drm/amd/powerplay/hwmgr/vega20_hwmgr.h
++++ b/drivers/gpu/drm/amd/powerplay/hwmgr/vega20_hwmgr.h
+@@ -520,6 +520,9 @@ struct vega20_hwmgr {
+ 	/* ---- Gfxoff ---- */
+ 	bool                           gfxoff_allowed;
+ 	uint32_t                       counter_gfxoff;
++
++	unsigned long                  metrics_time;
++	SmuMetrics_t                   metrics_table;
+ };
+ 
+ #define VEGA20_DPM2_NEAR_TDP_DEC                      10
+-- 
+2.17.1
+

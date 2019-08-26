@@ -1,0 +1,54 @@
+From 5baec42c45e5594dc0c38892d3476ac67b6031b7 Mon Sep 17 00:00:00 2001
+From: Tom St Denis <tom.stdenis@amd.com>
+Date: Fri, 24 May 2019 09:21:54 -0400
+Subject: [PATCH 2002/2940] drm/amd/doc: Add RAS documentation to guide
+
+Acked-by: Slava Abramov <slava.abramov@amd.com>
+Signed-off-by: Tom St Denis <tom.stdenis@amd.com>
+Reviewed-by: Alex Deucher <alexander.deucher@amd.com>
+Signed-off-by: Alex Deucher <alexander.deucher@amd.com>
+---
+ Documentation/gpu/amdgpu.rst            | 11 +++++++++++
+ drivers/gpu/drm/amd/amdgpu/amdgpu_ras.c |  4 ++--
+ 2 files changed, 13 insertions(+), 2 deletions(-)
+
+diff --git a/Documentation/gpu/amdgpu.rst b/Documentation/gpu/amdgpu.rst
+index cacfcfad2356..86138798128f 100644
+--- a/Documentation/gpu/amdgpu.rst
++++ b/Documentation/gpu/amdgpu.rst
+@@ -79,6 +79,17 @@ AMDGPU XGMI Support
+ .. kernel-doc:: drivers/gpu/drm/amd/amdgpu/amdgpu_xgmi.c
+    :internal:
+ 
++AMDGPU RAS debugfs control interface
++====================================
++
++.. kernel-doc:: drivers/gpu/drm/amd/amdgpu/amdgpu_ras.c
++   :doc: AMDGPU RAS debugfs control interface
++
++
++.. kernel-doc:: drivers/gpu/drm/amd/amdgpu/amdgpu_ras.c
++   :internal:
++
++
+ GPU Power/Thermal Controls and Monitoring
+ =========================================
+ 
+diff --git a/drivers/gpu/drm/amd/amdgpu/amdgpu_ras.c b/drivers/gpu/drm/amd/amdgpu/amdgpu_ras.c
+index d5719b0fb82c..7c8a4aedf07c 100644
+--- a/drivers/gpu/drm/amd/amdgpu/amdgpu_ras.c
++++ b/drivers/gpu/drm/amd/amdgpu/amdgpu_ras.c
+@@ -244,8 +244,8 @@ static int amdgpu_ras_debugfs_ctrl_parse_data(struct file *f,
+ 
+ 	return 0;
+ }
+-/*
+- * DOC: ras debugfs control interface
++/**
++ * DOC: AMDGPU RAS debugfs control interface
+  *
+  * It accepts struct ras_debug_if who has two members.
+  *
+-- 
+2.17.1
+

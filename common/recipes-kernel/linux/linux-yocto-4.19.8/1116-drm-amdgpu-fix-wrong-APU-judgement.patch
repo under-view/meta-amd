@@ -1,0 +1,39 @@
+From 734664ab139ce0fec64e402f21d3659a26985b00 Mon Sep 17 00:00:00 2001
+From: Evan Quan <evan.quan@amd.com>
+Date: Wed, 16 Jan 2019 14:11:50 +0800
+Subject: [PATCH 1116/2940] drm/amdgpu: fix wrong APU judgement
+
+Fix the APU judgement to make it really work as expected.
+
+Signed-off-by: Evan Quan <evan.quan@amd.com>
+Reviewed-by: Alex Deucher <alexander.deucher@amd.com>
+Signed-off-by: Alex Deucher <alexander.deucher@amd.com>
+---
+ drivers/gpu/drm/amd/amdgpu/amdgpu_pm.c | 4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
+
+diff --git a/drivers/gpu/drm/amd/amdgpu/amdgpu_pm.c b/drivers/gpu/drm/amd/amdgpu/amdgpu_pm.c
+index 4099c6b97cb1..250be1ef1719 100644
+--- a/drivers/gpu/drm/amd/amdgpu/amdgpu_pm.c
++++ b/drivers/gpu/drm/amd/amdgpu/amdgpu_pm.c
+@@ -2429,7 +2429,7 @@ int amdgpu_pm_sysfs_init(struct amdgpu_device *adev)
+ 		return ret;
+ 	}
+ 	/* PCIe Perf counters won't work on APU nodes */
+-	if (adev->flags & !AMD_IS_APU) {
++	if (!(adev->flags & AMD_IS_APU)) {
+ 		ret = device_create_file(adev->dev, &dev_attr_pcie_bw);
+ 		if (ret) {
+ 			DRM_ERROR("failed to create device file pcie_bw\n");
+@@ -2492,7 +2492,7 @@ void amdgpu_pm_sysfs_fini(struct amdgpu_device *adev)
+ 		device_remove_file(adev->dev,
+ 				&dev_attr_pp_od_clk_voltage);
+ 	device_remove_file(adev->dev, &dev_attr_gpu_busy_percent);
+-	if (adev->flags & !AMD_IS_APU)
++	if (!(adev->flags & AMD_IS_APU))
+ 		device_remove_file(adev->dev, &dev_attr_pcie_bw);
+ 	if ((adev->asic_type >= CHIP_VEGA10) &&
+ 	    !(adev->flags & AMD_IS_APU))
+-- 
+2.17.1
+

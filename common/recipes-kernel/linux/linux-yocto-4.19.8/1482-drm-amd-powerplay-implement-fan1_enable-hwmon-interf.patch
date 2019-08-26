@@ -1,0 +1,82 @@
+From dde7b11be4f2039e15a5efa635e4c23f3c25f2d1 Mon Sep 17 00:00:00 2001
+From: Chengming Gui <Jack.Gui@amd.com>
+Date: Fri, 25 Jan 2019 18:57:34 +0800
+Subject: [PATCH 1482/2940] drm/amd/powerplay: implement fan1_enable hwmon
+ interface for SMU11 (v2)
+
+set the fan1_enable hwmon interface to call
+smu_get_fan_control_mode and smu_set_fan_control_mode.
+
+v2: fix print value.
+
+Signed-off-by: Chengming Gui <Jack.Gui@amd.com>
+Reviewed-by: Huang Rui <ray.huang@amd.com>
+Reviewed-by: Alex Deucher <alexander.deucher@amd.com>
+---
+ drivers/gpu/drm/amd/amdgpu/amdgpu_pm.c    | 21 ++++++++++++++-------
+ drivers/gpu/drm/amd/powerplay/smu_v11_0.c |  2 +-
+ 2 files changed, 15 insertions(+), 8 deletions(-)
+
+diff --git a/drivers/gpu/drm/amd/amdgpu/amdgpu_pm.c b/drivers/gpu/drm/amd/amdgpu/amdgpu_pm.c
+index b1e6e67d5c2f..3875a62352de 100644
+--- a/drivers/gpu/drm/amd/amdgpu/amdgpu_pm.c
++++ b/drivers/gpu/drm/amd/amdgpu/amdgpu_pm.c
+@@ -1635,11 +1635,14 @@ static ssize_t amdgpu_hwmon_get_fan1_enable(struct device *dev,
+ 	struct amdgpu_device *adev = dev_get_drvdata(dev);
+ 	u32 pwm_mode = 0;
+ 
+-	if (!adev->powerplay.pp_funcs->get_fan_control_mode)
+-		return -EINVAL;
+-
+-	pwm_mode = amdgpu_dpm_get_fan_control_mode(adev);
++	if (is_support_sw_smu(adev)) {
++		pwm_mode = smu_get_fan_control_mode(&adev->smu);
++	} else {
++		if (!adev->powerplay.pp_funcs->get_fan_control_mode)
++			return -EINVAL;
+ 
++		pwm_mode = amdgpu_dpm_get_fan_control_mode(adev);
++	}
+ 	return sprintf(buf, "%i\n", pwm_mode == AMD_FAN_CTRL_AUTO ? 0 : 1);
+ }
+ 
+@@ -1658,8 +1661,6 @@ static ssize_t amdgpu_hwmon_set_fan1_enable(struct device *dev,
+ 	     (adev->ddev->switch_power_state != DRM_SWITCH_POWER_ON))
+ 		return -EINVAL;
+ 
+-	if (!adev->powerplay.pp_funcs->set_fan_control_mode)
+-		return -EINVAL;
+ 
+ 	err = kstrtoint(buf, 10, &value);
+ 	if (err)
+@@ -1672,7 +1673,13 @@ static ssize_t amdgpu_hwmon_set_fan1_enable(struct device *dev,
+ 	else
+ 		return -EINVAL;
+ 
+-	amdgpu_dpm_set_fan_control_mode(adev, pwm_mode);
++	if (is_support_sw_smu(adev)) {
++		smu_set_fan_control_mode(&adev->smu, pwm_mode);
++	} else {
++		if (!adev->powerplay.pp_funcs->set_fan_control_mode)
++			return -EINVAL;
++		amdgpu_dpm_set_fan_control_mode(adev, pwm_mode);
++	}
+ 
+ 	return count;
+ }
+diff --git a/drivers/gpu/drm/amd/powerplay/smu_v11_0.c b/drivers/gpu/drm/amd/powerplay/smu_v11_0.c
+index 75f42bc621c1..8c83bf9f2bc8 100644
+--- a/drivers/gpu/drm/amd/powerplay/smu_v11_0.c
++++ b/drivers/gpu/drm/amd/powerplay/smu_v11_0.c
+@@ -1857,7 +1857,7 @@ smu_v11_0_set_fan_control_mode(struct smu_context *smu,
+ 	}
+ 
+ 	if (ret) {
+-		pr_err("[%s]Set fan control mode failed!");
++		pr_err("[%s]Set fan control mode failed!", __func__);
+ 		return -EINVAL;
+ 	}
+ 
+-- 
+2.17.1
+

@@ -1,0 +1,90 @@
+From 2b3af43e1a7b70ce229cb170aafb20c8a439fe29 Mon Sep 17 00:00:00 2001
+From: Nicholas Kazlauskas <nicholas.kazlauskas@amd.com>
+Date: Mon, 8 Apr 2019 10:37:44 -0400
+Subject: [PATCH 1825/2940] drm/amd/display: Disable cursors before disabling
+ planes
+
+[Why]
+We can't do cursor programming after the planes have been disabled
+since there won't be any pipes - leading to lock warnings and the wrong
+cursor state being left in the registers.
+
+When we re-enable the planes after the previous cursor state will also
+remain if we don't have a cursor plane.
+
+[How]
+If we're disabling the planes then do the cursor programming first.
+If we're not disabling the planes then do the cursor programming after.
+
+Introduce the amdgpu_dm_commit_cursors helper to avoid code duplication
+for both of these cases.
+
+Signed-off-by: Nicholas Kazlauskas <nicholas.kazlauskas@amd.com>
+Reviewed-by: David Francis <David.Francis@amd.com>
+Acked-by: Leo Li <sunpeng.li@amd.com>
+---
+ .../gpu/drm/amd/display/amdgpu_dm/amdgpu_dm.c | 34 +++++++++++++++++--
+ 1 file changed, 31 insertions(+), 3 deletions(-)
+
+diff --git a/drivers/gpu/drm/amd/display/amdgpu_dm/amdgpu_dm.c b/drivers/gpu/drm/amd/display/amdgpu_dm/amdgpu_dm.c
+index 65c15ae620bd..b2f602cfdd30 100644
+--- a/drivers/gpu/drm/amd/display/amdgpu_dm/amdgpu_dm.c
++++ b/drivers/gpu/drm/amd/display/amdgpu_dm/amdgpu_dm.c
+@@ -5279,6 +5279,22 @@ static void amdgpu_dm_handle_vrr_transition(struct dm_crtc_state *old_state,
+ 	}
+ }
+ 
++static void amdgpu_dm_commit_cursors(struct drm_atomic_state *state)
++{
++	struct drm_plane *plane;
++	struct drm_plane_state *old_plane_state, *new_plane_state;
++	int i;
++
++	/*
++	 * TODO: Make this per-stream so we don't issue redundant updates for
++	 * commits with multiple streams.
++	 */
++	for_each_oldnew_plane_in_state(state, plane, old_plane_state,
++				       new_plane_state, i)
++		if (plane->type == DRM_PLANE_TYPE_CURSOR)
++			handle_cursor_update(plane, old_plane_state);
++}
++
+ static void amdgpu_dm_commit_planes(struct drm_atomic_state *state,
+ 				    struct dc_state *dc_state,
+ 				    struct drm_device *dev,
+@@ -5318,6 +5334,14 @@ static void amdgpu_dm_commit_planes(struct drm_atomic_state *state,
+ 		goto cleanup;
+ 	}
+ 
++	/*
++	 * Disable the cursor first if we're disabling all the planes.
++	 * It'll remain on the screen after the planes are re-enabled
++	 * if we don't.
++	 */
++	if (acrtc_state->active_planes == 0)
++		amdgpu_dm_commit_cursors(state);
++
+ 	/* update planes when needed */
+ 	for_each_oldnew_plane_in_state(state, plane, old_plane_state, new_plane_state, i) {
+ 		struct drm_crtc *crtc = new_plane_state->crtc;
+@@ -5514,9 +5538,13 @@ static void amdgpu_dm_commit_planes(struct drm_atomic_state *state,
+ 		mutex_unlock(&dm->dc_lock);
+ 	}
+ 
+-	for_each_oldnew_plane_in_state(state, plane, old_plane_state, new_plane_state, i)
+-		if (plane->type == DRM_PLANE_TYPE_CURSOR)
+-			handle_cursor_update(plane, old_plane_state);
++	/*
++	 * Update cursor state *after* programming all the planes.
++	 * This avoids redundant programming in the case where we're going
++	 * to be disabling a single plane - those pipes are being disabled.
++	 */
++	if (acrtc_state->active_planes)
++		amdgpu_dm_commit_cursors(state);
+ 
+ cleanup:
+ 	kfree(bundle);
+-- 
+2.17.1
+

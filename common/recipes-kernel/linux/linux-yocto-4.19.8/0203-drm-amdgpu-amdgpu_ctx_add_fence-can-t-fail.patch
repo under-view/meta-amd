@@ -1,0 +1,88 @@
+From a91a3aa7cc1e515c29a35d2ecfa8b6be62d49ccd Mon Sep 17 00:00:00 2001
+From: =?UTF-8?q?Christian=20K=C3=B6nig?= <christian.koenig@amd.com>
+Date: Fri, 24 Aug 2018 14:23:33 +0200
+Subject: [PATCH 0203/2940] drm/amdgpu: amdgpu_ctx_add_fence can't fail
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+No more waiting for a fence done here.
+
+Change-Id: I69ded731b7a85b0123d6cc05983c56ab5ff8cdcf
+Signed-off-by: Christian König <christian.koenig@amd.com>
+Reviewed-by: Chunming Zhou <david1.zhou@amd.com>
+Reviewed-by: Junwei Zhang <Jerry.Zhang@amd.com>
+Signed-off-by: Alex Deucher <alexander.deucher@amd.com>
+Signed-off-by: Kalyan Alle <kalyan.alle@amd.com>
+---
+ drivers/gpu/drm/amd/amdgpu/amdgpu_cs.c  | 9 +--------
+ drivers/gpu/drm/amd/amdgpu/amdgpu_ctx.c | 8 +++-----
+ drivers/gpu/drm/amd/amdgpu/amdgpu_ctx.h | 6 +++---
+ 3 files changed, 7 insertions(+), 16 deletions(-)
+
+diff --git a/drivers/gpu/drm/amd/amdgpu/amdgpu_cs.c b/drivers/gpu/drm/amd/amdgpu/amdgpu_cs.c
+index 8875c18dcfc0..f8994e766e57 100644
+--- a/drivers/gpu/drm/amd/amdgpu/amdgpu_cs.c
++++ b/drivers/gpu/drm/amd/amdgpu/amdgpu_cs.c
+@@ -1223,14 +1223,7 @@ static int amdgpu_cs_submit(struct amdgpu_cs_parser *p,
+ 	job->owner = p->filp;
+ 	p->fence = dma_fence_get(&job->base.s_fence->finished);
+ 
+-	r = amdgpu_ctx_add_fence(p->ctx, entity, p->fence, &seq);
+-	if (r) {
+-		dma_fence_put(p->fence);
+-		dma_fence_put(&job->base.s_fence->finished);
+-		amdgpu_job_free(job);
+-		amdgpu_mn_unlock(p->mn);
+-		return r;
+-	}
++	amdgpu_ctx_add_fence(p->ctx, entity, p->fence, &seq);
+ 
+ 	amdgpu_cs_post_dependencies(p);
+ 
+diff --git a/drivers/gpu/drm/amd/amdgpu/amdgpu_ctx.c b/drivers/gpu/drm/amd/amdgpu/amdgpu_ctx.c
+index 2d7e9fa6e82f..16acd3dde503 100644
+--- a/drivers/gpu/drm/amd/amdgpu/amdgpu_ctx.c
++++ b/drivers/gpu/drm/amd/amdgpu/amdgpu_ctx.c
+@@ -436,9 +436,9 @@ int amdgpu_ctx_put(struct amdgpu_ctx *ctx)
+ 	return 0;
+ }
+ 
+-int amdgpu_ctx_add_fence(struct amdgpu_ctx *ctx,
+-			 struct drm_sched_entity *entity,
+-			 struct dma_fence *fence, uint64_t* handle)
++void amdgpu_ctx_add_fence(struct amdgpu_ctx *ctx,
++			  struct drm_sched_entity *entity,
++			  struct dma_fence *fence, uint64_t* handle)
+ {
+ 	struct amdgpu_ctx_entity *centity = to_amdgpu_ctx_entity(entity);
+ 	uint64_t seq = centity->sequence;
+@@ -460,8 +460,6 @@ int amdgpu_ctx_add_fence(struct amdgpu_ctx *ctx,
+ 	dma_fence_put(other);
+ 	if (handle)
+ 		*handle = seq;
+-
+-	return 0;
+ }
+ 
+ struct dma_fence *amdgpu_ctx_get_fence(struct amdgpu_ctx *ctx,
+diff --git a/drivers/gpu/drm/amd/amdgpu/amdgpu_ctx.h b/drivers/gpu/drm/amd/amdgpu/amdgpu_ctx.h
+index f7486ea38286..db0ad1e7eace 100644
+--- a/drivers/gpu/drm/amd/amdgpu/amdgpu_ctx.h
++++ b/drivers/gpu/drm/amd/amdgpu/amdgpu_ctx.h
+@@ -67,9 +67,9 @@ int amdgpu_ctx_put(struct amdgpu_ctx *ctx);
+ 
+ int amdgpu_ctx_get_entity(struct amdgpu_ctx *ctx, u32 hw_ip, u32 instance,
+ 			  u32 ring, struct drm_sched_entity **entity);
+-int amdgpu_ctx_add_fence(struct amdgpu_ctx *ctx,
+-			 struct drm_sched_entity *entity,
+-			 struct dma_fence *fence, uint64_t *seq);
++void amdgpu_ctx_add_fence(struct amdgpu_ctx *ctx,
++			  struct drm_sched_entity *entity,
++			  struct dma_fence *fence, uint64_t *seq);
+ struct dma_fence *amdgpu_ctx_get_fence(struct amdgpu_ctx *ctx,
+ 				       struct drm_sched_entity *entity,
+ 				       uint64_t seq);
+-- 
+2.17.1
+

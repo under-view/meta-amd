@@ -1,0 +1,45 @@
+From ae1b69523a0866a4ab45619dfe8c6ff7d7f5d876 Mon Sep 17 00:00:00 2001
+From: Nicholas Kazlauskas <nicholas.kazlauskas@amd.com>
+Date: Mon, 24 Jun 2019 13:14:14 -0400
+Subject: [PATCH 2599/2940] drm/amd/display: update infoframe after dig fe is
+ turned on (v2)
+
+[Why]
+The AVI infoframe is incorrectly programmed on DCN1/2 when enabling a
+stream - causing the wrong pixel encoding to be used for display.
+
+This is because the AVI infoframe is programmed before the DIG BE is
+connected to the FE and turned on, so enabling the AFMT block doesn't
+actually work and the registers subsequently can't be written to.
+
+[How]
+Program the infoframe *after* turning on the DIG FE. This was the
+behavior previously used but it was incorrectly reverted
+when adding the DCN2 HW sequencer code.
+
+v2: Don't call update_info_frame twice
+
+Fixes: 54ff35915948 ("drm/amd/display: Add DCN2 HW Sequencer and Resource")
+
+Signed-off-by: Nicholas Kazlauskas <nicholas.kazlauskas@amd.com>
+Acked-by: Alex Deucher <alexander.deucher@amd.com>
+Reviewed-by: Bhawanpreet Lakha <Bhawanpreet.Lakha@amd.com>
+---
+ drivers/gpu/drm/amd/display/dc/dce110/dce110_hw_sequencer.c | 1 +
+ 1 file changed, 1 insertion(+)
+
+diff --git a/drivers/gpu/drm/amd/display/dc/dce110/dce110_hw_sequencer.c b/drivers/gpu/drm/amd/display/dc/dce110/dce110_hw_sequencer.c
+index 940e74b7d2c6..84d90b475e2a 100644
+--- a/drivers/gpu/drm/amd/display/dc/dce110/dce110_hw_sequencer.c
++++ b/drivers/gpu/drm/amd/display/dc/dce110/dce110_hw_sequencer.c
+@@ -686,6 +686,7 @@ void dce110_enable_stream(struct pipe_ctx *pipe_ctx)
+ 							dmdata_dp : dmdata_hdmi);
+ 	}
+ #endif
++	dce110_update_info_frame(pipe_ctx);
+ 
+ 	/* enable early control to avoid corruption on DP monitor*/
+ 	active_total_with_borders =
+-- 
+2.17.1
+

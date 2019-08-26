@@ -1,0 +1,34 @@
+From 92be29f0f3f376637930cec6bf878e9f24d40269 Mon Sep 17 00:00:00 2001
+From: Hawking Zhang <Hawking.Zhang@amd.com>
+Date: Thu, 31 Jan 2019 12:19:54 +0800
+Subject: [PATCH 2209/2940] drm/amdgpu: enable psp front door loading by
+ default on navi10
+
+Signed-off-by: Hawking Zhang <Hawking.Zhang@amd.com>
+Reviewed-by: Le Ma <Le.Ma@amd.com>
+Signed-off-by: Alex Deucher <alexander.deucher@amd.com>
+---
+ drivers/gpu/drm/amd/amdgpu/amdgpu_ucode.c | 3 +--
+ 1 file changed, 1 insertion(+), 2 deletions(-)
+
+diff --git a/drivers/gpu/drm/amd/amdgpu/amdgpu_ucode.c b/drivers/gpu/drm/amd/amdgpu/amdgpu_ucode.c
+index ee54d9e0ce1f..09f384ce8cd7 100644
+--- a/drivers/gpu/drm/amd/amdgpu/amdgpu_ucode.c
++++ b/drivers/gpu/drm/amd/amdgpu/amdgpu_ucode.c
+@@ -336,12 +336,11 @@ amdgpu_ucode_get_load_type(struct amdgpu_device *adev, int load_type)
+ 	case CHIP_RAVEN:
+ 	case CHIP_VEGA12:
+ 	case CHIP_VEGA20:
++	case CHIP_NAVI10:
+ 		if (!load_type)
+ 			return AMDGPU_FW_LOAD_DIRECT;
+ 		else
+ 			return AMDGPU_FW_LOAD_PSP;
+-	case CHIP_NAVI10:
+-		return AMDGPU_FW_LOAD_DIRECT;
+ 	default:
+ 		DRM_ERROR("Unknown firmware load type\n");
+ 	}
+-- 
+2.17.1
+

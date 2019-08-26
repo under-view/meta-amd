@@ -1,0 +1,28 @@
+From b7ddbcb73ff4f898bd2672195fe3b4c1faa4c2e1 Mon Sep 17 00:00:00 2001
+From: Daniel He <daniel.he@amd.com>
+Date: Wed, 15 May 2019 11:38:37 +0800
+Subject: [PATCH 2027/2940] drm/amd/display: Modified AUX_DPHY_RX_CONTROL0
+
+[Description] This is cause by failing to read link caps from driver.
+
+Signed-off-by: Daniel He <daniel.he@amd.com>
+Reviewed-by: Charlene Liu <Charlene.Liu@amd.com>
+Acked-by: Leo Li <sunpeng.li@amd.com>
+---
+ drivers/gpu/drm/amd/display/dc/dcn10/dcn10_link_encoder.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/drivers/gpu/drm/amd/display/dc/dcn10/dcn10_link_encoder.c b/drivers/gpu/drm/amd/display/dc/dcn10/dcn10_link_encoder.c
+index e25ae43f8d32..3396e499090d 100644
+--- a/drivers/gpu/drm/amd/display/dc/dcn10/dcn10_link_encoder.c
++++ b/drivers/gpu/drm/amd/display/dc/dcn10/dcn10_link_encoder.c
+@@ -1359,5 +1359,5 @@ void dcn10_aux_initialize(struct dcn10_link_encoder *enc10)
+ 
+ 	/* 1/4 window (the maximum allowed) */
+ 	AUX_REG_UPDATE(AUX_DPHY_RX_CONTROL0,
+-			AUX_RX_RECEIVE_WINDOW, 1);
++			AUX_RX_RECEIVE_WINDOW, 0);
+ }
+-- 
+2.17.1
+

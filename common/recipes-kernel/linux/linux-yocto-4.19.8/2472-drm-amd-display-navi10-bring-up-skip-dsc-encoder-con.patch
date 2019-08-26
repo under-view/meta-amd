@@ -1,0 +1,34 @@
+From 1e98478bcdc8327eccf955a9e6486400480af0f2 Mon Sep 17 00:00:00 2001
+From: hersen wu <hersenxs.wu@amd.com>
+Date: Wed, 13 Mar 2019 16:25:37 -0400
+Subject: [PATCH 2472/2940] drm/amd/display: navi10 bring up skip dsc encoder
+ config
+
+Signed-off-by: hersen wu <hersenxs.wu@amd.com>
+Signed-off-by: Alex Deucher <alexander.deucher@amd.com>
+---
+ .../gpu/drm/amd/display/dc/dcn20/dcn20_stream_encoder.c   | 8 ++++++++
+ 1 file changed, 8 insertions(+)
+
+diff --git a/drivers/gpu/drm/amd/display/dc/dcn20/dcn20_stream_encoder.c b/drivers/gpu/drm/amd/display/dc/dcn20/dcn20_stream_encoder.c
+index c3c218805eb1..130b01801a26 100644
+--- a/drivers/gpu/drm/amd/display/dc/dcn20/dcn20_stream_encoder.c
++++ b/drivers/gpu/drm/amd/display/dc/dcn20/dcn20_stream_encoder.c
+@@ -286,6 +286,14 @@ static void enc2_dp_set_dsc_config(struct stream_encoder *enc,
+ 					uint8_t *dsc_packed_pps)
+ {
+ 	struct dcn10_stream_encoder *enc1 = DCN10STRENC_FROM_STRENC(enc);
++	uint32_t dsc_value = 0;
++
++	dsc_value = REG_READ(DP_DSC_CNTL);
++
++	/* dsc disable skip */
++	if ((dsc_value & 0x3) == 0x0)
++		return;
++
+ 
+ 	REG_UPDATE_2(DP_DSC_CNTL,
+ 			DP_DSC_MODE, dsc_mode,
+-- 
+2.17.1
+

@@ -1,0 +1,311 @@
+From 017f3a894c19840fdf883b656985edd534bd1a44 Mon Sep 17 00:00:00 2001
+From: Amber Lin <Amber.Lin@amd.com>
+Date: Thu, 23 Aug 2018 10:52:34 -0400
+Subject: [PATCH 2814/2940] drm/amdgpu: Move KFD parameters to amdgpu (v3)
+
+After merging KFD into amdgpu, move module parameters defined in KFD to
+amdgpu_drv.c, where other module parameters are declared.
+
+v2: add kernel-doc comments
+v3: rebase and fix parameter variable name (Alex)
+
+Signed-off-by: Amber Lin <Amber.Lin@amd.com>
+Reviewed-by: Felix Kuehling <Felix.Kuehling@amd.com>
+Signed-off-by: Alex Deucher <alexander.deucher@amd.com>
+Signed-off-by: Chaudhary Amit Kumar <Chaudharyamit.Kumar@amd.com>
+---
+ drivers/gpu/drm/amd/amdgpu/amdgpu_drv.c       | 122 ++++++++++++++++++
+ drivers/gpu/drm/amd/amdkfd/kfd_module.c       |  45 -------
+ drivers/gpu/drm/amd/amdkfd/kfd_priv.h         |  29 -----
+ .../gpu/drm/amd/include/kgd_kfd_interface.h   |  28 ++++
+ 4 files changed, 150 insertions(+), 74 deletions(-)
+
+diff --git a/drivers/gpu/drm/amd/amdgpu/amdgpu_drv.c b/drivers/gpu/drm/amd/amdgpu/amdgpu_drv.c
+index 00a1f426a68a..2a2014fca297 100644
+--- a/drivers/gpu/drm/amd/amdgpu/amdgpu_drv.c
++++ b/drivers/gpu/drm/amd/amdgpu/amdgpu_drv.c
+@@ -646,6 +646,128 @@ uint amdgpu_dm_abm_level = 0;
+ MODULE_PARM_DESC(abmlevel, "ABM level (0 = off (default), 1-4 = backlight reduction level) ");
+ module_param_named(abmlevel, amdgpu_dm_abm_level, uint, 0444);
+ 
++#ifdef CONFIG_HSA_AMD
++/**
++ * DOC: sched_policy (int)
++ * Set scheduling policy. Default is HWS(hardware scheduling) with over-subscription.
++ * Setting 1 disables over-subscription. Setting 2 disables HWS and statically
++ * assigns queues to HQDs.
++ */
++int sched_policy = KFD_SCHED_POLICY_HWS;
++module_param(sched_policy, int, 0444);
++MODULE_PARM_DESC(sched_policy,
++	"Scheduling policy (0 = HWS (Default), 1 = HWS without over-subscription, 2 = Non-HWS (Used for debugging only)");
++
++/**
++ * DOC: hws_max_conc_proc (int)
++ * Maximum number of processes that HWS can schedule concurrently. The maximum is the
++ * number of VMIDs assigned to the HWS, which is also the default.
++ */
++int hws_max_conc_proc = 8;
++module_param(hws_max_conc_proc, int, 0444);
++MODULE_PARM_DESC(hws_max_conc_proc,
++	"Max # processes HWS can execute concurrently when sched_policy=0 (0 = no concurrency, #VMIDs for KFD = Maximum(default))");
++
++/**
++ * DOC: cwsr_enable (int)
++ * CWSR(compute wave store and resume) allows the GPU to preempt shader execution in
++ * the middle of a compute wave. Default is 1 to enable this feature. Setting 0
++ * disables it.
++ */
++int cwsr_enable = 1;
++module_param(cwsr_enable, int, 0444);
++MODULE_PARM_DESC(cwsr_enable, "CWSR enable (0 = Off, 1 = On (Default))");
++
++/**
++ * DOC: max_num_of_queues_per_device (int)
++ * Maximum number of queues per device. Valid setting is between 1 and 4096. Default
++ * is 4096.
++ */
++int max_num_of_queues_per_device = KFD_MAX_NUM_OF_QUEUES_PER_DEVICE_DEFAULT;
++module_param(max_num_of_queues_per_device, int, 0444);
++MODULE_PARM_DESC(max_num_of_queues_per_device,
++	"Maximum number of supported queues per device (1 = Minimum, 4096 = default)");
++
++/**
++ * DOC: send_sigterm (int)
++ * Send sigterm to HSA process on unhandled exceptions. Default is not to send sigterm
++ * but just print errors on dmesg. Setting 1 enables sending sigterm.
++ */
++int send_sigterm;
++module_param(send_sigterm, int, 0444);
++MODULE_PARM_DESC(send_sigterm,
++	"Send sigterm to HSA process on unhandled exception (0 = disable, 1 = enable)");
++
++/**
++ * DOC: debug_largebar (int)
++ * Set debug_largebar as 1 to enable simulating large-bar capability on non-large bar
++ * system. This limits the VRAM size reported to ROCm applications to the visible
++ * size, usually 256MB.
++ * Default value is 0, diabled.
++ */
++int debug_largebar;
++module_param(debug_largebar, int, 0444);
++MODULE_PARM_DESC(debug_largebar,
++	"Debug large-bar flag used to simulate large-bar capability on non-large bar machine (0 = disable, 1 = enable)");
++
++/**
++ * DOC: ignore_crat (int)
++ * Ignore CRAT table during KFD initialization. By default, KFD uses the ACPI CRAT
++ * table to get information about AMD APUs. This option can serve as a workaround on
++ * systems with a broken CRAT table.
++ */
++int ignore_crat;
++module_param(ignore_crat, int, 0444);
++MODULE_PARM_DESC(ignore_crat,
++	"Ignore CRAT table during KFD initialization (0 = use CRAT (default), 1 = ignore CRAT)");
++
++/**
++ * DOC: noretry (int)
++ * This parameter sets sh_mem_config.retry_disable. Default value, 0, enables retry.
++ * Setting 1 disables retry.
++ * Retry is needed for recoverable page faults.
++ */
++int noretry;
++module_param(noretry, int, 0644);
++MODULE_PARM_DESC(noretry,
++	"Set sh_mem_config.retry_disable on Vega10 (0 = retry enabled (default), 1 = retry disabled)");
++
++/**
++ * DOC: halt_if_hws_hang (int)
++ * Halt if HWS hang is detected. Default value, 0, disables the halt on hang.
++ * Setting 1 enables halt on hang.
++ */
++int halt_if_hws_hang;
++module_param(halt_if_hws_hang, int, 0644);
++MODULE_PARM_DESC(halt_if_hws_hang, "Halt if HWS hang is detected (0 = off (default), 1 = on)");
++
++/*
++ * DOC: hws_gws_support(bool)
++ * Whether HWS support gws barriers. Default value: false (not supported)
++ * This will be replaced with a MEC firmware version check once firmware
++ * is ready
++ */
++bool hws_gws_support;
++module_param(hws_gws_support, bool, 0444);
++MODULE_PARM_DESC(hws_gws_support, "MEC FW support gws barriers (false = not supported (Default), true = supported)");
++
++/**
++ * DOC: priv_cp_queues (int)
++ * Enable privileged mode for CP queues. Default value: 0 (off)
++ */
++int priv_cp_queues;
++module_param(priv_cp_queues, int, 0644);
++MODULE_PARM_DESC(priv_cp_queues, "Enable privileged mode for CP queues (0 = off (default), 1 = on)");
++
++/**
++ * DOC: keep_udle_process_evicted (bool)
++ * Keep an evicted process evicted if it is idle. Default value: false (off)
++ */
++bool keep_idle_process_evicted;
++module_param(keep_idle_process_evicted, bool, 0444);
++MODULE_PARM_DESC(keep_idle_process_evicted, "Restore evicted process only if queues are active (N = off(default), Y = on)");
++#endif
++
+ static const struct pci_device_id pciidlist[] = {
+ #ifdef  CONFIG_DRM_AMDGPU_SI
+ 	{0x1002, 0x6780, PCI_ANY_ID, PCI_ANY_ID, 0, 0, CHIP_TAHITI},
+diff --git a/drivers/gpu/drm/amd/amdkfd/kfd_module.c b/drivers/gpu/drm/amd/amdkfd/kfd_module.c
+index e0ce8f31efb8..9c6dfb856797 100644
+--- a/drivers/gpu/drm/amd/amdkfd/kfd_module.c
++++ b/drivers/gpu/drm/amd/amdkfd/kfd_module.c
+@@ -21,55 +21,10 @@
+  */
+ 
+ #include <linux/sched.h>
+-#include <linux/moduleparam.h>
+ #include <linux/device.h>
+ #include "kfd_priv.h"
+ #include "amdgpu_amdkfd.h"
+ 
+-int sched_policy = KFD_SCHED_POLICY_HWS;
+-module_param(sched_policy, int, 0444);
+-MODULE_PARM_DESC(sched_policy,
+-	"Scheduling policy (0 = HWS (Default), 1 = HWS without over-subscription, 2 = Non-HWS (Used for debugging only)");
+-
+-int hws_max_conc_proc = 8;
+-module_param(hws_max_conc_proc, int, 0444);
+-MODULE_PARM_DESC(hws_max_conc_proc,
+-	"Max # processes HWS can execute concurrently when sched_policy=0 (0 = no concurrency, #VMIDs for KFD = Maximum(default))");
+-
+-int cwsr_enable = 1;
+-module_param(cwsr_enable, int, 0444);
+-MODULE_PARM_DESC(cwsr_enable, "CWSR enable (0 = off, 1 = on (default))");
+-
+-int max_num_of_queues_per_device = KFD_MAX_NUM_OF_QUEUES_PER_DEVICE_DEFAULT;
+-module_param(max_num_of_queues_per_device, int, 0444);
+-MODULE_PARM_DESC(max_num_of_queues_per_device,
+-	"Maximum number of supported queues per device (1 = Minimum, 4096 = default)");
+-
+-int send_sigterm;
+-module_param(send_sigterm, int, 0444);
+-MODULE_PARM_DESC(send_sigterm,
+-	"Send sigterm to HSA process on unhandled exception (0 = disable, 1 = enable)");
+-
+-int debug_largebar;
+-module_param(debug_largebar, int, 0444);
+-MODULE_PARM_DESC(debug_largebar,
+-	"Debug large-bar flag used to simulate large-bar capability on non-large bar machine (0 = disable, 1 = enable)");
+-
+-int ignore_crat;
+-module_param(ignore_crat, int, 0444);
+-MODULE_PARM_DESC(ignore_crat,
+-	"Ignore CRAT table during KFD initialization (0 = use CRAT (default), 1 = ignore CRAT)");
+-
+-int noretry;
+-module_param(noretry, int, 0644);
+-MODULE_PARM_DESC(noretry,
+-	"Set sh_mem_config.retry_disable on GFXv9+ dGPUs (0 = retry enabled (default), 1 = retry disabled)");
+-
+-int halt_if_hws_hang;
+-module_param(halt_if_hws_hang, int, 0644);
+-MODULE_PARM_DESC(halt_if_hws_hang, "Halt if HWS hang is detected (0 = off (default), 1 = on)");
+-
+-
+ static int kfd_init(void)
+ {
+ 	int err;
+diff --git a/drivers/gpu/drm/amd/amdkfd/kfd_priv.h b/drivers/gpu/drm/amd/amdkfd/kfd_priv.h
+index 62675c0e9a91..67967a893a55 100644
+--- a/drivers/gpu/drm/amd/amdkfd/kfd_priv.h
++++ b/drivers/gpu/drm/amd/amdkfd/kfd_priv.h
+@@ -128,8 +128,6 @@ struct drm_device;
+  */
+ extern int max_num_of_queues_per_device;
+ 
+-#define KFD_MAX_NUM_OF_QUEUES_PER_DEVICE_DEFAULT 4096
+-
+ /* Kernel module parameter to specify the scheduling policy */
+ extern int sched_policy;
+ 
+@@ -185,33 +183,6 @@ extern bool hws_gws_support;
+ extern bool keep_idle_process_evicted;
+ 
+ 
+-/**
+- * enum kfd_sched_policy
+- *
+- * @KFD_SCHED_POLICY_HWS: H/W scheduling policy known as command processor (cp)
+- * scheduling. In this scheduling mode we're using the firmware code to
+- * schedule the user mode queues and kernel queues such as HIQ and DIQ.
+- * the HIQ queue is used as a special queue that dispatches the configuration
+- * to the cp and the user mode queues list that are currently running.
+- * the DIQ queue is a debugging queue that dispatches debugging commands to the
+- * firmware.
+- * in this scheduling mode user mode queues over subscription feature is
+- * enabled.
+- *
+- * @KFD_SCHED_POLICY_HWS_NO_OVERSUBSCRIPTION: The same as above but the over
+- * subscription feature disabled.
+- *
+- * @KFD_SCHED_POLICY_NO_HWS: no H/W scheduling policy is a mode which directly
+- * set the command processor registers and sets the queues "manually". This
+- * mode is used *ONLY* for debugging proposes.
+- *
+- */
+-enum kfd_sched_policy {
+-	KFD_SCHED_POLICY_HWS = 0,
+-	KFD_SCHED_POLICY_HWS_NO_OVERSUBSCRIPTION,
+-	KFD_SCHED_POLICY_NO_HWS
+-};
+-
+ enum cache_policy {
+ 	cache_policy_coherent,
+ 	cache_policy_noncoherent
+diff --git a/drivers/gpu/drm/amd/include/kgd_kfd_interface.h b/drivers/gpu/drm/amd/include/kgd_kfd_interface.h
+index fca84236d847..ffc93d12f6a5 100644
+--- a/drivers/gpu/drm/amd/include/kgd_kfd_interface.h
++++ b/drivers/gpu/drm/amd/include/kgd_kfd_interface.h
+@@ -100,6 +100,33 @@ enum kgd_engine_type {
+ 	KGD_ENGINE_MAX
+ };
+ 
++/**
++ * enum kfd_sched_policy
++ *
++ * @KFD_SCHED_POLICY_HWS: H/W scheduling policy known as command processor (cp)
++ * scheduling. In this scheduling mode we're using the firmware code to
++ * schedule the user mode queues and kernel queues such as HIQ and DIQ.
++ * the HIQ queue is used as a special queue that dispatches the configuration
++ * to the cp and the user mode queues list that are currently running.
++ * the DIQ queue is a debugging queue that dispatches debugging commands to the
++ * firmware.
++ * in this scheduling mode user mode queues over subscription feature is
++ * enabled.
++ *
++ * @KFD_SCHED_POLICY_HWS_NO_OVERSUBSCRIPTION: The same as above but the over
++ * subscription feature disabled.
++ *
++ * @KFD_SCHED_POLICY_NO_HWS: no H/W scheduling policy is a mode which directly
++ * set the command processor registers and sets the queues "manually". This
++ * mode is used *ONLY* for debugging proposes.
++ *
++ */
++enum kfd_sched_policy {
++	KFD_SCHED_POLICY_HWS = 0,
++	KFD_SCHED_POLICY_HWS_NO_OVERSUBSCRIPTION,
++	KFD_SCHED_POLICY_NO_HWS
++};
++
+ struct kgd2kfd_shared_resources {
+ 	/* Bit n == 1 means VMID n is available for KFD. */
+ 	unsigned int compute_vmid_bitmap;
+@@ -152,6 +179,7 @@ struct tile_config {
+ 	uint32_t num_ranks;
+ };
+ 
++#define KFD_MAX_NUM_OF_QUEUES_PER_DEVICE_DEFAULT 4096
+ 
+ /*
+  * Allocation flag domains
+-- 
+2.17.1
+

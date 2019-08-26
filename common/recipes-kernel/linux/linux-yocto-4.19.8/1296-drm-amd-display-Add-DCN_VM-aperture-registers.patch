@@ -1,0 +1,32 @@
+From f90481ca85d9969df67bb7b9be4863b0b43f2e02 Mon Sep 17 00:00:00 2001
+From: Eryk Brol <eryk.brol@amd.com>
+Date: Tue, 29 Jan 2019 19:15:05 -0500
+Subject: [PATCH 1296/2940] drm/amd/display: Add DCN_VM aperture registers
+
+[Why]
+For later use by the DC VM implementation
+
+Signed-off-by: Eryk Brol <eryk.brol@amd.com>
+Reviewed-by: Jun Lei <Jun.Lei@amd.com>
+Acked-by: Leo Li <sunpeng.li@amd.com>
+---
+ drivers/gpu/drm/amd/display/dc/dcn10/dcn10_hubp.h | 3 +++
+ 1 file changed, 3 insertions(+)
+
+diff --git a/drivers/gpu/drm/amd/display/dc/dcn10/dcn10_hubp.h b/drivers/gpu/drm/amd/display/dc/dcn10/dcn10_hubp.h
+index a6d6dfe00617..3268ab089363 100644
+--- a/drivers/gpu/drm/amd/display/dc/dcn10/dcn10_hubp.h
++++ b/drivers/gpu/drm/amd/display/dc/dcn10/dcn10_hubp.h
+@@ -595,6 +595,9 @@
+ 	type AGP_BASE;\
+ 	type AGP_BOT;\
+ 	type AGP_TOP;\
++	type DCN_VM_SYSTEM_APERTURE_DEFAULT_SYSTEM;\
++	type DCN_VM_SYSTEM_APERTURE_DEFAULT_ADDR_MSB;\
++	type DCN_VM_SYSTEM_APERTURE_DEFAULT_ADDR_LSB;\
+ 	/* todo:  get these from GVM instead of reading registers ourselves */\
+ 	type PAGE_DIRECTORY_ENTRY_HI32;\
+ 	type PAGE_DIRECTORY_ENTRY_LO32;\
+-- 
+2.17.1
+

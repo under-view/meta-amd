@@ -1,0 +1,28 @@
+From 845bb1364e6390f5d20eb12424b636e970f7c4d0 Mon Sep 17 00:00:00 2001
+From: Hawking Zhang <Hawking.Zhang@amd.com>
+Date: Fri, 17 May 2019 22:24:16 +0800
+Subject: [PATCH 2385/2940] drm/amd/powerplay: fix no statements in fucntion
+ returning non-void
+
+Signed-off-by: Hawking Zhang <Hawking.Zhang@amd.com>
+Signed-off-by: Alex Deucher <alexander.deucher@amd.com>
+---
+ drivers/gpu/drm/amd/powerplay/navi10_ppt.c | 2 ++
+ 1 file changed, 2 insertions(+)
+
+diff --git a/drivers/gpu/drm/amd/powerplay/navi10_ppt.c b/drivers/gpu/drm/amd/powerplay/navi10_ppt.c
+index 130719663566..f5fb672bddc2 100644
+--- a/drivers/gpu/drm/amd/powerplay/navi10_ppt.c
++++ b/drivers/gpu/drm/amd/powerplay/navi10_ppt.c
+@@ -494,6 +494,8 @@ static int navi10_tables_init(struct smu_context *smu, struct smu_table *tables)
+ 	SMU_TABLE_INIT(tables, SMU_TABLE_ACTIVITY_MONITOR_COEFF,
+ 		       sizeof(DpmActivityMonitorCoeffInt_t), PAGE_SIZE,
+ 	               AMDGPU_GEM_DOMAIN_VRAM);
++
++	return 0;
+ }
+ 
+ static int navi10_allocate_dpm_context(struct smu_context *smu)
+-- 
+2.17.1
+

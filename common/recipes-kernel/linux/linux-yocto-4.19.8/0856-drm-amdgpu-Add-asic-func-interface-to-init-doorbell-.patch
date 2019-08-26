@@ -1,0 +1,41 @@
+From b69d849f72f749a4ba7b4492255ef4b38ffd1275 Mon Sep 17 00:00:00 2001
+From: Oak Zeng <ozeng@amd.com>
+Date: Mon, 26 Nov 2018 10:41:23 -0600
+Subject: [PATCH 0856/2940] drm/amdgpu: Add asic func interface to init
+ doorbell index
+
+This is preparation to move doorbell index initialization
+to amdgpu_asic_funcs
+
+Signed-off-by: Oak Zeng <ozeng@amd.com>
+Proposed-by: Alex Deucher <alexander.deucher@amd.com>
+Reviewed-by: Alex Deucher <alexander.deucher@amd.com>
+Signed-off-by: Alex Deucher <alexander.deucher@amd.com>
+---
+ drivers/gpu/drm/amd/amdgpu/amdgpu.h | 3 +++
+ 1 file changed, 3 insertions(+)
+
+diff --git a/drivers/gpu/drm/amd/amdgpu/amdgpu.h b/drivers/gpu/drm/amd/amdgpu/amdgpu.h
+index 3f0581a7c0f5..c72e81348794 100644
+--- a/drivers/gpu/drm/amd/amdgpu/amdgpu.h
++++ b/drivers/gpu/drm/amd/amdgpu/amdgpu.h
+@@ -661,6 +661,8 @@ struct amdgpu_asic_funcs {
+ 			       struct amdgpu_ring *ring);
+ 	/* check if the asic needs a full reset of if soft reset will work */
+ 	bool (*need_full_reset)(struct amdgpu_device *adev);
++	/* initialize doorbell layout for specific asic*/
++	void (*init_doorbell_index)(struct amdgpu_device *adev);
+ };
+ 
+ /*
+@@ -1247,6 +1249,7 @@ int emu_soc_asic_init(struct amdgpu_device *adev);
+ #define amdgpu_asic_flush_hdp(adev, r) (adev)->asic_funcs->flush_hdp((adev), (r))
+ #define amdgpu_asic_invalidate_hdp(adev, r) (adev)->asic_funcs->invalidate_hdp((adev), (r))
+ #define amdgpu_asic_need_full_reset(adev) (adev)->asic_funcs->need_full_reset((adev))
++#define amdgpu_asic_init_doorbell_index(adev) (adev)->asic_funcs->init_doorbell_index((adev))
+ 
+ /* Common functions */
+ bool amdgpu_device_should_recover_gpu(struct amdgpu_device *adev);
+-- 
+2.17.1
+

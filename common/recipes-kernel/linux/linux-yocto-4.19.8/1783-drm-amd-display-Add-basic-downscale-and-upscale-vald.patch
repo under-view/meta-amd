@@ -1,0 +1,66 @@
+From bcb5aad1a584510d05a5fcbc22b8a3217e814503 Mon Sep 17 00:00:00 2001
+From: Nicholas Kazlauskas <nicholas.kazlauskas@amd.com>
+Date: Mon, 1 Apr 2019 09:43:34 -0400
+Subject: [PATCH 1783/2940] drm/amd/display: Add basic downscale and upscale
+ valdiation
+
+[Why]
+Planes have downscaling limits and upscaling limits per format and DM
+is expected to validate these using DC caps. We should fail atomic
+check validation if we aren't capable of doing the scaling.
+
+[How]
+We don't currently create store which DC plane maps to which DRM plane
+so we can't easily check the caps directly. For now add basic
+constraints that cover the absolute min and max downscale / upscale
+limits for most RGB and YUV formats across ASICs.
+
+Leave a TODO indicating that these should really be done with DC caps.
+We'll probably need to subclass DRM planes again in order to correctly
+identify which DC plane maps to it.
+
+Change-Id: I18524d0e5d8a96ae3ae0e5d0eb3906092201a125
+Signed-off-by: Nicholas Kazlauskas <nicholas.kazlauskas@amd.com>
+Reviewed-by: Harry Wentland <Harry.Wentland@amd.com>
+Reviewed-by: Tony Cheng <Tony.Cheng@amd.com>
+Acked-by: Bhawanpreet Lakha <Bhawanpreet Lakha@amd.com>
+---
+ drivers/gpu/drm/amd/display/amdgpu_dm/amdgpu_dm.c | 15 +++++++++++++++
+ 1 file changed, 15 insertions(+)
+
+diff --git a/drivers/gpu/drm/amd/display/amdgpu_dm/amdgpu_dm.c b/drivers/gpu/drm/amd/display/amdgpu_dm/amdgpu_dm.c
+index ba7bb3338abf..b86e9aeca3c8 100644
+--- a/drivers/gpu/drm/amd/display/amdgpu_dm/amdgpu_dm.c
++++ b/drivers/gpu/drm/amd/display/amdgpu_dm/amdgpu_dm.c
+@@ -2477,6 +2477,8 @@ static const struct drm_encoder_funcs amdgpu_dm_encoder_funcs = {
+ static int fill_dc_scaling_info(const struct drm_plane_state *state,
+ 				struct dc_scaling_info *scaling_info)
+ {
++	int scale_w, scale_h;
++
+ 	memset(scaling_info, 0, sizeof(*scaling_info));
+ 
+ 	/* Source is fixed 16.16 but we ignore mantissa for now... */
+@@ -2507,6 +2509,19 @@ static int fill_dc_scaling_info(const struct drm_plane_state *state,
+ 	/* DRM doesn't specify clipping on destination output. */
+ 	scaling_info->clip_rect = scaling_info->dst_rect;
+ 
++	/* TODO: Validate scaling per-format with DC plane caps */
++	scale_w = scaling_info->dst_rect.width * 1000 /
++		  scaling_info->src_rect.width;
++
++	if (scale_w < 250 || scale_w > 16000)
++		return -EINVAL;
++
++	scale_h = scaling_info->dst_rect.height * 1000 /
++		  scaling_info->src_rect.height;
++
++	if (scale_h < 250 || scale_h > 16000)
++		return -EINVAL;
++
+ 	/*
+ 	 * The "scaling_quality" can be ignored for now, quality = 0 has DC
+ 	 * assume reasonable defaults based on the format.
+-- 
+2.17.1
+

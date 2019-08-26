@@ -1,0 +1,44 @@
+From 7fcba6ad85ea0392bdd2875ed277c42afaab47f1 Mon Sep 17 00:00:00 2001
+From: Tom St Denis <tom.stdenis@amd.com>
+Date: Fri, 12 Jul 2019 09:41:32 -0400
+Subject: [PATCH 2873/2940] drm/amd/amdgpu: Add missing select_me_pipe_q() for
+ gfx10
+
+The ability to select GFX GRBM me/pipe/queue/vmid was missing from
+the gfx10 driver.  This patch adds it.  Used by the debugfs register
+interface to select GFX resources when read/writing registers.
+
+Signed-off-by: Tom St Denis <tom.stdenis@amd.com>
+Reviewed-by: Alex Deucher <alexander.deucher@amd.com>
+---
+ drivers/gpu/drm/amd/amdgpu/gfx_v10_0.c | 7 +++++++
+ 1 file changed, 7 insertions(+)
+
+diff --git a/drivers/gpu/drm/amd/amdgpu/gfx_v10_0.c b/drivers/gpu/drm/amd/amdgpu/gfx_v10_0.c
+index e5e3fc88de46..cf864be7c3eb 100644
+--- a/drivers/gpu/drm/amd/amdgpu/gfx_v10_0.c
++++ b/drivers/gpu/drm/amd/amdgpu/gfx_v10_0.c
+@@ -1061,6 +1061,12 @@ static void gfx_v10_0_read_wave_vgprs(struct amdgpu_device *adev, uint32_t simd,
+ 		start + SQIND_WAVE_VGPRS_OFFSET, size, dst);
+ }
+ 
++static void gfx_v10_0_select_me_pipe_q(struct amdgpu_device *adev,
++									  u32 me, u32 pipe, u32 q, u32 vm)
++ {
++       nv_grbm_select(adev, me, pipe, q, vm);
++ }
++
+ 
+ static const struct amdgpu_gfx_funcs gfx_v10_0_gfx_funcs = {
+ 	.get_gpu_clock_counter = &gfx_v10_0_get_gpu_clock_counter,
+@@ -1068,6 +1074,7 @@ static const struct amdgpu_gfx_funcs gfx_v10_0_gfx_funcs = {
+ 	.read_wave_data = &gfx_v10_0_read_wave_data,
+ 	.read_wave_sgprs = &gfx_v10_0_read_wave_sgprs,
+ 	.read_wave_vgprs = &gfx_v10_0_read_wave_vgprs,
++	.select_me_pipe_q = &gfx_v10_0_select_me_pipe_q,
+ };
+ 
+ static void gfx_v10_0_gpu_early_init(struct amdgpu_device *adev)
+-- 
+2.17.1
+

@@ -1,0 +1,42 @@
+From 4dff10f1513b16b8ea9ca96b4dcea5edbfd4eeb3 Mon Sep 17 00:00:00 2001
+From: Xiaojie Yuan <xiaojie.yuan@amd.com>
+Date: Mon, 17 Dec 2018 18:23:27 +0800
+Subject: [PATCH 2646/2940] drm/amdgpu/soc15: add support for navi14
+
+same as navi10
+
+Signed-off-by: Xiaojie Yuan <xiaojie.yuan@amd.com>
+Reviewed-by: Alex Deucher <alexander.deucher@amd.com>
+Reviewed-by: Jack Xiao <Jack.Xiao@amd.com>
+Signed-off-by: Alex Deucher <alexander.deucher@amd.com>
+---
+ drivers/gpu/drm/amd/amdgpu/nv.c | 6 ++++++
+ 1 file changed, 6 insertions(+)
+
+diff --git a/drivers/gpu/drm/amd/amdgpu/nv.c b/drivers/gpu/drm/amd/amdgpu/nv.c
+index 662ccf2c6b3e..649dc5c01ff6 100644
+--- a/drivers/gpu/drm/amd/amdgpu/nv.c
++++ b/drivers/gpu/drm/amd/amdgpu/nv.c
+@@ -516,6 +516,11 @@ static int nv_common_early_init(void *handle)
+ 			AMD_PG_SUPPORT_ATHUB;
+ 		adev->external_rev_id = adev->rev_id + 0x1;
+ 		break;
++	case CHIP_NAVI14:
++		adev->cg_flags = 0;
++		adev->pg_flags = 0;
++		adev->external_rev_id = adev->rev_id + 0x1; /* ??? */
++		break;
+ 	default:
+ 		/* FIXME: not supported yet */
+ 		return -EINVAL;
+@@ -708,6 +713,7 @@ static int nv_common_set_clockgating_state(void *handle,
+ 
+ 	switch (adev->asic_type) {
+ 	case CHIP_NAVI10:
++	case CHIP_NAVI14:
+ 		adev->nbio_funcs->update_medium_grain_clock_gating(adev,
+ 				state == AMD_CG_STATE_GATE ? true : false);
+ 		adev->nbio_funcs->update_medium_grain_light_sleep(adev,
+-- 
+2.17.1
+

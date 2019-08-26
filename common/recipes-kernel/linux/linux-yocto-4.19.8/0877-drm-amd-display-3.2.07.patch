@@ -1,0 +1,29 @@
+From cf02d569b8ac0420c6345e0752e635605e5ed05d Mon Sep 17 00:00:00 2001
+From: Steven Chiu <steven.chiu@amd.com>
+Date: Mon, 5 Nov 2018 11:42:19 -0500
+Subject: [PATCH 0877/2940] drm/amd/display: 3.2.07
+
+Signed-off-by: Steven Chiu <steven.chiu@amd.com>
+Reviewed-by: Shahin Khayyer <Shahin.Khayyer@amd.com>
+Acked-by: Leo Li <sunpeng.li@amd.com>
+Signed-off-by: Alex Deucher <alexander.deucher@amd.com>
+---
+ drivers/gpu/drm/amd/display/dc/dc.h | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/drivers/gpu/drm/amd/display/dc/dc.h b/drivers/gpu/drm/amd/display/dc/dc.h
+index d6349d1655a7..c2a5b9763f9e 100644
+--- a/drivers/gpu/drm/amd/display/dc/dc.h
++++ b/drivers/gpu/drm/amd/display/dc/dc.h
+@@ -39,7 +39,7 @@
+ #include "inc/hw/dmcu.h"
+ #include "dml/display_mode_lib.h"
+ 
+-#define DC_VER "3.2.06"
++#define DC_VER "3.2.07"
+ 
+ #define MAX_SURFACES 3
+ #define MAX_STREAMS 6
+-- 
+2.17.1
+

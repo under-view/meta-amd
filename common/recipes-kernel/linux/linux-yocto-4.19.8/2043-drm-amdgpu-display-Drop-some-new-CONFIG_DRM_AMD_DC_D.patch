@@ -1,0 +1,58 @@
+From dd6b456b1a2ad4f1b6396914bf78504ec7fe1497 Mon Sep 17 00:00:00 2001
+From: Alex Deucher <alexander.deucher@amd.com>
+Date: Fri, 31 May 2019 11:34:57 -0500
+Subject: [PATCH 2043/2940] drm/amdgpu/display: Drop some new
+ CONFIG_DRM_AMD_DC_DCN1_01 guards
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+These got added back by subsequent merges accidently.
+
+Acked-by: Christian König <christian.koenig@amd.com>
+Signed-off-by: Alex Deucher <alexander.deucher@amd.com>
+Signed-off-by: Chaudhary Amit Kumar <Chaudharyamit.Kumar@amd.com>
+---
+ drivers/gpu/drm/amd/display/amdgpu_dm/amdgpu_dm.c | 2 --
+ drivers/gpu/drm/amd/display/dc/clk_mgr/clk_mgr.c  | 4 ----
+ 2 files changed, 6 deletions(-)
+
+diff --git a/drivers/gpu/drm/amd/display/amdgpu_dm/amdgpu_dm.c b/drivers/gpu/drm/amd/display/amdgpu_dm/amdgpu_dm.c
+index 3f49a13841a9..e089e384b0ba 100644
+--- a/drivers/gpu/drm/amd/display/amdgpu_dm/amdgpu_dm.c
++++ b/drivers/gpu/drm/amd/display/amdgpu_dm/amdgpu_dm.c
+@@ -663,12 +663,10 @@ static int load_dmcu_fw(struct amdgpu_device *adev)
+ 	case CHIP_VEGA20:
+ 		return 0;
+ 	case CHIP_RAVEN:
+-#if defined(CONFIG_DRM_AMD_DC_DCN1_01)
+ 		if (ASICREV_IS_PICASSO(adev->external_rev_id))
+ 			fw_name_dmcu = FIRMWARE_RAVEN_DMCU;
+ 		else if (ASICREV_IS_RAVEN2(adev->external_rev_id))
+ 			fw_name_dmcu = FIRMWARE_RAVEN_DMCU;
+-#endif
+ 		else
+ 			return 0;
+ 		break;
+diff --git a/drivers/gpu/drm/amd/display/dc/clk_mgr/clk_mgr.c b/drivers/gpu/drm/amd/display/dc/clk_mgr/clk_mgr.c
+index 08b27c775cd4..eb2204d42337 100644
+--- a/drivers/gpu/drm/amd/display/dc/clk_mgr/clk_mgr.c
++++ b/drivers/gpu/drm/amd/display/dc/clk_mgr/clk_mgr.c
+@@ -105,14 +105,10 @@ struct clk_mgr *dc_clk_mgr_create(struct dc_context *ctx, struct pp_smu_funcs *p
+ 
+ #if defined(CONFIG_DRM_AMD_DC_DCN1_0)
+ 	case FAMILY_RV:
+-
+-#if defined(CONFIG_DRM_AMD_DC_DCN1_01)
+ 		if (ASICREV_IS_RAVEN2(asic_id.hw_internal_rev)) {
+ 			rv2_clk_mgr_construct(ctx, clk_mgr, pp_smu);
+ 			break;
+ 		}
+-#endif	/* DCN1_01 */
+-
+ 		if (ASICREV_IS_RAVEN(asic_id.hw_internal_rev) ||
+ 				ASICREV_IS_PICASSO(asic_id.hw_internal_rev)) {
+ 			rv1_clk_mgr_construct(ctx, clk_mgr, pp_smu);
+-- 
+2.17.1
+

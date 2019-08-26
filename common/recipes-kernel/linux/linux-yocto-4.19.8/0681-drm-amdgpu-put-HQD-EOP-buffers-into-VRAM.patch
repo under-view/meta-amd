@@ -1,0 +1,61 @@
+From 77ee9c59a1cac6fa36a088977677962b33540084 Mon Sep 17 00:00:00 2001
+From: =?UTF-8?q?Marek=20Ol=C5=A1=C3=A1k?= <marek.olsak@amd.com>
+Date: Fri, 5 Oct 2018 16:52:39 -0400
+Subject: [PATCH 0681/2940] drm/amdgpu: put HQD EOP buffers into VRAM
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+This increases performance of compute queues.
+EOP events (PKT3_RELEASE_MEM) are stored into these buffers.
+
+Signed-off-by: Marek Olšák <marek.olsak@amd.com>
+Signed-off-by: Alex Deucher <alexander.deucher@amd.com>
+---
+ drivers/gpu/drm/amd/amdgpu/gfx_v7_0.c | 2 +-
+ drivers/gpu/drm/amd/amdgpu/gfx_v8_0.c | 2 +-
+ drivers/gpu/drm/amd/amdgpu/gfx_v9_0.c | 2 +-
+ 3 files changed, 3 insertions(+), 3 deletions(-)
+
+diff --git a/drivers/gpu/drm/amd/amdgpu/gfx_v7_0.c b/drivers/gpu/drm/amd/amdgpu/gfx_v7_0.c
+index 9fadb32da827..cfa45d996482 100644
+--- a/drivers/gpu/drm/amd/amdgpu/gfx_v7_0.c
++++ b/drivers/gpu/drm/amd/amdgpu/gfx_v7_0.c
+@@ -2781,7 +2781,7 @@ static int gfx_v7_0_mec_init(struct amdgpu_device *adev)
+ 		* GFX7_MEC_HPD_SIZE * 2;
+ 
+ 	r = amdgpu_bo_create_reserved(adev, mec_hpd_size, PAGE_SIZE,
+-				      AMDGPU_GEM_DOMAIN_GTT,
++				      AMDGPU_GEM_DOMAIN_VRAM,
+ 				      &adev->gfx.mec.hpd_eop_obj,
+ 				      &adev->gfx.mec.hpd_eop_gpu_addr,
+ 				      (void **)&hpd);
+diff --git a/drivers/gpu/drm/amd/amdgpu/gfx_v8_0.c b/drivers/gpu/drm/amd/amdgpu/gfx_v8_0.c
+index 1aefd57ec424..bebf60d0c561 100644
+--- a/drivers/gpu/drm/amd/amdgpu/gfx_v8_0.c
++++ b/drivers/gpu/drm/amd/amdgpu/gfx_v8_0.c
+@@ -1443,7 +1443,7 @@ static int gfx_v8_0_mec_init(struct amdgpu_device *adev)
+ 	mec_hpd_size = adev->gfx.num_compute_rings * GFX8_MEC_HPD_SIZE;
+ 
+ 	r = amdgpu_bo_create_reserved(adev, mec_hpd_size, PAGE_SIZE,
+-				      AMDGPU_GEM_DOMAIN_GTT,
++				      AMDGPU_GEM_DOMAIN_VRAM,
+ 				      &adev->gfx.mec.hpd_eop_obj,
+ 				      &adev->gfx.mec.hpd_eop_gpu_addr,
+ 				      (void **)&hpd);
+diff --git a/drivers/gpu/drm/amd/amdgpu/gfx_v9_0.c b/drivers/gpu/drm/amd/amdgpu/gfx_v9_0.c
+index 50311f82ff68..0112cb1d18e7 100644
+--- a/drivers/gpu/drm/amd/amdgpu/gfx_v9_0.c
++++ b/drivers/gpu/drm/amd/amdgpu/gfx_v9_0.c
+@@ -1278,7 +1278,7 @@ static int gfx_v9_0_mec_init(struct amdgpu_device *adev)
+ 	mec_hpd_size = adev->gfx.num_compute_rings * GFX9_MEC_HPD_SIZE;
+ 
+ 	r = amdgpu_bo_create_reserved(adev, mec_hpd_size, PAGE_SIZE,
+-				      AMDGPU_GEM_DOMAIN_GTT,
++				      AMDGPU_GEM_DOMAIN_VRAM,
+ 				      &adev->gfx.mec.hpd_eop_obj,
+ 				      &adev->gfx.mec.hpd_eop_gpu_addr,
+ 				      (void **)&hpd);
+-- 
+2.17.1
+

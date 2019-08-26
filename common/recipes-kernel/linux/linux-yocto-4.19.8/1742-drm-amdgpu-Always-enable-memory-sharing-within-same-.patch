@@ -1,0 +1,32 @@
+From 92ec3fbcd57574a94b235f7dd938cde778223a74 Mon Sep 17 00:00:00 2001
+From: shaoyunl <shaoyun.liu@amd.com>
+Date: Mon, 8 Apr 2019 18:28:22 -0400
+Subject: [PATCH 1742/2940] drm/amdgpu: Always enable memory sharing within
+ same XGMI hive
+
+XGMI Memory sharing will be disbaled by default for security reason after
+boot up, it depends on driver to enable the memory sharing
+
+Change-Id: Ib516066eecfb877f84f1460a4d659abea44adb02
+Signed-off-by: shaoyunl <shaoyun.liu@amd.com>
+Acked-by: Evan Quan <evan.quan@amd.com>
+---
+ drivers/gpu/drm/amd/amdgpu/psp_v11_0.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/drivers/gpu/drm/amd/amdgpu/psp_v11_0.c b/drivers/gpu/drm/amd/amdgpu/psp_v11_0.c
+index bfae24b55c95..ef7acb317e23 100644
+--- a/drivers/gpu/drm/amd/amdgpu/psp_v11_0.c
++++ b/drivers/gpu/drm/amd/amdgpu/psp_v11_0.c
+@@ -684,7 +684,7 @@ static int psp_v11_0_xgmi_set_topology_info(struct psp_context *psp,
+ 	for (i = 0; i < topology_info_input->num_nodes; i++) {
+ 		topology_info_input->nodes[i].node_id = topology->nodes[i].node_id;
+ 		topology_info_input->nodes[i].num_hops = topology->nodes[i].num_hops;
+-		topology_info_input->nodes[i].is_sharing_enabled = topology->nodes[i].is_sharing_enabled;
++		topology_info_input->nodes[i].is_sharing_enabled = 1;
+ 		topology_info_input->nodes[i].sdma_engine = topology->nodes[i].sdma_engine;
+ 	}
+ 
+-- 
+2.17.1
+

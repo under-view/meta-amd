@@ -1,0 +1,35 @@
+From d01abddfa55816328df0f5ca5fe2c114552fb218 Mon Sep 17 00:00:00 2001
+From: Jack Xiao <Jack.Xiao@amd.com>
+Date: Mon, 15 Apr 2019 16:58:20 +0800
+Subject: [PATCH 2324/2940] drm/amdgpu/mes10.1: implement ucode CPU buffer
+ destruction
+
+It implements the CPU buffer destruction of ucode.
+
+Signed-off-by: Jack Xiao <Jack.Xiao@amd.com>
+Reviewed-by: Hawking Zhang <Hawking.Zhang@amd.com>
+Signed-off-by: Alex Deucher <alexander.deucher@amd.com>
+---
+ drivers/gpu/drm/amd/amdgpu/mes_v10_1.c | 6 ++++++
+ 1 file changed, 6 insertions(+)
+
+diff --git a/drivers/gpu/drm/amd/amdgpu/mes_v10_1.c b/drivers/gpu/drm/amd/amdgpu/mes_v10_1.c
+index c799b0ca1907..e53819b99442 100644
+--- a/drivers/gpu/drm/amd/amdgpu/mes_v10_1.c
++++ b/drivers/gpu/drm/amd/amdgpu/mes_v10_1.c
+@@ -97,6 +97,12 @@ static int mes_v10_1_init_microcode(struct amdgpu_device *adev)
+ 	return 0;
+ }
+ 
++static void mes_v10_1_free_microcode(struct amdgpu_device *adev)
++{
++	release_firmware(adev->mes.fw);
++	adev->mes.fw = NULL;
++}
++
+ static int mes_v10_1_sw_init(void *handle)
+ {
+ 	return 0;
+-- 
+2.17.1
+
