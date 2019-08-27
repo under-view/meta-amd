@@ -6,7 +6,7 @@ PR = "r0"
 inherit packagegroup
 
 RDEPENDS_${PN} += "\
-    libfaad \
+    faad2 \
     libid3tag \
     gstreamer1.0-plugins-bad-meta \
     gstreamer1.0-plugins-ugly-meta \

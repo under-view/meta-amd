@@ -1,4 +1,5 @@
 require conf/machine/include/amd-features.inc
+require conf/machine/include/amd-multimedia.inc
 
 POKY_DEFAULT_DISTRO_FEATURES_remove = "wayland"
 
