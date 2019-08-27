@@ -40,3 +40,7 @@ COMMERCIAL_LIC_FLAGS_MULTIMEDIA = "\
 
 LICENSE_FLAGS_WHITELIST_append = "${@' ${COMMERCIAL_LIC_FLAGS_MULTIMEDIA}' if bb.utils.to_boolean('${INCLUDE_COMMERCIAL_MULTIMEDIA}') else ''}"
 CORE_IMAGE_EXTRA_INSTALL_append = "${@' packagegroup-multimedia-risky' if bb.utils.to_boolean('${INCLUDE_COMMERCIAL_MULTIMEDIA}') else ''}"
+
+# To fix the following error:
+# Missing or unbuildable dependency chain was: ['core-image-sato', 'gstreamer1.0-vaapi', 'gstreamer1.0-plugins-bad', 'faad2']
+GSTREAMER_PKGS_remove = "${@' gstreamer1.0-vaapi' if not bb.utils.to_boolean('${INCLUDE_COMMERCIAL_MULTIMEDIA}') else ''}"
