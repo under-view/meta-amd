@@ -6,8 +6,6 @@ FILESEXTRAPATHS_prepend := "${THISDIR}/${PN}:"
 #
 DEPENDS_remove_amd = "gstreamer1.0-plugins-bad"
 
-SRC_URI_append_amd = " file://0001-adjust-gstomx.conf-for-mesa.patch"
-
 #
 # This package should not have commercial license flags.
 # There is discussion in the OE community about fixing this
