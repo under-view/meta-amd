@@ -44,3 +44,7 @@ CORE_IMAGE_EXTRA_INSTALL_append = "${@' packagegroup-multimedia-risky' if bb.uti
 # To fix the following error:
 # Missing or unbuildable dependency chain was: ['core-image-sato', 'gstreamer1.0-vaapi', 'gstreamer1.0-plugins-bad', 'faad2']
 GSTREAMER_PKGS_remove = "${@' gstreamer1.0-vaapi' if not bb.utils.to_boolean('${INCLUDE_COMMERCIAL_MULTIMEDIA}') else ''}"
+
+# To fix the following error:
+# Missing or unbuildable dependency chain was: ['core-image-sato', 'packagegroup-core-x11-sato', 'gst-examples', 'gstreamer1.0-plugins-bad', 'faad2']
+GSTEXAMPLES_remove = "${@' gst-examples' if not bb.utils.to_boolean('${INCLUDE_COMMERCIAL_MULTIMEDIA}') else ''}"
