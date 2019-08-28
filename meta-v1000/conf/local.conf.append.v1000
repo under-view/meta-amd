@@ -56,10 +56,5 @@ CORE_IMAGE_EXTRA_INSTALL_append = "${@' packagegroup-multimedia-risky' if bb.uti
 #   Framework for writing programs that execute across heterogeneous platforms consisting
 #   of CPUs, GPUs, DSPs, FPGAs and other processors or hardware accelerators.
 #
-# - OPENCV - The Open Computer Vision Library.
-#   Library of programming functions mainly aimed at real-time computer vision. Used for
-#   image-processing on input from image/video files and camera etc.
-#
 INCLUDE_VULKAN ??= "no"
 INCLUDE_OPENCL ??= "no"
-INCLUDE_OPENCV ??= "no"
