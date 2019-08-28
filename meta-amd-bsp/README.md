@@ -19,9 +19,10 @@ for general information and usage details.
 
 ## Dependencies
 
-This layer depends on:
+Depending on the machine, this layer may depend on:
 
 [bitbake](https://github.com/openembedded/bitbake) layer,
 [oe-core](https://github.com/openembedded/openembedded-core) layer,
 [meta-oe](https://github.com/openembedded/meta-openembedded) layer,
-[meta-python](https://github.com/openembedded/meta-openembedded/meta-python) layer
+[meta-python](https://github.com/openembedded/meta-openembedded/meta-python) layer,
+[meta-networking](https://github.com/openembedded/meta-openembedded/meta-networking) layer
