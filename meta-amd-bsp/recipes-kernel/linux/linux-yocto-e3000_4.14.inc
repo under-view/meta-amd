@@ -1,7 +1,19 @@
-require linux-yocto-e3000_4.14.inc
+FILESEXTRAPATHS_prepend := "${THISDIR}/linux-yocto-${LINUX_VERSION}-${MACHINE}:"
 
-SRC_URI_append_e3000 += "file://e3000-standard-only.cfg"
-SRC_URI_append_e3000 += "file://disable-graphics.cfg"
+SRC_URI_append_e3000 += "file://e3000-user-features.scc \
+    file://e3000-user-patches.scc \
+    file://e3000.cfg \
+    file://e3000-user-config.cfg \
+    file://e3000-extra-config.cfg \
+    file://amd-xgbe.cfg \
+    file://amd-ccp.cfg \
+    file://kvm.cfg \
+    file://afalg.cfg \
+    file://disable-graphics.cfg \
+    file://e3000-standard-only.cfg \
+"
+
+COMPATIBLE_MACHINE_e3000 = "e3000"
 
 do_validate_branches_append() {
     # Droping configs related to sound generating spurious warnings
