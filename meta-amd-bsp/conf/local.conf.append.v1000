@@ -1,4 +1,4 @@
-# MEL supports various components that can be enabled by setting the corresponding
+# AMD supports various components that can be enabled by setting the corresponding
 # INCLUDE_<component> to "yes".
 # Following is a list of <components> that can be enabled if you want them to be
 # installed/available on your image.
