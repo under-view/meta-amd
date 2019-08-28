@@ -1,7 +1,7 @@
-require linux-yocto-snowyowl_4.14.inc
+require linux-yocto-e3000_4.14.inc
 
-SRC_URI_append_snowyowl += "file://snowyowl-standard-only.cfg"
-SRC_URI_append_snowyowl += "file://disable-graphics.cfg"
+SRC_URI_append_e3000 += "file://e3000-standard-only.cfg"
+SRC_URI_append_e3000 += "file://disable-graphics.cfg"
 
 do_validate_branches_append() {
     # Droping configs related to sound generating spurious warnings

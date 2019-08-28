@@ -23,6 +23,6 @@ do_configure_prepend () {
 	sed -e "s#CONFIG_RTE_BUILD_SHARED_LIB=n#CONFIG_RTE_BUILD_SHARED_LIB=${BUILD_SHARED}#" -i ${S}/config/common_base
 }
 
-COMPATIBLE_MACHINE_snowyowl = "snowyowl"
-DPDK_TARGET_MACHINE_snowyowl = "znver1"
+COMPATIBLE_MACHINE_e3000 = "e3000"
+DPDK_TARGET_MACHINE_e3000 = "znver1"
 TUNE_FEATURES += "m64"

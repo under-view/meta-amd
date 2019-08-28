@@ -1,6 +1,6 @@
-# meta-amd/meta-snowyowl
+# meta-amd/meta-e3000
 
-This is the location for AMD Snowy Owl BSP.
+This is the location for AMD E3000 BSP.
 
 Please see the README file contained in the root meta-amd directory
 for general information and usage details.
