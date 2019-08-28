@@ -12,3 +12,6 @@ RDEPENDS_${PN} += "\
     gstreamer1.0-plugins-ugly-meta \
     gstreamer1.0-libav \
 "
+
+RDEPENDS_${PN}_append_r1000 = " ffmpeg"
+RDEPENDS_${PN}_append_v1000 = " ffmpeg"
