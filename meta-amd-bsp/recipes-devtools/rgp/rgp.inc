@@ -1,3 +1,5 @@
+FILESEXTRAPATHS_prepend := "${THISDIR}/${PN}-${PV}:"
+
 SUMMARY = "Radeon-GPUProfiler"
 DESCRIPTION = "The Radeon GPU Profiler (RGP) is a ground-breaking \
               low-level optimization tool from AMD.  It provides \
@@ -9,7 +11,6 @@ DESCRIPTION = "The Radeon GPU Profiler (RGP) is a ground-breaking \
               data."
 
 LICENSE = "Proprietary"
-LIC_FILES_CHKSUM = "file://License.rtf;md5=5441ae9fb95849e3aacd0f330710f9fa"
 
 inherit systemd
 
