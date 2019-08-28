@@ -1,8 +1,8 @@
 # meta-amd
 
-This is the location for AMD BSPs.
+This is the location for AMD BSP and AMD DISTRO layers.
 
-Please see the README files contained in the individual BSP layers for
+Please see the README files contained in the meta-amd-bsp layer for
 BSP-specific information like dependencies etc.
 
 If you have problems with or questions about a particular BSP, please
@@ -85,10 +85,6 @@ may take longer.
 
 The per layer gatekeepers are the following.
 
-- amdfalconx86: Wade Farnsworth, wade_farnsworth@mentor.com
-- common: Wade Farnsworth, wade_farnsworth@mentor.com
-- steppeeagle: Wade Farnsworth, wade_farnsworth@mentor.com
-- snowyowl: Wade Farnsworth, wade_farnsworth@mentor.com
-- seattle: Adrian Calianu, adrian.calianu@enea.com
-- v1000: Wade Farnsworth, wade_farnsworth@mentor.com
-- r1000: Wade Farnsworth, wade_farnsworth@mentor.com
+- meta-amd-bsp: Wade Farnsworth, wade_farnsworth@mentor.com
+- meta-amd-distro: Wade Farnsworth, wade_farnsworth@mentor.com
+- meta-seattle: Adrian Calianu, adrian.calianu@enea.com
