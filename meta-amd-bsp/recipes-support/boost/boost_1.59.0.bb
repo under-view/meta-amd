@@ -1,6 +1,12 @@
 include boost-${PV}.inc
 include recipes-support/boost/boost.inc
 
+# poky/meta/recipes-support/boost/boost.inc for boost v1.69.0 in warrior branch
+# changes the list of BOOST_LIBS. We change it back to previous settings as
+# the library "contract" does not exist in boost v1.59.0, so the do_compile fails.
+BOOST_LIBS_append = " signals"
+BOOST_LIBS_remove = " contract"
+
 SRC_URI += "\
     file://arm-intrinsics.patch \
     file://consider-hardfp.patch \
