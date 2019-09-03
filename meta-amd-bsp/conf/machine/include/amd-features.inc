@@ -55,6 +55,7 @@ FEATURE_PACKAGES_amd-misc-pkgs = "\
 
 FEATURE_PACKAGES_amd-feature-multimedia = "\
     ${GSTREAMER_PKGS} \
+    ${@bb.utils.contains("IMAGE_FEATURES", "x11-base", "vdpauinfo", "", d)} \
     ${AMD_FEATURE_MULTIMEDIA_PKGS} \
 "
 

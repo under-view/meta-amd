@@ -24,7 +24,7 @@ MACHINE_FEATURES += "wifi efi alsa"
 MACHINE_FEATURES_remove = "qemu-usermode"
 
 MACHINE_EXTRA_RRECOMMENDS += "kernel-modules alsa-utils"
-MACHINE_EXTRA_RRECOMMENDS += "${@bb.utils.contains("IMAGE_FEATURES", "x11-base", "vdpauinfo", "", d)} grub parted util-linux-blkid"
+MACHINE_EXTRA_RRECOMMENDS += "grub parted util-linux-blkid"
 MACHINE_EXTRA_RRECOMMENDS += "rtc-test watchdog-test spi-test smbus-test gpio-test"
 MACHINE_EXTRA_RRECOMMENDS += "amd-wdt amd-spi"
 
