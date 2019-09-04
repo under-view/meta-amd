@@ -1,0 +1,37 @@
+From 39a94d69833508a351376456dad08ea5facf9362 Mon Sep 17 00:00:00 2001
+From: "Arsalan H. Awan" <Arsalan_Awan@mentor.com>
+Date: Wed, 4 Sep 2019 22:12:59 +0500
+Subject: [PATCH] gstomx.conf add mesa omx bellagio encoder avc & decoder hevc
+
+Signed-off-by: Arsalan H. Awan <Arsalan_Awan@mentor.com>
+---
+ config/bellagio/gstomx.conf | 16 ++++++++++++++++
+ 1 file changed, 16 insertions(+)
+
+diff --git a/config/bellagio/gstomx.conf b/config/bellagio/gstomx.conf
+index 0e856be..3e43011 100644
+--- a/config/bellagio/gstomx.conf
++++ b/config/bellagio/gstomx.conf
+@@ -58,3 +58,19 @@ component-name=OMX.mesa.video_decoder.mpeg2
+ rank=0
+ in-port-index=0
+ out-port-index=1
++
++[omxh265dec]
++type-name=GstOMXH265Dec
++core-name=/usr/lib/libomxil-bellagio.so.0
++component-name=OMX.mesa.video_decoder.hevc
++rank=0
++in-port-index=0
++out-port-index=1
++
++[omxh264enc]
++type-name=GstOMXH264Enc
++core-name=/usr/lib/libomxil-bellagio.so.0
++component-name=OMX.mesa.video_encoder.avc
++rank=256
++in-port-index=0
++out-port-index=1
+-- 
+2.11.1
+
