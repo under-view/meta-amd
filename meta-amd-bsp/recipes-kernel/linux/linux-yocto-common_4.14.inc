@@ -16,6 +16,6 @@ SRC_URI_append_amdx86 = " file://amd-xgbe-patches.scc \
                    file://wifi-drivers.cfg \
                    file://disable-intel-graphics.cfg \
                    ${@bb.utils.contains('DISTRO_FEATURES', 'bluetooth', 'file://enable-bluetooth.cfg', 'file://disable-bluetooth.cfg', d)} \
-                   ${@bb.utils.contains('DISTRO', 'mel', 'file://enable-kgdb.cfg', 'file://disable-kgdb.cfg', d)}"
+                   ${@bb.utils.contains('DISTRO', 'poky-amd', 'file://enable-kgdb.cfg', 'file://disable-kgdb.cfg', d)}"
 
 KERNEL_FEATURES_append_amdx86 = " cfg/smp.scc"
