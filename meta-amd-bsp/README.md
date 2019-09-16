@@ -8,7 +8,7 @@ to ensure they only apply to expected boards.
 
 ## Machines
 
-This layer contains meta-data for the following AMD BSPs:
+The supported AMD BSPs are:
 
 * r1000
 * v1000
