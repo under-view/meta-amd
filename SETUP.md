@@ -1,25 +1,51 @@
 # 1. Setting up the build system
 
+Building images for AMD BSPs requires setting up the Yocto Project
+Build System. Please follow the guidelines on
+[Yocto Project Overview and Concepts Manual](https://www.yoctoproject.org/docs/2.7/overview-manual/overview-manual.html)
+and [Yocto Project Quick Build](https://www.yoctoproject.org/docs/2.7/brief-yoctoprojectqs/brief-yoctoprojectqs.html)
+if you are not familiar with the Yocto Project and it's Build System.
+
 Running the following commands will setup the build system and will
-enable us to build recipes & images for any of the supported AMD BSPs:
+enable us to build recipes & images for any of the
+[supported AMD BSPs](meta-amd-bsp/README.md).
 
+### 1.1 Prerequisites
+
+Install the build system's dependencies
+```
+sudo apt install -y gawk wget git-core diffstat unzip texinfo \
+     gcc-multilib build-essential chrpath socat cpio python python3 \
+     python3-pip python3-pexpect xz-utils debianutils iputils-ping \
+     python3-git python3-jinja2 libegl1-mesa libsdl1.2-dev xterm
+```
+
+### 1.2 Download the build system and the meta-data layers
+
+Select the Yocto Project branch:
 ```sh
-gitclonecheckout() {
-  REPO="$1"; NAME="$2"; HASH="$3"
-
-  git clone --single-branch --branch "${YOCTO_BRANCH}" "${REPO}" "${NAME}"
-  cd "${NAME}"
-  git checkout --quiet "${HASH}"
-  cd ..
-}
-
 YOCTO_BRANCH="warrior"
+```
 
-gitclonecheckout "git://git.yoctoproject.org/poky" "poky-amd" "6d2e12e79211b31cdf5ea824fb9a8be54ba9a9eb"
-cd "poky-amd"
-gitclonecheckout "git://git.openembedded.org/meta-openembedded" "meta-openembedded" "3bdbf72e3a4bf18a4a2c7afbde4f7ab773aeded9"
-gitclonecheckout "git://git.yoctoproject.org/meta-amd" "meta-amd" "HEAD"
-gitclonecheckout "git://git.yoctoproject.org/meta-dpdk" "meta-dpdk" "c8c30c2c4e2f36b4a55a69a475fe774015423705"
+Clone the git repositories: 
+```sh
+git clone --single-branch --branch "${YOCTO_BRANCH}" "git://git.yoctoproject.org/poky" "poky-amd"
+cd poky-amd
+git clone --single-branch --branch "${YOCTO_BRANCH}" "git://git.openembedded.org/meta-openembedded"
+git clone --single-branch --branch "${YOCTO_BRANCH}" "git://git.yoctoproject.org/meta-dpdk"
+git clone --single-branch --branch "${YOCTO_BRANCH}" "git://git.yoctoproject.org/meta-amd"
+```
+
+Checkout commit hashes:
+```sh
+git checkout --quiet 6d2e12e79211b31cdf5ea824fb9a8be54ba9a9eb
+cd meta-openembedded
+git checkout --quiet 3bdbf72e3a4bf18a4a2c7afbde4f7ab773aeded9
+cd ../meta-dpdk
+git checkout --quiet c8c30c2c4e2f36b4a55a69a475fe774015423705
+cd ../meta-amd
+git checkout --quiet HEAD
+cd ..
 ```
 
 ---

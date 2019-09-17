@@ -50,7 +50,7 @@ Build one of the supported image recipes:
 bitbake <image-name> -k
 ```
 
-###### where `<image-name>` is to be replaced with one of the supported images for the selected AMD BSP.
+###### where `<image-name>` is to be replaced with one of the [supported images](FEATURES.md) for the selected AMD BSP.
 ###### (e.g. `core-image-sato` or `core-image-base`)
 
 ---
