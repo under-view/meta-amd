@@ -29,11 +29,18 @@ a built image onto a USB/CD/DVD and boot the target machine with it.
 
 #### What's next
 
-You can also customize the images according to your requirement.
-
-Please see [CUSTOMIZE.md](CUSTOMIZE.md) for instructions on how to
+* Please see [CUSTOMIZE.md](CUSTOMIZE.md) for instructions on how to
 customize the build and to enable/disable any of the supported features
 and software components to be included into the build.
+
+* Please see [FEATURES.md](FEATURES.md) for a list of currently
+supported features against each BSP.
+
+* Please see [DOCUMENTATION.md](DOCUMENTATION.md) for links to official
+documentation of various supported features and a general guide of the
+Yocto Project.
+
+* Please see [RELEASE.md](RELEASE.md) for release notes.
 
 ## Troubleshoot
 
