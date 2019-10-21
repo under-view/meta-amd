@@ -7,8 +7,8 @@ and commit hashes, software versions, and known/fixed issues.
 ## Layers
 | Layer             | Git Repo                                     | Branch  | Commit Hash                              |
 |:------------------|:---------------------------------------------|:--------|:-----------------------------------------|
-| poky              | git://git.yoctoproject.org/poky              | warrior | 6d2e12e79211b31cdf5ea824fb9a8be54ba9a9eb |
-| meta-openembedded | git://git.openembedded.org/meta-openembedded | warrior | 3bdbf72e3a4bf18a4a2c7afbde4f7ab773aeded9 |
+| poky              | git://git.yoctoproject.org/poky              | warrior | 79a850a10a4b88a6d20d607b322542f947874323 |
+| meta-openembedded | git://git.openembedded.org/meta-openembedded | warrior | f4ccdf2bc3fe4f00778629088baab840c868e36b |
 | meta-dpdk         | git://git.yoctoproject.org/meta-dpdk         | warrior | c8c30c2c4e2f36b4a55a69a475fe774015423705 |
 
 ## Softwares

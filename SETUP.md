@@ -38,13 +38,13 @@ git clone --single-branch --branch "${YOCTO_BRANCH}" "git://git.yoctoproject.org
 
 Checkout commit hashes:
 ```sh
-git checkout --quiet 6d2e12e79211b31cdf5ea824fb9a8be54ba9a9eb
+git checkout --quiet 79a850a10a4b88a6d20d607b322542f947874323
 cd meta-openembedded
-git checkout --quiet 3bdbf72e3a4bf18a4a2c7afbde4f7ab773aeded9
+git checkout --quiet f4ccdf2bc3fe4f00778629088baab840c868e36b
 cd ../meta-dpdk
 git checkout --quiet c8c30c2c4e2f36b4a55a69a475fe774015423705
 cd ../meta-amd
-git checkout --quiet tags/warrior-r1000-ga-201910
+git checkout --quiet HEAD
 cd ..
 ```
 
