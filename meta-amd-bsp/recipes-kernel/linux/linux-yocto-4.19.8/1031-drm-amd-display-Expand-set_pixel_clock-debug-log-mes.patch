@@ -1,0 +1,43 @@
+From 4dbed176ca94bb96eb8e736a62c67d14b2c76373 Mon Sep 17 00:00:00 2001
+From: Ken Chalmers <ken.chalmers@amd.com>
+Date: Mon, 5 Nov 2018 11:34:57 -0500
+Subject: [PATCH 1031/2940] drm/amd/display: Expand set_pixel_clock debug log
+ message
+
+[Why]
+For more informative debugging.
+
+[How]
+Add timing generator and PLL ids to output, to make it clear which pixel
+clock is being set.
+
+Signed-off-by: Ken Chalmers <ken.chalmers@amd.com>
+Reviewed-by: Tony Cheng <Tony.Cheng@amd.com>
+Acked-by: Leo Li <sunpeng.li@amd.com>
+Signed-off-by: Alex Deucher <alexander.deucher@amd.com>
+---
+ drivers/gpu/drm/amd/display/dc/bios/command_table2.c | 8 +++++---
+ 1 file changed, 5 insertions(+), 3 deletions(-)
+
+diff --git a/drivers/gpu/drm/amd/display/dc/bios/command_table2.c b/drivers/gpu/drm/amd/display/dc/bios/command_table2.c
+index 7d3e57765eb2..63206a4b6c0b 100644
+--- a/drivers/gpu/drm/amd/display/dc/bios/command_table2.c
++++ b/drivers/gpu/drm/amd/display/dc/bios/command_table2.c
+@@ -307,9 +307,11 @@ static enum bp_result set_pixel_clock_v7(
+ 			(uint8_t) bp->cmd_helper->
+ 				transmitter_color_depth_to_atom(
+ 					bp_params->color_depth);
+-		DC_LOG_BIOS("%s:program display clock = %d"\
+-				"colorDepth = %d\n", __func__,\
+-				bp_params->target_pixel_clock_100hz, bp_params->color_depth);
++
++		DC_LOG_BIOS("%s:program display clock = %d, tg = %d, pll = %d, "\
++				"colorDepth = %d\n", __func__,
++				bp_params->target_pixel_clock_100hz, (int)controller_id,
++				pll_id, bp_params->color_depth);
+ 
+ 		if (bp_params->flags.FORCE_PROGRAMMING_OF_PLL)
+ 			clk.miscinfo |= PIXEL_CLOCK_V7_MISC_FORCE_PROG_PPLL;
+-- 
+2.17.1
+

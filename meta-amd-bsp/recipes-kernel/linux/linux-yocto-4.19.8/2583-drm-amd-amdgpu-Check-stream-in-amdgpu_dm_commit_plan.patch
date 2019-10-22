@@ -1,0 +1,36 @@
+From 652e994a1063ba89f7bfd831cf25d6824e3c2840 Mon Sep 17 00:00:00 2001
+From: =?UTF-8?q?Ernst=20Sj=C3=B6strand?= <ernstp@gmail.com>
+Date: Mon, 24 Jun 2019 17:15:42 +0200
+Subject: [PATCH 2583/2940] drm/amd/amdgpu: Check stream in
+ amdgpu_dm_commit_planes
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+Reported by smatch:
+amdgpu_dm.c:5637 amdgpu_dm_commit_planes() error: we previously assumed 'acrtc_state->stream' could be null
+This seems to be checked for null pretty consistently elsewhere.
+
+Signed-off-by: Ernst Sjöstrand <ernstp@gmail.com>
+Signed-off-by: Alex Deucher <alexander.deucher@amd.com>
+---
+ drivers/gpu/drm/amd/display/amdgpu_dm/amdgpu_dm.c | 3 ++-
+ 1 file changed, 2 insertions(+), 1 deletion(-)
+
+diff --git a/drivers/gpu/drm/amd/display/amdgpu_dm/amdgpu_dm.c b/drivers/gpu/drm/amd/display/amdgpu_dm/amdgpu_dm.c
+index 5333698ee5b5..b9160de37608 100644
+--- a/drivers/gpu/drm/amd/display/amdgpu_dm/amdgpu_dm.c
++++ b/drivers/gpu/drm/amd/display/amdgpu_dm/amdgpu_dm.c
+@@ -5640,7 +5640,8 @@ static void amdgpu_dm_commit_planes(struct drm_atomic_state *state,
+ 	}
+ 
+ 	/* Update the planes if changed or disable if we don't have any. */
+-	if (planes_count || acrtc_state->active_planes == 0) {
++	if ((planes_count || acrtc_state->active_planes == 0) &&
++		acrtc_state->stream) {
+ 		if (new_pcrtc_state->mode_changed) {
+ 			bundle->stream_update.src = acrtc_state->stream->src;
+ 			bundle->stream_update.dst = acrtc_state->stream->dst;
+-- 
+2.17.1
+

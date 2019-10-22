@@ -1,0 +1,40 @@
+From 702d176aa6f04c03ec133ac8f730f6bb82a7ac95 Mon Sep 17 00:00:00 2001
+From: Dmytro Laktyushkin <Dmytro.Laktyushkin@amd.com>
+Date: Thu, 7 Mar 2019 13:26:13 -0500
+Subject: [PATCH 1650/2940] drm/amd/display: fix releasing planes when exiting
+ odm
+
+Releasing planes should not release the 2nd odm pipe right away,
+this change leaves us with 2 pipes with null planes and same stream
+when planes are released during odm.
+
+Change-Id: I9183a086d2240510b04fd6c76a9ce425128bb72c
+Signed-off-by: Dmytro Laktyushkin <Dmytro.Laktyushkin@amd.com>
+Reviewed-by: Tony Cheng <Tony.Cheng@amd.com>
+Acked-by: Bhawanpreet Lakha <Bhawanpreet.Lakha@amd.com>
+---
+ drivers/gpu/drm/amd/display/dc/core/dc_resource.c | 6 ++++--
+ 1 file changed, 4 insertions(+), 2 deletions(-)
+
+diff --git a/drivers/gpu/drm/amd/display/dc/core/dc_resource.c b/drivers/gpu/drm/amd/display/dc/core/dc_resource.c
+index 332d15597aa7..2e8030f8fed4 100644
+--- a/drivers/gpu/drm/amd/display/dc/core/dc_resource.c
++++ b/drivers/gpu/drm/amd/display/dc/core/dc_resource.c
+@@ -1293,10 +1293,12 @@ bool dc_remove_plane_from_context(
+ 			 * For head pipe detach surfaces from pipe for tail
+ 			 * pipe just zero it out
+ 			 */
+-			if (!pipe_ctx->top_pipe) {
++			if (!pipe_ctx->top_pipe ||
++				(!pipe_ctx->top_pipe->top_pipe &&
++					pipe_ctx->top_pipe->stream_res.opp != pipe_ctx->stream_res.opp)) {
+ 				pipe_ctx->plane_state = NULL;
+ 				pipe_ctx->bottom_pipe = NULL;
+-			} else  {
++			} else {
+ 				memset(pipe_ctx, 0, sizeof(*pipe_ctx));
+ 			}
+ 		}
+-- 
+2.17.1
+

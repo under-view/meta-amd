@@ -1,0 +1,91 @@
+From 08b614d782d38ec241376255caf6650bc9f26161 Mon Sep 17 00:00:00 2001
+From: Nicholas Kazlauskas <nicholas.kazlauskas@amd.com>
+Date: Fri, 1 Feb 2019 09:36:59 -0500
+Subject: [PATCH 1290/2940] drm/amd/display: Fix negative cursor pos
+ programming
+
+[Why]
+If the cursor pos passed from DM is less than the plane_state->dst_rect
+top left corner then the unsigned cursor pos wraps around to a large
+positive number since cursor pos is a u32.
+
+There was an attempt to guard against this in hubp1_cursor_set_position
+by checking the src_x_offset and src_y_offset and offseting the
+cursor hotspot within hubp1_cursor_set_position.
+
+However, the cursor position itself is still being programmed
+incorrectly as a large value.
+
+This manifests itself visually as the cursor disappearing or containing
+strange artifacts near the middle of the screen on raven.
+
+[How]
+Don't subtract the destination rect top left corner from the pos but
+add it to the hotspot instead. This happens before the pos gets
+passed into hubp1_cursor_set_position.
+
+This achieves the same result but avoids the subtraction wrap around.
+With this fix the original cursor programming logic can be used again.
+
+Signed-off-by: Nicholas Kazlauskas <nicholas.kazlauskas@amd.com>
+Reviewed-by: Charlene Liu <Charlene.Liu@amd.com>
+Acked-by: Leo Li <sunpeng.li@amd.com>
+Acked-by: Murton Liu <Murton.Liu@amd.com>
+---
+ .../gpu/drm/amd/display/dc/dcn10/dcn10_hubp.c | 23 ++-----------------
+ .../amd/display/dc/dcn10/dcn10_hw_sequencer.c |  4 ++--
+ 2 files changed, 4 insertions(+), 23 deletions(-)
+
+diff --git a/drivers/gpu/drm/amd/display/dc/dcn10/dcn10_hubp.c b/drivers/gpu/drm/amd/display/dc/dcn10/dcn10_hubp.c
+index 683829466a44..0ba68d41b9c3 100644
+--- a/drivers/gpu/drm/amd/display/dc/dcn10/dcn10_hubp.c
++++ b/drivers/gpu/drm/amd/display/dc/dcn10/dcn10_hubp.c
+@@ -1150,28 +1150,9 @@ void hubp1_cursor_set_position(
+ 	REG_UPDATE(CURSOR_CONTROL,
+ 			CURSOR_ENABLE, cur_en);
+ 
+-	//account for cases where we see negative offset relative to overlay plane
+-	if (src_x_offset < 0 && src_y_offset < 0) {
+-		REG_SET_2(CURSOR_POSITION, 0,
+-			CURSOR_X_POSITION, 0,
+-			CURSOR_Y_POSITION, 0);
+-		x_hotspot -= src_x_offset;
+-		y_hotspot -= src_y_offset;
+-	} else if (src_x_offset < 0) {
+-		REG_SET_2(CURSOR_POSITION, 0,
+-			CURSOR_X_POSITION, 0,
+-			CURSOR_Y_POSITION, pos->y);
+-		x_hotspot -= src_x_offset;
+-	} else if (src_y_offset < 0) {
+-		REG_SET_2(CURSOR_POSITION, 0,
++	REG_SET_2(CURSOR_POSITION, 0,
+ 			CURSOR_X_POSITION, pos->x,
+-			CURSOR_Y_POSITION, 0);
+-		y_hotspot -= src_y_offset;
+-	} else {
+-		REG_SET_2(CURSOR_POSITION, 0,
+-				CURSOR_X_POSITION, pos->x,
+-				CURSOR_Y_POSITION, pos->y);
+-	}
++			CURSOR_Y_POSITION, pos->y);
+ 
+ 	REG_SET_2(CURSOR_HOT_SPOT, 0,
+ 			CURSOR_HOT_SPOT_X, x_hotspot,
+diff --git a/drivers/gpu/drm/amd/display/dc/dcn10/dcn10_hw_sequencer.c b/drivers/gpu/drm/amd/display/dc/dcn10/dcn10_hw_sequencer.c
+index b910d6e3ed83..8eddc7c9317a 100644
+--- a/drivers/gpu/drm/amd/display/dc/dcn10/dcn10_hw_sequencer.c
++++ b/drivers/gpu/drm/amd/display/dc/dcn10/dcn10_hw_sequencer.c
+@@ -2692,8 +2692,8 @@ static void dcn10_set_cursor_position(struct pipe_ctx *pipe_ctx)
+ 		.mirror = pipe_ctx->plane_state->horizontal_mirror
+ 	};
+ 
+-	pos_cpy.x -= pipe_ctx->plane_state->dst_rect.x;
+-	pos_cpy.y -= pipe_ctx->plane_state->dst_rect.y;
++	pos_cpy.x_hotspot += pipe_ctx->plane_state->dst_rect.x;
++	pos_cpy.y_hotspot += pipe_ctx->plane_state->dst_rect.y;
+ 
+ 	if (pipe_ctx->plane_state->address.type
+ 			== PLN_ADDR_TYPE_VIDEO_PROGRESSIVE)
+-- 
+2.17.1
+

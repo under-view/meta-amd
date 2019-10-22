@@ -1,0 +1,37 @@
+From d90b3b452a97fe9e05dccd869a8cda5c3cbeb219 Mon Sep 17 00:00:00 2001
+From: Trigger Huang <Trigger.Huang@amd.com>
+Date: Wed, 7 Nov 2018 11:30:57 +0800
+Subject: [PATCH 0779/2940] drm/amdgpu: disable page queue on Vega10 SR-IOV VF
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+Currently, SDMA page queue is not used under SR-IOV VF, and this queue will
+cause ring test failure in amdgpu module reload case. So just disable it.
+
+Signed-off-by: Trigger Huang <Trigger.Huang@amd.com>
+Reviewed-by: Christian König <christian.koenig@amd.com>
+Signed-off-by: Alex Deucher <alexander.deucher@amd.com>
+---
+ drivers/gpu/drm/amd/amdgpu/sdma_v4_0.c | 5 ++++-
+ 1 file changed, 4 insertions(+), 1 deletion(-)
+
+diff --git a/drivers/gpu/drm/amd/amdgpu/sdma_v4_0.c b/drivers/gpu/drm/amd/amdgpu/sdma_v4_0.c
+index e740953110d8..324c7785604d 100644
+--- a/drivers/gpu/drm/amd/amdgpu/sdma_v4_0.c
++++ b/drivers/gpu/drm/amd/amdgpu/sdma_v4_0.c
+@@ -1451,7 +1451,10 @@ static int sdma_v4_0_early_init(void *handle)
+ 		adev->sdma.has_page_queue = false;
+ 	} else {
+ 		adev->sdma.num_instances = 2;
+-		if (adev->asic_type != CHIP_VEGA20 &&
++		/* TODO: Page queue breaks driver reload under SRIOV */
++		if ((adev->asic_type == CHIP_VEGA10) && amdgpu_sriov_vf((adev)))
++			adev->sdma.has_page_queue = false;
++		else if (adev->asic_type != CHIP_VEGA20 &&
+ 				adev->asic_type != CHIP_VEGA12)
+ 			adev->sdma.has_page_queue = true;
+ 	}
+-- 
+2.17.1
+

@@ -1,0 +1,41 @@
+From e9ebe3632eae3481a170263462000b86dd348232 Mon Sep 17 00:00:00 2001
+From: Nikola Cornij <nikola.cornij@amd.com>
+Date: Thu, 28 Mar 2019 13:47:25 -0400
+Subject: [PATCH 2490/2940] drm/amd/display: Use 1/8th DSC target bitrate
+ precision for N4:2:2 and 4:2:0 formats
+
+[why]
+On at least some of the devices (e.g. Realtek scaler) we get a black screen if 1/16th
+precision is used.
+
+[how]
+Work around it by reducing precision to 1/8th for N4:2:2 and 4:2:0 color formats. This
+is a safe workaround and would have a very mild impact on the quality.
+The issue is still to be root-caused and fixed correctly.
+
+Signed-off-by: Nikola Cornij <nikola.cornij@amd.com>
+Reviewed-by: Wenjing Liu <Wenjing.Liu@amd.com>
+Acked-by: Bhawanpreet Lakha <Bhawanpreet.Lakha@amd.com>
+Signed-off-by: Alex Deucher <alexander.deucher@amd.com>
+---
+ drivers/gpu/drm/amd/display/dc/dsc/dc_dsc.c | 4 ++++
+ 1 file changed, 4 insertions(+)
+
+diff --git a/drivers/gpu/drm/amd/display/dc/dsc/dc_dsc.c b/drivers/gpu/drm/amd/display/dc/dsc/dc_dsc.c
+index 471eb9873885..c649f62d183d 100644
+--- a/drivers/gpu/drm/amd/display/dc/dsc/dc_dsc.c
++++ b/drivers/gpu/drm/amd/display/dc/dsc/dc_dsc.c
+@@ -228,6 +228,10 @@ static bool dc_intersect_dsc_caps(
+ 
+ 	dsc_common_caps->bpp_increment_div = min(dsc_sink_caps->bpp_increment_div, dsc_enc_caps->bpp_increment_div);
+ 
++	// TODO DSC: Remove this workaround for N422 and 420 once it's fixed, or move it to get_dsc_encoder_caps()
++	if (pixel_encoding == PIXEL_ENCODING_YCBCR422 || pixel_encoding == PIXEL_ENCODING_YCBCR420)
++		dsc_common_caps->bpp_increment_div = min(dsc_common_caps->bpp_increment_div, (uint32_t)8);
++
+ 	return true;
+ }
+ 
+-- 
+2.17.1
+

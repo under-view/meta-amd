@@ -1,0 +1,91 @@
+From 70c5349e0aec6c7dca48f4b9a395607f759a1a61 Mon Sep 17 00:00:00 2001
+From: Aric Cyr <aric.cyr@amd.com>
+Date: Wed, 10 Oct 2018 19:02:48 -0400
+Subject: [PATCH 0725/2940] drm/amd/display: Fix up coverity issues
+
+[Why]
+Coverity found various high-impact issues that need resolving.
+
+[How]
+Fix  some buffer overruns and uninitialized variables.
+
+Signed-off-by: Aric Cyr <aric.cyr@amd.com>
+Reviewed-by: Tony Cheng <Tony.Cheng@amd.com>
+Acked-by: Leo Li <sunpeng.li@amd.com>
+Signed-off-by: Alex Deucher <alexander.deucher@amd.com>
+---
+ drivers/gpu/drm/amd/display/dc/bios/bios_parser.c          | 2 +-
+ drivers/gpu/drm/amd/display/dc/core/dc_debug.c             | 7 +++----
+ .../gpu/drm/amd/display/dc/dce110/dce110_hw_sequencer.c    | 6 +++---
+ 3 files changed, 7 insertions(+), 8 deletions(-)
+
+diff --git a/drivers/gpu/drm/amd/display/dc/bios/bios_parser.c b/drivers/gpu/drm/amd/display/dc/bios/bios_parser.c
+index 0e1dc1b1a48d..c2ab026aee91 100644
+--- a/drivers/gpu/drm/amd/display/dc/bios/bios_parser.c
++++ b/drivers/gpu/drm/amd/display/dc/bios/bios_parser.c
+@@ -2030,7 +2030,7 @@ static uint32_t get_src_obj_list(struct bios_parser *bp, ATOM_OBJECT *object,
+ static struct device_id device_type_from_device_id(uint16_t device_id)
+ {
+ 
+-	struct device_id result_device_id;
++	struct device_id result_device_id = {0};
+ 
+ 	switch (device_id) {
+ 	case ATOM_DEVICE_LCD1_SUPPORT:
+diff --git a/drivers/gpu/drm/amd/display/dc/core/dc_debug.c b/drivers/gpu/drm/amd/display/dc/core/dc_debug.c
+index caece7c13bc6..830235d460dc 100644
+--- a/drivers/gpu/drm/amd/display/dc/core/dc_debug.c
++++ b/drivers/gpu/drm/amd/display/dc/core/dc_debug.c
+@@ -311,7 +311,7 @@ void context_timing_trace(
+ {
+ 	int i;
+ 	struct dc  *core_dc = dc;
+-	int h_pos[MAX_PIPES], v_pos[MAX_PIPES];
++	int h_pos[MAX_PIPES] = {0}, v_pos[MAX_PIPES] = {0};
+ 	struct crtc_position position;
+ 	unsigned int underlay_idx = core_dc->res_pool->underlay_pipe_index;
+ 	DC_LOGGER_INIT(dc->ctx->logger);
+@@ -322,8 +322,7 @@ void context_timing_trace(
+ 		/* get_position() returns CRTC vertical/horizontal counter
+ 		 * hence not applicable for underlay pipe
+ 		 */
+-		if (pipe_ctx->stream == NULL
+-				 || pipe_ctx->pipe_idx == underlay_idx)
++		if (pipe_ctx->stream == NULL || pipe_ctx->pipe_idx == underlay_idx)
+ 			continue;
+ 
+ 		pipe_ctx->stream_res.tg->funcs->get_position(pipe_ctx->stream_res.tg, &position);
+@@ -333,7 +332,7 @@ void context_timing_trace(
+ 	for (i = 0; i < core_dc->res_pool->pipe_count; i++) {
+ 		struct pipe_ctx *pipe_ctx = &res_ctx->pipe_ctx[i];
+ 
+-		if (pipe_ctx->stream == NULL)
++		if (pipe_ctx->stream == NULL || pipe_ctx->pipe_idx == underlay_idx)
+ 			continue;
+ 
+ 		TIMING_TRACE("OTG_%d   H_tot:%d  V_tot:%d   H_pos:%d  V_pos:%d\n",
+diff --git a/drivers/gpu/drm/amd/display/dc/dce110/dce110_hw_sequencer.c b/drivers/gpu/drm/amd/display/dc/dce110/dce110_hw_sequencer.c
+index 3376b4436b7f..76240a28f467 100644
+--- a/drivers/gpu/drm/amd/display/dc/dce110/dce110_hw_sequencer.c
++++ b/drivers/gpu/drm/amd/display/dc/dce110/dce110_hw_sequencer.c
+@@ -548,14 +548,14 @@ dce110_translate_regamma_to_hw_format(const struct dc_transfer_func *output_tf,
+ 
+ 	regamma_params->hw_points_num = hw_points;
+ 
+-	i = 1;
+-	for (k = 0; k < 16 && i < 16; k++) {
++	k = 0;
++	for (i = 1; i < 16; i++) {
+ 		if (seg_distr[k] != -1) {
+ 			regamma_params->arr_curve_points[k].segments_num = seg_distr[k];
+ 			regamma_params->arr_curve_points[i].offset =
+ 					regamma_params->arr_curve_points[k].offset + (1 << seg_distr[k]);
+ 		}
+-		i++;
++		k++;
+ 	}
+ 
+ 	if (seg_distr[k] != -1)
+-- 
+2.17.1
+

@@ -1,0 +1,84 @@
+From f34619c1de6b7ede5901e94b31e49f1cd9f94737 Mon Sep 17 00:00:00 2001
+From: Nicholas Kazlauskas <nicholas.kazlauskas@amd.com>
+Date: Mon, 15 Apr 2019 12:18:53 -0400
+Subject: [PATCH 1834/2940] drm/amd/display: Do VRR transition before
+ enable_crc_interrupts
+
+[Why]
+Originally we did the amdgpu_dm_handle_vrr_transition call before
+interrupts were enabled. After the interrupt toggling logic was
+moved around for support enabling CRTCs with no primary planes
+active this was no longer being called in the case where there
+wasn't a modeset.
+
+This fixes failures in igt@kms_vrr@* with error
+"Timed out: Waiting for vblank event".
+
+[How]
+Shift them back into the loop that always ran before interrupts were
+enabled.
+
+Pull out the logic that updated VRR state into the same loop since
+there's no reason these need to be split.
+
+In the case where we're going from VRR off, no planes to VRR on, some
+active planes we'll still be covered for having the VRR vupdate
+handler enabled - vblank will be re-enabled at this point, it will
+see that VRR is active and set the vupdate interrupt on there.
+
+Signed-off-by: Nicholas Kazlauskas <nicholas.kazlauskas@amd.com>
+Reviewed-by: David Francis <David.Francis@amd.com>
+Acked-by: Leo Li <sunpeng.li@amd.com>
+---
+ .../gpu/drm/amd/display/amdgpu_dm/amdgpu_dm.c | 23 ++++++++++---------
+ 1 file changed, 12 insertions(+), 11 deletions(-)
+
+diff --git a/drivers/gpu/drm/amd/display/amdgpu_dm/amdgpu_dm.c b/drivers/gpu/drm/amd/display/amdgpu_dm/amdgpu_dm.c
+index b62e0ecefb40..98788c1d4eda 100644
+--- a/drivers/gpu/drm/amd/display/amdgpu_dm/amdgpu_dm.c
++++ b/drivers/gpu/drm/amd/display/amdgpu_dm/amdgpu_dm.c
+@@ -5608,10 +5608,6 @@ static void amdgpu_dm_enable_crtc_interrupts(struct drm_device *dev,
+ 		if (!run_pass)
+ 			continue;
+ 
+-		/* Handle vrr on->off / off->on transitions */
+-		amdgpu_dm_handle_vrr_transition(dm_old_crtc_state,
+-						dm_new_crtc_state);
+-
+ 		if (!dm_new_crtc_state->interrupts_enabled)
+ 			continue;
+ 
+@@ -5900,18 +5896,23 @@ static void amdgpu_dm_atomic_commit_tail(struct drm_atomic_state *state)
+ 		mutex_unlock(&dm->dc_lock);
+ 	}
+ 
+-	/* Update freesync state before amdgpu_dm_handle_vrr_transition(). */
+-	for_each_new_crtc_in_state(state, crtc, new_crtc_state, i) {
+-		dm_new_crtc_state = to_dm_crtc_state(new_crtc_state);
+-		pre_update_freesync_state_on_stream(dm, dm_new_crtc_state);
+-	}
+-
+ 	/* Count number of newly disabled CRTCs for dropping PM refs later. */
+ 	for_each_oldnew_crtc_in_state(state, crtc, old_crtc_state,
+-				      new_crtc_state, i)
++				      new_crtc_state, i) {
+ 		if (old_crtc_state->active && !new_crtc_state->active)
+ 			crtc_disable_count++;
+ 
++		dm_new_crtc_state = to_dm_crtc_state(new_crtc_state);
++		dm_old_crtc_state = to_dm_crtc_state(old_crtc_state);
++
++		/* Update freesync active state. */
++		pre_update_freesync_state_on_stream(dm, dm_new_crtc_state);
++
++		/* Handle vrr on->off / off->on transitions */
++		amdgpu_dm_handle_vrr_transition(dm_old_crtc_state,
++						dm_new_crtc_state);
++	}
++
+ 	/* Enable interrupts for CRTCs going through a modeset. */
+ 	amdgpu_dm_enable_crtc_interrupts(dev, state, true);
+ 
+-- 
+2.17.1
+

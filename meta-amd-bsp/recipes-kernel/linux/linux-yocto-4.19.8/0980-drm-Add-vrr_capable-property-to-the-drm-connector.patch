@@ -1,0 +1,135 @@
+From 6941fb773239963f41deafbfd9c1b8c240483c03 Mon Sep 17 00:00:00 2001
+From: Nicholas Kazlauskas <nicholas.kazlauskas@amd.com>
+Date: Tue, 18 Sep 2018 09:55:20 -0400
+Subject: [PATCH 0980/2940] drm: Add vrr_capable property to the drm connector
+
+Modern display hardware is capable of supporting variable refresh rates.
+This patch introduces the "vrr_capable" property on the connector to
+allow userspace to query support for variable refresh rates.
+
+Atomic drivers should attach this property to connectors that are
+capable of driving variable refresh rates using
+drm_connector_attach_vrr_capable_property().
+
+The value should be updated based on driver and hardware capability
+by using drm_connector_set_vrr_capable_property().
+
+Signed-off-by: Nicholas Kazlauskas <nicholas.kazlauskas@amd.com>
+Reviewed-by: Manasi Navare <manasi.d.navare@intel.com>
+Reviewed-by: Harry Wentland <harry.wentland@amd.com>
+Signed-off-by: Alex Deucher <alexander.deucher@amd.com>
+---
+ drivers/gpu/drm/drm_connector.c | 49 +++++++++++++++++++++++++++++++++
+ include/drm/drm_connector.h     | 15 ++++++++++
+ 2 files changed, 64 insertions(+)
+
+diff --git a/drivers/gpu/drm/drm_connector.c b/drivers/gpu/drm/drm_connector.c
+index 6011d769d50b..92bebc4c9a8d 100644
+--- a/drivers/gpu/drm/drm_connector.c
++++ b/drivers/gpu/drm/drm_connector.c
+@@ -1250,6 +1250,37 @@ int drm_mode_create_scaling_mode_property(struct drm_device *dev)
+ }
+ EXPORT_SYMBOL(drm_mode_create_scaling_mode_property);
+ 
++/**
++ * drm_connector_attach_vrr_capable_property - creates the
++ * vrr_capable property
++ * @connector: connector to create the vrr_capable property on.
++ *
++ * This is used by atomic drivers to add support for querying
++ * variable refresh rate capability for a connector.
++ *
++ * Returns:
++ * Zero on success, negative errono on failure.
++ */
++int drm_connector_attach_vrr_capable_property(
++	struct drm_connector *connector)
++{
++	struct drm_device *dev = connector->dev;
++	struct drm_property *prop;
++
++	if (!connector->vrr_capable_property) {
++		prop = drm_property_create_bool(dev, DRM_MODE_PROP_IMMUTABLE,
++			"vrr_capable");
++		if (!prop)
++			return -ENOMEM;
++
++		connector->vrr_capable_property = prop;
++		drm_object_attach_property(&connector->base, prop, 0);
++	}
++
++	return 0;
++}
++EXPORT_SYMBOL(drm_connector_attach_vrr_capable_property);
++
+ /**
+  * drm_connector_attach_scaling_mode_property - attach atomic scaling mode property
+  * @connector: connector to attach scaling mode property on.
+@@ -1578,6 +1609,24 @@ void drm_connector_set_link_status_property(struct drm_connector *connector,
+ }
+ EXPORT_SYMBOL(drm_connector_set_link_status_property);
+ 
++/**
++ * drm_connector_set_vrr_capable_property - sets the variable refresh rate
++ * capable property for a connector
++ * @connector: drm connector
++ * @capable: True if the connector is variable refresh rate capable
++ *
++ * Should be used by atomic drivers to update the indicated support for
++ * variable refresh rate over a connector.
++ */
++void drm_connector_set_vrr_capable_property(
++		struct drm_connector *connector, bool capable)
++{
++	drm_object_property_set_value(&connector->base,
++				      connector->vrr_capable_property,
++				      capable);
++}
++EXPORT_SYMBOL(drm_connector_set_vrr_capable_property);
++
+ /**
+  * drm_connector_init_panel_orientation_property -
+  *	initialize the connecters panel_orientation property
+diff --git a/include/drm/drm_connector.h b/include/drm/drm_connector.h
+index 97ea41dc678f..a1ed3a6aafd8 100644
+--- a/include/drm/drm_connector.h
++++ b/include/drm/drm_connector.h
+@@ -909,6 +909,17 @@ struct drm_connector {
+ 	 */
+ 	struct drm_property *scaling_mode_property;
+ 
++	/**
++	 * @vrr_capable_property: Optional property to help userspace
++	 * query hardware support for variable refresh rate on a connector.
++	 * connector. Drivers can add the property to a connector by
++	 * calling drm_connector_attach_vrr_capable_property().
++	 *
++	 * This should be updated only by calling
++	 * drm_connector_set_vrr_capable_property().
++	 */
++	struct drm_property *vrr_capable_property;
++
+ 	/**
+ 	 * @content_protection_property: DRM ENUM property for content
+ 	 * protection. See drm_connector_attach_content_protection_property().
+@@ -1182,6 +1193,8 @@ int drm_mode_create_scaling_mode_property(struct drm_device *dev);
+ int drm_connector_attach_content_type_property(struct drm_connector *dev);
+ int drm_connector_attach_scaling_mode_property(struct drm_connector *connector,
+ 					       u32 scaling_mode_mask);
++int drm_connector_attach_vrr_capable_property(
++		struct drm_connector *connector);
+ int drm_connector_attach_content_protection_property(
+ 		struct drm_connector *connector);
+ int drm_mode_create_aspect_ratio_property(struct drm_device *dev);
+@@ -1198,6 +1211,8 @@ int drm_connector_update_edid_property(struct drm_connector *connector,
+ 				       const struct edid *edid);
+ void drm_connector_set_link_status_property(struct drm_connector *connector,
+ 					    uint64_t link_status);
++void drm_connector_set_vrr_capable_property(
++		struct drm_connector *connector, bool capable);
+ int drm_connector_init_panel_orientation_property(
+ 	struct drm_connector *connector, int width, int height);
+ 
+-- 
+2.17.1
+

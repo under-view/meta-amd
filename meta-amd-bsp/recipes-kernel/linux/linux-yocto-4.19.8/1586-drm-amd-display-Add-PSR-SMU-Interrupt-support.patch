@@ -1,0 +1,130 @@
+From 0d7d54b6f28ce3c4af3239c0119f6c64f3ea106c Mon Sep 17 00:00:00 2001
+From: SivapiriyanKumarasamy <sivapiriyan.kumarasamy@amd.com>
+Date: Mon, 10 Sep 2018 18:59:42 -0400
+Subject: [PATCH 1586/2940] drm/amd/display: Add PSR SMU Interrupt support
+
+[WHY]
+We have new bios capabilities enabling s0i2 entry on SMU interrupt. We want
+this interrupt to be fired on PSR transitions such that we enter s0i2
+when entering PSR active.
+
+[HOW]
+Add code to send the SMU interrupt with the appropriate
+staticscreen flag when entering and exting PSR. Protect this
+code with a config flag since it currently impacts BL PWM.
+
+Signed-off-by: SivapiriyanKumarasamy <sivapiriyan.kumarasamy@amd.com>
+Reviewed-by: Anthony Koo <Anthony.Koo@amd.com>
+Acked-by: Leo Li <sunpeng.li@amd.com>
+Acked-by: Tony Cheng <Tony.Cheng@amd.com>
+---
+ drivers/gpu/drm/amd/display/dc/dc_types.h     |  3 ++-
+ drivers/gpu/drm/amd/display/dc/dce/dce_dmcu.c |  7 +++---
+ drivers/gpu/drm/amd/display/dc/dce/dce_dmcu.h | 22 +++++++++----------
+ 3 files changed, 16 insertions(+), 16 deletions(-)
+
+diff --git a/drivers/gpu/drm/amd/display/dc/dc_types.h b/drivers/gpu/drm/amd/display/dc/dc_types.h
+index 7d271a6f5b7b..2ed3687ab853 100644
+--- a/drivers/gpu/drm/amd/display/dc/dc_types.h
++++ b/drivers/gpu/drm/amd/display/dc/dc_types.h
+@@ -559,9 +559,9 @@ struct psr_config {
+ 	unsigned char psr_version;
+ 	unsigned int psr_rfb_setup_time;
+ 	bool psr_exit_link_training_required;
+-
+ 	bool psr_frame_capture_indication_req;
+ 	unsigned int psr_sdp_transmit_line_num_deadline;
++	bool allow_smu_optimizations;
+ };
+ 
+ union dmcu_psr_level {
+@@ -663,6 +663,7 @@ struct psr_context {
+ 	 * continuing powerd own
+ 	 */
+ 	unsigned int frame_delay;
++	bool allow_smu_optimizations;
+ };
+ 
+ struct colorspace_transform {
+diff --git a/drivers/gpu/drm/amd/display/dc/dce/dce_dmcu.c b/drivers/gpu/drm/amd/display/dc/dce/dce_dmcu.c
+index 41e2e7897b4f..916628a5c895 100644
+--- a/drivers/gpu/drm/amd/display/dc/dce/dce_dmcu.c
++++ b/drivers/gpu/drm/amd/display/dc/dce/dce_dmcu.c
+@@ -213,9 +213,6 @@ static bool dce_dmcu_setup_psr(struct dmcu *dmcu,
+ 	link->link_enc->funcs->psr_program_secondary_packet(link->link_enc,
+ 			psr_context->sdpTransmitLineNumDeadline);
+ 
+-	if (psr_context->psr_level.bits.SKIP_SMU_NOTIFICATION)
+-		REG_UPDATE(SMU_INTERRUPT_CONTROL, DC_SMU_INT_ENABLE, 1);
+-
+ 	/* waitDMCUReadyForCmd */
+ 	REG_WAIT(MASTER_COMM_CNTL_REG, MASTER_COMM_INTERRUPT, 0,
+ 					dmcu_wait_reg_ready_interval,
+@@ -594,7 +591,7 @@ static bool dcn10_dmcu_setup_psr(struct dmcu *dmcu,
+ 	link->link_enc->funcs->psr_program_secondary_packet(link->link_enc,
+ 			psr_context->sdpTransmitLineNumDeadline);
+ 
+-	if (psr_context->psr_level.bits.SKIP_SMU_NOTIFICATION)
++	if (psr_context->allow_smu_optimizations)
+ 		REG_UPDATE(SMU_INTERRUPT_CONTROL, DC_SMU_INT_ENABLE, 1);
+ 
+ 	/* waitDMCUReadyForCmd */
+@@ -615,6 +612,7 @@ static bool dcn10_dmcu_setup_psr(struct dmcu *dmcu,
+ 			psr_context->psrFrameCaptureIndicationReq;
+ 	masterCmdData1.bits.aux_chan = psr_context->channel;
+ 	masterCmdData1.bits.aux_repeat = psr_context->aux_repeats;
++	masterCmdData1.bits.allow_smu_optimizations = psr_context->allow_smu_optimizations;
+ 	dm_write_reg(dmcu->ctx, REG(MASTER_COMM_DATA_REG1),
+ 					masterCmdData1.u32All);
+ 
+@@ -635,6 +633,7 @@ static bool dcn10_dmcu_setup_psr(struct dmcu *dmcu,
+ 	dm_write_reg(dmcu->ctx, REG(MASTER_COMM_DATA_REG3),
+ 			masterCmdData3.u32All);
+ 
++
+ 	/* setDMCUParam_Cmd */
+ 	REG_UPDATE(MASTER_COMM_CMD_REG,
+ 			MASTER_COMM_CMD_REG_BYTE0, PSR_SET);
+diff --git a/drivers/gpu/drm/amd/display/dc/dce/dce_dmcu.h b/drivers/gpu/drm/amd/display/dc/dce/dce_dmcu.h
+index c24c0e5ea44e..60ce56f60ae3 100644
+--- a/drivers/gpu/drm/amd/display/dc/dce/dce_dmcu.h
++++ b/drivers/gpu/drm/amd/display/dc/dce/dce_dmcu.h
+@@ -199,16 +199,16 @@ struct dce_dmcu {
+  ******************************************************************/
+ union dce_dmcu_psr_config_data_reg1 {
+ 	struct {
+-		unsigned int timehyst_frames:8;    /*[7:0]*/
+-		unsigned int hyst_lines:7;         /*[14:8]*/
+-		unsigned int rfb_update_auto_en:1; /*[15:15]*/
+-		unsigned int dp_port_num:3;        /*[18:16]*/
+-		unsigned int dcp_sel:3;            /*[21:19]*/
+-		unsigned int phy_type:1;           /*[22:22]*/
+-		unsigned int frame_cap_ind:1;      /*[23:23]*/
+-		unsigned int aux_chan:3;           /*[26:24]*/
+-		unsigned int aux_repeat:4;         /*[30:27]*/
+-		unsigned int reserved:1;           /*[31:31]*/
++		unsigned int timehyst_frames:8;                  /*[7:0]*/
++		unsigned int hyst_lines:7;                       /*[14:8]*/
++		unsigned int rfb_update_auto_en:1;               /*[15:15]*/
++		unsigned int dp_port_num:3;                      /*[18:16]*/
++		unsigned int dcp_sel:3;                          /*[21:19]*/
++		unsigned int phy_type:1;                         /*[22:22]*/
++		unsigned int frame_cap_ind:1;                    /*[23:23]*/
++		unsigned int aux_chan:3;                         /*[26:24]*/
++		unsigned int aux_repeat:4;                       /*[30:27]*/
++		unsigned int allow_smu_optimizations:1;         /*[31:31]*/
+ 	} bits;
+ 	unsigned int u32All;
+ };
+@@ -236,7 +236,7 @@ union dce_dmcu_psr_config_data_reg3 {
+ 	struct {
+ 		unsigned int psr_level:16;      /*[15:0]*/
+ 		unsigned int link_rate:4;       /*[19:16]*/
+-		unsigned int reserved:12;       /*[31:20]*/
++		unsigned int reserved:12;        /*[31:20]*/
+ 	} bits;
+ 	unsigned int u32All;
+ };
+-- 
+2.17.1
+

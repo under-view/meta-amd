@@ -1,0 +1,29 @@
+From 0a520a362c9a84bb27f9e100669922d16265db32 Mon Sep 17 00:00:00 2001
+From: Sudheesh Mavila <sudheesh.mavila@amd.com>
+Date: Fri, 25 Jan 2019 14:08:58 +0530
+Subject: [PATCH 0600/2940] amd-i2s audio Fix on Raven to enable audio
+
+Signed-off-by: Sudheesh Mavila <sudheesh.mavila@amd.com>
+---
+ sound/soc/amd/raven/acp3x-pcm-dma.c | 5 +++++
+ 1 file changed, 5 insertions(+)
+
+diff --git a/sound/soc/amd/raven/acp3x-pcm-dma.c b/sound/soc/amd/raven/acp3x-pcm-dma.c
+index 427b2a089a6d..06388f3a938d 100755
+--- a/sound/soc/amd/raven/acp3x-pcm-dma.c
++++ b/sound/soc/amd/raven/acp3x-pcm-dma.c
+@@ -248,6 +248,11 @@ static void config_acp3x_dma(struct i2s_stream_instance *rtd, int direction)
+ 		val = 0;
+ 	else
+ 		val = rtd->num_pages * 8;
++	/* Group Enable */
++	rv_writel(ACP_SRAM_PTE_OFFSET | BIT(31), rtd->acp3x_base +
++					mmACPAXI2AXI_ATU_BASE_ADDR_GRP_1);
++	rv_writel(PAGE_SIZE_4K_ENABLE, rtd->acp3x_base +
++			mmACPAXI2AXI_ATU_PAGE_SIZE_GRP_1);
+ 
+ 	for (page_idx = 0; page_idx < rtd->num_pages; page_idx++) {
+ 		/* Load the low address of page int ACP SRAM through SRBM */
+-- 
+2.17.1
+

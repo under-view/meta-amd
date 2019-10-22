@@ -1,0 +1,58 @@
+From 092af24d2a8048bc1f9a9d6ecc3d7652740d6d7b Mon Sep 17 00:00:00 2001
+From: Arnd Bergmann <arnd@arndb.de>
+Date: Mon, 8 Jul 2019 16:07:59 +0200
+Subject: [PATCH 2837/2940] drm/amd/powerplay: vega20: fix uninitialized
+ variable use
+
+If smu_get_current_rpm() fails, we can't use the output,
+as that may be uninitialized:
+
+drivers/gpu/drm/amd/amdgpu/../powerplay/vega20_ppt.c:3023:8: error: variable 'current_rpm' is used uninitialized whenever '?:' condition is false [-Werror,-Wsometimes-uninitialized]
+        ret = smu_get_current_rpm(smu, &current_rpm);
+              ^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+drivers/gpu/drm/amd/amdgpu/../powerplay/inc/amdgpu_smu.h:735:3: note: expanded from macro 'smu_get_current_rpm'
+        ((smu)->funcs->get_current_rpm ? (smu)->funcs->get_current_rpm((smu), (speed)) : 0)
+         ^~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+drivers/gpu/drm/amd/amdgpu/../powerplay/vega20_ppt.c:3024:12: note: uninitialized use occurs here
+        percent = current_rpm * 100 / pptable->FanMaximumRpm;
+                  ^~~~~~~~~~~
+drivers/gpu/drm/amd/amdgpu/../powerplay/vega20_ppt.c:3023:8: note: remove the '?:' if its condition is always true
+        ret = smu_get_current_rpm(smu, &current_rpm);
+              ^
+drivers/gpu/drm/amd/amdgpu/../powerplay/inc/amdgpu_smu.h:735:3: note: expanded from macro 'smu_get_current_rpm'
+        ((smu)->funcs->get_current_rpm ? (smu)->funcs->get_current_rpm((smu), (speed)) : 0)
+         ^
+drivers/gpu/drm/amd/amdgpu/../powerplay/vega20_ppt.c:3020:22: note: initialize the variable 'current_rpm' to silence this warning
+        uint32_t current_rpm;
+
+Propagate the error code in that case.
+
+Fixes: ee0db82027ee ("drm/amd/powerplay: move PPTable_t uses into asic level")
+Signed-off-by: Arnd Bergmann <arnd@arndb.de>
+Signed-off-by: Alex Deucher <alexander.deucher@amd.com>
+---
+ drivers/gpu/drm/amd/powerplay/vega20_ppt.c | 5 ++++-
+ 1 file changed, 4 insertions(+), 1 deletion(-)
+
+diff --git a/drivers/gpu/drm/amd/powerplay/vega20_ppt.c b/drivers/gpu/drm/amd/powerplay/vega20_ppt.c
+index b779d2b511cf..1fc367307ac0 100644
+--- a/drivers/gpu/drm/amd/powerplay/vega20_ppt.c
++++ b/drivers/gpu/drm/amd/powerplay/vega20_ppt.c
+@@ -3020,10 +3020,13 @@ static int vega20_get_fan_speed_percent(struct smu_context *smu,
+ 	PPTable_t *pptable = smu->smu_table.driver_pptable;
+ 
+ 	ret = smu_get_current_rpm(smu, &current_rpm);
++	if (ret)
++		return ret;
++
+ 	percent = current_rpm * 100 / pptable->FanMaximumRpm;
+ 	*speed = percent > 100 ? 100 : percent;
+ 
+-	return ret;
++	return 0;
+ }
+ 
+ static int vega20_get_gpu_power(struct smu_context *smu, uint32_t *value)
+-- 
+2.17.1
+

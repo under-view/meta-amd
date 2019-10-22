@@ -1,0 +1,32 @@
+From a5fd73eb4423443d720495fb24cf8665642367c0 Mon Sep 17 00:00:00 2001
+From: Andrey Grodzovsky <andrey.grodzovsky@amd.com>
+Date: Mon, 3 Dec 2018 15:00:39 -0500
+Subject: [PATCH 0900/2940] drm/amdgpu: Update XGMI node print
+
+amdgpu_xgmi_update_topology is called both on device registration
+and reset. Fix misleading print since the device is added only once to
+the hive on registration and not on reset.
+
+Signed-off-by: Andrey Grodzovsky <andrey.grodzovsky@amd.com>
+Acked-by: Alex Deucher <alexander.deucher@amd.com>
+Signed-off-by: Alex Deucher <alexander.deucher@amd.com>
+---
+ drivers/gpu/drm/amd/amdgpu/amdgpu_xgmi.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/drivers/gpu/drm/amd/amdgpu/amdgpu_xgmi.c b/drivers/gpu/drm/amd/amdgpu/amdgpu_xgmi.c
+index 1b15ff3266b1..0b263a9857c6 100644
+--- a/drivers/gpu/drm/amd/amdgpu/amdgpu_xgmi.c
++++ b/drivers/gpu/drm/amd/amdgpu/amdgpu_xgmi.c
+@@ -78,7 +78,7 @@ int amdgpu_xgmi_update_topology(struct amdgpu_hive_info *hive, struct amdgpu_dev
+ 			adev->gmc.xgmi.node_id,
+ 			adev->gmc.xgmi.hive_id, ret);
+ 	else
+-		dev_info(adev->dev, "XGMI: Add node %d to hive 0x%llx.\n",
++		dev_info(adev->dev, "XGMI: Set topology for node %d, hive 0x%llx.\n",
+ 			 adev->gmc.xgmi.physical_node_id,
+ 				 adev->gmc.xgmi.hive_id);
+ 
+-- 
+2.17.1
+

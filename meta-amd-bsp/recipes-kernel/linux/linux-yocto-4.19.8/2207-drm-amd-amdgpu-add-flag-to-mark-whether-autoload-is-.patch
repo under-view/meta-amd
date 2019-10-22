@@ -1,0 +1,33 @@
+From d1198fef9b03d2e9f143c7690a76a77b1a0184bb Mon Sep 17 00:00:00 2001
+From: Hawking Zhang <Hawking.Zhang@amd.com>
+Date: Thu, 13 Dec 2018 01:21:30 +0800
+Subject: [PATCH 2207/2940] drm/amd/amdgpu: add flag to mark whether autoload
+ is supported or not
+
+rlc autoload is supported since navi10
+
+Signed-off-by: Hawking Zhang <Hawking.Zhang@amd.com>
+Acked-by: Alex Deucher <alexander.deucher@amd.com>
+Reviewed-by: Jack Xiao <Jack.Xiao@amd.com>
+Reviewed-by: Le Ma <Le.Ma@amd.com>
+Signed-off-by: Alex Deucher <alexander.deucher@amd.com>
+---
+ drivers/gpu/drm/amd/amdgpu/amdgpu_psp.h | 2 ++
+ 1 file changed, 2 insertions(+)
+
+diff --git a/drivers/gpu/drm/amd/amdgpu/amdgpu_psp.h b/drivers/gpu/drm/amd/amdgpu/amdgpu_psp.h
+index fbf32852cf9c..aa5668df03b6 100644
+--- a/drivers/gpu/drm/amd/amdgpu/amdgpu_psp.h
++++ b/drivers/gpu/drm/amd/amdgpu/amdgpu_psp.h
+@@ -187,6 +187,8 @@ struct psp_context
+ 
+ 	/* fence value associated with cmd buffer */
+ 	atomic_t			fence_value;
++	/* flag to mark whether gfx fw autoload is supported or not */
++	bool				autoload_supported;
+ 
+ 	/* xgmi ta firmware and buffer */
+ 	const struct firmware		*ta_fw;
+-- 
+2.17.1
+

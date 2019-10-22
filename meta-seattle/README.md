@@ -19,7 +19,7 @@ This layer depends on:
 
 [bitbake](https://github.com/openembedded/bitbake) layer,
 [oe-core](https://github.com/openembedded/openembedded-core) layer,
-meta-amd/common layer
+meta-amd/meta-amd-bsp layer
 
 ## Building the meta-seattle BSP layer
 

@@ -1,0 +1,32 @@
+From 6418573b9b9968b84352e2700ae31b1eaa054bb4 Mon Sep 17 00:00:00 2001
+From: Likun Gao <Likun.Gao@amd.com>
+Date: Tue, 23 Oct 2018 10:25:05 +0800
+Subject: [PATCH 0565/2940] Revert "drm/amdgpu:Enable DPG mode on PCO"
+
+Disable DPG mode on PCO as it break S3, will enable it since the issue fixed.
+
+This reverts commit c6ba5ab8bde8f91a94b77e5eb5db1e8ad21c62d9.
+
+Signed-off-by: Likun Gao <Likun.Gao@amd.com>
+Reviewed-by: Huang Rui <ray.huang@amd.com>
+---
+ drivers/gpu/drm/amd/amdgpu/soc15.c | 3 +--
+ 1 file changed, 1 insertion(+), 2 deletions(-)
+
+diff --git a/drivers/gpu/drm/amd/amdgpu/soc15.c b/drivers/gpu/drm/amd/amdgpu/soc15.c
+index 4e4e8a17bdca..c4edd9ac0599 100644
+--- a/drivers/gpu/drm/amd/amdgpu/soc15.c
++++ b/drivers/gpu/drm/amd/amdgpu/soc15.c
+@@ -739,8 +739,7 @@ static int soc15_common_early_init(void *handle)
+ 
+ 			adev->pg_flags = AMD_PG_SUPPORT_SDMA |
+ 				AMD_PG_SUPPORT_MMHUB |
+-				AMD_PG_SUPPORT_VCN |
+-				AMD_PG_SUPPORT_VCN_DPG;
++				AMD_PG_SUPPORT_VCN;
+ 		} else {
+ 			adev->cg_flags = AMD_CG_SUPPORT_GFX_MGCG |
+ 				AMD_CG_SUPPORT_GFX_MGLS |
+-- 
+2.17.1
+

@@ -1,0 +1,47 @@
+From 851ca1bd4460ab79d583b6eb1a43d2f865af35f4 Mon Sep 17 00:00:00 2001
+From: =?UTF-8?q?Christian=20K=C3=B6nig?= <christian.koenig@amd.com>
+Date: Thu, 25 Oct 2018 10:37:02 +0200
+Subject: [PATCH 0748/2940] drm/amdgpu: remove nonsense in_interrupt() checks
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+might_sleep() is supposed to raise if warning if called in interrupt or
+atomic context.
+
+Signed-off-by: Christian König <christian.koenig@amd.com>
+Reviewed-by: Emily Deng <Emily.Deng@amd.com>
+Signed-off-by: Alex Deucher <alexander.deucher@amd.com>
+---
+ drivers/gpu/drm/amd/amdgpu/amdgpu_virt.c | 8 ++------
+ 1 file changed, 2 insertions(+), 6 deletions(-)
+
+diff --git a/drivers/gpu/drm/amd/amdgpu/amdgpu_virt.c b/drivers/gpu/drm/amd/amdgpu/amdgpu_virt.c
+index cca794a1f8ba..ff887639bfa3 100644
+--- a/drivers/gpu/drm/amd/amdgpu/amdgpu_virt.c
++++ b/drivers/gpu/drm/amd/amdgpu/amdgpu_virt.c
+@@ -70,9 +70,7 @@ uint32_t amdgpu_virt_kiq_rreg(struct amdgpu_device *adev, uint32_t reg)
+ 	if (r < 1 && (adev->in_gpu_reset || in_interrupt()))
+ 		goto failed_kiq_read;
+ 
+-	if (in_interrupt())
+-		might_sleep();
+-
++	might_sleep();
+ 	while (r < 1 && cnt++ < MAX_KIQ_REG_TRY) {
+ 		msleep(MAX_KIQ_REG_BAILOUT_INTERVAL);
+ 		r = amdgpu_fence_wait_polling(ring, seq, MAX_KIQ_REG_WAIT);
+@@ -118,9 +116,7 @@ void amdgpu_virt_kiq_wreg(struct amdgpu_device *adev, uint32_t reg, uint32_t v)
+ 	if (r < 1 && (adev->in_gpu_reset || in_interrupt()))
+ 		goto failed_kiq_write;
+ 
+-	if (in_interrupt())
+-		might_sleep();
+-
++	might_sleep();
+ 	while (r < 1 && cnt++ < MAX_KIQ_REG_TRY) {
+ 
+ 		msleep(MAX_KIQ_REG_BAILOUT_INTERVAL);
+-- 
+2.17.1
+

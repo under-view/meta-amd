@@ -1,0 +1,49 @@
+From 6cce8648eac15d8b971fa03257e1811937bb5504 Mon Sep 17 00:00:00 2001
+From: Evan Quan <evan.quan@amd.com>
+Date: Thu, 18 Oct 2018 17:54:06 +0800
+Subject: [PATCH 0650/2940] drm/amd/powerplay: drop highest UCLK setting after
+ display configuration change
+
+The UCLK is forced to highest at the start of display configuration
+change. Downgrade the UCLK from highest after display configuration change.
+Otherwise, we may see the UCLK stuck in the highest in some cases.
+
+Signed-off-by: Evan Quan <evan.quan@amd.com>
+Acked-by: Alex Deucher <alexander.deucher@amd.com>
+Signed-off-by: Alex Deucher <alexander.deucher@amd.com>
+---
+ drivers/gpu/drm/amd/powerplay/hwmgr/vega20_hwmgr.c | 11 +++++++++++
+ 1 file changed, 11 insertions(+)
+
+diff --git a/drivers/gpu/drm/amd/powerplay/hwmgr/vega20_hwmgr.c b/drivers/gpu/drm/amd/powerplay/hwmgr/vega20_hwmgr.c
+index 810c60969496..783bcbd39235 100644
+--- a/drivers/gpu/drm/amd/powerplay/hwmgr/vega20_hwmgr.c
++++ b/drivers/gpu/drm/amd/powerplay/hwmgr/vega20_hwmgr.c
+@@ -2045,6 +2045,8 @@ static int vega20_notify_smc_display_config_after_ps_adjustment(
+ {
+ 	struct vega20_hwmgr *data =
+ 			(struct vega20_hwmgr *)(hwmgr->backend);
++	struct vega20_single_dpm_table *dpm_table =
++			&data->dpm_table.mem_table;
+ 	struct PP_Clocks min_clocks = {0};
+ 	struct pp_display_clock_request clock_req;
+ 	int ret = 0;
+@@ -2075,6 +2077,15 @@ static int vega20_notify_smc_display_config_after_ps_adjustment(
+ 		}
+ 	}
+ 
++	if (data->smu_features[GNLD_DPM_UCLK].enabled) {
++		dpm_table->dpm_state.hard_min_level = min_clocks.memoryClock / 100;
++		PP_ASSERT_WITH_CODE(!(ret = smum_send_msg_to_smc_with_parameter(hwmgr,
++				PPSMC_MSG_SetHardMinByFreq,
++				(PPCLK_UCLK << 16 ) | dpm_table->dpm_state.hard_min_level)),
++				"[SetHardMinFreq] Set hard min uclk failed!",
++				return ret);
++	}
++
+ 	return 0;
+ }
+ 
+-- 
+2.17.1
+

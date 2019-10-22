@@ -1,0 +1,191 @@
+From 3d1b1ab4b483b95a97461bec4ee723356b367aae Mon Sep 17 00:00:00 2001
+From: Fatemeh Darbehani <fatemeh.darbehani@amd.com>
+Date: Fri, 5 Oct 2018 17:22:32 -0400
+Subject: [PATCH 1134/2940] drm/amd/display: Retiring set_display_requirements
+ in dm_pp_smu.h - part4
+
+[Why]
+In DCN we want direct DC to SMU calls, with minimal interference from
+pplib.
+The reason for each pp_smu interface mapping to 1 SMU message is so we
+can have the sequencing of different SMU message in DC and shared across
+different OS's.
+This will also simplify debugging as DAL owns this interaction and
+there's no confusion about division of ownership.
+
+[How]
+Part 4: Change clock units so they match the values PPLib sends to SMU.
+
+Signed-off-by: Fatemeh Darbehani <fatemeh.darbehani@amd.com>
+Reviewed-by: Tony Cheng <Tony.Cheng@amd.com>
+Acked-by: Leo Li <sunpeng.li@amd.com>
+Signed-off-by: Alex Deucher <alexander.deucher@amd.com>
+Signed-off-by: Chaudhary Amit Kumar <Chaudharyamit.Kumar@amd.com>
+---
+ .../amd/display/amdgpu_dm/amdgpu_dm_pp_smu.c  | 20 ++++++------
+ .../gpu/drm/amd/display/dc/calcs/dcn_calcs.c  | 32 +++++++++----------
+ .../drm/amd/display/dc/dcn10/dcn10_clk_mgr.c  |  5 ++-
+ drivers/gpu/drm/amd/display/dc/dm_pp_smu.h    | 12 +++----
+ 4 files changed, 34 insertions(+), 35 deletions(-)
+
+diff --git a/drivers/gpu/drm/amd/display/amdgpu_dm/amdgpu_dm_pp_smu.c b/drivers/gpu/drm/amd/display/amdgpu_dm/amdgpu_dm_pp_smu.c
+index 9094288581dc..19bec697ef9d 100644
+--- a/drivers/gpu/drm/amd/display/amdgpu_dm/amdgpu_dm_pp_smu.c
++++ b/drivers/gpu/drm/amd/display/amdgpu_dm/amdgpu_dm_pp_smu.c
+@@ -485,11 +485,11 @@ void pp_rv_set_display_requirement(struct pp_smu *pp,
+ 		return;
+ 
+ 	clock.clock_type = amd_pp_dcf_clock;
+-	clock.clock_freq_in_khz = req->hard_min_dcefclk_mhz;
++	clock.clock_freq_in_khz = req->hard_min_dcefclk_mhz * 1000;
+ 	pp_funcs->display_clock_voltage_request(pp_handle, &clock);
+ 
+ 	clock.clock_type = amd_pp_f_clock;
+-	clock.clock_freq_in_khz = req->hard_min_fclk_mhz;
++	clock.clock_freq_in_khz = req->hard_min_fclk_mhz *1000;
+ 	pp_funcs->display_clock_voltage_request(pp_handle, &clock);
+ }
+ 
+@@ -518,13 +518,13 @@ void pp_rv_set_wm_ranges(struct pp_smu *pp,
+ 			wm_dce_clocks[i].wm_set_id =
+ 					ranges->reader_wm_sets[i].wm_inst;
+ 		wm_dce_clocks[i].wm_max_dcfclk_clk_in_khz =
+-				ranges->reader_wm_sets[i].max_drain_clk_khz;
++				ranges->reader_wm_sets[i].max_drain_clk_mhz * 1000;
+ 		wm_dce_clocks[i].wm_min_dcfclk_clk_in_khz =
+-				ranges->reader_wm_sets[i].min_drain_clk_khz;
++				ranges->reader_wm_sets[i].min_drain_clk_mhz * 1000;
+ 		wm_dce_clocks[i].wm_max_mem_clk_in_khz =
+-				ranges->reader_wm_sets[i].max_fill_clk_khz;
++				ranges->reader_wm_sets[i].max_fill_clk_mhz * 1000;
+ 		wm_dce_clocks[i].wm_min_mem_clk_in_khz =
+-				ranges->reader_wm_sets[i].min_fill_clk_khz;
++				ranges->reader_wm_sets[i].min_fill_clk_mhz * 1000;
+ 	}
+ 
+ 	for (i = 0; i < wm_with_clock_ranges.num_wm_mcif_sets; i++) {
+@@ -534,13 +534,13 @@ void pp_rv_set_wm_ranges(struct pp_smu *pp,
+ 			wm_soc_clocks[i].wm_set_id =
+ 					ranges->writer_wm_sets[i].wm_inst;
+ 		wm_soc_clocks[i].wm_max_socclk_clk_in_khz =
+-				ranges->writer_wm_sets[i].max_fill_clk_khz;
++				ranges->writer_wm_sets[i].max_fill_clk_mhz * 1000;
+ 		wm_soc_clocks[i].wm_min_socclk_clk_in_khz =
+-				ranges->writer_wm_sets[i].min_fill_clk_khz;
++				ranges->writer_wm_sets[i].min_fill_clk_mhz * 1000;
+ 		wm_soc_clocks[i].wm_max_mem_clk_in_khz =
+-				ranges->writer_wm_sets[i].max_drain_clk_khz;
++				ranges->writer_wm_sets[i].max_drain_clk_mhz * 1000;
+ 		wm_soc_clocks[i].wm_min_mem_clk_in_khz =
+-				ranges->writer_wm_sets[i].min_drain_clk_khz;
++				ranges->writer_wm_sets[i].min_drain_clk_mhz * 1000;
+ 	}
+ 
+ 	pp_funcs->set_watermarks_for_clocks_ranges(pp_handle, &wm_with_clock_ranges);
+diff --git a/drivers/gpu/drm/amd/display/dc/calcs/dcn_calcs.c b/drivers/gpu/drm/amd/display/dc/calcs/dcn_calcs.c
+index 953b4efbcffe..12d1842079ae 100644
+--- a/drivers/gpu/drm/amd/display/dc/calcs/dcn_calcs.c
++++ b/drivers/gpu/drm/amd/display/dc/calcs/dcn_calcs.c
+@@ -1416,27 +1416,27 @@ void dcn_bw_notify_pplib_of_wm_ranges(struct dc *dc)
+ 	ranges.num_reader_wm_sets = WM_SET_COUNT;
+ 	ranges.num_writer_wm_sets = WM_SET_COUNT;
+ 	ranges.reader_wm_sets[0].wm_inst = WM_A;
+-	ranges.reader_wm_sets[0].min_drain_clk_khz = min_dcfclk_khz;
+-	ranges.reader_wm_sets[0].max_drain_clk_khz = overdrive;
+-	ranges.reader_wm_sets[0].min_fill_clk_khz = min_fclk_khz;
+-	ranges.reader_wm_sets[0].max_fill_clk_khz = overdrive;
++	ranges.reader_wm_sets[0].min_drain_clk_mhz = min_dcfclk_khz / 1000;
++	ranges.reader_wm_sets[0].max_drain_clk_mhz = overdrive / 1000;
++	ranges.reader_wm_sets[0].min_fill_clk_mhz = min_fclk_khz / 1000;
++	ranges.reader_wm_sets[0].max_fill_clk_mhz = overdrive / 1000;
+ 	ranges.writer_wm_sets[0].wm_inst = WM_A;
+-	ranges.writer_wm_sets[0].min_fill_clk_khz = socclk_khz;
+-	ranges.writer_wm_sets[0].max_fill_clk_khz = overdrive;
+-	ranges.writer_wm_sets[0].min_drain_clk_khz = min_fclk_khz;
+-	ranges.writer_wm_sets[0].max_drain_clk_khz = overdrive;
++	ranges.writer_wm_sets[0].min_fill_clk_mhz = socclk_khz / 1000;
++	ranges.writer_wm_sets[0].max_fill_clk_mhz = overdrive / 1000;
++	ranges.writer_wm_sets[0].min_drain_clk_mhz = min_fclk_khz / 1000;
++	ranges.writer_wm_sets[0].max_drain_clk_mhz = overdrive / 1000;
+ 
+ 	if (dc->debug.pplib_wm_report_mode == WM_REPORT_OVERRIDE) {
+ 		ranges.reader_wm_sets[0].wm_inst = WM_A;
+-		ranges.reader_wm_sets[0].min_drain_clk_khz = 300000;
+-		ranges.reader_wm_sets[0].max_drain_clk_khz = 5000000;
+-		ranges.reader_wm_sets[0].min_fill_clk_khz = 800000;
+-		ranges.reader_wm_sets[0].max_fill_clk_khz = 5000000;
++		ranges.reader_wm_sets[0].min_drain_clk_mhz = 300;
++		ranges.reader_wm_sets[0].max_drain_clk_mhz = 5000;
++		ranges.reader_wm_sets[0].min_fill_clk_mhz = 800;
++		ranges.reader_wm_sets[0].max_fill_clk_mhz = 5000;
+ 		ranges.writer_wm_sets[0].wm_inst = WM_A;
+-		ranges.writer_wm_sets[0].min_fill_clk_khz = 200000;
+-		ranges.writer_wm_sets[0].max_fill_clk_khz = 5000000;
+-		ranges.writer_wm_sets[0].min_drain_clk_khz = 800000;
+-		ranges.writer_wm_sets[0].max_drain_clk_khz = 5000000;
++		ranges.writer_wm_sets[0].min_fill_clk_mhz = 200;
++		ranges.writer_wm_sets[0].max_fill_clk_mhz = 5000;
++		ranges.writer_wm_sets[0].min_drain_clk_mhz = 800;
++		ranges.writer_wm_sets[0].max_drain_clk_mhz = 5000;
+ 	}
+ 
+ 	ranges.reader_wm_sets[1] = ranges.writer_wm_sets[0];
+diff --git a/drivers/gpu/drm/amd/display/dc/dcn10/dcn10_clk_mgr.c b/drivers/gpu/drm/amd/display/dc/dcn10/dcn10_clk_mgr.c
+index 9c3b87c9ede9..451c9c62c0c2 100644
+--- a/drivers/gpu/drm/amd/display/dc/dcn10/dcn10_clk_mgr.c
++++ b/drivers/gpu/drm/amd/display/dc/dcn10/dcn10_clk_mgr.c
+@@ -214,15 +214,14 @@ static void dcn1_update_clocks(struct clk_mgr *clk_mgr,
+ 
+ 	if (should_set_clock(safe_to_lower, new_clocks->fclk_khz, clk_mgr->clks.fclk_khz)) {
+ 		clk_mgr->clks.fclk_khz = new_clocks->fclk_khz;
+-		smu_req.hard_min_fclk_khz = new_clocks->fclk_khz;
+-
++		smu_req.hard_min_fclk_mhz = new_clocks->fclk_khz / 1000;	
+ 		send_request_to_lower = true;
+ 	}
+ 
+ 	//DCF Clock
+ 	if (should_set_clock(safe_to_lower, new_clocks->dcfclk_khz, clk_mgr->clks.dcfclk_khz)) {
+ 		clk_mgr->clks.dcfclk_khz = new_clocks->dcfclk_khz;
+-		smu_req.hard_min_dcefclk_khz = new_clocks->dcfclk_khz;
++		smu_req.hard_min_dcefclk_mhz = new_clocks->dcfclk_khz / 1000;
+ 
+ 		send_request_to_lower = true;
+ 	}
+diff --git a/drivers/gpu/drm/amd/display/dc/dm_pp_smu.h b/drivers/gpu/drm/amd/display/dc/dm_pp_smu.h
+index 90e94b030113..9c5ee2605504 100644
+--- a/drivers/gpu/drm/amd/display/dc/dm_pp_smu.h
++++ b/drivers/gpu/drm/amd/display/dc/dm_pp_smu.h
+@@ -56,10 +56,10 @@ struct pp_smu {
+ 
+ struct pp_smu_wm_set_range {
+ 	unsigned int wm_inst;
+-	uint32_t min_fill_clk_khz;
+-	uint32_t max_fill_clk_khz;
+-	uint32_t min_drain_clk_khz;
+-	uint32_t max_drain_clk_khz;
++	uint32_t min_fill_clk_mhz;
++	uint32_t max_fill_clk_mhz;
++	uint32_t min_drain_clk_mhz;
++	uint32_t max_drain_clk_mhz;
+ };
+ 
+ #define MAX_WATERMARK_SETS 4
+@@ -78,12 +78,12 @@ struct pp_smu_display_requirement_rv {
+ 	 */
+ 	unsigned int display_count;
+ 
+-	/* PPSMC_MSG_SetHardMinFclkByFreq: khz
++	/* PPSMC_MSG_SetHardMinFclkByFreq: mhz
+ 	 *  FCLK will vary with DPM, but never below requested hard min
+ 	 */
+ 	unsigned int hard_min_fclk_mhz;
+ 
+-	/* PPSMC_MSG_SetHardMinDcefclkByFreq: khz
++	/* PPSMC_MSG_SetHardMinDcefclkByFreq: mhz
+ 	 *  fixed clock at requested freq, either from FCH bypass or DFS
+ 	 */
+ 	unsigned int hard_min_dcefclk_mhz;
+-- 
+2.17.1
+

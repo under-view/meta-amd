@@ -1,0 +1,45 @@
+From ed9dc24d846dfe898fe6e4fc5e63be1837f5f2bb Mon Sep 17 00:00:00 2001
+From: Andrey Grodzovsky <andrey.grodzovsky@amd.com>
+Date: Mon, 24 Sep 2018 14:10:22 +0200
+Subject: [PATCH 0402/2940] drm/amdgpu: Deactivate SW interrupt fallback in
+ amdgpu_fence_process v2
+
+Deactivate SW interrupt fallback when all emited fences are completed.
+Also switch interrupt SW fallback message from INFO to WARN.
+
+v2: shorten the warnign message a bit and only re-activate the timer during
+processing if it was already activated before.
+
+Signed-off-by: Andrey Grodzovsky <andrey.grodzovsky@amd.com>
+Suggested-by: Christian Konig <Christian.Koenig@amd.com>
+Signed-off-by: Kalyan Alle <kalyan.alle@amd.com>
+---
+ drivers/gpu/drm/amd/amdgpu/amdgpu_fence.c | 5 +++--
+ 1 file changed, 3 insertions(+), 2 deletions(-)
+
+diff --git a/drivers/gpu/drm/amd/amdgpu/amdgpu_fence.c b/drivers/gpu/drm/amd/amdgpu/amdgpu_fence.c
+index 3f04c63f8a13..d27dac4595ce 100644
+--- a/drivers/gpu/drm/amd/amdgpu/amdgpu_fence.c
++++ b/drivers/gpu/drm/amd/amdgpu/amdgpu_fence.c
+@@ -229,7 +229,8 @@ void amdgpu_fence_process(struct amdgpu_ring *ring)
+ 
+ 	} while (atomic_cmpxchg(&drv->last_seq, last_seq, seq) != last_seq);
+ 
+-	if (seq != ring->fence_drv.sync_seq)
++	if (del_timer(&ring->fence_drv.fallback_timer) &&
++	    seq != ring->fence_drv.sync_seq)
+ 		amdgpu_fence_schedule_fallback(ring);
+ 
+ 	if (unlikely(seq == last_seq))
+@@ -274,7 +275,7 @@ static void amdgpu_fence_fallback(struct timer_list *t)
+ 	struct amdgpu_ring *ring = from_timer(ring, t,
+ 					      fence_drv.fallback_timer);
+ 	
+-	DRM_INFO("Fallback to SW interrupt on ring %s due to HW interrupt time out", ring->name);
++	DRM_WARN("Fence fallback timer expired on ring %s\n", ring->name);
+ 	amdgpu_fence_process(ring);
+ }
+ 
+-- 
+2.17.1
+

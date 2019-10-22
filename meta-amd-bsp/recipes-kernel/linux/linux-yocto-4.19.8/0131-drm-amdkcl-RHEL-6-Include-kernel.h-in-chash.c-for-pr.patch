@@ -1,0 +1,77 @@
+From bc011dc2ad817c3cc4310c402f218917e33933e1 Mon Sep 17 00:00:00 2001
+From: Kevin Wang <Kevin1.Wang@amd.com>
+Date: Fri, 17 Aug 2018 14:25:49 +0800
+Subject: [PATCH 0131/2940] drm/amdkcl: [RHEL 6] Include kernel.h in chash.c
+ for pr_fmt definition
+
+The pr_fmt is undef in drm_backport.h in rhel6, which is not expected
+in chash.c.
+
+Change-Id: I498d3a3d1600aef9a0affd40e3b38a81bc6d58b0
+Signed-off-by: Le.Ma <Le.Ma@amd.com>
+Reviewed-by: Junwei Zhang <Jerry.Zhang@amd.com>
+Signed-off-by: Kalyan Alle <kalyan.alle@amd.com>
+---
+ .../gpu/drm/amd/display/amdgpu_dm/amdgpu_dm.c    | 16 +++++++++++++++-
+ drivers/gpu/drm/amd/display/dc/os_types.h        |  4 ++++
+ 2 files changed, 19 insertions(+), 1 deletion(-)
+
+diff --git a/drivers/gpu/drm/amd/display/amdgpu_dm/amdgpu_dm.c b/drivers/gpu/drm/amd/display/amdgpu_dm/amdgpu_dm.c
+index ca60821ca44b..3fe69c644010 100644
+--- a/drivers/gpu/drm/amd/display/amdgpu_dm/amdgpu_dm.c
++++ b/drivers/gpu/drm/amd/display/amdgpu_dm/amdgpu_dm.c
+@@ -115,7 +115,7 @@ static void amdgpu_dm_atomic_commit_tail(struct drm_atomic_state *state);
+ static int amdgpu_dm_atomic_check(struct drm_device *dev,
+ 				  struct drm_atomic_state *state);
+ 
+-
++static void prepare_flip_isr(struct amdgpu_crtc *acrtc);
+ 
+ 
+ static const enum drm_plane_type dm_plane_type_default[AMDGPU_MAX_PLANES] = {
+@@ -1688,6 +1688,18 @@ static void amdgpu_dm_destroy_drm_device(struct amdgpu_display_manager *dm)
+ 	return;
+ }
+ 
++static void dm_set_backlight_level(struct amdgpu_encoder *amdgpu_encoder,
++                                     u8 level)
++{
++        /* TODO: translate amdgpu_encoder to display_index and call DAL */
++}
++
++static u8 dm_get_backlight_level(struct amdgpu_encoder *amdgpu_encoder)
++{
++        /* TODO: translate amdgpu_encoder to display_index and call DAL */
++        return 0;
++}
++
+ /******************************************************************************
+  * amdgpu_display_funcs functions
+  *****************************************************************************/
+@@ -2188,6 +2200,8 @@ static int fill_plane_attributes(struct amdgpu_device *adev,
+ 	if (ret)
+ 		return ret;
+ 
++	/* In case of gamma set, update gamma value */
++	if (crtc_state->gamma_lut)
+ 	/*
+ 	 * Always set input transfer function, since plane state is refreshed
+ 	 * every time.
+diff --git a/drivers/gpu/drm/amd/display/dc/os_types.h b/drivers/gpu/drm/amd/display/dc/os_types.h
+index c9fce9066ad8..fc81caeff901 100644
+--- a/drivers/gpu/drm/amd/display/dc/os_types.h
++++ b/drivers/gpu/drm/amd/display/dc/os_types.h
+@@ -48,6 +48,10 @@
+ 
+ #define dm_error(fmt, ...) DRM_ERROR(fmt, ##__VA_ARGS__)
+ 
++#define dm_debug(fmt, ...) DRM_DEBUG_KMS(fmt, ##__VA_ARGS__)
++
++#define dm_vlog(fmt, args) vprintk(fmt, args)
++
+ #ifdef CONFIG_X86
+ #include <asm/fpu/api.h>
+ #endif
+-- 
+2.17.1
+

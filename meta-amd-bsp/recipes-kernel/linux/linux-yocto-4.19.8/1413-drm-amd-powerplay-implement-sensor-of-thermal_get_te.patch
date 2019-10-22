@@ -1,0 +1,96 @@
+From 1e26a2a9c7ce23727c4d85fac839abdae2aeb953 Mon Sep 17 00:00:00 2001
+From: Kevin Wang <Kevin1.Wang@amd.com>
+Date: Tue, 15 Jan 2019 12:37:35 +0800
+Subject: [PATCH 1413/2940] drm/amd/powerplay: implement sensor of
+ thermal_get_temperature for smu11
+
+add sensor interface of thermal temperature for debugfs and hwmon.
+
+Signed-off-by: Kevin Wang <Kevin1.Wang@amd.com>
+Reviewed-by: Huang Rui <ray.huang@amd.com>
+Reviewed-by: Evan Quan <evan.quan@amd.com>
+Acked-by: Alex Deucher <alexander.deucher@amd.com>
+---
+ drivers/gpu/drm/amd/powerplay/smu_v11_0.c  | 26 ++++++++++++++++++++++
+ drivers/gpu/drm/amd/powerplay/vega20_ppt.c |  1 +
+ drivers/gpu/drm/amd/powerplay/vega20_ppt.h |  1 -
+ 3 files changed, 27 insertions(+), 1 deletion(-)
+
+diff --git a/drivers/gpu/drm/amd/powerplay/smu_v11_0.c b/drivers/gpu/drm/amd/powerplay/smu_v11_0.c
+index 659e911636bb..d84593abbb5e 100644
+--- a/drivers/gpu/drm/amd/powerplay/smu_v11_0.c
++++ b/drivers/gpu/drm/amd/powerplay/smu_v11_0.c
+@@ -45,6 +45,8 @@ MODULE_FIRMWARE("amdgpu/vega20_smc.bin");
+ #define SMU11_THERMAL_MINIMUM_ALERT_TEMP      0
+ #define SMU11_THERMAL_MAXIMUM_ALERT_TEMP      255
+ 
++#define SMU11_TEMPERATURE_UNITS_PER_CENTIGRADES 1000
++
+ static int smu_v11_0_send_msg_without_waiting(struct smu_context *smu,
+ 					      uint16_t msg)
+ {
+@@ -1010,6 +1012,26 @@ static int smu_v11_0_get_current_activity_percent(struct smu_context *smu,
+ 	return 0;
+ }
+ 
++static int smu_v11_0_thermal_get_temperature(struct smu_context *smu, uint32_t *value)
++{
++	struct amdgpu_device *adev = smu->adev;
++	uint32_t temp = 0;
++
++	if (!value)
++		return -EINVAL;
++
++	temp = RREG32_SOC15(THM, 0, mmCG_MULT_THERMAL_STATUS);
++	temp = (temp & CG_MULT_THERMAL_STATUS__CTF_TEMP_MASK) >>
++			CG_MULT_THERMAL_STATUS__CTF_TEMP__SHIFT;
++
++	temp = temp & 0x1ff;
++	temp *= SMU11_TEMPERATURE_UNITS_PER_CENTIGRADES;
++
++	*value = temp;
++
++	return 0;
++}
++
+ static int smu_v11_0_read_sensor(struct smu_context *smu,
+ 				 enum amd_pp_sensors sensor,
+ 				 void *data, uint32_t *size)
+@@ -1029,6 +1051,10 @@ static int smu_v11_0_read_sensor(struct smu_context *smu,
+ 		ret = smu_get_current_clk_freq(smu, PPCLK_GFXCLK, (uint32_t *)data);
+ 		*size = 4;
+ 		break;
++	case AMDGPU_PP_SENSOR_GPU_TEMP:
++		ret = smu_v11_0_thermal_get_temperature(smu, (uint32_t *)data);
++		*size = 4;
++		break;
+ 	default:
+ 		ret = -EINVAL;
+ 		break;
+diff --git a/drivers/gpu/drm/amd/powerplay/vega20_ppt.c b/drivers/gpu/drm/amd/powerplay/vega20_ppt.c
+index 16eb5a14bebc..55e1b8d7faf5 100644
+--- a/drivers/gpu/drm/amd/powerplay/vega20_ppt.c
++++ b/drivers/gpu/drm/amd/powerplay/vega20_ppt.c
+@@ -794,6 +794,7 @@ static const struct pptable_funcs vega20_ppt_funcs = {
+ 	.populate_umd_state_clk = vega20_populate_umd_state_clk,
+ 	.print_clk_levels = vega20_print_clk_levels,
+ 	.force_clk_levels = vega20_force_clk_levels,
++
+ };
+ 
+ void vega20_set_ppt_funcs(struct smu_context *smu)
+diff --git a/drivers/gpu/drm/amd/powerplay/vega20_ppt.h b/drivers/gpu/drm/amd/powerplay/vega20_ppt.h
+index ceba4f7dbab4..419dae34fa6b 100644
+--- a/drivers/gpu/drm/amd/powerplay/vega20_ppt.h
++++ b/drivers/gpu/drm/amd/powerplay/vega20_ppt.h
+@@ -28,7 +28,6 @@
+ 
+ #define MAX_REGULAR_DPM_NUMBER 16
+ #define MAX_PCIE_CONF 2
+-
+ struct vega20_dpm_level {
+         bool            enabled;
+         uint32_t        value;
+-- 
+2.17.1
+

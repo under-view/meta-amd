@@ -1,0 +1,49 @@
+From d3a226c65467284a272c90dc516c338115b3be7e Mon Sep 17 00:00:00 2001
+From: Emily Deng <Emily.Deng@amd.com>
+Date: Mon, 27 May 2019 11:12:51 +0800
+Subject: [PATCH 2003/2940] drm/amdgpu: fix unload driver fail
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+dc_destroy should be called amdgpu_cgs_destroy_device,
+as it will use cgs context to read or write registers.
+
+Change-Id: I340dafa2f172cd078df30d9a040a1265fc167619
+Signed-off-by: Emily Deng <Emily.Deng@amd.com>
+Acked-by: Christian König <christian.koenig@amd.com>
+---
+ drivers/gpu/drm/amd/display/amdgpu_dm/amdgpu_dm.c | 9 ++++-----
+ 1 file changed, 4 insertions(+), 5 deletions(-)
+
+diff --git a/drivers/gpu/drm/amd/display/amdgpu_dm/amdgpu_dm.c b/drivers/gpu/drm/amd/display/amdgpu_dm/amdgpu_dm.c
+index 565cb321cdec..378aa4251347 100644
+--- a/drivers/gpu/drm/amd/display/amdgpu_dm/amdgpu_dm.c
++++ b/drivers/gpu/drm/amd/display/amdgpu_dm/amdgpu_dm.c
+@@ -616,6 +616,10 @@ static int amdgpu_dm_init(struct amdgpu_device *adev)
+ static void amdgpu_dm_fini(struct amdgpu_device *adev)
+ {
+ 	amdgpu_dm_destroy_drm_device(&adev->dm);
++
++	/* DC Destroy TODO: Replace destroy DAL */
++	if (adev->dm.dc)
++		dc_destroy(&adev->dm.dc);
+ 	/*
+ 	 * TODO: pageflip, vlank interrupt
+ 	 *
+@@ -630,12 +634,7 @@ static void amdgpu_dm_fini(struct amdgpu_device *adev)
+ 		mod_freesync_destroy(adev->dm.freesync_module);
+ 		adev->dm.freesync_module = NULL;
+ 	}
+-	/* DC Destroy TODO: Replace destroy DAL */
+-	if (adev->dm.dc)
+-		dc_destroy(&adev->dm.dc);
+-
+ 	mutex_destroy(&adev->dm.dc_lock);
+-
+ 	return;
+ }
+ 
+-- 
+2.17.1
+

@@ -1,0 +1,64 @@
+From 35ea25d543a9957304077c5a9b62b0a1b6f48785 Mon Sep 17 00:00:00 2001
+From: Jun Lei <Jun.Lei@amd.com>
+Date: Mon, 27 May 2019 14:15:27 -0400
+Subject: [PATCH 2564/2940] drm/amd/display: update DCN2 uclk switch time
+
+[why]
+value commited to by HW team is going to be higher
+than pre-silicon, and will cause underflow if driver not
+updated
+
+[how]
+update hardcoded value, update pstate switching logic
+to fix case where with long uclk time we won't allow switch
+even when we should
+
+Signed-off-by: Jun Lei <Jun.Lei@amd.com>
+Reviewed-by: Eric Yang <eric.yang2@amd.com>
+Acked-by: Bhawanpreet Lakha <Bhawanpreet.Lakha@amd.com>
+Signed-off-by: Alex Deucher <alexander.deucher@amd.com>
+---
+ .../gpu/drm/amd/display/dc/clk_mgr/dcn20/dcn20_clk_mgr.c  | 8 +++-----
+ drivers/gpu/drm/amd/display/dc/inc/hw/clk_mgr_internal.h  | 6 ++++++
+ 2 files changed, 9 insertions(+), 5 deletions(-)
+
+diff --git a/drivers/gpu/drm/amd/display/dc/clk_mgr/dcn20/dcn20_clk_mgr.c b/drivers/gpu/drm/amd/display/dc/clk_mgr/dcn20/dcn20_clk_mgr.c
+index e3c1debf2597..6f01830fc020 100644
+--- a/drivers/gpu/drm/amd/display/dc/clk_mgr/dcn20/dcn20_clk_mgr.c
++++ b/drivers/gpu/drm/amd/display/dc/clk_mgr/dcn20/dcn20_clk_mgr.c
+@@ -195,12 +195,10 @@ void dcn2_update_clocks(struct clk_mgr *clk_mgr_base,
+ 			pp_smu->set_hard_min_socclk_by_freq(&pp_smu->pp_smu, clk_mgr_base->clks.socclk_khz / 1000);
+ 	}
+ 
+-	if (!safe_to_lower && pp_smu && pp_smu->set_pstate_handshake_support) {
+-		clk_mgr_base->clks.p_state_change_support = false;
+-		pp_smu->set_pstate_handshake_support(&pp_smu->pp_smu, false);
+-	} else if (safe_to_lower && pp_smu && pp_smu->set_pstate_handshake_support) {
++	if (should_update_pstate_support(safe_to_lower, new_clocks->p_state_change_support, clk_mgr_base->clks.p_state_change_support)) {
+ 		clk_mgr_base->clks.p_state_change_support = new_clocks->p_state_change_support;
+-		pp_smu->set_pstate_handshake_support(&pp_smu->pp_smu, clk_mgr_base->clks.p_state_change_support);
++		if (pp_smu && pp_smu->set_pstate_handshake_support)
++			pp_smu->set_pstate_handshake_support(&pp_smu->pp_smu, clk_mgr_base->clks.p_state_change_support);
+ 	}
+ 
+ 	if (should_set_clock(safe_to_lower, new_clocks->dramclk_khz, clk_mgr_base->clks.dramclk_khz)) {
+diff --git a/drivers/gpu/drm/amd/display/dc/inc/hw/clk_mgr_internal.h b/drivers/gpu/drm/amd/display/dc/inc/hw/clk_mgr_internal.h
+index c322e4697242..0835ac041acf 100644
+--- a/drivers/gpu/drm/amd/display/dc/inc/hw/clk_mgr_internal.h
++++ b/drivers/gpu/drm/amd/display/dc/inc/hw/clk_mgr_internal.h
+@@ -274,6 +274,12 @@ static inline bool should_set_clock(bool safe_to_lower, int calc_clk, int cur_cl
+ 	return ((safe_to_lower && calc_clk < cur_clk) || calc_clk > cur_clk);
+ }
+ 
++static inline bool should_update_pstate_support(bool safe_to_lower, bool calc_support, bool cur_support)
++{
++	// Whenever we are transitioning pstate support, we always want to notify prior to committing state
++	return (calc_support != cur_support) ? !safe_to_lower : false;
++}
++
+ int clk_mgr_helper_get_active_display_cnt(
+ 		struct dc *dc,
+ 		struct dc_state *context);
+-- 
+2.17.1
+

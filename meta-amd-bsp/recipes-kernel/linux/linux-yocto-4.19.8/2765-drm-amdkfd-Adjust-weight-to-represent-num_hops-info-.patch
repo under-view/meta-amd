@@ -1,0 +1,72 @@
+From 262ca421b06e954eaba2963225fba3526d5805bb Mon Sep 17 00:00:00 2001
+From: shaoyunl <shaoyun.liu@amd.com>
+Date: Wed, 17 Apr 2019 14:34:07 -0400
+Subject: [PATCH 2765/2940] drm/amdkfd: Adjust weight to represent num_hops
+ info when report xgmi iolink
+
+Upper level runtime need the xgmi hops info to determine the data path
+
+Change-Id: I969b419eab125157e223e9b03980ca229c1e6af4
+Signed-off-by: shaoyunl <shaoyun.liu@amd.com>
+Reviewed-by: Felix Kuehling <Felix.Kuehling@amd.com>
+---
+ drivers/gpu/drm/amd/amdkfd/kfd_crat.c | 7 +++++--
+ drivers/gpu/drm/amd/amdkfd/kfd_crat.h | 3 ++-
+ 2 files changed, 7 insertions(+), 3 deletions(-)
+
+diff --git a/drivers/gpu/drm/amd/amdkfd/kfd_crat.c b/drivers/gpu/drm/amd/amdkfd/kfd_crat.c
+index f0d5be27af63..f3936bb13733 100644
+--- a/drivers/gpu/drm/amd/amdkfd/kfd_crat.c
++++ b/drivers/gpu/drm/amd/amdkfd/kfd_crat.c
+@@ -373,7 +373,7 @@ static int kfd_parse_subtype_iolink(struct crat_subtype_iolink *iolink,
+ 			if (props->iolink_type == CRAT_IOLINK_TYPE_PCIEXPRESS)
+ 				props->weight = 20;
+ 			else if (props->iolink_type == CRAT_IOLINK_TYPE_XGMI)
+-				props->weight = 15;
++				props->weight = 15 * iolink->num_hops_xgmi;
+ 			else
+ 				props->weight = node_distance(id_from, id_to);
+ 
+@@ -1107,6 +1107,7 @@ static int kfd_fill_gpu_direct_io_link_to_cpu(int *avail_size,
+ 
+ static int kfd_fill_gpu_xgmi_link_to_gpu(int *avail_size,
+ 			struct kfd_dev *kdev,
++			struct kfd_dev *peer_kdev,
+ 			struct crat_subtype_iolink *sub_type_hdr,
+ 			uint32_t proximity_domain_from,
+ 			uint32_t proximity_domain_to)
+@@ -1125,6 +1126,8 @@ static int kfd_fill_gpu_xgmi_link_to_gpu(int *avail_size,
+ 	sub_type_hdr->io_interface_type = CRAT_IOLINK_TYPE_XGMI;
+ 	sub_type_hdr->proximity_domain_from = proximity_domain_from;
+ 	sub_type_hdr->proximity_domain_to = proximity_domain_to;
++	sub_type_hdr->num_hops_xgmi =
++		amdgpu_amdkfd_get_xgmi_hops_count(kdev->kgd, peer_kdev->kgd);
+ 	return 0;
+ }
+ 
+@@ -1302,7 +1305,7 @@ static int kfd_create_vcrat_image_gpu(void *pcrat_image,
+ 				(char *)sub_type_hdr +
+ 				sizeof(struct crat_subtype_iolink));
+ 			ret = kfd_fill_gpu_xgmi_link_to_gpu(
+-				&avail_size, kdev,
++				&avail_size, kdev, peer_dev->gpu,
+ 				(struct crat_subtype_iolink *)sub_type_hdr,
+ 				proximity_domain, nid);
+ 			if (ret < 0)
+diff --git a/drivers/gpu/drm/amd/amdkfd/kfd_crat.h b/drivers/gpu/drm/amd/amdkfd/kfd_crat.h
+index cfdd02fd4b17..6f59fb02e5e3 100644
+--- a/drivers/gpu/drm/amd/amdkfd/kfd_crat.h
++++ b/drivers/gpu/drm/amd/amdkfd/kfd_crat.h
+@@ -274,7 +274,8 @@ struct crat_subtype_iolink {
+ 	uint32_t	minimum_bandwidth_mbs;
+ 	uint32_t	maximum_bandwidth_mbs;
+ 	uint32_t	recommended_transfer_size;
+-	uint8_t		reserved2[CRAT_IOLINK_RESERVED_LENGTH];
++	uint8_t		reserved2[CRAT_IOLINK_RESERVED_LENGTH - 1];
++	uint8_t		num_hops_xgmi;
+ };
+ 
+ /*
+-- 
+2.17.1
+

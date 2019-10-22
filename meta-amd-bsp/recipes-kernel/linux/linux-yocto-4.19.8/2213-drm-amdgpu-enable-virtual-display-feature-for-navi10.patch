@@ -1,0 +1,28 @@
+From 9a3b6777c23f25ab16e60f3e4b871a5ba5b42d24 Mon Sep 17 00:00:00 2001
+From: "Le.Ma" <Le.Ma@amd.com>
+Date: Fri, 5 Jan 2018 16:21:18 +0800
+Subject: [PATCH 2213/2940] drm/amdgpu: enable virtual display feature for
+ navi10
+
+Signed-off-by: Le.Ma <Le.Ma@amd.com>
+Reviewed-by: Hawking Zhang <Hawking.Zhang@amd.com>
+Signed-off-by: Alex Deucher <alexander.deucher@amd.com>
+---
+ drivers/gpu/drm/amd/amdgpu/dce_virtual.c | 1 +
+ 1 file changed, 1 insertion(+)
+
+diff --git a/drivers/gpu/drm/amd/amdgpu/dce_virtual.c b/drivers/gpu/drm/amd/amdgpu/dce_virtual.c
+index e4cc1d48eaab..8be4e4faca8e 100644
+--- a/drivers/gpu/drm/amd/amdgpu/dce_virtual.c
++++ b/drivers/gpu/drm/amd/amdgpu/dce_virtual.c
+@@ -455,6 +455,7 @@ static int dce_virtual_hw_init(void *handle)
+ 	case CHIP_VEGA10:
+ 	case CHIP_VEGA12:
+ 	case CHIP_VEGA20:
++	case CHIP_NAVI10:
+ 		break;
+ 	default:
+ 		DRM_ERROR("Virtual display unsupported ASIC type: 0x%X\n", adev->asic_type);
+-- 
+2.17.1
+

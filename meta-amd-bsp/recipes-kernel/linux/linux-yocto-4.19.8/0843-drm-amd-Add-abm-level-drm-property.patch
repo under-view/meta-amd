@@ -1,0 +1,270 @@
+From 590bd3533c47dae7aa8f36f4b41f7e98e05d9fe6 Mon Sep 17 00:00:00 2001
+From: David Francis <David.Francis@amd.com>
+Date: Mon, 26 Nov 2018 15:51:09 -0500
+Subject: [PATCH 0843/2940] drm/amd: Add abm level drm property
+
+Adaptive Backlight Management (ABM) is a feature
+that reduces backlight level to save power, while
+increasing pixel contrast and pixel luminance
+to maintain readability and image quality.
+
+ABM will adjust in response to the
+pixel luminance of the displayed content.
+
+ABM is made available as a drm property on eDP
+monitors called "abm level", which ranges from 0 to 4.
+When this property is set to 0, ABM is off.  Levels 1
+to 4 represent different ranges of backlight reduction.
+At higher levels both the backlight reduction and pixel
+adjustment will be greater.
+
+ABM requires DMCU firmware, which is currently available for
+Raven ASICs only.  If the feature does not work, please
+ensure your firmware is up to date.
+
+v2:
+Fix commit message, only attach property if DMCU loaded
+v3:
+Store ABM level in crtc state to accommodate dc
+v4:
+Fix ABM saving on dpms cycle
+
+Signed-off-by: David Francis <David.Francis@amd.com>
+Reviewed-by: Harry Wentland <harry.wentland@amd.com>
+Signed-off-by: Alex Deucher <alexander.deucher@amd.com>
+Signed-off-by: Chaudhary Amit Kumar <Chaudharyamit.Kumar@amd.com>
+---
+ drivers/gpu/drm/amd/amdgpu/amdgpu_display.c   |  5 +++
+ drivers/gpu/drm/amd/amdgpu/amdgpu_mode.h      |  2 +
+ .../gpu/drm/amd/display/amdgpu_dm/amdgpu_dm.c | 37 ++++++++++++++++---
+ .../gpu/drm/amd/display/amdgpu_dm/amdgpu_dm.h |  3 ++
+ drivers/gpu/drm/amd/display/dc/core/dc.c      | 11 +++++-
+ drivers/gpu/drm/amd/display/dc/dc.h           |  1 +
+ 6 files changed, 53 insertions(+), 6 deletions(-)
+
+diff --git a/drivers/gpu/drm/amd/amdgpu/amdgpu_display.c b/drivers/gpu/drm/amd/amdgpu/amdgpu_display.c
+index 7d2931595043..a42d6a1dfe29 100644
+--- a/drivers/gpu/drm/amd/amdgpu/amdgpu_display.c
++++ b/drivers/gpu/drm/amd/amdgpu/amdgpu_display.c
+@@ -651,6 +651,11 @@ int amdgpu_display_modeset_create_props(struct amdgpu_device *adev)
+ 			drm_property_create_range(adev->ddev, 0, "max bpc", 8, 16);
+ 		if (!adev->mode_info.max_bpc_property)
+ 			return -ENOMEM;
++		adev->mode_info.abm_level_property =
++			drm_property_create_range(adev->ddev, 0,
++						"abm level", 0, 4);
++		if (!adev->mode_info.abm_level_property)
++			return -ENOMEM;
+ 	}
+ 
+ 	return 0;
+diff --git a/drivers/gpu/drm/amd/amdgpu/amdgpu_mode.h b/drivers/gpu/drm/amd/amdgpu/amdgpu_mode.h
+index 2cb1f41ea104..8b2df91cfa52 100644
+--- a/drivers/gpu/drm/amd/amdgpu/amdgpu_mode.h
++++ b/drivers/gpu/drm/amd/amdgpu/amdgpu_mode.h
+@@ -340,6 +340,8 @@ struct amdgpu_mode_info {
+ 	struct drm_property *dither_property;
+         /* maximum number of bits per channel for monitor color */
+         struct drm_property *max_bpc_property;
++        /* Adaptive Backlight Modulation (power feature) */
++        struct drm_property *abm_level_property;
+ 	/* it is used to allow enablement of freesync mode */
+ 	struct drm_property *freesync_property;
+ 	/* it is used to know about display capability of freesync mode */
+diff --git a/drivers/gpu/drm/amd/display/amdgpu_dm/amdgpu_dm.c b/drivers/gpu/drm/amd/display/amdgpu_dm/amdgpu_dm.c
+index f154fba22832..2d5b0bf695d3 100644
+--- a/drivers/gpu/drm/amd/display/amdgpu_dm/amdgpu_dm.c
++++ b/drivers/gpu/drm/amd/display/amdgpu_dm/amdgpu_dm.c
+@@ -2963,6 +2963,7 @@ dm_crtc_duplicate_state(struct drm_crtc *crtc)
+ 	state->adjust = cur->adjust;
+ 	state->vrr_infopacket = cur->vrr_infopacket;
+ 	state->freesync_enabled = cur->freesync_enabled;
++	state->abm_level = cur->abm_level;
+ 
+ 	/* TODO Duplicate dc_stream after objects are stream object is flattened */
+ 
+@@ -3086,6 +3087,9 @@ int amdgpu_dm_connector_atomic_set_property(struct drm_connector *connector,
+ 	} else if (property == adev->mode_info.max_bpc_property) {
+ 		dm_new_state->max_bpc = val;
+ 		ret = 0;
++	} else if (property == adev->mode_info.abm_level_property) {
++		dm_new_state->abm_level = val;
++		ret = 0;
+ 	}
+ 
+ 	return ret;
+@@ -3137,7 +3141,11 @@ int amdgpu_dm_connector_atomic_get_property(struct drm_connector *connector,
+ 	} else if (property == adev->mode_info.max_bpc_property) {
+ 		*val = dm_state->max_bpc;
+ 		ret = 0;
++	} else if (property == adev->mode_info.abm_level_property) {
++		*val = dm_state->abm_level;
++		ret = 0;
+ 	}
++
+ 	return ret;
+ }
+ 
+@@ -3202,6 +3210,7 @@ amdgpu_dm_connector_atomic_duplicate_state(struct drm_connector *connector)
+ 
+ 	new_state->freesync_capable = state->freesync_capable;
+ 	new_state->freesync_enable = state->freesync_enable;
++	new_state->abm_level = state->abm_level;
+ 
+ 	return &new_state->base;
+ }
+@@ -3794,7 +3803,6 @@ amdgpu_dm_create_common_mode(struct drm_encoder *encoder,
+ 	strncpy(mode->name, name, DRM_DISPLAY_MODE_LEN);
+ 
+ 	return mode;
+-
+ }
+ 
+ static void amdgpu_dm_connector_add_common_modes(struct drm_encoder *encoder,
+@@ -3951,6 +3959,12 @@ void amdgpu_dm_connector_init_helper(struct amdgpu_display_manager *dm,
+ 				adev->mode_info.max_bpc_property,
+ 				0);
+ 
++        if (connector_type == DRM_MODE_CONNECTOR_eDP &&
++            dc_is_dmcu_initialized(adev->dm.dc)) {
++                drm_object_attach_property(&aconnector->base.base,
++                                adev->mode_info.abm_level_property, 0);
++        }
++
+ 	if (connector_type == DRM_MODE_CONNECTOR_HDMIA ||
+ 	    connector_type == DRM_MODE_CONNECTOR_DisplayPort) {
+ 		drm_object_attach_property(&aconnector->base.base,
+@@ -4464,6 +4478,7 @@ static bool commit_planes_to_stream(
+ 	struct dc_stream_state *dc_stream = dm_new_crtc_state->stream;
+ 	struct dc_stream_update *stream_update =
+ 			kzalloc(sizeof(struct dc_stream_update), GFP_KERNEL);
++	unsigned int abm_level;
+ 
+ 	if (!stream_update) {
+ 		BREAK_TO_DEBUGGER();
+@@ -4496,6 +4511,11 @@ static bool commit_planes_to_stream(
+ 		stream_update->adjust = &dc_stream->adjust;
+ 	}
+ 
++	if (dm_new_crtc_state->abm_level != dm_old_crtc_state->abm_level) {
++		abm_level = dm_new_crtc_state->abm_level;
++		stream_update->abm_level = &abm_level;
++	}
++
+ 	for (i = 0; i < new_plane_count; i++) {
+ 		updates[i].surface = plane_states[i];
+ 		updates[i].gamma =
+@@ -4633,6 +4653,7 @@ static void amdgpu_dm_commit_planes(struct drm_atomic_state *state,
+ 
+ 		dc_stream_attach->adjust = acrtc_state->adjust;
+ 		dc_stream_attach->vrr_infopacket = acrtc_state->vrr_infopacket;
++		dc_stream_attach->abm_level = acrtc_state->abm_level;
+ 
+ 		if (false == commit_planes_to_stream(dm->dc,
+ 							plane_states_constructed,
+@@ -4811,7 +4832,7 @@ static void amdgpu_dm_atomic_commit_tail(struct drm_atomic_state *state)
+ 		}
+ 	}
+ 
+-	/* Handle scaling and underscan changes*/
++	/* Handle scaling, underscan, and abm changes*/
+ 	for_each_oldnew_connector_in_state(state, connector, old_con_state, new_con_state, i) {
+ 		struct dm_connector_state *dm_new_con_state = to_dm_connector_state(new_con_state);
+ 		struct dm_connector_state *dm_old_con_state = to_dm_connector_state(old_con_state);
+@@ -4827,11 +4848,14 @@ static void amdgpu_dm_atomic_commit_tail(struct drm_atomic_state *state)
+ 		if (!acrtc || drm_atomic_crtc_needs_modeset(new_crtc_state))
+ 			continue;
+ 
+-		/* Skip anything that is not scaling or underscan changes */
+-		if (!is_scaling_state_different(dm_new_con_state, dm_old_con_state))
+-			continue;
+ 
+ 		dm_new_crtc_state = to_dm_crtc_state(new_crtc_state);
++		dm_old_crtc_state = to_dm_crtc_state(old_crtc_state);
++
++		/* Skip anything that is not scaling or underscan changes */
++		if (!is_scaling_state_different(dm_new_con_state, dm_old_con_state) &&
++				(dm_new_crtc_state->abm_level == dm_old_crtc_state->abm_level))
++			continue;
+ 
+ 		update_stream_scaling_settings(&dm_new_con_state->base.crtc->mode,
+ 				dm_new_con_state, (struct dc_stream_state *)dm_new_crtc_state->stream);
+@@ -4845,6 +4869,7 @@ static void amdgpu_dm_atomic_commit_tail(struct drm_atomic_state *state)
+ 
+ 		dm_new_crtc_state->stream->adjust = dm_new_crtc_state->adjust;
+ 		dm_new_crtc_state->stream->vrr_infopacket = dm_new_crtc_state->vrr_infopacket;
++		dm_new_crtc_state->stream->abm_level = dm_new_crtc_state->abm_level;
+ 
+ 		/*TODO How it works with MPO ?*/
+ 		if (!commit_planes_to_stream(
+@@ -5184,6 +5209,8 @@ static int dm_update_crtcs_state(struct amdgpu_display_manager *dm,
+ 			set_freesync_on_stream(dm, dm_new_crtc_state,
+ 					       dm_new_conn_state, new_stream);
+ 
++			dm_new_crtc_state->abm_level = dm_new_conn_state->abm_level;
++
+ 			if (dc_is_stream_unchanged(new_stream, dm_old_crtc_state->stream) &&
+ 			    dc_is_stream_scaling_unchanged(new_stream, dm_old_crtc_state->stream)) {
+ 				new_crtc_state->mode_changed = false;
+diff --git a/drivers/gpu/drm/amd/display/amdgpu_dm/amdgpu_dm.h b/drivers/gpu/drm/amd/display/amdgpu_dm/amdgpu_dm.h
+index febccc48ee5f..63ee581b55a0 100644
+--- a/drivers/gpu/drm/amd/display/amdgpu_dm/amdgpu_dm.h
++++ b/drivers/gpu/drm/amd/display/amdgpu_dm/amdgpu_dm.h
+@@ -231,6 +231,8 @@ struct dm_crtc_state {
+ 	bool freesync_enabled;
+ 	struct dc_crtc_timing_adjust adjust;
+ 	struct dc_info_packet vrr_infopacket;
++
++	int abm_level;
+ };
+ 
+ #define to_dm_crtc_state(x) container_of(x, struct dm_crtc_state, base)
+@@ -253,6 +255,7 @@ struct dm_connector_state {
+ 	bool underscan_enable;
+ 	bool freesync_enable;
+ 	bool freesync_capable;
++	uint8_t abm_level;
+ };
+ 
+ #define to_dm_connector_state(x)\
+diff --git a/drivers/gpu/drm/amd/display/dc/core/dc.c b/drivers/gpu/drm/amd/display/dc/core/dc.c
+index 48fc9ce26c53..627ca8990991 100644
+--- a/drivers/gpu/drm/amd/display/dc/core/dc.c
++++ b/drivers/gpu/drm/amd/display/dc/core/dc.c
+@@ -1686,6 +1686,15 @@ void dc_resume(struct dc *dc)
+ 		core_link_resume(dc->links[i]);
+ }
+ 
++bool dc_is_dmcu_initialized(struct dc *dc)
++{
++	struct dmcu *dmcu = dc->res_pool->dmcu;
++
++	if (dmcu)
++		return dmcu->funcs->is_dmcu_initialized(dmcu);
++	return false;
++}
++
+ bool dc_submit_i2c(
+ 		struct dc *dc,
+ 		uint32_t link_index,
+@@ -1810,4 +1819,4 @@ void get_clock_requirements_for_state(struct dc_state *state, struct AsicStateEx
+ 	info->dcfClockDeepSleep			= (unsigned int)state->bw.dcn.clk.dcfclk_deep_sleep_khz;
+ 	info->fClock					= (unsigned int)state->bw.dcn.clk.fclk_khz;
+ 	info->phyClock					= (unsigned int)state->bw.dcn.clk.phyclk_khz;
+-}
+\ No newline at end of file
++}
+diff --git a/drivers/gpu/drm/amd/display/dc/dc.h b/drivers/gpu/drm/amd/display/dc/dc.h
+index c8e1a4152058..d6349d1655a7 100644
+--- a/drivers/gpu/drm/amd/display/dc/dc.h
++++ b/drivers/gpu/drm/amd/display/dc/dc.h
+@@ -742,5 +742,6 @@ void dc_set_power_state(
+ 		struct dc *dc,
+ 		enum dc_acpi_cm_power_state power_state);
+ void dc_resume(struct dc *dc);
++bool dc_is_dmcu_initialized(struct dc *dc);
+ 
+ #endif /* DC_INTERFACE_H_ */
+-- 
+2.17.1
+

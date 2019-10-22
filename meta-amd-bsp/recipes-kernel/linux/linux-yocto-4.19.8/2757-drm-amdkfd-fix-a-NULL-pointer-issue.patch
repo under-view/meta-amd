@@ -1,0 +1,49 @@
+From c561a50c30c6b57ee195b9b60af3f85926ddc969 Mon Sep 17 00:00:00 2001
+From: xinhui pan <xinhui.pan@amd.com>
+Date: Mon, 4 Mar 2019 14:57:42 +0800
+Subject: [PATCH 2757/2940] drm/amdkfd: fix a NULL pointer issue
+
+ras might not be available, so add a null check.
+
+Signed-off-by: xinhui pan <xinhui.pan@amd.com>
+Acked-by: Alex Deucher <alexander.deucher@amd.com>
+---
+ drivers/gpu/drm/amd/amdkfd/kfd_topology.c | 22 ++++++++++++----------
+ 1 file changed, 12 insertions(+), 10 deletions(-)
+
+diff --git a/drivers/gpu/drm/amd/amdkfd/kfd_topology.c b/drivers/gpu/drm/amd/amdkfd/kfd_topology.c
+index 68f80e968f58..e78718a95b61 100644
+--- a/drivers/gpu/drm/amd/amdkfd/kfd_topology.c
++++ b/drivers/gpu/drm/amd/amdkfd/kfd_topology.c
+@@ -1417,16 +1417,18 @@ int kfd_topology_add_device(struct kfd_dev *gpu)
+ 	}
+ 
+ 	ctx = amdgpu_ras_get_context((struct amdgpu_device *)(dev->gpu->kgd));
+-	/* kfd only concerns sram ecc on GFX/SDMA and HBM ecc on UMC */
+-	dev->node_props.capability |=
+-		(((ctx->features & BIT(AMDGPU_RAS_BLOCK__SDMA)) != 0) ||
+-		((ctx->features & BIT(AMDGPU_RAS_BLOCK__GFX)) != 0)) ?
+-		HSA_CAP_SRAM_EDCSUPPORTED : 0;
+-	dev->node_props.capability |= ((ctx->features & BIT(AMDGPU_RAS_BLOCK__UMC)) != 0) ?
+-		HSA_CAP_MEM_EDCSUPPORTED : 0;
+-
+-	dev->node_props.capability |= (ctx->features != 0) ?
+-		HSA_CAP_RASEVENTNOTIFY : 0;
++	if (ctx) {
++		/* kfd only concerns sram ecc on GFX/SDMA and HBM ecc on UMC */
++		dev->node_props.capability |=
++			(((ctx->features & BIT(AMDGPU_RAS_BLOCK__SDMA)) != 0) ||
++			 ((ctx->features & BIT(AMDGPU_RAS_BLOCK__GFX)) != 0)) ?
++			HSA_CAP_SRAM_EDCSUPPORTED : 0;
++		dev->node_props.capability |= ((ctx->features & BIT(AMDGPU_RAS_BLOCK__UMC)) != 0) ?
++			HSA_CAP_MEM_EDCSUPPORTED : 0;
++
++		dev->node_props.capability |= (ctx->features != 0) ?
++			HSA_CAP_RASEVENTNOTIFY : 0;
++	}
+ 
+ 	kfd_debug_print_topology();
+ 
+-- 
+2.17.1
+

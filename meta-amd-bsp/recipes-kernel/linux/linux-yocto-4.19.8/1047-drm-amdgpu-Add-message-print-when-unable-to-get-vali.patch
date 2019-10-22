@@ -1,0 +1,38 @@
+From d8fc8fe0c65d604e2d9ad3359b0970783e8f360a Mon Sep 17 00:00:00 2001
+From: shaoyunl <shaoyun.liu@amd.com>
+Date: Fri, 4 Jan 2019 13:23:06 -0500
+Subject: [PATCH 1047/2940] drm/amdgpu: Add message print when unable to get
+ valid hive
+
+Add message print out and return -EINVAL when driver can not get valid hive
+from hive  arrary on xgmi configuration
+
+Signed-off-by: shaoyunl <shaoyun.liu@amd.com>
+Reviewed-by: Alex Deucher <alexander.deucher@amd.com>
+Signed-off-by: Alex Deucher <alexander.deucher@amd.com>
+---
+ drivers/gpu/drm/amd/amdgpu/amdgpu_xgmi.c | 7 ++++++-
+ 1 file changed, 6 insertions(+), 1 deletion(-)
+
+diff --git a/drivers/gpu/drm/amd/amdgpu/amdgpu_xgmi.c b/drivers/gpu/drm/amd/amdgpu/amdgpu_xgmi.c
+index 8a8bc60cb6b4..ac57a8767283 100644
+--- a/drivers/gpu/drm/amd/amdgpu/amdgpu_xgmi.c
++++ b/drivers/gpu/drm/amd/amdgpu/amdgpu_xgmi.c
+@@ -113,8 +113,13 @@ int amdgpu_xgmi_add_device(struct amdgpu_device *adev)
+ 
+ 	mutex_lock(&xgmi_mutex);
+ 	hive = amdgpu_get_xgmi_hive(adev);
+-	if (!hive)
++	if (!hive) {
++		ret = -EINVAL;
++		dev_err(adev->dev,
++			"XGMI: node 0x%llx, can not matech hive 0x%llx in the hive list.\n",
++			adev->gmc.xgmi.node_id, adev->gmc.xgmi.hive_id);
+ 		goto exit;
++	}
+ 
+ 	hive_topology = &hive->topology_info;
+ 
+-- 
+2.17.1
+

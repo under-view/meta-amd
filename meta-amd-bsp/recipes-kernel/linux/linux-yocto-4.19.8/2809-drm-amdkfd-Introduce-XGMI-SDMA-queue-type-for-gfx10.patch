@@ -1,0 +1,51 @@
+From 6c509124e7d3d2e8433c61a1a5057ada5a9f37da Mon Sep 17 00:00:00 2001
+From: Alex Deucher <alexander.deucher@amd.com>
+Date: Wed, 8 May 2019 22:47:56 -0500
+Subject: [PATCH 2809/2940] drm/amdkfd: Introduce XGMI SDMA queue type for
+ gfx10
+
+Existing QUEUE_TYPE_SDMA means PCIe optimized SDMA queues.
+Introduce a new QUEUE_TYPE_SDMA_XGMI, which is optimized
+for non-PCIe transfer such as XGMI.
+
+Signed-off-by: Alex Deucher <alexander.deucher@amd.com>
+---
+ drivers/gpu/drm/amd/amdkfd/kfd_device.c           | 1 +
+ drivers/gpu/drm/amd/amdkfd/kfd_kernel_queue_v10.c | 2 ++
+ 2 files changed, 3 insertions(+)
+
+diff --git a/drivers/gpu/drm/amd/amdkfd/kfd_device.c b/drivers/gpu/drm/amd/amdkfd/kfd_device.c
+index df350f081385..7faed4694bd1 100644
+--- a/drivers/gpu/drm/amd/amdkfd/kfd_device.c
++++ b/drivers/gpu/drm/amd/amdkfd/kfd_device.c
+@@ -330,6 +330,7 @@ static const struct kfd_device_info navi10_device_info = {
+ 	.supports_cwsr = true,
+ 	.needs_pci_atomics = false,
+ 	.num_sdma_engines = 2,
++	.num_xgmi_sdma_engines = 0,
+ 	.num_sdma_queues_per_engine = 8,
+ };
+ 
+diff --git a/drivers/gpu/drm/amd/amdkfd/kfd_kernel_queue_v10.c b/drivers/gpu/drm/amd/amdkfd/kfd_kernel_queue_v10.c
+index 209ad518fba1..26153c51493a 100644
+--- a/drivers/gpu/drm/amd/amdkfd/kfd_kernel_queue_v10.c
++++ b/drivers/gpu/drm/amd/amdkfd/kfd_kernel_queue_v10.c
+@@ -181,6 +181,7 @@ static int pm_map_queues_v10(struct packet_manager *pm, uint32_t *buffer,
+ 			queue_type__mes_map_queues__debug_interface_queue_vi;
+ 		break;
+ 	case KFD_QUEUE_TYPE_SDMA:
++	case KFD_QUEUE_TYPE_SDMA_XGMI:
+ 		packet->bitfields2.engine_sel = q->properties.sdma_engine_id +
+ 				engine_sel__mes_map_queues__sdma0_vi;
+ 		use_static = false; /* no static queues under SDMA */
+@@ -227,6 +228,7 @@ static int pm_unmap_queues_v10(struct packet_manager *pm, uint32_t *buffer,
+ 			engine_sel__mes_unmap_queues__compute;
+ 		break;
+ 	case KFD_QUEUE_TYPE_SDMA:
++	case KFD_QUEUE_TYPE_SDMA_XGMI:
+ 		packet->bitfields2.engine_sel =
+ 			engine_sel__mes_unmap_queues__sdma0 + sdma_engine;
+ 		break;
+-- 
+2.17.1
+

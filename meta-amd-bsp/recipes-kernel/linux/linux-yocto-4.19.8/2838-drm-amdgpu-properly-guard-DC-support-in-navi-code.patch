@@ -1,0 +1,34 @@
+From 7fe97d7a50902a32b426a6c4e630c661fd0ccb74 Mon Sep 17 00:00:00 2001
+From: Alex Deucher <alexander.deucher@amd.com>
+Date: Fri, 5 Jul 2019 15:39:39 -0500
+Subject: [PATCH 2838/2940] drm/amdgpu: properly guard DC support in navi code
+
+Need to add appropriate ifdef.
+
+Acked-by: Leo Li <sunpeng.li@amd.com>
+Reviewed-by: Nicholas Kazlauskas <nicholas.kazlauskas@amd.com>
+Signed-off-by: Alex Deucher <alexander.deucher@amd.com>
+---
+ drivers/gpu/drm/amd/amdgpu/nv.c | 4 ++++
+ 1 file changed, 4 insertions(+)
+
+diff --git a/drivers/gpu/drm/amd/amdgpu/nv.c b/drivers/gpu/drm/amd/amdgpu/nv.c
+index 3926974ae55f..7cdd1406d506 100644
+--- a/drivers/gpu/drm/amd/amdgpu/nv.c
++++ b/drivers/gpu/drm/amd/amdgpu/nv.c
+@@ -393,8 +393,12 @@ int nv_set_ip_blocks(struct amdgpu_device *adev)
+ 			amdgpu_device_ip_block_add(adev, &smu_v11_0_ip_block);
+ 		if (adev->enable_virtual_display || amdgpu_sriov_vf(adev))
+ 			amdgpu_device_ip_block_add(adev, &dce_virtual_ip_block);
++#if defined(CONFIG_DRM_AMD_DC)
+ 		else if (amdgpu_device_has_dc_support(adev))
+ 			amdgpu_device_ip_block_add(adev, &dm_ip_block);
++#else
++#	warning "Enable CONFIG_DRM_AMD_DC for display support on navi."
++#endif
+ 		amdgpu_device_ip_block_add(adev, &gfx_v10_0_ip_block);
+ 		amdgpu_device_ip_block_add(adev, &sdma_v5_0_ip_block);
+ 		if (adev->firmware.load_type == AMDGPU_FW_LOAD_DIRECT &&
+-- 
+2.17.1
+

@@ -1,0 +1,31 @@
+From 7361fd0422a56becf9a3a3ebd699afa54c15e70a Mon Sep 17 00:00:00 2001
+From: Xiaojie Yuan <xiaojie.yuan@amd.com>
+Date: Wed, 27 Mar 2019 17:46:04 +0800
+Subject: [PATCH 2231/2940] drm/amdgpu/discovery: update definition for struct
+ die_header
+
+Signed-off-by: Xiaojie Yuan <xiaojie.yuan@amd.com>
+Reviewed-by: Hawking Zhang <Hawking.Zhang@amd.com>
+Signed-off-by: Alex Deucher <alexander.deucher@amd.com>
+---
+ drivers/gpu/drm/amd/include/discovery.h | 4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
+
+diff --git a/drivers/gpu/drm/amd/include/discovery.h b/drivers/gpu/drm/amd/include/discovery.h
+index e01d4cd9f2cb..5dcb776548d8 100644
+--- a/drivers/gpu/drm/amd/include/discovery.h
++++ b/drivers/gpu/drm/amd/include/discovery.h
+@@ -99,8 +99,8 @@ typedef struct ip
+ 
+ typedef struct die_header
+ {
+-	uint32_t die_id;
+-	uint32_t num_ips;
++	uint16_t die_id;
++	uint16_t num_ips;
+ } die_header;
+ 
+ typedef struct ip_structure
+-- 
+2.17.1
+

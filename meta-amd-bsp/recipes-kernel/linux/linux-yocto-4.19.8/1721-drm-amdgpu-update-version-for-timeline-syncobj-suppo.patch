@@ -1,0 +1,38 @@
+From a3906b32abdad801681f9d63c1c298556126e21d Mon Sep 17 00:00:00 2001
+From: Chunming Zhou <david1.zhou@amd.com>
+Date: Mon, 1 Apr 2019 17:51:03 +0800
+Subject: [PATCH 1721/2940] drm/amdgpu: update version for timeline syncobj
+ support in amdgpu v2
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+v2: update version for amd-staging-drm-next merge
+
+Signed-off-by: Chunming Zhou <david1.zhou@amd.com>
+Reviewed-by: Lionel Landwerlin <lionel.g.landwerlin@intel.com>
+Signed-off-by: Christian König <christian.koenig@amd.com>
+Signed-off-by: Chaudhary Amit Kumar <Chaudharyamit.Kumar@amd.com>
+---
+ drivers/gpu/drm/amd/amdgpu/amdgpu_drv.c | 3 ++-
+ 1 file changed, 2 insertions(+), 1 deletion(-)
+
+diff --git a/drivers/gpu/drm/amd/amdgpu/amdgpu_drv.c b/drivers/gpu/drm/amd/amdgpu/amdgpu_drv.c
+index 2d1e9d9d70dc..270e66850449 100644
+--- a/drivers/gpu/drm/amd/amdgpu/amdgpu_drv.c
++++ b/drivers/gpu/drm/amd/amdgpu/amdgpu_drv.c
+@@ -75,9 +75,10 @@
+  * - 3.29.0 - Add AMDGPU_IB_FLAG_RESET_GDS_MAX_WAVE_ID
+  * - 3.30.0 - Add AMDGPU_SCHED_OP_CONTEXT_PRIORITY_OVERRIDE.
+  * - 3.31.0 - Add support for per-flip tiling attribute changes with DC
++ * - 3.32.0 - Add syncobj timeline support to AMDGPU_CS.
+  */
+ #define KMS_DRIVER_MAJOR	3
+-#define KMS_DRIVER_MINOR	31
++#define KMS_DRIVER_MINOR	32
+ #define KMS_DRIVER_PATCHLEVEL	0
+ 
+ #define AMDGPU_VERSION		"18.50.1.418"
+-- 
+2.17.1
+

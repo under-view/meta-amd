@@ -1,0 +1,31 @@
+From b1d773e12602712e0ebe3c6c4e5963e0f5778526 Mon Sep 17 00:00:00 2001
+From: Geert Uytterhoeven <geert+renesas@glider.be>
+Date: Mon, 17 Jun 2019 16:37:28 +0200
+Subject: [PATCH 2100/2940] drm/amd/display: Add missing newline at end of file
+
+"git diff" says:
+
+    \ No newline at end of file
+
+after modifying the file.
+
+Signed-off-by: Geert Uytterhoeven <geert+renesas@glider.be>
+Signed-off-by: Alex Deucher <alexander.deucher@amd.com>
+---
+ drivers/gpu/drm/amd/display/modules/power/Makefile | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/drivers/gpu/drm/amd/display/modules/power/Makefile b/drivers/gpu/drm/amd/display/modules/power/Makefile
+index 87851f892a52..9d1b22d35ece 100644
+--- a/drivers/gpu/drm/amd/display/modules/power/Makefile
++++ b/drivers/gpu/drm/amd/display/modules/power/Makefile
+@@ -28,4 +28,4 @@ MOD_POWER = power_helpers.o
+ AMD_DAL_MOD_POWER = $(addprefix $(AMDDALPATH)/modules/power/,$(MOD_POWER))
+ #$(info ************  DAL POWER MODULE MAKEFILE ************)
+ 
+-AMD_DISPLAY_FILES += $(AMD_DAL_MOD_POWER)
+\ No newline at end of file
++AMD_DISPLAY_FILES += $(AMD_DAL_MOD_POWER)
+-- 
+2.17.1
+

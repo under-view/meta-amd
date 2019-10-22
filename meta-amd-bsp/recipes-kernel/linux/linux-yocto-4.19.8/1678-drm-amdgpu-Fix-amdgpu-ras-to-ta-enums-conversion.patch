@@ -1,0 +1,119 @@
+From fb125f9e8047df4c4246dc402c868df1aa4d41b3 Mon Sep 17 00:00:00 2001
+From: xinhui pan <xinhui.pan@amd.com>
+Date: Thu, 21 Mar 2019 15:13:38 +0800
+Subject: [PATCH 1678/2940] drm/amdgpu: Fix amdgpu ras to ta enums conversion
+
+Add helpes to transalte the two enums. And it will catch bugs
+easily.
+
+Signed-off-by: xinhui pan <xinhui.pan@amd.com>
+Signed-off-by: Nathan Chancellor <natechancellor@gmail.com>
+Reviewed-by: Alex Deucher <alexander.deucher@amd.com>
+---
+ drivers/gpu/drm/amd/amdgpu/amdgpu_ras.c | 12 +++---
+ drivers/gpu/drm/amd/amdgpu/amdgpu_ras.h | 56 +++++++++++++++++++++++++
+ 2 files changed, 62 insertions(+), 6 deletions(-)
+
+diff --git a/drivers/gpu/drm/amd/amdgpu/amdgpu_ras.c b/drivers/gpu/drm/amd/amdgpu/amdgpu_ras.c
+index 5ece0671f108..1e243e16c560 100644
+--- a/drivers/gpu/drm/amd/amdgpu/amdgpu_ras.c
++++ b/drivers/gpu/drm/amd/amdgpu/amdgpu_ras.c
+@@ -539,13 +539,13 @@ int amdgpu_ras_feature_enable(struct amdgpu_device *adev,
+ 
+ 	if (!enable) {
+ 		info.disable_features = (struct ta_ras_disable_features_input) {
+-			.block_id =  head->block,
+-			.error_type = head->type,
++			.block_id =  amdgpu_ras_block_to_ta(head->block),
++			.error_type = amdgpu_ras_error_to_ta(head->type),
+ 		};
+ 	} else {
+ 		info.enable_features = (struct ta_ras_enable_features_input) {
+-			.block_id =  head->block,
+-			.error_type = head->type,
++			.block_id =  amdgpu_ras_block_to_ta(head->block),
++			.error_type = amdgpu_ras_error_to_ta(head->type),
+ 		};
+ 	}
+ 
+@@ -645,8 +645,8 @@ int amdgpu_ras_error_inject(struct amdgpu_device *adev,
+ {
+ 	struct ras_manager *obj = amdgpu_ras_find_obj(adev, &info->head);
+ 	struct ta_ras_trigger_error_input block_info = {
+-		.block_id = info->head.block,
+-		.inject_error_type = info->head.type,
++		.block_id =  amdgpu_ras_block_to_ta(info->head.block),
++		.inject_error_type = amdgpu_ras_error_to_ta(info->head.type),
+ 		.sub_block_index = info->head.sub_block_index,
+ 		.address = info->address,
+ 		.value = info->value,
+diff --git a/drivers/gpu/drm/amd/amdgpu/amdgpu_ras.h b/drivers/gpu/drm/amd/amdgpu/amdgpu_ras.h
+index 7a35316baab0..682f2be0d68c 100644
+--- a/drivers/gpu/drm/amd/amdgpu/amdgpu_ras.h
++++ b/drivers/gpu/drm/amd/amdgpu/amdgpu_ras.h
+@@ -197,6 +197,62 @@ static inline int amdgpu_ras_reset_gpu(struct amdgpu_device *adev,
+ 	return 0;
+ }
+ 
++static inline enum ta_ras_block
++amdgpu_ras_block_to_ta(enum amdgpu_ras_block block) {
++	switch (block) {
++	case AMDGPU_RAS_BLOCK__UMC:
++		return TA_RAS_BLOCK__UMC;
++	case AMDGPU_RAS_BLOCK__SDMA:
++		return TA_RAS_BLOCK__SDMA;
++	case AMDGPU_RAS_BLOCK__GFX:
++		return TA_RAS_BLOCK__GFX;
++	case AMDGPU_RAS_BLOCK__MMHUB:
++		return TA_RAS_BLOCK__MMHUB;
++	case AMDGPU_RAS_BLOCK__ATHUB:
++		return TA_RAS_BLOCK__ATHUB;
++	case AMDGPU_RAS_BLOCK__PCIE_BIF:
++		return TA_RAS_BLOCK__PCIE_BIF;
++	case AMDGPU_RAS_BLOCK__HDP:
++		return TA_RAS_BLOCK__HDP;
++	case AMDGPU_RAS_BLOCK__XGMI_WAFL:
++		return TA_RAS_BLOCK__XGMI_WAFL;
++	case AMDGPU_RAS_BLOCK__DF:
++		return TA_RAS_BLOCK__DF;
++	case AMDGPU_RAS_BLOCK__SMN:
++		return TA_RAS_BLOCK__SMN;
++	case AMDGPU_RAS_BLOCK__SEM:
++		return TA_RAS_BLOCK__SEM;
++	case AMDGPU_RAS_BLOCK__MP0:
++		return TA_RAS_BLOCK__MP0;
++	case AMDGPU_RAS_BLOCK__MP1:
++		return TA_RAS_BLOCK__MP1;
++	case AMDGPU_RAS_BLOCK__FUSE:
++		return TA_RAS_BLOCK__FUSE;
++	default:
++		WARN_ONCE(1, "RAS ERROR: unexpected block id %d\n", block);
++		return TA_RAS_BLOCK__UMC;
++	}
++}
++
++static inline enum ta_ras_error_type
++amdgpu_ras_error_to_ta(enum amdgpu_ras_error_type error) {
++	switch (error) {
++	case AMDGPU_RAS_ERROR__NONE:
++		return TA_RAS_ERROR__NONE;
++	case AMDGPU_RAS_ERROR__PARITY:
++		return TA_RAS_ERROR__PARITY;
++	case AMDGPU_RAS_ERROR__SINGLE_CORRECTABLE:
++		return TA_RAS_ERROR__SINGLE_CORRECTABLE;
++	case AMDGPU_RAS_ERROR__MULTI_UNCORRECTABLE:
++		return TA_RAS_ERROR__MULTI_UNCORRECTABLE;
++	case AMDGPU_RAS_ERROR__POISON:
++		return TA_RAS_ERROR__POISON;
++	default:
++		WARN_ONCE(1, "RAS ERROR: unexpected error type %d\n", error);
++		return TA_RAS_ERROR__NONE;
++	}
++}
++
+ /* called in ip_init and ip_fini */
+ int amdgpu_ras_init(struct amdgpu_device *adev);
+ void amdgpu_ras_post_init(struct amdgpu_device *adev);
+-- 
+2.17.1
+

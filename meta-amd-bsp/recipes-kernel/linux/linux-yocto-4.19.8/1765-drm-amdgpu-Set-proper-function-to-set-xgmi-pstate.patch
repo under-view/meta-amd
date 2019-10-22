@@ -1,0 +1,48 @@
+From 9ef916e2c5bf51b9f9ba216c1edec31e7baf7528 Mon Sep 17 00:00:00 2001
+From: shaoyunl <shaoyun.liu@amd.com>
+Date: Fri, 5 Apr 2019 11:55:27 -0400
+Subject: [PATCH 1765/2940] drm/amdgpu: Set proper function to set xgmi pstate
+
+Driver need to call SMU to set xgmi pstate
+
+Change-Id: Iad7fd0e3b3155e45be8fe9119686c5bafa3c176c
+Signed-off-by: shaoyunl <shaoyun.liu@amd.com>
+Reviewed-by: Evan Quan <evan.quan@amd.com>
+---
+ drivers/gpu/drm/amd/amdgpu/amdgpu_xgmi.c | 13 ++++++++++++-
+ 1 file changed, 12 insertions(+), 1 deletion(-)
+
+diff --git a/drivers/gpu/drm/amd/amdgpu/amdgpu_xgmi.c b/drivers/gpu/drm/amd/amdgpu/amdgpu_xgmi.c
+index 336834797af3..a48c84c51775 100644
+--- a/drivers/gpu/drm/amd/amdgpu/amdgpu_xgmi.c
++++ b/drivers/gpu/drm/amd/amdgpu/amdgpu_xgmi.c
+@@ -24,6 +24,7 @@
+ #include <linux/list.h>
+ #include "amdgpu.h"
+ #include "amdgpu_xgmi.h"
++#include "amdgpu_smu.h"
+ 
+ 
+ static DEFINE_MUTEX(xgmi_mutex);
+@@ -216,7 +217,17 @@ int amdgpu_xgmi_set_pstate(struct amdgpu_device *adev, int pstate)
+ 
+ 	if (hive->pstate == pstate)
+ 		return 0;
+-	/* Todo : sent the message to SMU for pstate change */
++
++	dev_dbg(adev->dev, "Set xgmi pstate %d.\n", pstate);
++
++	if (is_support_sw_smu(adev))
++		ret = smu_set_xgmi_pstate(&adev->smu, pstate);
++	if (ret)
++		dev_err(adev->dev,
++			"XGMI: Set pstate failure on device %llx, hive %llx, ret %d",
++			adev->gmc.xgmi.node_id,
++			adev->gmc.xgmi.hive_id, ret);
++
+ 	return ret;
+ }
+ 
+-- 
+2.17.1
+

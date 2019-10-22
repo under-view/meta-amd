@@ -1,0 +1,30 @@
+From 6e42d2fed847b9fa090f57aa23f97939bc7ec1b9 Mon Sep 17 00:00:00 2001
+From: Candice Li <candice.li@amd.com>
+Date: Mon, 25 Feb 2019 10:59:08 +0800
+Subject: [PATCH 1329/2940] Revert "drm/amdgpu: use BACO reset on vega20 if
+ platform support"
+
+This reverts commit 2172b89e7c94605380d8c0dedf543c93f0a0b27c.
+
+Change-Id: I8e89e0c64097563c75f874b21a6399c6ec907b35
+Signed-off-by: Candice Li <candice.li@amd.com>
+Reviewed-by: Hawking Zhang <Hawking.Zhang@amd.com>
+---
+ drivers/gpu/drm/amd/amdgpu/soc15.c | 1 -
+ 1 file changed, 1 deletion(-)
+
+diff --git a/drivers/gpu/drm/amd/amdgpu/soc15.c b/drivers/gpu/drm/amd/amdgpu/soc15.c
+index dee6873a2025..22252e195b1c 100644
+--- a/drivers/gpu/drm/amd/amdgpu/soc15.c
++++ b/drivers/gpu/drm/amd/amdgpu/soc15.c
+@@ -462,7 +462,6 @@ static int soc15_asic_reset(struct amdgpu_device *adev)
+ 	switch (adev->asic_type) {
+ 	case CHIP_VEGA10:
+ 	case CHIP_VEGA12:
+-	case CHIP_VEGA20:
+ 		soc15_asic_get_baco_capability(adev, &baco_reset);
+ 		break;
+ 	default:
+-- 
+2.17.1
+

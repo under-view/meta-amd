@@ -1,0 +1,126 @@
+From b1d9e70a6ad21ff35087abdfe383de03f33247de Mon Sep 17 00:00:00 2001
+From: Oak Zeng <Oak.Zeng@amd.com>
+Date: Mon, 17 Dec 2018 20:03:45 -0600
+Subject: [PATCH 1104/2940] drm/amdgpu: Fix sdma doorbell range setting
+
+Different ASIC has different SDMA queue number so
+different SDMA doorbell range. Introduce an extra
+parameter to sdma_doorbell_range function and set
+sdma doorbell range correctly.
+
+Signed-off-by: Oak Zeng <Oak.Zeng@amd.com>
+Reviewed-by: Philip Yang <Philip.Yang@amd.com>
+Signed-off-by: Alex Deucher <alexander.deucher@amd.com>
+Signed-off-by: Chaudhary Amit Kumar <Chaudharyamit.Kumar@amd.com>
+---
+ drivers/gpu/drm/amd/amdgpu/amdgpu.h    | 2 +-
+ drivers/gpu/drm/amd/amdgpu/nbio_v6_1.c | 4 ++--
+ drivers/gpu/drm/amd/amdgpu/nbio_v7_0.c | 5 +++--
+ drivers/gpu/drm/amd/amdgpu/nbio_v7_4.c | 4 ++--
+ drivers/gpu/drm/amd/amdgpu/sdma_v4_0.c | 3 ++-
+ 5 files changed, 10 insertions(+), 8 deletions(-)
+
+diff --git a/drivers/gpu/drm/amd/amdgpu/amdgpu.h b/drivers/gpu/drm/amd/amdgpu/amdgpu.h
+index b4bbaeaa050b..d81909f682ea 100644
+--- a/drivers/gpu/drm/amd/amdgpu/amdgpu.h
++++ b/drivers/gpu/drm/amd/amdgpu/amdgpu.h
+@@ -652,7 +652,7 @@ struct amdgpu_nbio_funcs {
+ 	void (*hdp_flush)(struct amdgpu_device *adev, struct amdgpu_ring *ring);
+ 	u32 (*get_memsize)(struct amdgpu_device *adev);
+ 	void (*sdma_doorbell_range)(struct amdgpu_device *adev, int instance,
+-				    bool use_doorbell, int doorbell_index);
++			bool use_doorbell, int doorbell_index, int doorbell_size);
+ 	void (*enable_doorbell_aperture)(struct amdgpu_device *adev,
+ 					 bool enable);
+ 	void (*enable_doorbell_selfring_aperture)(struct amdgpu_device *adev,
+diff --git a/drivers/gpu/drm/amd/amdgpu/nbio_v6_1.c b/drivers/gpu/drm/amd/amdgpu/nbio_v6_1.c
+index 1965756348bf..cc967dbfd631 100644
+--- a/drivers/gpu/drm/amd/amdgpu/nbio_v6_1.c
++++ b/drivers/gpu/drm/amd/amdgpu/nbio_v6_1.c
+@@ -68,7 +68,7 @@ static u32 nbio_v6_1_get_memsize(struct amdgpu_device *adev)
+ }
+ 
+ static void nbio_v6_1_sdma_doorbell_range(struct amdgpu_device *adev, int instance,
+-				  bool use_doorbell, int doorbell_index)
++			bool use_doorbell, int doorbell_index, int doorbell_size)
+ {
+ 	u32 reg = instance == 0 ? SOC15_REG_OFFSET(NBIO, 0, mmBIF_SDMA0_DOORBELL_RANGE) :
+ 			SOC15_REG_OFFSET(NBIO, 0, mmBIF_SDMA1_DOORBELL_RANGE);
+@@ -77,7 +77,7 @@ static void nbio_v6_1_sdma_doorbell_range(struct amdgpu_device *adev, int instan
+ 
+ 	if (use_doorbell) {
+ 		doorbell_range = REG_SET_FIELD(doorbell_range, BIF_SDMA0_DOORBELL_RANGE, OFFSET, doorbell_index);
+-		doorbell_range = REG_SET_FIELD(doorbell_range, BIF_SDMA0_DOORBELL_RANGE, SIZE, 2);
++		doorbell_range = REG_SET_FIELD(doorbell_range, BIF_SDMA0_DOORBELL_RANGE, SIZE, doorbell_size);
+ 	} else
+ 		doorbell_range = REG_SET_FIELD(doorbell_range, BIF_SDMA0_DOORBELL_RANGE, SIZE, 0);
+ 
+diff --git a/drivers/gpu/drm/amd/amdgpu/nbio_v7_0.c b/drivers/gpu/drm/amd/amdgpu/nbio_v7_0.c
+index c6b1c500368c..150ca8e4fd7c 100644
+--- a/drivers/gpu/drm/amd/amdgpu/nbio_v7_0.c
++++ b/drivers/gpu/drm/amd/amdgpu/nbio_v7_0.c
+@@ -27,6 +27,7 @@
+ #include "nbio/nbio_7_0_default.h"
+ #include "nbio/nbio_7_0_offset.h"
+ #include "nbio/nbio_7_0_sh_mask.h"
++#include "nbio/nbio_7_0_smn.h"
+ #include "vega10_enum.h"
+ 
+ #define smnNBIF_MGCG_CTRL_LCLK	0x1013a05c
+@@ -75,7 +76,7 @@ static u32 nbio_v7_0_get_memsize(struct amdgpu_device *adev)
+ }
+ 
+ static void nbio_v7_0_sdma_doorbell_range(struct amdgpu_device *adev, int instance,
+-					  bool use_doorbell, int doorbell_index)
++			bool use_doorbell, int doorbell_index, int doorbell_size)
+ {
+ 	u32 reg = instance == 0 ? SOC15_REG_OFFSET(NBIO, 0, mmBIF_SDMA0_DOORBELL_RANGE) :
+ 			SOC15_REG_OFFSET(NBIO, 0, mmBIF_SDMA1_DOORBELL_RANGE);
+@@ -88,7 +89,7 @@ static void nbio_v7_0_sdma_doorbell_range(struct amdgpu_device *adev, int instan
+ 
+ 	if (use_doorbell) {
+ 		doorbell_range = REG_SET_FIELD(doorbell_range, BIF_SDMA0_DOORBELL_RANGE, OFFSET, doorbell_index);
+-		doorbell_range = REG_SET_FIELD(doorbell_range, BIF_SDMA0_DOORBELL_RANGE, SIZE, range);
++		doorbell_range = REG_SET_FIELD(doorbell_range, BIF_SDMA0_DOORBELL_RANGE, SIZE, doorbell_size);
+ 	} else
+ 		doorbell_range = REG_SET_FIELD(doorbell_range, BIF_SDMA0_DOORBELL_RANGE, SIZE, 0);
+ 
+diff --git a/drivers/gpu/drm/amd/amdgpu/nbio_v7_4.c b/drivers/gpu/drm/amd/amdgpu/nbio_v7_4.c
+index 0a613098337a..e347b407bd03 100644
+--- a/drivers/gpu/drm/amd/amdgpu/nbio_v7_4.c
++++ b/drivers/gpu/drm/amd/amdgpu/nbio_v7_4.c
+@@ -65,7 +65,7 @@ static u32 nbio_v7_4_get_memsize(struct amdgpu_device *adev)
+ }
+ 
+ static void nbio_v7_4_sdma_doorbell_range(struct amdgpu_device *adev, int instance,
+-					  bool use_doorbell, int doorbell_index)
++			bool use_doorbell, int doorbell_index, int doorbell_size)
+ {
+ 	u32 reg = instance == 0 ? SOC15_REG_OFFSET(NBIO, 0, mmBIF_SDMA0_DOORBELL_RANGE) :
+ 			SOC15_REG_OFFSET(NBIO, 0, mmBIF_SDMA1_DOORBELL_RANGE);
+@@ -74,7 +74,7 @@ static void nbio_v7_4_sdma_doorbell_range(struct amdgpu_device *adev, int instan
+ 
+ 	if (use_doorbell) {
+ 		doorbell_range = REG_SET_FIELD(doorbell_range, BIF_SDMA0_DOORBELL_RANGE, OFFSET, doorbell_index);
+-		doorbell_range = REG_SET_FIELD(doorbell_range, BIF_SDMA0_DOORBELL_RANGE, SIZE, 2);
++		doorbell_range = REG_SET_FIELD(doorbell_range, BIF_SDMA0_DOORBELL_RANGE, SIZE, doorbell_size);
+ 	} else
+ 		doorbell_range = REG_SET_FIELD(doorbell_range, BIF_SDMA0_DOORBELL_RANGE, SIZE, 0);
+ 
+diff --git a/drivers/gpu/drm/amd/amdgpu/sdma_v4_0.c b/drivers/gpu/drm/amd/amdgpu/sdma_v4_0.c
+index 6ab3dc16fe1a..8de387820b81 100644
+--- a/drivers/gpu/drm/amd/amdgpu/sdma_v4_0.c
++++ b/drivers/gpu/drm/amd/amdgpu/sdma_v4_0.c
+@@ -835,7 +835,8 @@ static void sdma_v4_0_gfx_resume(struct amdgpu_device *adev, unsigned int i)
+ 	WREG32_SDMA(i, mmSDMA0_GFX_DOORBELL, doorbell);
+ 	WREG32_SDMA(i, mmSDMA0_GFX_DOORBELL_OFFSET, doorbell_offset);
+ 	adev->nbio_funcs->sdma_doorbell_range(adev, i, ring->use_doorbell,
+-					      ring->doorbell_index);
++					      ring->doorbell_index,
++					      adev->doorbell_index.sdma_doorbell_range);
+ 
+ 	sdma_v4_0_ring_set_wptr(ring);
+ 
+-- 
+2.17.1
+

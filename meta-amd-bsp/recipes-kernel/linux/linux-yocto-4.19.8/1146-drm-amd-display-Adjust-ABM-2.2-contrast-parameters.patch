@@ -1,0 +1,39 @@
+From e653a3ab2df4760eff6b637537e5d4b1c092a590 Mon Sep 17 00:00:00 2001
+From: Josip Pavic <Josip.Pavic@amd.com>
+Date: Thu, 10 Jan 2019 15:23:07 -0500
+Subject: [PATCH 1146/2940] drm/amd/display: Adjust ABM 2.2 contrast parameters
+
+[Why]
+Improved contrast in ABM 2.2 is desired
+
+[How]
+Increase the contrast factor for ABM levels 2, 3 and 4
+
+Signed-off-by: Josip Pavic <Josip.Pavic@amd.com>
+Reviewed-by: Anthony Koo <Anthony.Koo@amd.com>
+Acked-by: Leo Li <sunpeng.li@amd.com>
+Signed-off-by: Alex Deucher <alexander.deucher@amd.com>
+---
+ drivers/gpu/drm/amd/display/modules/power/power_helpers.c | 6 +++---
+ 1 file changed, 3 insertions(+), 3 deletions(-)
+
+diff --git a/drivers/gpu/drm/amd/display/modules/power/power_helpers.c b/drivers/gpu/drm/amd/display/modules/power/power_helpers.c
+index 29b7a26bea81..baab6c4ae191 100644
+--- a/drivers/gpu/drm/amd/display/modules/power/power_helpers.c
++++ b/drivers/gpu/drm/amd/display/modules/power/power_helpers.c
+@@ -517,9 +517,9 @@ void fill_iram_v_2_2(struct iram_table_v_2_2 *ram_table, struct dmcu_iram_parame
+ 	ram_table->hybridFactor[3] = 0xc0;
+ 
+ 	ram_table->contrastFactor[0] = 0x99;
+-	ram_table->contrastFactor[1] = 0x80;
+-	ram_table->contrastFactor[2] = 0x80;
+-	ram_table->contrastFactor[3] = 0x4D;
++	ram_table->contrastFactor[1] = 0x99;
++	ram_table->contrastFactor[2] = 0x99;
++	ram_table->contrastFactor[3] = 0x80;
+ 
+ 	ram_table->iir_curve[0] = 0x65;
+ 	ram_table->iir_curve[1] = 0x65;
+-- 
+2.17.1
+

@@ -1,0 +1,58 @@
+From fd143dfbd42a0e457c8b9aad31eea817ce70adf7 Mon Sep 17 00:00:00 2001
+From: Kevin Wang <Kevin1.Wang@amd.com>
+Date: Wed, 16 Jan 2019 13:27:52 +0800
+Subject: [PATCH 1414/2940] drm/amd/powerplay: implement sensor of
+ get_gpu_power for smu11
+
+add sensor interface of get gpu power for debugfs and hwmon.
+
+Signed-off-by: Kevin Wang <Kevin1.Wang@amd.com>
+Reviewed-by: Huang Rui <ray.huang@amd.com>
+Reviewed-by: Evan Quan <evan.quan@amd.com>
+Acked-by: Alex Deucher <alexander.deucher@amd.com>
+---
+ drivers/gpu/drm/amd/powerplay/smu_v11_0.c | 21 +++++++++++++++++++++
+ 1 file changed, 21 insertions(+)
+
+diff --git a/drivers/gpu/drm/amd/powerplay/smu_v11_0.c b/drivers/gpu/drm/amd/powerplay/smu_v11_0.c
+index d84593abbb5e..e27ae9c63ff8 100644
+--- a/drivers/gpu/drm/amd/powerplay/smu_v11_0.c
++++ b/drivers/gpu/drm/amd/powerplay/smu_v11_0.c
+@@ -1032,6 +1032,23 @@ static int smu_v11_0_thermal_get_temperature(struct smu_context *smu, uint32_t *
+ 	return 0;
+ }
+ 
++static int smu_v11_0_get_gpu_power(struct smu_context *smu, uint32_t *value)
++{
++	int ret = 0;
++	SmuMetrics_t metrics;
++
++	if (!value)
++		return -EINVAL;
++
++	ret = smu_update_table(smu, TABLE_SMU_METRICS, (void *)&metrics, false);
++	if (ret)
++		return ret;
++
++	*value = metrics.CurrSocketPower << 8;
++
++	return 0;
++}
++
+ static int smu_v11_0_read_sensor(struct smu_context *smu,
+ 				 enum amd_pp_sensors sensor,
+ 				 void *data, uint32_t *size)
+@@ -1055,6 +1072,10 @@ static int smu_v11_0_read_sensor(struct smu_context *smu,
+ 		ret = smu_v11_0_thermal_get_temperature(smu, (uint32_t *)data);
+ 		*size = 4;
+ 		break;
++	case AMDGPU_PP_SENSOR_GPU_POWER:
++		ret = smu_v11_0_get_gpu_power(smu, (uint32_t *)data);
++		*size = 4;
++		break;
+ 	default:
+ 		ret = -EINVAL;
+ 		break;
+-- 
+2.17.1
+

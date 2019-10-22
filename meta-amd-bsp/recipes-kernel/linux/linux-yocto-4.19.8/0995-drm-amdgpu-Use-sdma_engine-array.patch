@@ -1,0 +1,164 @@
+From c107032f7b58974572709703ad0f32415ff19fd2 Mon Sep 17 00:00:00 2001
+From: Oak Zeng <Oak.Zeng@amd.com>
+Date: Mon, 17 Dec 2018 09:37:39 -0600
+Subject: [PATCH 0995/2940] drm/amdgpu: Use sdma_engine array
+
+Use sdma_engine[8] array instead of sdma_engine0~7 so it is easier
+to program.
+
+Signed-off-by: Oak Zeng <Oak.Zeng@amd.com>
+Reviewed-by: Alex Deucher <alexander.deucher@amd.com>
+Signed-off-by: Alex Deucher <alexander.deucher@amd.com>
+Signed-off-by: Chaudhary Amit Kumar <Chaudharyamit.Kumar@amd.com>
+---
+ drivers/gpu/drm/amd/amdgpu/amdgpu_amdkfd.c   |  8 ++++----
+ drivers/gpu/drm/amd/amdgpu/amdgpu_doorbell.h |  9 +--------
+ drivers/gpu/drm/amd/amdgpu/sdma_v3_0.c       |  3 +--
+ drivers/gpu/drm/amd/amdgpu/sdma_v4_0.c       |  8 ++------
+ drivers/gpu/drm/amd/amdgpu/vega10_reg_init.c |  4 ++--
+ drivers/gpu/drm/amd/amdgpu/vega20_reg_init.c | 16 ++++++++--------
+ drivers/gpu/drm/amd/amdgpu/vi.c              |  4 ++--
+ 7 files changed, 20 insertions(+), 32 deletions(-)
+
+diff --git a/drivers/gpu/drm/amd/amdgpu/amdgpu_amdkfd.c b/drivers/gpu/drm/amd/amdgpu/amdgpu_amdkfd.c
+index 09730602fcd1..3eb0ab92d7e8 100644
+--- a/drivers/gpu/drm/amd/amdgpu/amdgpu_amdkfd.c
++++ b/drivers/gpu/drm/amd/amdgpu/amdgpu_amdkfd.c
+@@ -194,13 +194,13 @@ void amdgpu_amdkfd_device_init(struct amdgpu_device *adev)
+ 			 * can use each doorbell assignment twice.
+ 			 */
+ 			gpu_resources.sdma_doorbell[0][i] =
+-				adev->doorbell_index.sdma_engine0 + (i >> 1);
++				adev->doorbell_index.sdma_engine[0] + (i >> 1);
+ 			gpu_resources.sdma_doorbell[0][i+1] =
+-				adev->doorbell_index.sdma_engine0 + 0x200 + (i >> 1);
++				adev->doorbell_index.sdma_engine[0] + 0x200 + (i >> 1);
+ 			gpu_resources.sdma_doorbell[1][i] =
+-				adev->doorbell_index.sdma_engine1 + (i >> 1);
++				adev->doorbell_index.sdma_engine[1] + (i >> 1);
+ 			gpu_resources.sdma_doorbell[1][i+1] =
+-				adev->doorbell_index.sdma_engine1 + 0x200 + (i >> 1);
++				adev->doorbell_index.sdma_engine[1] + 0x200 + (i >> 1);
+ 		}
+ 		/* Doorbells 0x0f0-0ff and 0x2f0-2ff are reserved for
+ 		* SDMA, IH and VCN. So don't use them for the CP.
+diff --git a/drivers/gpu/drm/amd/amdgpu/amdgpu_doorbell.h b/drivers/gpu/drm/amd/amdgpu/amdgpu_doorbell.h
+index be620b29f4aa..35a0c05f454c 100644
+--- a/drivers/gpu/drm/amd/amdgpu/amdgpu_doorbell.h
++++ b/drivers/gpu/drm/amd/amdgpu/amdgpu_doorbell.h
+@@ -51,14 +51,7 @@ struct amdgpu_doorbell_index {
+ 	uint32_t userqueue_start;
+ 	uint32_t userqueue_end;
+ 	uint32_t gfx_ring0;
+-	uint32_t sdma_engine0;
+-	uint32_t sdma_engine1;
+-	uint32_t sdma_engine2;
+-	uint32_t sdma_engine3;
+-	uint32_t sdma_engine4;
+-	uint32_t sdma_engine5;
+-	uint32_t sdma_engine6;
+-	uint32_t sdma_engine7;
++	uint32_t sdma_engine[8];
+ 	uint32_t ih;
+ 	union {
+ 		struct {
+diff --git a/drivers/gpu/drm/amd/amdgpu/sdma_v3_0.c b/drivers/gpu/drm/amd/amdgpu/sdma_v3_0.c
+index b522f308516f..8bd75dad0f7f 100644
+--- a/drivers/gpu/drm/amd/amdgpu/sdma_v3_0.c
++++ b/drivers/gpu/drm/amd/amdgpu/sdma_v3_0.c
+@@ -1145,8 +1145,7 @@ static int sdma_v3_0_sw_init(void *handle)
+ 		ring->ring_obj = NULL;
+ 		if (!amdgpu_sriov_vf(adev)) {
+ 			ring->use_doorbell = true;
+-			ring->doorbell_index = (i == 0) ?
+-				adev->doorbell_index.sdma_engine0 : adev->doorbell_index.sdma_engine1;
++			ring->doorbell_index = adev->doorbell_index.sdma_engine[i];
+ 		} else {
+ 			ring->use_pollmem = true;
+ 		}
+diff --git a/drivers/gpu/drm/amd/amdgpu/sdma_v4_0.c b/drivers/gpu/drm/amd/amdgpu/sdma_v4_0.c
+index cc1e8a0b7df1..6ab3dc16fe1a 100644
+--- a/drivers/gpu/drm/amd/amdgpu/sdma_v4_0.c
++++ b/drivers/gpu/drm/amd/amdgpu/sdma_v4_0.c
+@@ -1524,9 +1524,7 @@ static int sdma_v4_0_sw_init(void *handle)
+ 				ring->use_doorbell?"true":"false");
+ 
+ 		/* doorbell size is 2 dwords, get DWORD offset */
+-		ring->doorbell_index = (i == 0) ?
+-			(adev->doorbell_index.sdma_engine0 << 1)
+-			: (adev->doorbell_index.sdma_engine1 << 1);
++		ring->doorbell_index = adev->doorbell_index.sdma_engine[i] << 1;
+ 
+ 		sprintf(ring->name, "sdma%d", i);
+ 		r = amdgpu_ring_init(adev, ring, 1024,
+@@ -1545,9 +1543,7 @@ static int sdma_v4_0_sw_init(void *handle)
+ 			/* paging queue use same doorbell index/routing as gfx queue
+ 			 * with 0x400 (4096 dwords) offset on second doorbell page
+ 			 */
+-			ring->doorbell_index = (i == 0) ?
+-				(adev->doorbell_index.sdma_engine0 << 1)
+-				: (adev->doorbell_index.sdma_engine1 << 1);
++			ring->doorbell_index = adev->doorbell_index.sdma_engine[i] << 1;
+ 			ring->doorbell_index += 0x400;
+ 
+ 			sprintf(ring->name, "page%d", i);
+diff --git a/drivers/gpu/drm/amd/amdgpu/vega10_reg_init.c b/drivers/gpu/drm/amd/amdgpu/vega10_reg_init.c
+index 422674bb3cdf..b75d17ba59e2 100644
+--- a/drivers/gpu/drm/amd/amdgpu/vega10_reg_init.c
++++ b/drivers/gpu/drm/amd/amdgpu/vega10_reg_init.c
+@@ -70,8 +70,8 @@ void vega10_doorbell_index_init(struct amdgpu_device *adev)
+ 	adev->doorbell_index.userqueue_start = AMDGPU_DOORBELL64_USERQUEUE_START;
+ 	adev->doorbell_index.userqueue_end = AMDGPU_DOORBELL64_USERQUEUE_END;
+ 	adev->doorbell_index.gfx_ring0 = AMDGPU_DOORBELL64_GFX_RING0;
+-	adev->doorbell_index.sdma_engine0 = AMDGPU_DOORBELL64_sDMA_ENGINE0;
+-	adev->doorbell_index.sdma_engine1 = AMDGPU_DOORBELL64_sDMA_ENGINE1;
++	adev->doorbell_index.sdma_engine[0] = AMDGPU_DOORBELL64_sDMA_ENGINE0;
++	adev->doorbell_index.sdma_engine[1] = AMDGPU_DOORBELL64_sDMA_ENGINE1;
+ 	adev->doorbell_index.ih = AMDGPU_DOORBELL64_IH;
+ 	adev->doorbell_index.uvd_vce.uvd_ring0_1 = AMDGPU_DOORBELL64_UVD_RING0_1;
+ 	adev->doorbell_index.uvd_vce.uvd_ring2_3 = AMDGPU_DOORBELL64_UVD_RING2_3;
+diff --git a/drivers/gpu/drm/amd/amdgpu/vega20_reg_init.c b/drivers/gpu/drm/amd/amdgpu/vega20_reg_init.c
+index edce413fda9a..63c542cfabfa 100644
+--- a/drivers/gpu/drm/amd/amdgpu/vega20_reg_init.c
++++ b/drivers/gpu/drm/amd/amdgpu/vega20_reg_init.c
+@@ -68,14 +68,14 @@ void vega20_doorbell_index_init(struct amdgpu_device *adev)
+ 	adev->doorbell_index.userqueue_start = AMDGPU_VEGA20_DOORBELL_USERQUEUE_START;
+ 	adev->doorbell_index.userqueue_end = AMDGPU_VEGA20_DOORBELL_USERQUEUE_END;
+ 	adev->doorbell_index.gfx_ring0 = AMDGPU_VEGA20_DOORBELL_GFX_RING0;
+-	adev->doorbell_index.sdma_engine0 = AMDGPU_VEGA20_DOORBELL_sDMA_ENGINE0;
+-	adev->doorbell_index.sdma_engine1 = AMDGPU_VEGA20_DOORBELL_sDMA_ENGINE1;
+-	adev->doorbell_index.sdma_engine2 = AMDGPU_VEGA20_DOORBELL_sDMA_ENGINE2;
+-	adev->doorbell_index.sdma_engine3 = AMDGPU_VEGA20_DOORBELL_sDMA_ENGINE3;
+-	adev->doorbell_index.sdma_engine4 = AMDGPU_VEGA20_DOORBELL_sDMA_ENGINE4;
+-	adev->doorbell_index.sdma_engine5 = AMDGPU_VEGA20_DOORBELL_sDMA_ENGINE5;
+-	adev->doorbell_index.sdma_engine6 = AMDGPU_VEGA20_DOORBELL_sDMA_ENGINE6;
+-	adev->doorbell_index.sdma_engine7 = AMDGPU_VEGA20_DOORBELL_sDMA_ENGINE7;
++	adev->doorbell_index.sdma_engine[0] = AMDGPU_VEGA20_DOORBELL_sDMA_ENGINE0;
++	adev->doorbell_index.sdma_engine[1] = AMDGPU_VEGA20_DOORBELL_sDMA_ENGINE1;
++	adev->doorbell_index.sdma_engine[2] = AMDGPU_VEGA20_DOORBELL_sDMA_ENGINE2;
++	adev->doorbell_index.sdma_engine[3] = AMDGPU_VEGA20_DOORBELL_sDMA_ENGINE3;
++	adev->doorbell_index.sdma_engine[4] = AMDGPU_VEGA20_DOORBELL_sDMA_ENGINE4;
++	adev->doorbell_index.sdma_engine[5] = AMDGPU_VEGA20_DOORBELL_sDMA_ENGINE5;
++	adev->doorbell_index.sdma_engine[6] = AMDGPU_VEGA20_DOORBELL_sDMA_ENGINE6;
++	adev->doorbell_index.sdma_engine[7] = AMDGPU_VEGA20_DOORBELL_sDMA_ENGINE7;
+ 	adev->doorbell_index.ih = AMDGPU_VEGA20_DOORBELL_IH;
+ 	adev->doorbell_index.uvd_vce.uvd_ring0_1 = AMDGPU_VEGA20_DOORBELL64_UVD_RING0_1;
+ 	adev->doorbell_index.uvd_vce.uvd_ring2_3 = AMDGPU_VEGA20_DOORBELL64_UVD_RING2_3;
+diff --git a/drivers/gpu/drm/amd/amdgpu/vi.c b/drivers/gpu/drm/amd/amdgpu/vi.c
+index ff2906c215fa..0fc89d788956 100644
+--- a/drivers/gpu/drm/amd/amdgpu/vi.c
++++ b/drivers/gpu/drm/amd/amdgpu/vi.c
+@@ -1726,8 +1726,8 @@ void legacy_doorbell_index_init(struct amdgpu_device *adev)
+ 	adev->doorbell_index.mec_ring6 = AMDGPU_DOORBELL_MEC_RING6;
+ 	adev->doorbell_index.mec_ring7 = AMDGPU_DOORBELL_MEC_RING7;
+ 	adev->doorbell_index.gfx_ring0 = AMDGPU_DOORBELL_GFX_RING0;
+-	adev->doorbell_index.sdma_engine0 = AMDGPU_DOORBELL_sDMA_ENGINE0;
+-	adev->doorbell_index.sdma_engine1 = AMDGPU_DOORBELL_sDMA_ENGINE1;
++	adev->doorbell_index.sdma_engine[0] = AMDGPU_DOORBELL_sDMA_ENGINE0;
++	adev->doorbell_index.sdma_engine[1] = AMDGPU_DOORBELL_sDMA_ENGINE1;
+ 	adev->doorbell_index.ih = AMDGPU_DOORBELL_IH;
+ 	adev->doorbell_index.max_assignment = AMDGPU_DOORBELL_MAX_ASSIGNMENT;
+ }
+-- 
+2.17.1
+

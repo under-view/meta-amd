@@ -1,0 +1,62 @@
+From e8917e3787fd8e771782e31d71750481eca28312 Mon Sep 17 00:00:00 2001
+From: Flora Cui <flora.cui@amd.com>
+Date: Mon, 24 Jun 2019 16:48:33 +0800
+Subject: [PATCH 2679/2940] drm/amdgpu: fix scheduler timeout calc
+
+scheduler timeout is in jiffies
+v2: move timeout check to amdgpu_device_get_job_timeout_settings after
+parsing the value
+v3: add lockup_timeout param check. 0: keep default value. negative:
+infinity timeout.
+v4: refactor codes.
+
+Change-Id: I26708c163db943ff8d930dd81bcab4b4b9d84eb2
+Signed-off-by: Flora Cui <flora.cui@amd.com>
+Reviewed-by: Feifei Xu <Feifei.Xu@amd.com>
+---
+ drivers/gpu/drm/amd/amdgpu/amdgpu_drv.c | 13 +++++++++----
+ 1 file changed, 9 insertions(+), 4 deletions(-)
+
+diff --git a/drivers/gpu/drm/amd/amdgpu/amdgpu_drv.c b/drivers/gpu/drm/amd/amdgpu/amdgpu_drv.c
+index 4b9afc396dcc..35a40ad3a11c 100644
+--- a/drivers/gpu/drm/amd/amdgpu/amdgpu_drv.c
++++ b/drivers/gpu/drm/amd/amdgpu/amdgpu_drv.c
+@@ -250,7 +250,8 @@ module_param_named(msi, amdgpu_msi, int, 0444);
+  * By default(with no lockup_timeout settings), the timeout for all non-compute(GFX, SDMA and Video)
+  * jobs is 10000. And there is no timeout enforced on compute jobs.
+  */
+-MODULE_PARM_DESC(lockup_timeout, "GPU lockup timeout in ms (default: 10000 for non-compute jobs and no timeout for compute jobs), "
++MODULE_PARM_DESC(lockup_timeout, "GPU lockup timeout in ms (default: 10000 for non-compute jobs and infinity timeout for compute jobs."
++		" 0: keep default value. negative: infinity timeout), "
+ 		"format is [Non-Compute] or [GFX,Compute,SDMA,Video]");
+ module_param_string(lockup_timeout, amdgpu_lockup_timeout, sizeof(amdgpu_lockup_timeout), 0444);
+ 
+@@ -1197,7 +1198,8 @@ int amdgpu_device_get_job_timeout_settings(struct amdgpu_device *adev)
+ 	 * By default timeout for non compute jobs is 10000.
+ 	 * And there is no timeout enforced on compute jobs.
+ 	 */
+-	adev->gfx_timeout = adev->sdma_timeout = adev->video_timeout = 10000;
++	adev->gfx_timeout = msecs_to_jiffies(10000);
++	adev->sdma_timeout = adev->video_timeout = adev->gfx_timeout;
+ 	adev->compute_timeout = MAX_SCHEDULE_TIMEOUT;
+ 
+ 	if (strnlen(input, AMDGPU_MAX_TIMEOUT_PARAM_LENTH)) {
+@@ -1207,10 +1209,13 @@ int amdgpu_device_get_job_timeout_settings(struct amdgpu_device *adev)
+ 			if (ret)
+ 				return ret;
+ 
+-			/* Invalidate 0 and negative values */
+-			if (timeout <= 0) {
++			if (timeout == 0) {
+ 				index++;
+ 				continue;
++			} else if (timeout < 0) {
++				timeout = MAX_SCHEDULE_TIMEOUT;
++			} else {
++				timeout = msecs_to_jiffies(timeout);
+ 			}
+ 
+ 			switch (index++) {
+-- 
+2.17.1
+

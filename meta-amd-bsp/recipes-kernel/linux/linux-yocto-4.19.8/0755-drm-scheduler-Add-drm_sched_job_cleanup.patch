@@ -1,0 +1,39 @@
+From bdb36907140e5f027010db61a3d4e63696216bc9 Mon Sep 17 00:00:00 2001
+From: Sharat Masetty <smasetty@codeaurora.org>
+Date: Mon, 29 Oct 2018 15:02:28 +0530
+Subject: [PATCH 0755/2940] drm/scheduler: Add drm_sched_job_cleanup
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+This patch adds a new API to clean up the scheduler job resources. This
+is primarliy needed in cases the job was created but was not queued to
+the scheduler queue. Additionally with this change, the layer which
+creates the scheduler job also gets to free up the job's resources and
+this entails moving the dma_fence_put(finished_fence) to the drivers
+ops free handler routines.
+
+Signed-off-by: Sharat Masetty <smasetty@codeaurora.org>
+Reviewed-by: Christian König <christian.koenig@amd.com>
+Acked-by: Andrey Grodzovsky <andrey.grodzovsky@amd.com>
+Signed-off-by: Alex Deucher <alexander.deucher@amd.com>
+Signed-off-by: kalyan Alle <kalyan.alle@amd.com>
+---
+ include/drm/gpu_scheduler.h | 1 +
+ 1 file changed, 1 insertion(+)
+
+diff --git a/include/drm/gpu_scheduler.h b/include/drm/gpu_scheduler.h
+index 63f74e95caff..872ab2ea51a1 100644
+--- a/include/drm/gpu_scheduler.h
++++ b/include/drm/gpu_scheduler.h
+@@ -330,6 +330,7 @@ void drm_sched_fence_finished(struct drm_sched_fence *fence);
+ int drm_sched_job_init(struct drm_sched_job *job,
+ 		       struct drm_sched_entity *entity,
+ 		       void *owner);
++void drm_sched_job_cleanup(struct drm_sched_job *job);
+ void drm_sched_hw_job_reset(struct drm_gpu_scheduler *sched,
+ 			    struct drm_sched_job *job);
+ void drm_sched_job_recovery(struct drm_gpu_scheduler *sched);
+-- 
+2.17.1
+

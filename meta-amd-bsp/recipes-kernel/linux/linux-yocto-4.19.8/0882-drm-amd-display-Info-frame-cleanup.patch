@@ -1,0 +1,352 @@
+From 7fdba8fa7154c53645cc4341b692bb8057aa8e12 Mon Sep 17 00:00:00 2001
+From: Harmanprit Tatla <Harmanprit.Tatla@amd.com>
+Date: Mon, 5 Nov 2018 17:55:53 -0500
+Subject: [PATCH 0882/2940] drm/amd/display: Info frame cleanup
+
+* Use provided infopacket in stream (if valid) instead of reconstructing
+  in set_vendor_info_packet()
+* Use proper format for enums
+* Use dc info packet struct instead
+
+Signed-off-by: Harmanprit Tatla <Harmanprit.Tatla@amd.com>
+Reviewed-by: Anthony Koo <Anthony.Koo@amd.com>
+Acked-by: Krunoslav Kovac <Krunoslav.Kovac@amd.com>
+Acked-by: Leo Li <sunpeng.li@amd.com>
+Signed-off-by: Alex Deucher <alexander.deucher@amd.com>
+---
+ .../gpu/drm/amd/display/amdgpu_dm/amdgpu_dm.c |   6 +-
+ .../gpu/drm/amd/display/dc/core/dc_resource.c | 110 +-----------------
+ drivers/gpu/drm/amd/display/dc/dc_stream.h    |   2 +
+ .../amd/display/modules/freesync/freesync.c   |  10 +-
+ .../amd/display/modules/inc/mod_info_packet.h |  14 +--
+ .../drm/amd/display/modules/inc/mod_shared.h  |  27 +++--
+ .../display/modules/info_packet/info_packet.c |  15 +--
+ 7 files changed, 42 insertions(+), 142 deletions(-)
+
+diff --git a/drivers/gpu/drm/amd/display/amdgpu_dm/amdgpu_dm.c b/drivers/gpu/drm/amd/display/amdgpu_dm/amdgpu_dm.c
+index 653bd5ad8e32..f699ad17d33e 100644
+--- a/drivers/gpu/drm/amd/display/amdgpu_dm/amdgpu_dm.c
++++ b/drivers/gpu/drm/amd/display/amdgpu_dm/amdgpu_dm.c
+@@ -72,6 +72,7 @@
+ 
+ #include "modules/inc/mod_freesync.h"
+ #include "modules/power/power_helpers.h"
++#include "modules/inc/mod_info_packet.h"
+ 
+ #define FIRMWARE_RAVEN_DMCU		"amdgpu/raven_dmcu.bin"
+ MODULE_FIRMWARE(FIRMWARE_RAVEN_DMCU);
+@@ -2948,6 +2949,7 @@ create_stream_for_sink(struct amdgpu_dm_connector *aconnector,
+ 
+ 	if (dm_state && dm_state->freesync_capable)
+ 		stream->ignore_msa_timing_param = true;
++
+ finish:
+ 	if (sink && sink->sink_signal == SIGNAL_TYPE_VIRTUAL && aconnector->base.force != DRM_FORCE_ON)
+ 		dc_sink_release(sink);
+@@ -4458,8 +4460,8 @@ static void update_freesync_state_on_stream(
+                 dm->freesync_module,
+                 new_stream,
+                 &vrr,
+-                packet_type_vrr,
+-                transfer_func_unknown,
++                PACKET_TYPE_VRR,
++                TRANSFER_FUNC_UNKNOWN,
+                 &vrr_infopacket);
+ 
+         new_crtc_state->freesync_timing_changed =
+diff --git a/drivers/gpu/drm/amd/display/dc/core/dc_resource.c b/drivers/gpu/drm/amd/display/dc/core/dc_resource.c
+index c4fde1ad97ba..d57842743f51 100644
+--- a/drivers/gpu/drm/amd/display/dc/core/dc_resource.c
++++ b/drivers/gpu/drm/amd/display/dc/core/dc_resource.c
+@@ -2233,113 +2233,15 @@ static void set_vendor_info_packet(
+ 		struct dc_info_packet *info_packet,
+ 		struct dc_stream_state *stream)
+ {
+-	uint32_t length = 0;
+-	bool hdmi_vic_mode = false;
+-	uint8_t checksum = 0;
+-	uint32_t i = 0;
+-	enum dc_timing_3d_format format;
+-	// Can be different depending on packet content /*todo*/
+-	// unsigned int length = pPathMode->dolbyVision ? 24 : 5;
+-
+-	info_packet->valid = false;
+-
+-	format = stream->timing.timing_3d_format;
+-	if (stream->view_format == VIEW_3D_FORMAT_NONE)
+-		format = TIMING_3D_FORMAT_NONE;
+-
+-	/* Can be different depending on packet content */
+-	length = 5;
+-
+-	if (stream->timing.hdmi_vic != 0
+-			&& stream->timing.h_total >= 3840
+-			&& stream->timing.v_total >= 2160)
+-		hdmi_vic_mode = true;
+-
+-	/* According to HDMI 1.4a CTS, VSIF should be sent
+-	 * for both 3D stereo and HDMI VIC modes.
+-	 * For all other modes, there is no VSIF sent.  */
++	/* SPD info packet for FreeSync */
+ 
+-	if (format == TIMING_3D_FORMAT_NONE && !hdmi_vic_mode)
++	/* Check if Freesync is supported. Return if false. If true,
++	 * set the corresponding bit in the info packet
++	 */
++	if (!stream->vsp_infopacket.valid)
+ 		return;
+ 
+-	/* 24bit IEEE Registration identifier (0x000c03). LSB first. */
+-	info_packet->sb[1] = 0x03;
+-	info_packet->sb[2] = 0x0C;
+-	info_packet->sb[3] = 0x00;
+-
+-	/*PB4: 5 lower bytes = 0 (reserved). 3 higher bits = HDMI_Video_Format.
+-	 * The value for HDMI_Video_Format are:
+-	 * 0x0 (0b000) - No additional HDMI video format is presented in this
+-	 * packet
+-	 * 0x1 (0b001) - Extended resolution format present. 1 byte of HDMI_VIC
+-	 * parameter follows
+-	 * 0x2 (0b010) - 3D format indication present. 3D_Structure and
+-	 * potentially 3D_Ext_Data follows
+-	 * 0x3..0x7 (0b011..0b111) - reserved for future use */
+-	if (format != TIMING_3D_FORMAT_NONE)
+-		info_packet->sb[4] = (2 << 5);
+-	else if (hdmi_vic_mode)
+-		info_packet->sb[4] = (1 << 5);
+-
+-	/* PB5: If PB4 claims 3D timing (HDMI_Video_Format = 0x2):
+-	 * 4 lower bites = 0 (reserved). 4 higher bits = 3D_Structure.
+-	 * The value for 3D_Structure are:
+-	 * 0x0 - Frame Packing
+-	 * 0x1 - Field Alternative
+-	 * 0x2 - Line Alternative
+-	 * 0x3 - Side-by-Side (full)
+-	 * 0x4 - L + depth
+-	 * 0x5 - L + depth + graphics + graphics-depth
+-	 * 0x6 - Top-and-Bottom
+-	 * 0x7 - Reserved for future use
+-	 * 0x8 - Side-by-Side (Half)
+-	 * 0x9..0xE - Reserved for future use
+-	 * 0xF - Not used */
+-	switch (format) {
+-	case TIMING_3D_FORMAT_HW_FRAME_PACKING:
+-	case TIMING_3D_FORMAT_SW_FRAME_PACKING:
+-		info_packet->sb[5] = (0x0 << 4);
+-		break;
+-
+-	case TIMING_3D_FORMAT_SIDE_BY_SIDE:
+-	case TIMING_3D_FORMAT_SBS_SW_PACKED:
+-		info_packet->sb[5] = (0x8 << 4);
+-		length = 6;
+-		break;
+-
+-	case TIMING_3D_FORMAT_TOP_AND_BOTTOM:
+-	case TIMING_3D_FORMAT_TB_SW_PACKED:
+-		info_packet->sb[5] = (0x6 << 4);
+-		break;
+-
+-	default:
+-		break;
+-	}
+-
+-	/*PB5: If PB4 is set to 0x1 (extended resolution format)
+-	 * fill PB5 with the correct HDMI VIC code */
+-	if (hdmi_vic_mode)
+-		info_packet->sb[5] = stream->timing.hdmi_vic;
+-
+-	/* Header */
+-	info_packet->hb0 = HDMI_INFOFRAME_TYPE_VENDOR; /* VSIF packet type. */
+-	info_packet->hb1 = 0x01; /* Version */
+-
+-	/* 4 lower bits = Length, 4 higher bits = 0 (reserved) */
+-	info_packet->hb2 = (uint8_t) (length);
+-
+-	/* Calculate checksum */
+-	checksum = 0;
+-	checksum += info_packet->hb0;
+-	checksum += info_packet->hb1;
+-	checksum += info_packet->hb2;
+-
+-	for (i = 1; i <= length; i++)
+-		checksum += info_packet->sb[i];
+-
+-	info_packet->sb[0] = (uint8_t) (0x100 - checksum);
+-
+-	info_packet->valid = true;
++	*info_packet = stream->vsp_infopacket;
+ }
+ 
+ static void set_spd_info_packet(
+diff --git a/drivers/gpu/drm/amd/display/dc/dc_stream.h b/drivers/gpu/drm/amd/display/dc/dc_stream.h
+index 771d9f17e26e..0c42418b0b3d 100644
+--- a/drivers/gpu/drm/amd/display/dc/dc_stream.h
++++ b/drivers/gpu/drm/amd/display/dc/dc_stream.h
+@@ -56,6 +56,7 @@ struct dc_stream_state {
+ 	struct dc_crtc_timing_adjust adjust;
+ 	struct dc_info_packet vrr_infopacket;
+ 	struct dc_info_packet vsc_infopacket;
++	struct dc_info_packet vsp_infopacket;
+ 
+ 	struct rect src; /* composition area */
+ 	struct rect dst; /* stream addressable area */
+@@ -129,6 +130,7 @@ struct dc_stream_update {
+ 	struct dc_crtc_timing_adjust *adjust;
+ 	struct dc_info_packet *vrr_infopacket;
+ 	struct dc_info_packet *vsc_infopacket;
++	struct dc_info_packet *vsp_infopacket;
+ 
+ 	bool *dpms_off;
+ 
+diff --git a/drivers/gpu/drm/amd/display/modules/freesync/freesync.c b/drivers/gpu/drm/amd/display/modules/freesync/freesync.c
+index 620a171620ee..1544ed3f1747 100644
+--- a/drivers/gpu/drm/amd/display/modules/freesync/freesync.c
++++ b/drivers/gpu/drm/amd/display/modules/freesync/freesync.c
+@@ -608,12 +608,12 @@ static void build_vrr_infopacket_data(const struct mod_vrr_params *vrr,
+ static void build_vrr_infopacket_fs2_data(enum color_transfer_func app_tf,
+ 		struct dc_info_packet *infopacket)
+ {
+-	if (app_tf != transfer_func_unknown) {
++	if (app_tf != TRANSFER_FUNC_UNKNOWN) {
+ 		infopacket->valid = true;
+ 
+ 		infopacket->sb[6] |= 0x08;  // PB6 = [Bit 3 = Native Color Active]
+ 
+-		if (app_tf == transfer_func_gamma_22) {
++		if (app_tf == TRANSFER_FUNC_GAMMA_22) {
+ 			infopacket->sb[9] |= 0x04;  // PB6 = [Bit 2 = Gamma 2.2 EOTF Active]
+ 		}
+ 	}
+@@ -688,11 +688,11 @@ void mod_freesync_build_vrr_infopacket(struct mod_freesync *mod_freesync,
+ 		return;
+ 
+ 	switch (packet_type) {
+-	case packet_type_fs2:
++	case PACKET_TYPE_FS2:
+ 		build_vrr_infopacket_v2(stream->signal, vrr, app_tf, infopacket);
+ 		break;
+-	case packet_type_vrr:
+-	case packet_type_fs1:
++	case PACKET_TYPE_VRR:
++	case PACKET_TYPE_FS1:
+ 	default:
+ 		build_vrr_infopacket_v1(stream->signal, vrr, infopacket);
+ 	}
+diff --git a/drivers/gpu/drm/amd/display/modules/inc/mod_info_packet.h b/drivers/gpu/drm/amd/display/modules/inc/mod_info_packet.h
+index 786b34380f85..5b1c9a4c7643 100644
+--- a/drivers/gpu/drm/amd/display/modules/inc/mod_info_packet.h
++++ b/drivers/gpu/drm/amd/display/modules/inc/mod_info_packet.h
+@@ -26,15 +26,13 @@
+ #ifndef MOD_INFO_PACKET_H_
+ #define MOD_INFO_PACKET_H_
+ 
+-struct info_packet_inputs {
+-	const struct dc_stream_state *pStream;
+-};
++#include "mod_shared.h"
+ 
+-struct info_packets {
+-	struct dc_info_packet *pVscInfoPacket;
+-};
++//Forward Declarations
++struct dc_stream_state;
++struct dc_info_packet;
+ 
+-void mod_build_infopackets(struct info_packet_inputs *inputs,
+-		struct info_packets *info_packets);
++void mod_build_vsc_infopacket(const struct dc_stream_state *stream,
++		struct dc_info_packet *info_packet);
+ 
+ #endif
+diff --git a/drivers/gpu/drm/amd/display/modules/inc/mod_shared.h b/drivers/gpu/drm/amd/display/modules/inc/mod_shared.h
+index 238c431ae483..1bd02c0ac30c 100644
+--- a/drivers/gpu/drm/amd/display/modules/inc/mod_shared.h
++++ b/drivers/gpu/drm/amd/display/modules/inc/mod_shared.h
+@@ -23,27 +23,26 @@
+  *
+  */
+ 
+-
+ #ifndef MOD_SHARED_H_
+ #define MOD_SHARED_H_
+ 
+ enum color_transfer_func {
+-	transfer_func_unknown,
+-	transfer_func_srgb,
+-	transfer_func_bt709,
+-	transfer_func_pq2084,
+-	transfer_func_pq2084_interim,
+-	transfer_func_linear_0_1,
+-	transfer_func_linear_0_125,
+-	transfer_func_dolbyvision,
+-	transfer_func_gamma_22,
+-	transfer_func_gamma_26
++	TRANSFER_FUNC_UNKNOWN,
++	TRANSFER_FUNC_SRGB,
++	TRANSFER_FUNC_BT709,
++	TRANSFER_FUNC_PQ2084,
++	TRANSFER_FUNC_PQ2084_INTERIM,
++	TRANSFER_FUNC_LINEAR_0_1,
++	TRANSFER_FUNC_LINEAR_0_125,
++	TRANSFER_FUNC_GAMMA_22,
++	TRANSFER_FUNC_GAMMA_26
+ };
+ 
+ enum vrr_packet_type {
+-	packet_type_vrr,
+-	packet_type_fs1,
+-	packet_type_fs2
++	PACKET_TYPE_VRR,
++	PACKET_TYPE_FS1,
++	PACKET_TYPE_FS2
+ };
+ 
++
+ #endif /* MOD_SHARED_H_ */
+diff --git a/drivers/gpu/drm/amd/display/modules/info_packet/info_packet.c b/drivers/gpu/drm/amd/display/modules/info_packet/info_packet.c
+index ff8bfb9b43b0..db06fab2ad5c 100644
+--- a/drivers/gpu/drm/amd/display/modules/info_packet/info_packet.c
++++ b/drivers/gpu/drm/amd/display/modules/info_packet/info_packet.c
+@@ -25,6 +25,10 @@
+ 
+ #include "mod_info_packet.h"
+ #include "core_types.h"
++#include "dc_types.h"
++#include "mod_shared.h"
++
++#define HDMI_INFOFRAME_TYPE_VENDOR 0x81
+ 
+ enum ColorimetryRGBDP {
+ 	ColorimetryRGB_DP_sRGB               = 0,
+@@ -41,7 +45,7 @@ enum ColorimetryYCCDP {
+ 	ColorimetryYCC_DP_ITU2020YCbCr  = 7,
+ };
+ 
+-static void mod_build_vsc_infopacket(const struct dc_stream_state *stream,
++void mod_build_vsc_infopacket(const struct dc_stream_state *stream,
+ 		struct dc_info_packet *info_packet)
+ {
+ 	unsigned int vscPacketRevision = 0;
+@@ -159,7 +163,7 @@ static void mod_build_vsc_infopacket(const struct dc_stream_state *stream,
+ 	 *   DPCD register is exposed in the new Extended Receiver Capability field for DPCD Rev. 1.4
+ 	 *   (and higher). When MISC1. bit 6. is Set to 1, a Source device uses a VSC SDP to indicate
+ 	 *   the Pixel Encoding/Colorimetry Format and that a Sink device must ignore MISC1, bit 7, and
+-	 *   MISC0, bits 7:1 (MISC1, bit 7. and MISC0, bits 7:1 become “don’t care”).)
++	 *   MISC0, bits 7:1 (MISC1, bit 7. and MISC0, bits 7:1 become "don't care").)
+ 	 */
+ 	if (vscPacketRevision == 0x5) {
+ 		/* Secondary-data Packet ID = 0 */
+@@ -320,10 +324,3 @@ static void mod_build_vsc_infopacket(const struct dc_stream_state *stream,
+ 
+ }
+ 
+-void mod_build_infopackets(struct info_packet_inputs *inputs,
+-		struct info_packets *info_packets)
+-{
+-	if (info_packets->pVscInfoPacket != NULL)
+-		mod_build_vsc_infopacket(inputs->pStream, info_packets->pVscInfoPacket);
+-}
+-
+-- 
+2.17.1
+

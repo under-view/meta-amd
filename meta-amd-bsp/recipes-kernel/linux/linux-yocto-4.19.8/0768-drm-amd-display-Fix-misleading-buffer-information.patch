@@ -1,0 +1,36 @@
+From a81f799e263fcd0850bb088dcb1f6f69290a6fda Mon Sep 17 00:00:00 2001
+From: Shaokun Zhang <zhangshaokun@hisilicon.com>
+Date: Mon, 5 Nov 2018 18:33:35 +0800
+Subject: [PATCH 0768/2940] drm/amd/display: Fix misleading buffer information
+
+RETIMER_REDRIVER_INFO shows the buffer as a decimal value with a '0x'
+prefix, which is somewhat misleading.
+
+Fix it to print hexadecimal, as was intended.
+
+Fixes: 2f14bc89("drm/amd/display: add retimer log for HWQ tuning use.")
+Cc: Charlene Liu <charlene.liu@amd.com>
+Cc: Dmytro Laktyushkin <Dmytro.Laktyushkin@amd.com>
+Signed-off-by: Shaokun Zhang <zhangshaokun@hisilicon.com>
+Reviewed-by: Leo Li <sunpeng.li@amd.com>
+Signed-off-by: Alex Deucher <alexander.deucher@amd.com>
+---
+ drivers/gpu/drm/amd/display/dc/core/dc_link.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/drivers/gpu/drm/amd/display/dc/core/dc_link.c b/drivers/gpu/drm/amd/display/dc/core/dc_link.c
+index 7ee9c033acbd..92171362e755 100644
+--- a/drivers/gpu/drm/amd/display/dc/core/dc_link.c
++++ b/drivers/gpu/drm/amd/display/dc/core/dc_link.c
+@@ -1590,7 +1590,7 @@ static void write_i2c_retimer_setting(
+ 			i2c_success = i2c_write(pipe_ctx, slave_address,
+ 						buffer, sizeof(buffer));
+ 			RETIMER_REDRIVER_INFO("retimer write to slave_address = 0x%x,\
+-				offset = 0x%x, reg_val= 0x%x, i2c_success = %d\n",
++				offset = 0x%x, reg_val = 0x%x, i2c_success = %d\n",
+ 				slave_address, buffer[0], buffer[1], i2c_success?1:0);
+ 
+ 			if (!i2c_success)
+-- 
+2.17.1
+

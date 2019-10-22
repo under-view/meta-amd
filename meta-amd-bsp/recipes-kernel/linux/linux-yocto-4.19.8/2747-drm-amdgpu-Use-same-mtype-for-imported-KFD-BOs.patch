@@ -1,0 +1,35 @@
+From f8044569201e478b2c026b7d1c3733e7956a626e Mon Sep 17 00:00:00 2001
+From: Harish Kasiviswanathan <Harish.Kasiviswanathan@amd.com>
+Date: Fri, 1 Feb 2019 17:30:09 -0500
+Subject: [PATCH 2747/2940] drm/amdgpu: Use same mtype for imported KFD BOs
+
+Change-Id: I4c04f2889ba384e4e39c071517db3e94a8f02672
+Signed-off-by: Harish Kasiviswanathan <Harish.Kasiviswanathan@amd.com>
+---
+ drivers/gpu/drm/amd/amdgpu/amdgpu_amdkfd_gpuvm.c | 10 +++++++---
+ 1 file changed, 7 insertions(+), 3 deletions(-)
+
+diff --git a/drivers/gpu/drm/amd/amdgpu/amdgpu_amdkfd_gpuvm.c b/drivers/gpu/drm/amd/amdgpu/amdgpu_amdkfd_gpuvm.c
+index 0ea7149d5a32..c0bdf560c033 100644
+--- a/drivers/gpu/drm/amd/amdgpu/amdgpu_amdkfd_gpuvm.c
++++ b/drivers/gpu/drm/amd/amdgpu/amdgpu_amdkfd_gpuvm.c
+@@ -1918,9 +1918,13 @@ int amdgpu_amdkfd_gpuvm_import_dmabuf(struct kgd_dev *kgd,
+ 
+ 	INIT_LIST_HEAD(&(*mem)->bo_va_list);
+ 	mutex_init(&(*mem)->lock);
+-	(*mem)->mapping_flags =
+-		AMDGPU_VM_PAGE_READABLE | AMDGPU_VM_PAGE_WRITEABLE |
+-		AMDGPU_VM_PAGE_EXECUTABLE | AMDGPU_VM_MTYPE_NC;
++
++	if (bo->kfd_bo)
++		(*mem)->mapping_flags = bo->kfd_bo->mapping_flags;
++	else
++		(*mem)->mapping_flags =
++			AMDGPU_VM_PAGE_READABLE | AMDGPU_VM_PAGE_WRITEABLE |
++			AMDGPU_VM_PAGE_EXECUTABLE | AMDGPU_VM_MTYPE_NC;
+ 
+ 	(*mem)->bo = amdgpu_bo_ref(bo);
+ 	(*mem)->va = va;
+-- 
+2.17.1
+

@@ -1,0 +1,47 @@
+From 0076f5ee2c401a2c9cfaeb54909fb7e91845ab8f Mon Sep 17 00:00:00 2001
+From: Nicholas Kazlauskas <nicholas.kazlauskas@amd.com>
+Date: Fri, 22 Mar 2019 09:59:32 -0400
+Subject: [PATCH 1740/2940] drm/amd/display: Initialize stream_update with
+ memset
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+The brace initialization used here generates warnings on some
+compilers. For example, on GCC 4.9:
+
+[...] In function ‘dm_determine_update_type_for_commit’:
+[...] error: missing braces around initializer [-Werror=missing-braces]
+   struct dc_stream_update stream_update = { 0 };
+          ^
+
+Use memset to make this more portable.
+
+v2: Specify the compiler / diagnostic in the commit message (Paul)
+
+Cc: Sun peng Li <Sunpeng.Li@amd.com>
+Cc: Harry Wentland <Harry.Wentland@amd.com>
+Signed-off-by: Nicholas Kazlauskas <nicholas.kazlauskas@amd.com>
+Reviewed-by: Leo Li <sunpeng.li@amd.com>
+---
+ drivers/gpu/drm/amd/display/amdgpu_dm/amdgpu_dm.c | 4 +++-
+ 1 file changed, 3 insertions(+), 1 deletion(-)
+
+diff --git a/drivers/gpu/drm/amd/display/amdgpu_dm/amdgpu_dm.c b/drivers/gpu/drm/amd/display/amdgpu_dm/amdgpu_dm.c
+index 762545109b60..474798eb136c 100644
+--- a/drivers/gpu/drm/amd/display/amdgpu_dm/amdgpu_dm.c
++++ b/drivers/gpu/drm/amd/display/amdgpu_dm/amdgpu_dm.c
+@@ -6232,7 +6232,9 @@ dm_determine_update_type_for_commit(struct dc *dc,
+ 	}
+ 
+ 	for_each_oldnew_crtc_in_state(state, crtc, old_crtc_state, new_crtc_state, i) {
+-		struct dc_stream_update stream_update = { 0 };
++		struct dc_stream_update stream_update;
++
++		memset(&stream_update, 0, sizeof(stream_update));
+ 
+ 		new_dm_crtc_state = to_dm_crtc_state(new_crtc_state);
+ 		old_dm_crtc_state = to_dm_crtc_state(old_crtc_state);
+-- 
+2.17.1
+

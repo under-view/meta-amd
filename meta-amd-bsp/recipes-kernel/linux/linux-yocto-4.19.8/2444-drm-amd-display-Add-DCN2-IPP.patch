@@ -1,0 +1,122 @@
+From ceb6d2d8a6fccf362c1688b0ca98be715e124bfb Mon Sep 17 00:00:00 2001
+From: Harry Wentland <harry.wentland@amd.com>
+Date: Fri, 22 Feb 2019 16:37:36 -0500
+Subject: [PATCH 2444/2940] drm/amd/display: Add DCN2 IPP
+
+Add support to program DCN2 cursor (IPP)
+
+Signed-off-by: Harry Wentland <harry.wentland@amd.com>
+Signed-off-by: Alex Deucher <alexander.deucher@amd.com>
+---
+ .../gpu/drm/amd/display/dc/dcn10/dcn10_ipp.c  | 24 +++++++++++
+ .../gpu/drm/amd/display/dc/dcn10/dcn10_ipp.h  | 43 +++++++++++++++++++
+ 2 files changed, 67 insertions(+)
+
+diff --git a/drivers/gpu/drm/amd/display/dc/dcn10/dcn10_ipp.c b/drivers/gpu/drm/amd/display/dc/dcn10/dcn10_ipp.c
+index 08db1e6b5166..1580f9c6d27d 100644
+--- a/drivers/gpu/drm/amd/display/dc/dcn10/dcn10_ipp.c
++++ b/drivers/gpu/drm/amd/display/dc/dcn10/dcn10_ipp.c
+@@ -51,6 +51,12 @@ static const struct ipp_funcs dcn10_ipp_funcs = {
+ 	.ipp_destroy			= dcn10_ipp_destroy
+ };
+ 
++#if defined(CONFIG_DRM_AMD_DC_DCN2_0)
++static const struct ipp_funcs dcn20_ipp_funcs = {
++	.ipp_destroy			= dcn10_ipp_destroy
++};
++#endif
++
+ void dcn10_ipp_construct(
+ 	struct dcn10_ipp *ippn10,
+ 	struct dc_context *ctx,
+@@ -68,3 +74,21 @@ void dcn10_ipp_construct(
+ 	ippn10->ipp_mask = ipp_mask;
+ }
+ 
++#if defined(CONFIG_DRM_AMD_DC_DCN2_0)
++void dcn20_ipp_construct(
++	struct dcn10_ipp *ippn10,
++	struct dc_context *ctx,
++	int inst,
++	const struct dcn10_ipp_registers *regs,
++	const struct dcn10_ipp_shift *ipp_shift,
++	const struct dcn10_ipp_mask *ipp_mask)
++{
++	ippn10->base.ctx = ctx;
++	ippn10->base.inst = inst;
++	ippn10->base.funcs = &dcn20_ipp_funcs;
++
++	ippn10->regs = regs;
++	ippn10->ipp_shift = ipp_shift;
++	ippn10->ipp_mask = ipp_mask;
++}
++#endif
+diff --git a/drivers/gpu/drm/amd/display/dc/dcn10/dcn10_ipp.h b/drivers/gpu/drm/amd/display/dc/dcn10/dcn10_ipp.h
+index 819b749c6e31..cfa24459242b 100644
+--- a/drivers/gpu/drm/amd/display/dc/dcn10/dcn10_ipp.h
++++ b/drivers/gpu/drm/amd/display/dc/dcn10/dcn10_ipp.h
+@@ -49,6 +49,19 @@
+ 	SRI(CURSOR_HOT_SPOT, CURSOR, id), \
+ 	SRI(CURSOR_DST_OFFSET, CURSOR, id)
+ 
++#if defined(CONFIG_DRM_AMD_DC_DCN2_0)
++#define IPP_REG_LIST_DCN20(id) \
++	IPP_REG_LIST_DCN(id), \
++	SRI(CURSOR_SETTINGS, HUBPREQ, id), \
++	SRI(CURSOR_SURFACE_ADDRESS_HIGH, CURSOR0_, id), \
++	SRI(CURSOR_SURFACE_ADDRESS, CURSOR0_, id), \
++	SRI(CURSOR_SIZE, CURSOR0_, id), \
++	SRI(CURSOR_CONTROL, CURSOR0_, id), \
++	SRI(CURSOR_POSITION, CURSOR0_, id), \
++	SRI(CURSOR_HOT_SPOT, CURSOR0_, id), \
++	SRI(CURSOR_DST_OFFSET, CURSOR0_, id)
++#endif
++
+ #define CURSOR0_CURSOR_CONTROL__CURSOR_2X_MAGNIFY__SHIFT	0x4
+ #define CURSOR0_CURSOR_CONTROL__CURSOR_2X_MAGNIFY_MASK		0x00000010L
+ #define CURSOR1_CURSOR_CONTROL__CURSOR_2X_MAGNIFY__SHIFT	0x4
+@@ -92,6 +105,27 @@
+ 	IPP_SF(CURSOR0_CURSOR_DST_OFFSET, CURSOR_DST_X_OFFSET, mask_sh), \
+ 	IPP_SF(CNVC_CFG0_FORMAT_CONTROL, OUTPUT_FP, mask_sh)
+ 
++#if defined(CONFIG_DRM_AMD_DC_DCN2_0)
++#define IPP_MASK_SH_LIST_DCN20(mask_sh) \
++	IPP_MASK_SH_LIST_DCN(mask_sh), \
++	IPP_SF(HUBPREQ0_CURSOR_SETTINGS, CURSOR0_DST_Y_OFFSET, mask_sh), \
++	IPP_SF(HUBPREQ0_CURSOR_SETTINGS, CURSOR0_CHUNK_HDL_ADJUST, mask_sh), \
++	IPP_SF(CURSOR0_0_CURSOR_SURFACE_ADDRESS_HIGH, CURSOR_SURFACE_ADDRESS_HIGH, mask_sh), \
++	IPP_SF(CURSOR0_0_CURSOR_SURFACE_ADDRESS, CURSOR_SURFACE_ADDRESS, mask_sh), \
++	IPP_SF(CURSOR0_0_CURSOR_SIZE, CURSOR_WIDTH, mask_sh), \
++	IPP_SF(CURSOR0_0_CURSOR_SIZE, CURSOR_HEIGHT, mask_sh), \
++	IPP_SF(CURSOR0_0_CURSOR_CONTROL, CURSOR_MODE, mask_sh), \
++	IPP_SF(CURSOR0_0_CURSOR_CONTROL, CURSOR_2X_MAGNIFY, mask_sh), \
++	IPP_SF(CURSOR0_0_CURSOR_CONTROL, CURSOR_PITCH, mask_sh), \
++	IPP_SF(CURSOR0_0_CURSOR_CONTROL, CURSOR_LINES_PER_CHUNK, mask_sh), \
++	IPP_SF(CURSOR0_0_CURSOR_CONTROL, CURSOR_ENABLE, mask_sh), \
++	IPP_SF(CURSOR0_0_CURSOR_POSITION, CURSOR_X_POSITION, mask_sh), \
++	IPP_SF(CURSOR0_0_CURSOR_POSITION, CURSOR_Y_POSITION, mask_sh), \
++	IPP_SF(CURSOR0_0_CURSOR_HOT_SPOT, CURSOR_HOT_SPOT_X, mask_sh), \
++	IPP_SF(CURSOR0_0_CURSOR_HOT_SPOT, CURSOR_HOT_SPOT_Y, mask_sh), \
++	IPP_SF(CURSOR0_0_CURSOR_DST_OFFSET, CURSOR_DST_X_OFFSET, mask_sh)
++#endif
++
+ #define IPP_DCN10_REG_FIELD_LIST(type) \
+ 	type CNVC_SURFACE_PIXEL_FORMAT; \
+ 	type CNVC_BYPASS; \
+@@ -162,4 +196,13 @@ void dcn10_ipp_construct(struct dcn10_ipp *ippn10,
+ 	const struct dcn10_ipp_shift *ipp_shift,
+ 	const struct dcn10_ipp_mask *ipp_mask);
+ 
++#if defined(CONFIG_DRM_AMD_DC_DCN2_0)
++void dcn20_ipp_construct(struct dcn10_ipp *ippn10,
++	struct dc_context *ctx,
++	int inst,
++	const struct dcn10_ipp_registers *regs,
++	const struct dcn10_ipp_shift *ipp_shift,
++	const struct dcn10_ipp_mask *ipp_mask);
++#endif
++
+ #endif /* _DCN10_IPP_H_ */
+-- 
+2.17.1
+

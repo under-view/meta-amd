@@ -1,0 +1,39 @@
+From 26a2f80ad5d6d7db7bb02e958e026bb3bbaeef36 Mon Sep 17 00:00:00 2001
+From: Jonathan Kim <jonathan.kim@amd.com>
+Date: Thu, 20 Jun 2019 22:23:35 -0400
+Subject: [PATCH 2578/2940] drm/amdgpu: add sw_init to df_v1_7
+
+change df_init to df_sw_init df 1.7 to prevent regression issues on pre-vega20
+products when callback is called in sw_common_sw_init.
+
+Change-Id: I4941003ea4a99ba0ea736c7ecc8800148423c379
+Signed-off-by: Jonathan Kim <jonathan.kim@amd.com>
+---
+ drivers/gpu/drm/amd/amdgpu/df_v1_7.c | 4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
+
+diff --git a/drivers/gpu/drm/amd/amdgpu/df_v1_7.c b/drivers/gpu/drm/amd/amdgpu/df_v1_7.c
+index 9935371db7ce..844c03868248 100644
+--- a/drivers/gpu/drm/amd/amdgpu/df_v1_7.c
++++ b/drivers/gpu/drm/amd/amdgpu/df_v1_7.c
+@@ -29,7 +29,7 @@
+ 
+ static u32 df_v1_7_channel_number[] = {1, 2, 0, 4, 0, 8, 0, 16, 2};
+ 
+-static void df_v1_7_init (struct amdgpu_device *adev)
++static void df_v1_7_sw_init(struct amdgpu_device *adev)
+ {
+ }
+ 
+@@ -110,7 +110,7 @@ static void df_v1_7_enable_ecc_force_par_wr_rmw(struct amdgpu_device *adev,
+ }
+ 
+ const struct amdgpu_df_funcs df_v1_7_funcs = {
+-	.init = df_v1_7_init,
++	.sw_init = df_v1_7_sw_init,
+ 	.enable_broadcast_mode = df_v1_7_enable_broadcast_mode,
+ 	.get_fb_channel_number = df_v1_7_get_fb_channel_number,
+ 	.get_hbm_channel_number = df_v1_7_get_hbm_channel_number,
+-- 
+2.17.1
+

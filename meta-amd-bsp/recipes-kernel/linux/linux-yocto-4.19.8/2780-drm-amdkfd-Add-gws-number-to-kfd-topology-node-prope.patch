@@ -1,0 +1,129 @@
+From ed8153c93035af93ec68d89c900d2627adba7697 Mon Sep 17 00:00:00 2001
+From: Oak Zeng <Oak.Zeng@amd.com>
+Date: Fri, 3 May 2019 09:10:38 -0500
+Subject: [PATCH 2780/2940] drm/amdkfd: Add gws number to kfd topology node
+ properties
+
+Add amdgpu_amdkfd interface to get num_gws and add num_gws
+to /sys/class/kfd/kfd/topology/nodes/x/properties. Only report
+num_gws if MEC FW support GWS barriers. Currently it is
+determined by a module parameter which will be replaced
+with MEC FW version check when firmware is ready.
+
+Change-Id: Ie0d00fb20a37ef2856860dbecbe1ad0ca1ef09f7
+Signed-off-by: Oak Zeng <Oak.Zeng@amd.com>
+Reviewed-by: Felix Kuehling <Felix.Kuehling@amd.com>
+---
+ drivers/gpu/drm/amd/amdgpu/amdgpu_amdkfd.c |  7 +++++++
+ drivers/gpu/drm/amd/amdgpu/amdgpu_amdkfd.h |  1 +
+ drivers/gpu/drm/amd/amdgpu/amdgpu_drv.c    | 10 ++++++++++
+ drivers/gpu/drm/amd/amdkfd/kfd_priv.h      |  5 +++++
+ drivers/gpu/drm/amd/amdkfd/kfd_topology.c  |  5 +++++
+ drivers/gpu/drm/amd/amdkfd/kfd_topology.h  |  1 +
+ 6 files changed, 29 insertions(+)
+
+diff --git a/drivers/gpu/drm/amd/amdgpu/amdgpu_amdkfd.c b/drivers/gpu/drm/amd/amdgpu/amdgpu_amdkfd.c
+index 0c0d6ec107b4..710f971c2288 100644
+--- a/drivers/gpu/drm/amd/amdgpu/amdgpu_amdkfd.c
++++ b/drivers/gpu/drm/amd/amdgpu/amdgpu_amdkfd.c
+@@ -500,6 +500,13 @@ uint64_t amdgpu_amdkfd_get_mmio_remap_phys_addr(struct kgd_dev *kgd)
+ 	return adev->rmmio_remap.bus_addr;
+ }
+ 
++uint32_t amdgpu_amdkfd_get_num_gws(struct kgd_dev *kgd)
++{
++	struct amdgpu_device *adev = (struct amdgpu_device *)kgd;
++
++	return adev->gds.gws_size;
++}
++
+ int amdgpu_amdkfd_submit_ib(struct kgd_dev *kgd, enum kgd_engine_type engine,
+ 				uint32_t vmid, uint64_t gpu_addr,
+ 				uint32_t *ib_cmd, uint32_t ib_len)
+diff --git a/drivers/gpu/drm/amd/amdgpu/amdgpu_amdkfd.h b/drivers/gpu/drm/amd/amdgpu/amdgpu_amdkfd.h
+index 23793739e98f..fa01d886d4af 100644
+--- a/drivers/gpu/drm/amd/amdgpu/amdgpu_amdkfd.h
++++ b/drivers/gpu/drm/amd/amdgpu/amdgpu_amdkfd.h
+@@ -160,6 +160,7 @@ int amdgpu_amdkfd_get_dmabuf_info(struct kgd_dev *kgd, int dma_buf_fd,
+ uint64_t amdgpu_amdkfd_get_vram_usage(struct kgd_dev *kgd);
+ 
+ uint64_t amdgpu_amdkfd_get_mmio_remap_phys_addr(struct kgd_dev *kgd);
++uint32_t amdgpu_amdkfd_get_num_gws(struct kgd_dev *kgd);
+ 
+ #define read_user_wptr(mmptr, wptr, dst)				\
+ 	({								\
+diff --git a/drivers/gpu/drm/amd/amdgpu/amdgpu_drv.c b/drivers/gpu/drm/amd/amdgpu/amdgpu_drv.c
+index a5a816899ac8..00a1f426a68a 100644
+--- a/drivers/gpu/drm/amd/amdgpu/amdgpu_drv.c
++++ b/drivers/gpu/drm/amd/amdgpu/amdgpu_drv.c
+@@ -620,6 +620,16 @@ MODULE_PARM_DESC(pcie_p2p, "Enable PCIe P2P (requires large-BAR). (N = off, Y =
+ MODULE_PARM_DESC(dcfeaturemask, "all stable DC features enabled (default))");
+ module_param_named(dcfeaturemask, amdgpu_dc_feature_mask, uint, 0444);
+ 
++/*
++ * DOC: hws_gws_support(bool)
++ * Whether HWS support gws barriers. Default value: false (not supported)
++ * This will be replaced with a MEC firmware version check once firmware
++ * is ready
++ */
++bool hws_gws_support;
++module_param(hws_gws_support, bool, 0444);
++MODULE_PARM_DESC(hws_gws_support, "MEC FW support gws barriers (false = not supported (Default), true = supported)");
++
+ /**
+  * DOC: abmlevel (uint)
+  * Override the default ABM (Adaptive Backlight Management) level used for DC
+diff --git a/drivers/gpu/drm/amd/amdkfd/kfd_priv.h b/drivers/gpu/drm/amd/amdkfd/kfd_priv.h
+index ee5c8892a16e..8188438686aa 100644
+--- a/drivers/gpu/drm/amd/amdkfd/kfd_priv.h
++++ b/drivers/gpu/drm/amd/amdkfd/kfd_priv.h
+@@ -173,6 +173,11 @@ extern int priv_cp_queues;
+  */
+ extern int halt_if_hws_hang;
+ 
++/*
++ * Whether MEC FW support GWS barriers
++ */
++extern bool hws_gws_support;
++
+ /*
+  * Restore evicted process only if queues are active
+  */
+diff --git a/drivers/gpu/drm/amd/amdkfd/kfd_topology.c b/drivers/gpu/drm/amd/amdkfd/kfd_topology.c
+index 0d5419814e10..55df4105233a 100644
+--- a/drivers/gpu/drm/amd/amdkfd/kfd_topology.c
++++ b/drivers/gpu/drm/amd/amdkfd/kfd_topology.c
+@@ -483,6 +483,8 @@ static ssize_t node_show(struct kobject *kobj, struct attribute *attr,
+ 			dev->node_props.lds_size_in_kb);
+ 	sysfs_show_32bit_prop(buffer, "gds_size_in_kb",
+ 			dev->node_props.gds_size_in_kb);
++	sysfs_show_32bit_prop(buffer, "num_gws",
++			dev->node_props.num_gws);
+ 	sysfs_show_32bit_prop(buffer, "wave_front_size",
+ 			dev->node_props.wave_front_size);
+ 	sysfs_show_32bit_prop(buffer, "array_count",
+@@ -1362,6 +1364,9 @@ int kfd_topology_add_device(struct kfd_dev *gpu)
+ 	dev->node_props.num_sdma_engines = gpu->device_info->num_sdma_engines;
+ 	dev->node_props.num_sdma_xgmi_engines =
+ 				gpu->device_info->num_xgmi_sdma_engines;
++	dev->node_props.num_gws = (hws_gws_support &&
++		dev->gpu->dqm->sched_policy != KFD_SCHED_POLICY_NO_HWS) ?
++		amdgpu_amdkfd_get_num_gws(dev->gpu->kgd) : 0;
+ 
+ 	kfd_fill_mem_clk_max_info(dev);
+ 	kfd_fill_iolink_non_crat_info(dev);
+diff --git a/drivers/gpu/drm/amd/amdkfd/kfd_topology.h b/drivers/gpu/drm/amd/amdkfd/kfd_topology.h
+index af0aba3c4561..0b80ee02e9e7 100644
+--- a/drivers/gpu/drm/amd/amdkfd/kfd_topology.h
++++ b/drivers/gpu/drm/amd/amdkfd/kfd_topology.h
+@@ -71,6 +71,7 @@ struct kfd_node_properties {
+ 	uint32_t max_waves_per_simd;
+ 	uint32_t lds_size_in_kb;
+ 	uint32_t gds_size_in_kb;
++	uint32_t num_gws;
+ 	uint32_t wave_front_size;
+ 	uint32_t array_count;
+ 	uint32_t simd_arrays_per_engine;
+-- 
+2.17.1
+

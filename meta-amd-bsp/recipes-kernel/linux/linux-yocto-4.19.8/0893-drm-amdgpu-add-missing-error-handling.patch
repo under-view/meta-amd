@@ -1,0 +1,34 @@
+From c71713969a20ffbdc98ac18d04576a8625dcf6d8 Mon Sep 17 00:00:00 2001
+From: =?UTF-8?q?Christian=20K=C3=B6nig?= <christian.koenig@amd.com>
+Date: Wed, 26 Sep 2018 14:17:03 +0200
+Subject: [PATCH 0893/2940] drm/amdgpu: add missing error handling
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+We ignored the return code here.
+
+Signed-off-by: Christian König <christian.koenig@amd.com>
+Reviewed-by: Alex Deucher <alexander.deucher@amd.com>
+Signed-off-by: Alex Deucher <alexander.deucher@amd.com>
+---
+ drivers/gpu/drm/amd/amdgpu/gmc_v9_0.c | 3 +++
+ 1 file changed, 3 insertions(+)
+
+diff --git a/drivers/gpu/drm/amd/amdgpu/gmc_v9_0.c b/drivers/gpu/drm/amd/amdgpu/gmc_v9_0.c
+index 9c3e3dfec61a..3014d50855b1 100644
+--- a/drivers/gpu/drm/amd/amdgpu/gmc_v9_0.c
++++ b/drivers/gpu/drm/amd/amdgpu/gmc_v9_0.c
+@@ -958,6 +958,9 @@ static int gmc_v9_0_sw_init(void *handle)
+ 	/* This interrupt is VMC page fault.*/
+ 	r = amdgpu_irq_add_id(adev, SOC15_IH_CLIENTID_VMC, VMC_1_0__SRCID__VM_FAULT,
+ 				&adev->gmc.vm_fault);
++	if (r)
++		return r;
++
+ 	r = amdgpu_irq_add_id(adev, SOC15_IH_CLIENTID_UTCL2, UTCL2_1_0__SRCID__FAULT,
+ 				&adev->gmc.vm_fault);
+ 
+-- 
+2.17.1
+

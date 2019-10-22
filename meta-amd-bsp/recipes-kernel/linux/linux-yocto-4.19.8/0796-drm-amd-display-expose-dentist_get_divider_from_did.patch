@@ -1,0 +1,44 @@
+From d6f9199c07e08c0030e31d6897a2c410b4897580 Mon Sep 17 00:00:00 2001
+From: Nevenko Stupar <Nevenko.Stupar@amd.com>
+Date: Tue, 23 Oct 2018 11:36:49 -0400
+Subject: [PATCH 0796/2940] drm/amd/display: expose
+ dentist_get_divider_from_did
+
+expose this functions for future use.
+
+Signed-off-by: Nevenko Stupar <Nevenko.Stupar@amd.com>
+Reviewed-by: Tony Cheng <Tony.Cheng@amd.com>
+Acked-by: Bhawanpreet Lakha <Bhawanpreet.Lakha@amd.com>
+Signed-off-by: Alex Deucher <alexander.deucher@amd.com>
+---
+ drivers/gpu/drm/amd/display/dc/dce/dce_clk_mgr.c | 2 +-
+ drivers/gpu/drm/amd/display/dc/dce/dce_clk_mgr.h | 2 ++
+ 2 files changed, 3 insertions(+), 1 deletion(-)
+
+diff --git a/drivers/gpu/drm/amd/display/dc/dce/dce_clk_mgr.c b/drivers/gpu/drm/amd/display/dc/dce/dce_clk_mgr.c
+index 1dfe93ea673b..4c2cb7a11c57 100644
+--- a/drivers/gpu/drm/amd/display/dc/dce/dce_clk_mgr.c
++++ b/drivers/gpu/drm/amd/display/dc/dce/dce_clk_mgr.c
+@@ -94,7 +94,7 @@ static const struct state_dependent_clocks dce120_max_clks_by_state[] = {
+ /*ClocksStatePerformance*/
+ { .display_clk_khz = 1133000, .pixel_clk_khz = 600000 } };
+ 
+-static int dentist_get_divider_from_did(int did)
++int dentist_get_divider_from_did(int did)
+ {
+ 	if (did < DENTIST_BASE_DID_1)
+ 		did = DENTIST_BASE_DID_1;
+diff --git a/drivers/gpu/drm/amd/display/dc/dce/dce_clk_mgr.h b/drivers/gpu/drm/amd/display/dc/dce/dce_clk_mgr.h
+index 046077797416..3bceb31d910d 100644
+--- a/drivers/gpu/drm/amd/display/dc/dce/dce_clk_mgr.h
++++ b/drivers/gpu/drm/amd/display/dc/dce/dce_clk_mgr.h
+@@ -165,4 +165,6 @@ struct clk_mgr *dce120_clk_mgr_create(struct dc_context *ctx);
+ 
+ void dce_clk_mgr_destroy(struct clk_mgr **clk_mgr);
+ 
++int dentist_get_divider_from_did(int did);
++
+ #endif /* _DCE_CLK_MGR_H_ */
+-- 
+2.17.1
+

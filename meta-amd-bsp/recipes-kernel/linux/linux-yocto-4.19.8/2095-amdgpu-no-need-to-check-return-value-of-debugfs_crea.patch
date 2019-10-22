@@ -1,0 +1,223 @@
+From 1037585f856d0b248e42633a6c15d15789d1f9f8 Mon Sep 17 00:00:00 2001
+From: Greg Kroah-Hartman <gregkh@linuxfoundation.org>
+Date: Thu, 13 Jun 2019 15:19:19 +0200
+Subject: [PATCH 2095/2940] amdgpu: no need to check return value of
+ debugfs_create functions
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+When calling debugfs functions, there is no need to ever check the
+return value.  The function can work or not, but the code logic should
+never do something different based on this.
+
+Cc: Alex Deucher <alexander.deucher@amd.com>
+Cc: "Christian König" <christian.koenig@amd.com>
+Cc: "David (ChunMing) Zhou" <David1.Zhou@amd.com>
+Cc: David Airlie <airlied@linux.ie>
+Cc: Daniel Vetter <daniel@ffwll.ch>
+Cc: xinhui pan <xinhui.pan@amd.com>
+Cc: Evan Quan <evan.quan@amd.com>
+Cc: Feifei Xu <Feifei.Xu@amd.com>
+Cc: amd-gfx@lists.freedesktop.org
+Cc: dri-devel@lists.freedesktop.org
+Signed-off-by: Greg Kroah-Hartman <gregkh@linuxfoundation.org>
+Signed-off-by: Alex Deucher <alexander.deucher@amd.com>
+---
+ drivers/gpu/drm/amd/amdgpu/amdgpu_ras.c | 51 ++++++-------------------
+ drivers/gpu/drm/amd/amdgpu/amdgpu_ras.h |  4 +-
+ drivers/gpu/drm/amd/amdgpu/gfx_v9_0.c   |  5 +--
+ drivers/gpu/drm/amd/amdgpu/gmc_v9_0.c   |  5 +--
+ drivers/gpu/drm/amd/amdgpu/sdma_v4_0.c  |  5 +--
+ 5 files changed, 17 insertions(+), 53 deletions(-)
+
+diff --git a/drivers/gpu/drm/amd/amdgpu/amdgpu_ras.c b/drivers/gpu/drm/amd/amdgpu/amdgpu_ras.c
+index 011630f62f85..7efc4e07665d 100644
+--- a/drivers/gpu/drm/amd/amdgpu/amdgpu_ras.c
++++ b/drivers/gpu/drm/amd/amdgpu/amdgpu_ras.c
+@@ -967,40 +967,24 @@ static int amdgpu_ras_sysfs_remove_all(struct amdgpu_device *adev)
+ /* sysfs end */
+ 
+ /* debugfs begin */
+-static int amdgpu_ras_debugfs_create_ctrl_node(struct amdgpu_device *adev)
++static void amdgpu_ras_debugfs_create_ctrl_node(struct amdgpu_device *adev)
+ {
+ 	struct amdgpu_ras *con = amdgpu_ras_get_context(adev);
+ 	struct drm_minor *minor = adev->ddev->primary;
+-	struct dentry *root = minor->debugfs_root, *dir;
+-	struct dentry *ent;
+-
+-	dir = debugfs_create_dir("ras", root);
+-	if (IS_ERR(dir))
+-		return -EINVAL;
+ 
+-	con->dir = dir;
+-
+-	ent = debugfs_create_file("ras_ctrl",
+-			S_IWUGO | S_IRUGO, con->dir,
+-			adev, &amdgpu_ras_debugfs_ctrl_ops);
+-	if (IS_ERR(ent)) {
+-		debugfs_remove(con->dir);
+-		return -EINVAL;
+-	}
+-
+-	con->ent = ent;
+-	return 0;
++	con->dir = debugfs_create_dir("ras", minor->debugfs_root);
++	con->ent = debugfs_create_file("ras_ctrl", S_IWUGO | S_IRUGO, con->dir,
++				       adev, &amdgpu_ras_debugfs_ctrl_ops);
+ }
+ 
+-int amdgpu_ras_debugfs_create(struct amdgpu_device *adev,
++void amdgpu_ras_debugfs_create(struct amdgpu_device *adev,
+ 		struct ras_fs_if *head)
+ {
+ 	struct amdgpu_ras *con = amdgpu_ras_get_context(adev);
+ 	struct ras_manager *obj = amdgpu_ras_find_obj(adev, &head->head);
+-	struct dentry *ent;
+ 
+ 	if (!obj || obj->ent)
+-		return -EINVAL;
++		return;
+ 
+ 	get_obj(obj);
+ 
+@@ -1008,34 +992,25 @@ int amdgpu_ras_debugfs_create(struct amdgpu_device *adev,
+ 			head->debugfs_name,
+ 			sizeof(obj->fs_data.debugfs_name));
+ 
+-	ent = debugfs_create_file(obj->fs_data.debugfs_name,
+-			S_IWUGO | S_IRUGO, con->dir,
+-			obj, &amdgpu_ras_debugfs_ops);
+-
+-	if (IS_ERR(ent))
+-		return -EINVAL;
+-
+-	obj->ent = ent;
+-
+-	return 0;
++	obj->ent = debugfs_create_file(obj->fs_data.debugfs_name,
++				       S_IWUGO | S_IRUGO, con->dir, obj,
++				       &amdgpu_ras_debugfs_ops);
+ }
+ 
+-int amdgpu_ras_debugfs_remove(struct amdgpu_device *adev,
++void amdgpu_ras_debugfs_remove(struct amdgpu_device *adev,
+ 		struct ras_common_if *head)
+ {
+ 	struct ras_manager *obj = amdgpu_ras_find_obj(adev, head);
+ 
+ 	if (!obj || !obj->ent)
+-		return 0;
++		return;
+ 
+ 	debugfs_remove(obj->ent);
+ 	obj->ent = NULL;
+ 	put_obj(obj);
+-
+-	return 0;
+ }
+ 
+-static int amdgpu_ras_debugfs_remove_all(struct amdgpu_device *adev)
++static void amdgpu_ras_debugfs_remove_all(struct amdgpu_device *adev)
+ {
+ 	struct amdgpu_ras *con = amdgpu_ras_get_context(adev);
+ 	struct ras_manager *obj, *tmp;
+@@ -1048,8 +1023,6 @@ static int amdgpu_ras_debugfs_remove_all(struct amdgpu_device *adev)
+ 	debugfs_remove(con->dir);
+ 	con->dir = NULL;
+ 	con->ent = NULL;
+-
+-	return 0;
+ }
+ /* debugfs end */
+ 
+diff --git a/drivers/gpu/drm/amd/amdgpu/amdgpu_ras.h b/drivers/gpu/drm/amd/amdgpu/amdgpu_ras.h
+index 94c652f5265a..b2841195bd3b 100644
+--- a/drivers/gpu/drm/amd/amdgpu/amdgpu_ras.h
++++ b/drivers/gpu/drm/amd/amdgpu/amdgpu_ras.h
+@@ -276,10 +276,10 @@ int amdgpu_ras_sysfs_create(struct amdgpu_device *adev,
+ int amdgpu_ras_sysfs_remove(struct amdgpu_device *adev,
+ 		struct ras_common_if *head);
+ 
+-int amdgpu_ras_debugfs_create(struct amdgpu_device *adev,
++void amdgpu_ras_debugfs_create(struct amdgpu_device *adev,
+ 		struct ras_fs_if *head);
+ 
+-int amdgpu_ras_debugfs_remove(struct amdgpu_device *adev,
++void amdgpu_ras_debugfs_remove(struct amdgpu_device *adev,
+ 		struct ras_common_if *head);
+ 
+ int amdgpu_ras_error_query(struct amdgpu_device *adev,
+diff --git a/drivers/gpu/drm/amd/amdgpu/gfx_v9_0.c b/drivers/gpu/drm/amd/amdgpu/gfx_v9_0.c
+index bc397f2a39ea..2dd991b97f1d 100644
+--- a/drivers/gpu/drm/amd/amdgpu/gfx_v9_0.c
++++ b/drivers/gpu/drm/amd/amdgpu/gfx_v9_0.c
+@@ -3907,9 +3907,7 @@ static int gfx_v9_0_ecc_late_init(void *handle)
+ 	if (r)
+ 		goto interrupt;
+ 
+-	r = amdgpu_ras_debugfs_create(adev, &fs_info);
+-	if (r)
+-		goto debugfs;
++	amdgpu_ras_debugfs_create(adev, &fs_info);
+ 
+ 	r = amdgpu_ras_sysfs_create(adev, &fs_info);
+ 	if (r)
+@@ -3924,7 +3922,6 @@ static int gfx_v9_0_ecc_late_init(void *handle)
+ 	amdgpu_ras_sysfs_remove(adev, *ras_if);
+ sysfs:
+ 	amdgpu_ras_debugfs_remove(adev, *ras_if);
+-debugfs:
+ 	amdgpu_ras_interrupt_remove_handler(adev, &ih_info);
+ interrupt:
+ 	amdgpu_ras_feature_enable(adev, *ras_if, 0);
+diff --git a/drivers/gpu/drm/amd/amdgpu/gmc_v9_0.c b/drivers/gpu/drm/amd/amdgpu/gmc_v9_0.c
+index e4dbe9056bca..b8677f48ab14 100644
+--- a/drivers/gpu/drm/amd/amdgpu/gmc_v9_0.c
++++ b/drivers/gpu/drm/amd/amdgpu/gmc_v9_0.c
+@@ -725,9 +725,7 @@ static int gmc_v9_0_ecc_late_init(void *handle)
+ 	if (r)
+ 		goto interrupt;
+ 
+-	r = amdgpu_ras_debugfs_create(adev, &fs_info);
+-	if (r)
+-		goto debugfs;
++	amdgpu_ras_debugfs_create(adev, &fs_info);
+ 
+ 	r = amdgpu_ras_sysfs_create(adev, &fs_info);
+ 	if (r)
+@@ -742,7 +740,6 @@ static int gmc_v9_0_ecc_late_init(void *handle)
+ 	amdgpu_ras_sysfs_remove(adev, *ras_if);
+ sysfs:
+ 	amdgpu_ras_debugfs_remove(adev, *ras_if);
+-debugfs:
+ 	amdgpu_ras_interrupt_remove_handler(adev, &ih_info);
+ interrupt:
+ 	amdgpu_ras_feature_enable(adev, *ras_if, 0);
+diff --git a/drivers/gpu/drm/amd/amdgpu/sdma_v4_0.c b/drivers/gpu/drm/amd/amdgpu/sdma_v4_0.c
+index f38decbbf194..9a08ab9dd70c 100644
+--- a/drivers/gpu/drm/amd/amdgpu/sdma_v4_0.c
++++ b/drivers/gpu/drm/amd/amdgpu/sdma_v4_0.c
+@@ -1568,9 +1568,7 @@ static int sdma_v4_0_late_init(void *handle)
+ 	if (r)
+ 		goto interrupt;
+ 
+-	r = amdgpu_ras_debugfs_create(adev, &fs_info);
+-	if (r)
+-		goto debugfs;
++	amdgpu_ras_debugfs_create(adev, &fs_info);
+ 
+ 	r = amdgpu_ras_sysfs_create(adev, &fs_info);
+ 	if (r)
+@@ -1591,7 +1589,6 @@ static int sdma_v4_0_late_init(void *handle)
+ 	amdgpu_ras_sysfs_remove(adev, *ras_if);
+ sysfs:
+ 	amdgpu_ras_debugfs_remove(adev, *ras_if);
+-debugfs:
+ 	amdgpu_ras_interrupt_remove_handler(adev, &ih_info);
+ interrupt:
+ 	amdgpu_ras_feature_enable(adev, *ras_if, 0);
+-- 
+2.17.1
+

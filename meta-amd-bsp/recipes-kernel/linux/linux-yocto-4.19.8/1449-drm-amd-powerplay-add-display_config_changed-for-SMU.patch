@@ -1,0 +1,71 @@
+From 8841cbb711eaa7b8ece13e201426b6ec4a932c87 Mon Sep 17 00:00:00 2001
+From: Chengming Gui <Jack.Gui@amd.com>
+Date: Thu, 17 Jan 2019 18:45:16 +0800
+Subject: [PATCH 1449/2940] drm/amd/powerplay: add display_config_changed for
+ SMU11.
+
+add display_config_changed to support sys interface for SMU11.
+
+Signed-off-by: Chengming Gui <Jack.Gui@amd.com>
+Reviewed-by: Huang Rui <ray.huang@amd.com>
+Acked-by: Alex Deucher <alexander.deucher@amd.com>
+---
+ drivers/gpu/drm/amd/powerplay/vega20_ppt.c | 42 ++++++++++++++++++++++
+ 1 file changed, 42 insertions(+)
+
+diff --git a/drivers/gpu/drm/amd/powerplay/vega20_ppt.c b/drivers/gpu/drm/amd/powerplay/vega20_ppt.c
+index 1908b91f22c6..0b13c9319fa9 100644
+--- a/drivers/gpu/drm/amd/powerplay/vega20_ppt.c
++++ b/drivers/gpu/drm/amd/powerplay/vega20_ppt.c
+@@ -1376,6 +1376,48 @@ vega20_set_uclk_to_highest_dpm_level(struct smu_context *smu,
+ 	return ret;
+ }
+ 
++static int vega20_display_config_changed(struct smu_context *smu)
++{
++	int ret = 0;
++	struct vega20_dpm_table *dpm_table = smu->smu_dpm.dpm_context;
++
++	if (!smu->funcs)
++		return -EINVAL;
++
++	if (!smu->smu_dpm.dpm_context ||
++	    !smu->smu_table.tables ||
++	    !smu->smu_table.tables[TABLE_WATERMARKS].cpu_addr)
++		return -EINVAL;
++
++	smu_send_smc_msg_with_param(smu, SMU_MSG_NumOfDisplays, 0);
++	ret = vega20_set_uclk_to_highest_dpm_level(smu,
++						   &dpm_table->mem_table);
++	if (ret) {
++		pr_err("Failed to set uclk to highest dpm level");
++		return ret;
++	}
++
++	if ((smu->watermarks_bitmap & WATERMARKS_EXIST) &&
++	    !(smu->watermarks_bitmap & WATERMARKS_LOADED)) {
++		ret = smu->funcs->write_watermarks_table(smu);
++		if (ret) {
++			pr_err("Failed to update WMTABLE!");
++			return ret;
++		}
++		smu->watermarks_bitmap |= WATERMARKS_LOADED;
++	}
++
++	if ((smu->watermarks_bitmap & WATERMARKS_EXIST) &&
++	    smu_feature_is_supported(smu, FEATURE_DPM_DCEFCLK_BIT) &&
++	    smu_feature_is_supported(smu, FEATURE_DPM_SOCCLK_BIT)) {
++		smu_send_smc_msg_with_param(smu,
++					    SMU_MSG_NumOfDisplays,
++					    smu->display_config->num_display);
++	}
++
++	return ret;
++}
++
+ static const struct pptable_funcs vega20_ppt_funcs = {
+ 	.alloc_dpm_context = vega20_allocate_dpm_context,
+ 	.store_powerplay_table = vega20_store_powerplay_table,
+-- 
+2.17.1
+

@@ -1,0 +1,72 @@
+From d17dfe20a763a17085776892f3f57e0953d9e99f Mon Sep 17 00:00:00 2001
+From: Evan Quan <evan.quan@amd.com>
+Date: Fri, 19 Apr 2019 13:54:46 +0800
+Subject: [PATCH 1853/2940] drm/amd/powerplay: expose Vega20 realtime memory
+ utilization
+
+Enable realtime memory utilization report on Vega20.
+
+Change-Id: I302f7594000a1ad609d71563d8ab3872f37bfb8d
+Signed-off-by: Evan Quan <evan.quan@amd.com>
+Reviewed-by: Alex Deucher <alexander.deucher@amd.com>
+---
+ drivers/gpu/drm/amd/include/kgd_pp_interface.h   |  1 +
+ .../gpu/drm/amd/powerplay/hwmgr/vega20_hwmgr.c   | 16 ++++++++++++++--
+ 2 files changed, 15 insertions(+), 2 deletions(-)
+
+diff --git a/drivers/gpu/drm/amd/include/kgd_pp_interface.h b/drivers/gpu/drm/amd/include/kgd_pp_interface.h
+index 30788d510576..9f661bf96ed0 100644
+--- a/drivers/gpu/drm/amd/include/kgd_pp_interface.h
++++ b/drivers/gpu/drm/amd/include/kgd_pp_interface.h
+@@ -109,6 +109,7 @@ enum amd_pp_sensors {
+ 	AMDGPU_PP_SENSOR_UVD_DCLK,
+ 	AMDGPU_PP_SENSOR_VCE_ECCLK,
+ 	AMDGPU_PP_SENSOR_GPU_LOAD,
++	AMDGPU_PP_SENSOR_MEM_LOAD,
+ 	AMDGPU_PP_SENSOR_GFX_MCLK,
+ 	AMDGPU_PP_SENSOR_GPU_TEMP,
+ 	AMDGPU_PP_SENSOR_EDGE_TEMP = AMDGPU_PP_SENSOR_GPU_TEMP,
+diff --git a/drivers/gpu/drm/amd/powerplay/hwmgr/vega20_hwmgr.c b/drivers/gpu/drm/amd/powerplay/hwmgr/vega20_hwmgr.c
+index 91e26f8b3758..eb7002401587 100644
+--- a/drivers/gpu/drm/amd/powerplay/hwmgr/vega20_hwmgr.c
++++ b/drivers/gpu/drm/amd/powerplay/hwmgr/vega20_hwmgr.c
+@@ -2094,6 +2094,7 @@ static int vega20_get_current_clk_freq(struct pp_hwmgr *hwmgr,
+ }
+ 
+ static int vega20_get_current_activity_percent(struct pp_hwmgr *hwmgr,
++		int idx,
+ 		uint32_t *activity_percent)
+ {
+ 	int ret = 0;
+@@ -2103,7 +2104,17 @@ static int vega20_get_current_activity_percent(struct pp_hwmgr *hwmgr,
+ 	if (ret)
+ 		return ret;
+ 
+-	*activity_percent = metrics_table.AverageGfxActivity;
++	switch (idx) {
++	case AMDGPU_PP_SENSOR_GPU_LOAD:
++		*activity_percent = metrics_table.AverageGfxActivity;
++		break;
++	case AMDGPU_PP_SENSOR_MEM_LOAD:
++		*activity_percent = metrics_table.AverageUclkActivity;
++		break;
++	default:
++		pr_err("Invalid index for retrieving clock activity\n");
++		return -EINVAL;
++	}
+ 
+ 	return ret;
+ }
+@@ -2134,7 +2145,8 @@ static int vega20_read_sensor(struct pp_hwmgr *hwmgr, int idx,
+ 			*size = 4;
+ 		break;
+ 	case AMDGPU_PP_SENSOR_GPU_LOAD:
+-		ret = vega20_get_current_activity_percent(hwmgr, (uint32_t *)value);
++	case AMDGPU_PP_SENSOR_MEM_LOAD:
++		ret = vega20_get_current_activity_percent(hwmgr, idx, (uint32_t *)value);
+ 		if (!ret)
+ 			*size = 4;
+ 		break;
+-- 
+2.17.1
+

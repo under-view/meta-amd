@@ -1,0 +1,234 @@
+From 0b23d9a3626411e6436c830e26c9b2980f5e9e5f Mon Sep 17 00:00:00 2001
+From: Yongqiang Sun <yongqiang.sun@amd.com>
+Date: Thu, 24 Jan 2019 15:59:22 -0500
+Subject: [PATCH 1219/2940] drm/amd/display: Calc vline position in dc.
+
+We need to calcualte vline position in DC for DCN.
+
+Change-Id: I1632f1d2c597e842f575e0b2979f443ac6d3ffcc
+Signed-off-by: Yongqiang Sun <yongqiang.sun@amd.com>
+Reviewed-by: Tony Cheng <Tony.Cheng@amd.com>
+Acked-by: Bhawanpreet Lakha <Bhawanpreet.Lakha@amd.com>
+---
+ drivers/gpu/drm/amd/display/dc/core/dc.c      |  8 +-
+ drivers/gpu/drm/amd/display/dc/dc_stream.h    | 15 ++--
+ .../gpu/drm/amd/display/dc/dcn10/dcn10_optc.c | 80 ++++++++++++++++++-
+ .../gpu/drm/amd/display/dc/dcn10/dcn10_optc.h |  6 +-
+ .../amd/display/dc/inc/hw/timing_generator.h  |  8 +-
+ 5 files changed, 97 insertions(+), 20 deletions(-)
+
+diff --git a/drivers/gpu/drm/amd/display/dc/core/dc.c b/drivers/gpu/drm/amd/display/dc/core/dc.c
+index e34ab8185555..7d79b8ed5702 100644
+--- a/drivers/gpu/drm/amd/display/dc/core/dc.c
++++ b/drivers/gpu/drm/amd/display/dc/core/dc.c
+@@ -1572,13 +1572,13 @@ static void commit_planes_do_stream_update(struct dc *dc,
+ 					stream_update->adjust->v_total_min,
+ 					stream_update->adjust->v_total_max);
+ 
+-			if (stream_update->vline0_config && pipe_ctx->stream_res.tg->funcs->program_vline_interrupt)
++			if (stream_update->periodic_vsync_config && pipe_ctx->stream_res.tg->funcs->program_vline_interrupt)
+ 				pipe_ctx->stream_res.tg->funcs->program_vline_interrupt(
+-					pipe_ctx->stream_res.tg, VLINE0, &stream->vline0_config);
++					pipe_ctx->stream_res.tg, &pipe_ctx->stream->timing, VLINE0, &stream->periodic_vsync_config);
+ 
+-			if (stream_update->vline1_config && pipe_ctx->stream_res.tg->funcs->program_vline_interrupt)
++			if (stream_update->enhanced_sync_config && pipe_ctx->stream_res.tg->funcs->program_vline_interrupt)
+ 				pipe_ctx->stream_res.tg->funcs->program_vline_interrupt(
+-					pipe_ctx->stream_res.tg, VLINE1, &stream->vline1_config);
++					pipe_ctx->stream_res.tg, &pipe_ctx->stream->timing, VLINE1, &stream->enhanced_sync_config);
+ 
+ 			if ((stream_update->hdr_static_metadata && !stream->use_dynamic_meta) ||
+ 					stream_update->vrr_infopacket ||
+diff --git a/drivers/gpu/drm/amd/display/dc/dc_stream.h b/drivers/gpu/drm/amd/display/dc/dc_stream.h
+index 2d1f2825de09..90f019eb54b3 100644
+--- a/drivers/gpu/drm/amd/display/dc/dc_stream.h
++++ b/drivers/gpu/drm/amd/display/dc/dc_stream.h
+@@ -51,11 +51,12 @@ struct freesync_context {
+ 	bool dummy;
+ };
+ 
+-struct vline_config {
+-	unsigned int start_line;
+-	unsigned int end_line;
++union vline_config {
++	unsigned int line_number;
++	unsigned long long delta_in_ns;
+ };
+ 
++
+ struct dc_stream_state {
+ 	// sink is deprecated, new code should not reference
+ 	// this pointer
+@@ -105,8 +106,8 @@ struct dc_stream_state {
+ 	/* DMCU info */
+ 	unsigned int abm_level;
+ 
+-	struct vline_config vline0_config;
+-	struct vline_config vline1_config;
++	union vline_config periodic_vsync_config;
++	union vline_config enhanced_sync_config;
+ 
+ 	/* from core_stream struct */
+ 	struct dc_context *ctx;
+@@ -155,8 +156,8 @@ struct dc_stream_update {
+ 	struct dc_info_packet *hdr_static_metadata;
+ 	unsigned int *abm_level;
+ 
+-	struct vline_config *vline0_config;
+-	struct vline_config *vline1_config;
++	union vline_config *periodic_vsync_config;
++	union vline_config *enhanced_sync_config;
+ 
+ 	struct dc_crtc_timing_adjust *adjust;
+ 	struct dc_info_packet *vrr_infopacket;
+diff --git a/drivers/gpu/drm/amd/display/dc/dcn10/dcn10_optc.c b/drivers/gpu/drm/amd/display/dc/dcn10/dcn10_optc.c
+index cefa322df8a6..0355dcb8554a 100644
+--- a/drivers/gpu/drm/amd/display/dc/dcn10/dcn10_optc.c
++++ b/drivers/gpu/drm/amd/display/dc/dcn10/dcn10_optc.c
+@@ -92,22 +92,94 @@ static void optc1_disable_stereo(struct timing_generator *optc)
+ 		OTG_3D_STRUCTURE_STEREO_SEL_OVR, 0);
+ }
+ 
++static uint32_t get_start_vline(struct timing_generator *optc, const struct dc_crtc_timing *dc_crtc_timing)
++{
++	struct dc_crtc_timing patched_crtc_timing;
++	int vesa_sync_start;
++	int asic_blank_end;
++	int interlace_factor;
++	int vertical_line_start;
++
++	patched_crtc_timing = *dc_crtc_timing;
++	optc1_apply_front_porch_workaround(optc, &patched_crtc_timing);
++
++	vesa_sync_start = patched_crtc_timing.h_addressable +
++			patched_crtc_timing.h_border_right +
++			patched_crtc_timing.h_front_porch;
++
++	asic_blank_end = patched_crtc_timing.h_total -
++			vesa_sync_start -
++			patched_crtc_timing.h_border_left;
++
++	interlace_factor = patched_crtc_timing.flags.INTERLACE ? 2 : 1;
++
++	vesa_sync_start = patched_crtc_timing.v_addressable +
++			patched_crtc_timing.v_border_bottom +
++			patched_crtc_timing.v_front_porch;
++
++	asic_blank_end = (patched_crtc_timing.v_total -
++			vesa_sync_start -
++			patched_crtc_timing.v_border_top)
++			* interlace_factor;
++
++	vertical_line_start = asic_blank_end - optc->dlg_otg_param.vstartup_start + 1;
++	if (vertical_line_start < 0) {
++		ASSERT(0);
++		vertical_line_start = 0;
++	}
++
++	return vertical_line_start;
++}
++
++static void calc_vline_position(
++		struct timing_generator *optc,
++		const struct dc_crtc_timing *dc_crtc_timing,
++		unsigned long long vsync_delta,
++		uint32_t *start_line,
++		uint32_t *end_line)
++{
++	unsigned long long req_delta_tens_of_usec = div64_u64((vsync_delta + 9999), 10000);
++	unsigned long long pix_clk_hundreds_khz = div64_u64((dc_crtc_timing->pix_clk_100hz + 999), 1000);
++	uint32_t req_delta_lines = (uint32_t) div64_u64(
++			(req_delta_tens_of_usec * pix_clk_hundreds_khz + dc_crtc_timing->h_total - 1),
++								dc_crtc_timing->h_total);
++
++	uint32_t vsync_line = get_start_vline(optc, dc_crtc_timing);
++
++	if (req_delta_lines != 0)
++			req_delta_lines--;
++
++		if (req_delta_lines > vsync_line)
++			*start_line = dc_crtc_timing->v_total - (req_delta_lines - vsync_line) - 1;
++		else
++			*start_line = vsync_line - req_delta_lines;
++
++		*end_line = *start_line + 2;
++
++		if (*end_line >= dc_crtc_timing->v_total)
++			*end_line = 2;
++}
++
+ void optc1_program_vline_interrupt(
+ 		struct timing_generator *optc,
++		const struct dc_crtc_timing *dc_crtc_timing,
+ 		enum vline_select vline,
+-		const struct vline_config *vline_config)
++		const union vline_config *vline_config)
+ {
+ 	struct optc *optc1 = DCN10TG_FROM_TG(optc);
++	uint32_t start_line = 0;
++	uint32_t end_line = 0;
+ 
+ 	switch (vline) {
+ 	case VLINE0:
++		calc_vline_position(optc, dc_crtc_timing, vline_config->delta_in_ns, &start_line, &end_line);
+ 		REG_SET_2(OTG_VERTICAL_INTERRUPT0_POSITION, 0,
+-				OTG_VERTICAL_INTERRUPT0_LINE_START, vline_config->start_line,
+-				OTG_VERTICAL_INTERRUPT0_LINE_END, vline_config->end_line);
++				OTG_VERTICAL_INTERRUPT0_LINE_START, start_line,
++				OTG_VERTICAL_INTERRUPT0_LINE_END, end_line);
+ 		break;
+ 	case VLINE1:
+ 		REG_SET(OTG_VERTICAL_INTERRUPT1_POSITION, 0,
+-					OTG_VERTICAL_INTERRUPT1_LINE_START, vline_config->start_line);
++					OTG_VERTICAL_INTERRUPT1_LINE_START, vline_config->line_number);
+ 		break;
+ 	default:
+ 		break;
+diff --git a/drivers/gpu/drm/amd/display/dc/dcn10/dcn10_optc.h b/drivers/gpu/drm/amd/display/dc/dcn10/dcn10_optc.h
+index b34c8a240598..8a4e3e37e894 100644
+--- a/drivers/gpu/drm/amd/display/dc/dcn10/dcn10_optc.h
++++ b/drivers/gpu/drm/amd/display/dc/dcn10/dcn10_optc.h
+@@ -483,9 +483,11 @@ void optc1_program_timing(
+ 	const struct dc_crtc_timing *dc_crtc_timing,
+ 	bool use_vbios);
+ 
+-void optc1_program_vline_interrupt(struct timing_generator *optc,
++void optc1_program_vline_interrupt(
++		struct timing_generator *optc,
++		const struct dc_crtc_timing *dc_crtc_timing,
+ 		enum vline_select vline,
+-		const struct vline_config *vline_config);
++		const union vline_config *vline_config);
+ 
+ void optc1_program_global_sync(
+ 		struct timing_generator *optc);
+diff --git a/drivers/gpu/drm/amd/display/dc/inc/hw/timing_generator.h b/drivers/gpu/drm/amd/display/dc/inc/hw/timing_generator.h
+index d22a406c19c0..39fec0186c10 100644
+--- a/drivers/gpu/drm/amd/display/dc/inc/hw/timing_generator.h
++++ b/drivers/gpu/drm/amd/display/dc/inc/hw/timing_generator.h
+@@ -134,7 +134,7 @@ struct dc_crtc_timing;
+ 
+ struct drr_params;
+ 
+-struct vline_config;
++union vline_config;
+ 
+ 
+ enum vline_select {
+@@ -149,9 +149,11 @@ struct timing_generator_funcs {
+ 	void (*program_timing)(struct timing_generator *tg,
+ 							const struct dc_crtc_timing *timing,
+ 							bool use_vbios);
+-	void (*program_vline_interrupt)(struct timing_generator *optc,
++	void (*program_vline_interrupt)(
++			struct timing_generator *optc,
++			const struct dc_crtc_timing *dc_crtc_timing,
+ 			enum vline_select vline,
+-			const struct vline_config *vline_config);
++			const union vline_config *vline_config);
+ 	bool (*enable_crtc)(struct timing_generator *tg);
+ 	bool (*disable_crtc)(struct timing_generator *tg);
+ 	bool (*is_counter_moving)(struct timing_generator *tg);
+-- 
+2.17.1
+

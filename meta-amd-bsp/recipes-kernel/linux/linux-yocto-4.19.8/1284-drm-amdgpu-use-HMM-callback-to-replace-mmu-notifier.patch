@@ -1,0 +1,373 @@
+From cafbfb50faacc7d8fd4d2c07777111d4af369150 Mon Sep 17 00:00:00 2001
+From: Philip Yang <Philip.Yang@amd.com>
+Date: Mon, 23 Jul 2018 17:45:46 -0400
+Subject: [PATCH 1284/2940] drm/amdgpu: use HMM callback to replace mmu
+ notifier
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+Replace our MMU notifier with hmm_mirror_ops.sync_cpu_device_pagetables
+callback. Enable CONFIG_HMM and CONFIG_HMM_MIRROR as a dependency in
+DRM_AMDGPU_USERPTR Kconfig.
+
+It supports both KFD userptr and gfx userptr paths.
+
+Change-Id: I98e9a01eb6cb359eb797377adb69f8cff0b50a27
+Signed-off-by: Philip Yang <Philip.Yang@amd.com>
+Reviewed-by: Felix Kuehling <Felix.Kuehling@amd.com>
+Reviewed-by: Christian König <christian.koenig@amd.com>
+Signed-off-by: Chaudhary Amit Kumar <Chaudharyamit.Kumar@amd.com>
+---
+ drivers/gpu/drm/amd/amdgpu/Kconfig     |   6 +-
+ drivers/gpu/drm/amd/amdgpu/Makefile    |   2 +-
+ drivers/gpu/drm/amd/amdgpu/amdgpu_mn.c | 126 +++++++++++--------------
+ drivers/gpu/drm/amd/amdgpu/amdgpu_mn.h |   2 +-
+ 4 files changed, 62 insertions(+), 74 deletions(-)
+
+diff --git a/drivers/gpu/drm/amd/amdgpu/Kconfig b/drivers/gpu/drm/amd/amdgpu/Kconfig
+index 468a19bfd3d2..16f08654f59b 100644
+--- a/drivers/gpu/drm/amd/amdgpu/Kconfig
++++ b/drivers/gpu/drm/amd/amdgpu/Kconfig
+@@ -26,10 +26,10 @@ config DRM_AMDGPU_CIK
+ config DRM_AMDGPU_USERPTR
+ 	bool "Always enable userptr write support"
+ 	depends on DRM_AMDGPU
+-	select MMU_NOTIFIER
++	select HMM_MIRROR
+ 	help
+-	  This option selects CONFIG_MMU_NOTIFIER if it isn't already
+-	  selected to enabled full userptr support.
++	  This option selects CONFIG_HMM and CONFIG_HMM_MIRROR if it
++	  isn't already selected to enabled full userptr support.
+ 
+ config DRM_AMDGPU_GART_DEBUGFS
+ 	bool "Allow GART access through debugfs"
+diff --git a/drivers/gpu/drm/amd/amdgpu/Makefile b/drivers/gpu/drm/amd/amdgpu/Makefile
+index 33dfaf72d857..4958684d5737 100644
+--- a/drivers/gpu/drm/amd/amdgpu/Makefile
++++ b/drivers/gpu/drm/amd/amdgpu/Makefile
+@@ -168,7 +168,7 @@ endif
+ amdgpu-$(CONFIG_COMPAT) += amdgpu_ioc32.o
+ amdgpu-$(CONFIG_VGA_SWITCHEROO) += amdgpu_atpx_handler.o
+ amdgpu-$(CONFIG_ACPI) += amdgpu_acpi.o
+-amdgpu-$(CONFIG_MMU_NOTIFIER) += amdgpu_mn.o
++amdgpu-$(CONFIG_HMM_MIRROR) += amdgpu_mn.o
+ 
+ include $(FULL_AMD_PATH)/powerplay/Makefile
+ 
+diff --git a/drivers/gpu/drm/amd/amdgpu/amdgpu_mn.c b/drivers/gpu/drm/amd/amdgpu/amdgpu_mn.c
+index 2b59351869d1..090b5793daef 100644
+--- a/drivers/gpu/drm/amd/amdgpu/amdgpu_mn.c
++++ b/drivers/gpu/drm/amd/amdgpu/amdgpu_mn.c
+@@ -45,7 +45,7 @@
+ 
+ #include <linux/firmware.h>
+ #include <linux/module.h>
+-#include <linux/mmu_notifier.h>
++#include <linux/hmm.h>
+ #include <linux/interval_tree.h>
+ #include <drm/drmP.h>
+ #include <drm/drm.h>
+@@ -58,14 +58,12 @@
+  *
+  * @adev: amdgpu device pointer
+  * @mm: process address space
+- * @mn: MMU notifier structure
+  * @type: type of MMU notifier
+  * @work: destruction work item
+  * @node: hash table node to find structure by adev and mn
+  * @lock: rw semaphore protecting the notifier nodes
+  * @objects: interval tree containing amdgpu_mn_nodes
+- * @read_lock: mutex for recursive locking of @lock
+- * @recursion: depth of recursion
++ * @mirror: HMM mirror function support
+  *
+  * Data for each amdgpu device and process address space.
+  */
+@@ -73,7 +71,6 @@ struct amdgpu_mn {
+ 	/* constant after initialisation */
+ 	struct amdgpu_device	*adev;
+ 	struct mm_struct	*mm;
+-	struct mmu_notifier	mn;
+ 	enum amdgpu_mn_type	type;
+ 
+ 	/* only used on destruction */
+@@ -85,8 +82,9 @@ struct amdgpu_mn {
+ 	/* objects protected by lock */
+ 	struct rw_semaphore	lock;
+ 	struct rb_root_cached	objects;
+-	struct mutex		read_lock;
+-	atomic_t		recursion;
++
++	/* HMM mirror */
++	struct hmm_mirror	mirror;
+ };
+ 
+ /**
+@@ -103,7 +101,7 @@ struct amdgpu_mn_node {
+ };
+ 
+ /**
+- * amdgpu_mn_destroy - destroy the MMU notifier
++ * amdgpu_mn_destroy - destroy the HMM mirror
+  *
+  * @work: previously sheduled work item
+  *
+@@ -129,28 +127,26 @@ static void amdgpu_mn_destroy(struct work_struct *work)
+ 	}
+ 	up_write(&amn->lock);
+ 	mutex_unlock(&adev->mn_lock);
+-	mmu_notifier_unregister_no_release(&amn->mn, amn->mm);
++
++	hmm_mirror_unregister(&amn->mirror);
+ 	kfree(amn);
+ }
+ 
+ /**
+- * amdgpu_mn_release - callback to notify about mm destruction
++ * amdgpu_hmm_mirror_release - callback to notify about mm destruction
+  *
+- * @mn: our notifier
+- * @mm: the mm this callback is about
++ * @mirror: the HMM mirror (mm) this callback is about
+  *
+- * Shedule a work item to lazy destroy our notifier.
++ * Shedule a work item to lazy destroy HMM mirror.
+  */
+-static void amdgpu_mn_release(struct mmu_notifier *mn,
+-			      struct mm_struct *mm)
++static void amdgpu_hmm_mirror_release(struct hmm_mirror *mirror)
+ {
+-	struct amdgpu_mn *amn = container_of(mn, struct amdgpu_mn, mn);
++	struct amdgpu_mn *amn = container_of(mirror, struct amdgpu_mn, mirror);
+ 
+ 	INIT_WORK(&amn->work, amdgpu_mn_destroy);
+ 	schedule_work(&amn->work);
+ }
+ 
+-
+ /**
+  * amdgpu_mn_lock - take the write side lock for this notifier
+  *
+@@ -181,14 +177,10 @@ void amdgpu_mn_unlock(struct amdgpu_mn *mn)
+ static int amdgpu_mn_read_lock(struct amdgpu_mn *amn, bool blockable)
+ {
+ 	if (blockable)
+-		mutex_lock(&amn->read_lock);
+-	else if (!mutex_trylock(&amn->read_lock))
++		down_read(&amn->lock);
++	else if (!down_read_trylock(&amn->lock))
+ 		return -EAGAIN;
+ 
+-	if (atomic_inc_return(&amn->recursion) == 1)
+-		down_read_non_owner(&amn->lock);
+-	mutex_unlock(&amn->read_lock);
+-
+ 	return 0;
+ }
+ 
+@@ -199,8 +191,7 @@ static int amdgpu_mn_read_lock(struct amdgpu_mn *amn, bool blockable)
+  */
+ static void amdgpu_mn_read_unlock(struct amdgpu_mn *amn)
+ {
+-	if (atomic_dec_return(&amn->recursion) == 0)
+-		up_read_non_owner(&amn->lock);
++	up_read(&amn->lock);
+ }
+ 
+ /**
+@@ -235,23 +226,21 @@ static void amdgpu_mn_invalidate_node(struct amdgpu_mn_node *node,
+ }
+ 
+ /**
+- * amdgpu_mn_invalidate_range_start_gfx - callback to notify about mm change
++ * amdgpu_mn_sync_pagetables_gfx - callback to notify about mm change
+  *
+- * @mn: our notifier
+- * @mm: the mm this callback is about
+- * @start: start of updated range
+- * @end: end of updated range
++ * @mirror: the hmm_mirror (mm) is about to update
++ * @update: the update start, end address
+  *
+  * Block for operations on BOs to finish and mark pages as accessed and
+  * potentially dirty.
+  */
+-static int amdgpu_mn_invalidate_range_start_gfx(struct mmu_notifier *mn,
+-						 struct mm_struct *mm,
+-						 unsigned long start,
+-						 unsigned long end,
+-						 bool blockable)
++static int amdgpu_mn_sync_pagetables_gfx(struct hmm_mirror *mirror,
++                        const struct hmm_update *update)
+ {
+-	struct amdgpu_mn *amn = container_of(mn, struct amdgpu_mn, mn);
++        struct amdgpu_mn *amn = container_of(mirror, struct amdgpu_mn, mirror);
++        unsigned long start = update->start;
++        unsigned long end = update->end;
++        bool blockable = update->blockable;
+ 	struct interval_tree_node *it;
+ 
+ 	/* notification is exclusive, but interval is inclusive */
+@@ -277,6 +266,7 @@ static int amdgpu_mn_invalidate_range_start_gfx(struct mmu_notifier *mn,
+ 
+ 		amdgpu_mn_invalidate_node(node, start, end);
+ 	}
++	amdgpu_mn_read_unlock(amn);
+ 
+ 	return 0;
+ }
+@@ -302,24 +292,22 @@ static void amdgpu_mn_invalidate_range_end_gfx(struct mmu_notifier *mn,
+ }
+ 
+ /**
+- * amdgpu_mn_invalidate_range_start_hsa - callback to notify about mm change
++ * amdgpu_mn_sync_pagetables_hsa - callback to notify about mm change
+  *
+- * @mn: our notifier
+- * @mm: the mm this callback is about
+- * @start: start of updated range
+- * @end: end of updated range
++ * @mirror: the hmm_mirror (mm) is about to update
++ * @update: the update start, end address
+  *
+  * We temporarily evict all BOs between start and end. This
+  * necessitates evicting all user-mode queues of the process. The BOs
+  * are restorted in amdgpu_mn_invalidate_range_end_hsa.
+  */
+-static int amdgpu_mn_invalidate_range_start_hsa(struct mmu_notifier *mn,
+-						 struct mm_struct *mm,
+-						 unsigned long start,
+-						 unsigned long end,
+-						 bool blockable)
++static int amdgpu_mn_sync_pagetables_hsa(struct hmm_mirror *mirror,
++                        const struct hmm_update *update)
+ {
+-	struct amdgpu_mn *amn = container_of(mn, struct amdgpu_mn, mn);
++        struct amdgpu_mn *amn = container_of(mirror, struct amdgpu_mn, mirror);
++        unsigned long start = update->start;
++        unsigned long end = update->end;
++        bool blockable = update->blockable;
+ 	struct interval_tree_node *it;
+ 
+ 	/* notification is exclusive, but interval is inclusive */
+@@ -346,13 +334,22 @@ static int amdgpu_mn_invalidate_range_start_hsa(struct mmu_notifier *mn,
+ 
+ 			if (amdgpu_ttm_tt_affect_userptr(bo->tbo.ttm,
+ 							 start, end))
+-				amdgpu_amdkfd_evict_userptr(mem, mm);
++				amdgpu_amdkfd_evict_userptr(mem, amn->mm);
+ 		}
+ 	}
++	amdgpu_mn_read_unlock(amn);
+ 
+ 	return 0;
+ }
+ 
++/*
++ * Low bits of any reasonable mm pointer will be unused due to struct
++ * alignment. Use these bits to make a unique key from the mm pointer
++ * and notifier type.
++ */
++
++#define AMDGPU_MN_KEY(mm, type) ((unsigned long)(mm) + (type))
++
+ static void amdgpu_mn_invalidate_range_end_hsa(struct mmu_notifier *mn,
+ 						struct mm_struct *mm,
+ 						unsigned long start,
+@@ -363,32 +360,25 @@ static void amdgpu_mn_invalidate_range_end_hsa(struct mmu_notifier *mn,
+ 	amdgpu_mn_read_unlock(amn);
+ }
+ 
+-static const struct mmu_notifier_ops amdgpu_mn_ops[] = {
++static struct hmm_mirror_ops amdgpu_hmm_mirror_ops[] = {
+ 	[AMDGPU_MN_TYPE_GFX] = {
+-		.release = amdgpu_mn_release,
+-		.invalidate_range_start = amdgpu_mn_invalidate_range_start_gfx,
+-		.invalidate_range_end = amdgpu_mn_invalidate_range_end_gfx,
++		.sync_cpu_device_pagetables = amdgpu_mn_sync_pagetables_gfx,
++		.release = amdgpu_hmm_mirror_release
+ 	},
+ 	[AMDGPU_MN_TYPE_HSA] = {
+-		.release = amdgpu_mn_release,
+-		.invalidate_range_start = amdgpu_mn_invalidate_range_start_hsa,
+-		.invalidate_range_end = amdgpu_mn_invalidate_range_end_hsa,
++		.sync_cpu_device_pagetables = amdgpu_mn_sync_pagetables_hsa,
++		.release = amdgpu_hmm_mirror_release
+ 	},
+ };
+ 
+-/* Low bits of any reasonable mm pointer will be unused due to struct
+- * alignment. Use these bits to make a unique key from the mm pointer
+- * and notifier type.
+- */
+-#define AMDGPU_MN_KEY(mm, type) ((unsigned long)(mm) + (type))
+ 
+ /**
+- * amdgpu_mn_get - create notifier context
++ * amdgpu_mn_get - create HMM mirror context 
+  *
+  * @adev: amdgpu device pointer
+  * @type: type of MMU notifier context
+  *
+- * Creates a notifier context for current->mm.
++ * Creates a HMM mirror context for current->mm.
+  */
+ struct amdgpu_mn *amdgpu_mn_get(struct amdgpu_device *adev,
+ 				enum amdgpu_mn_type type)
+@@ -417,13 +407,11 @@ struct amdgpu_mn *amdgpu_mn_get(struct amdgpu_device *adev,
+ 	amn->adev = adev;
+ 	amn->mm = mm;
+ 	amn->type = type;
+-	amn->mn.ops = &amdgpu_mn_ops[type];
+ 	init_rwsem(&amn->lock);
+ 	amn->objects = RB_ROOT_CACHED;
+-	mutex_init(&amn->read_lock);
+-	atomic_set(&amn->recursion, 0);
+ 
+-	r = __mmu_notifier_register(&amn->mn, mm);
++        amn->mirror.ops = &amdgpu_hmm_mirror_ops[type];
++        r = hmm_mirror_register(&amn->mirror, mm);
+ 	if (r)
+ 		goto free_amn;
+ 
+@@ -449,7 +437,7 @@ struct amdgpu_mn *amdgpu_mn_get(struct amdgpu_device *adev,
+  * @bo: amdgpu buffer object
+  * @addr: userptr addr we should monitor
+  *
+- * Registers an MMU notifier for the given BO at the specified address.
++ * Registers an HMM mirror for the given BO at the specified address.
+  * Returns 0 on success, -ERRNO if anything goes wrong.
+  */
+ int amdgpu_mn_register(struct amdgpu_bo *bo, unsigned long addr)
+@@ -505,11 +493,11 @@ int amdgpu_mn_register(struct amdgpu_bo *bo, unsigned long addr)
+ }
+ 
+ /**
+- * amdgpu_mn_unregister - unregister a BO for notifier updates
++ * amdgpu_mn_unregister - unregister a BO for HMM mirror updates
+  *
+  * @bo: amdgpu buffer object
+  *
+- * Remove any registration of MMU notifier updates from the buffer object.
++ * Remove any registration of HMM mirror updates from the buffer object.
+  */
+ void amdgpu_mn_unregister(struct amdgpu_bo *bo)
+ {
+diff --git a/drivers/gpu/drm/amd/amdgpu/amdgpu_mn.h b/drivers/gpu/drm/amd/amdgpu/amdgpu_mn.h
+index eb0f432f78fe..0a51fd00021c 100644
+--- a/drivers/gpu/drm/amd/amdgpu/amdgpu_mn.h
++++ b/drivers/gpu/drm/amd/amdgpu/amdgpu_mn.h
+@@ -34,7 +34,7 @@ enum amdgpu_mn_type {
+ 	AMDGPU_MN_TYPE_HSA,
+ };
+ 
+-#if defined(CONFIG_MMU_NOTIFIER)
++#if defined(CONFIG_HMM_MIRROR)
+ void amdgpu_mn_lock(struct amdgpu_mn *mn);
+ void amdgpu_mn_unlock(struct amdgpu_mn *mn);
+ struct amdgpu_mn *amdgpu_mn_get(struct amdgpu_device *adev,
+-- 
+2.17.1
+

@@ -1,0 +1,65 @@
+From cd1c88749ec44d035cd83319e549b84438b63ad4 Mon Sep 17 00:00:00 2001
+From: Ilya Bakoulin <Ilya.Bakoulin@amd.com>
+Date: Fri, 3 May 2019 12:59:35 -0400
+Subject: [PATCH 2548/2940] drm/amd/display: Drive-by fixes for
+ display_mode_vba
+
+Fixes for the following:
+- Incorrect pointer type (unsigned int instead of double)
+- Incorrect DSC number of slices setting
+
+Signed-off-by: Ilya Bakoulin <Ilya.Bakoulin@amd.com>
+Reviewed-by: Dmytro Laktyushkin <Dmytro.Laktyushkin@amd.com>
+Acked-by: Leo Li <sunpeng.li@amd.com>
+Signed-off-by: Alex Deucher <alexander.deucher@amd.com>
+---
+ drivers/gpu/drm/amd/display/dc/dml/display_mode_vba.c | 3 ---
+ drivers/gpu/drm/amd/display/dc/dml/display_mode_vba.h | 4 ++--
+ 2 files changed, 2 insertions(+), 5 deletions(-)
+
+diff --git a/drivers/gpu/drm/amd/display/dc/dml/display_mode_vba.c b/drivers/gpu/drm/amd/display/dc/dml/display_mode_vba.c
+index 4df885d17e69..a21608cd67ef 100644
+--- a/drivers/gpu/drm/amd/display/dc/dml/display_mode_vba.c
++++ b/drivers/gpu/drm/amd/display/dc/dml/display_mode_vba.c
+@@ -564,7 +564,6 @@ static void fetch_pipe_params(struct display_mode_lib *mode_lib)
+ 		if (src->is_hsplit) {
+ 			for (k = j + 1; k < mode_lib->vba.cache_num_pipes; ++k) {
+ 				display_pipe_source_params_st *src_k = &pipes[k].pipe.src;
+-				display_output_params_st *dout_k = &pipes[k].dout;
+ 
+ 				if (src_k->is_hsplit && !visited[k]
+ 						&& src->hsplit_grp == src_k->hsplit_grp) {
+@@ -579,8 +578,6 @@ static void fetch_pipe_params(struct display_mode_lib *mode_lib)
+ 						mode_lib->vba.ViewportHeight[mode_lib->vba.NumberOfActivePlanes] +=
+ 								src_k->viewport_height;
+ 
+-					mode_lib->vba.NumberOfDSCSlices[mode_lib->vba.NumberOfActivePlanes] +=
+-							dout_k->dsc_slices;
+ 					visited[k] = true;
+ 				}
+ 			}
+diff --git a/drivers/gpu/drm/amd/display/dc/dml/display_mode_vba.h b/drivers/gpu/drm/amd/display/dc/dml/display_mode_vba.h
+index 75028007095c..faf33e77e8d4 100644
+--- a/drivers/gpu/drm/amd/display/dc/dml/display_mode_vba.h
++++ b/drivers/gpu/drm/amd/display/dc/dml/display_mode_vba.h
+@@ -455,7 +455,7 @@ struct vba_vars_st {
+ 	double TotalNumberOfActiveOTG;
+ 	double FECOverhead;
+ 	double EffectiveFECOverhead;
+-	unsigned int Outbpp;
++	double Outbpp;
+ 	unsigned int OutbppDSC;
+ 	double TotalDSCUnitsRequired;
+ 	double bpp;
+@@ -538,7 +538,7 @@ struct vba_vars_st {
+ 	bool RequiresDSC[DC__VOLTAGE_STATES + 1][DC__NUM_DPP__MAX];
+ 	unsigned int NumberOfDSCSlice[DC__VOLTAGE_STATES + 1][DC__NUM_DPP__MAX];
+ 	double RequiresFEC[DC__VOLTAGE_STATES + 1][DC__NUM_DPP__MAX];
+-	unsigned int OutputBppPerState[DC__VOLTAGE_STATES + 1][DC__NUM_DPP__MAX];
++	double OutputBppPerState[DC__VOLTAGE_STATES + 1][DC__NUM_DPP__MAX];
+ 	double DSCDelayPerState[DC__VOLTAGE_STATES + 1][DC__NUM_DPP__MAX];
+ 	bool ViewportSizeSupport[DC__VOLTAGE_STATES + 1];
+ 	unsigned int Read256BlockHeightY[DC__NUM_DPP__MAX];
+-- 
+2.17.1
+

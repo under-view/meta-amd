@@ -1,0 +1,56 @@
+From 78068fe28afd299aa71bc6001bfe04e98fab4bb0 Mon Sep 17 00:00:00 2001
+From: Huang Rui <ray.huang@amd.com>
+Date: Sun, 31 Mar 2019 12:49:11 +0800
+Subject: [PATCH 2294/2940] drm/amd/powerplay: use the table size member in the
+ structure instead of getting directly
+
+This patch uses the table size member in the structure instead of getting
+directly, because the table is different in each asic.
+
+Signed-off-by: Huang Rui <ray.huang@amd.com>
+Reviewed-by: Kevin Wang <kevin1.wang@amd.com>
+Reviewed-by: Alex Deucher <alexander.deucher@amd.com>
+Reviewed-by: Hawking Zhang <Hawking.Zhang@amd.com>
+Signed-off-by: Alex Deucher <alexander.deucher@amd.com>
+---
+ drivers/gpu/drm/amd/powerplay/smu_v11_0.c | 6 ++++--
+ 1 file changed, 4 insertions(+), 2 deletions(-)
+
+diff --git a/drivers/gpu/drm/amd/powerplay/smu_v11_0.c b/drivers/gpu/drm/amd/powerplay/smu_v11_0.c
+index 3e114316f385..e193f63879ac 100644
+--- a/drivers/gpu/drm/amd/powerplay/smu_v11_0.c
++++ b/drivers/gpu/drm/amd/powerplay/smu_v11_0.c
+@@ -675,11 +675,12 @@ static int smu_v11_0_parse_pptable(struct smu_context *smu)
+ 	int ret;
+ 
+ 	struct smu_table_context *table_context = &smu->smu_table;
++	struct smu_table *table = &table_context->tables[SMU_TABLE_PPTABLE];
+ 
+ 	if (table_context->driver_pptable)
+ 		return -EINVAL;
+ 
+-	table_context->driver_pptable = kzalloc(sizeof(PPTable_t), GFP_KERNEL);
++	table_context->driver_pptable = kzalloc(table->size, GFP_KERNEL);
+ 
+ 	if (!table_context->driver_pptable)
+ 		return -ENOMEM;
+@@ -1649,6 +1650,7 @@ static int smu_v11_0_set_od8_default_settings(struct smu_context *smu,
+ 					      bool initialize)
+ {
+ 	struct smu_table_context *table_context = &smu->smu_table;
++	struct smu_table *table = &table_context->tables[SMU_TABLE_OVERDRIVE];
+ 	int ret;
+ 
+ 	/**
+@@ -1662,7 +1664,7 @@ static int smu_v11_0_set_od8_default_settings(struct smu_context *smu,
+ 		if (table_context->overdrive_table)
+ 			return -EINVAL;
+ 
+-		table_context->overdrive_table = kzalloc(sizeof(OverDriveTable_t), GFP_KERNEL);
++		table_context->overdrive_table = kzalloc(table->size, GFP_KERNEL);
+ 
+ 		if (!table_context->overdrive_table)
+ 			return -ENOMEM;
+-- 
+2.17.1
+

@@ -1,0 +1,35 @@
+From 002ee2c52d040a82382c8d798710d2aeddbc133f Mon Sep 17 00:00:00 2001
+From: Jordan Lazare <Jordan.Lazare@amd.com>
+Date: Mon, 27 May 2019 12:07:19 -0400
+Subject: [PATCH 2079/2940] drm/amd/display: Remove superflous error message
+
+[Why]
+VBios sometimes reports incorrect object type as encoder instead of
+connector
+
+[How]
+Change error message to debug message
+
+Signed-off-by: Jordan Lazare <Jordan.Lazare@amd.com>
+Reviewed-by: Harry Wentland <Harry.Wentland@amd.com>
+Acked-by: Bhawanpreet Lakha <Bhawanpreet.Lakha@amd.com>
+---
+ drivers/gpu/drm/amd/display/dc/core/dc_link.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/drivers/gpu/drm/amd/display/dc/core/dc_link.c b/drivers/gpu/drm/amd/display/dc/core/dc_link.c
+index 0cf2f6b8e03a..78ac91176686 100644
+--- a/drivers/gpu/drm/amd/display/dc/core/dc_link.c
++++ b/drivers/gpu/drm/amd/display/dc/core/dc_link.c
+@@ -1158,7 +1158,7 @@ static bool construct(
+ 	link->link_id = bios->funcs->get_connector_id(bios, init_params->connector_index);
+ 
+ 	if (link->link_id.type != OBJECT_TYPE_CONNECTOR) {
+-		dm_error("%s: Invalid Connector ObjectID from Adapter Service for connector index:%d! type %d expected %d\n",
++		dm_output_to_console("%s: Invalid Connector ObjectID from Adapter Service for connector index:%d! type %d expected %d\n",
+ 			 __func__, init_params->connector_index,
+ 			 link->link_id.type, OBJECT_TYPE_CONNECTOR);
+ 		goto create_fail;
+-- 
+2.17.1
+

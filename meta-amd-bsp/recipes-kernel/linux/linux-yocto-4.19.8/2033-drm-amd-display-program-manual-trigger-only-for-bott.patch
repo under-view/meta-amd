@@ -1,0 +1,49 @@
+From 1d0939e27d9e656b6ac24ebcaef35da3a474b9eb Mon Sep 17 00:00:00 2001
+From: Aric Cyr <aric.cyr@amd.com>
+Date: Thu, 16 May 2019 18:43:54 -0400
+Subject: [PATCH 2033/2940] drm/amd/display: program manual trigger only for
+ bottom most pipe
+
+[Why]
+We only want to manual trigger end-of-frame when the bottom-most
+pipe is flipped to prevent overlays from ending the frame too early.
+
+[How]
+Check that the manual trigger is only firing on bottom plane.
+
+Signed-off-by: Aric Cyr <aric.cyr@amd.com>
+Reviewed-by: Jun Lei <Jun.Lei@amd.com>
+Acked-by: Leo Li <sunpeng.li@amd.com>
+---
+ drivers/gpu/drm/amd/display/dc/core/dc.c | 14 +++++++-------
+ 1 file changed, 7 insertions(+), 7 deletions(-)
+
+diff --git a/drivers/gpu/drm/amd/display/dc/core/dc.c b/drivers/gpu/drm/amd/display/dc/core/dc.c
+index c7fd4047a516..0536e32e60b0 100644
+--- a/drivers/gpu/drm/amd/display/dc/core/dc.c
++++ b/drivers/gpu/drm/amd/display/dc/core/dc.c
+@@ -1792,14 +1792,14 @@ static void commit_planes_for_stream(struct dc *dc,
+ 		dc->hwss.pipe_control_lock(dc, top_pipe_to_program, false);
+ 	}
+ 
+-	// Fire manual trigger
+-	for (i = 0; i < dc->res_pool->pipe_count; i++) {
+-		struct pipe_ctx *pipe_ctx = &context->res_ctx.pipe_ctx[i];
++	// Fire manual trigger only when bottom plane is flipped
++	for (j = 0; j < dc->res_pool->pipe_count; j++) {
++		struct pipe_ctx *pipe_ctx = &context->res_ctx.pipe_ctx[j];
+ 
+-		if (pipe_ctx->top_pipe ||
+-			!pipe_ctx->stream ||
+-			pipe_ctx->stream != stream ||
+-			!srf_updates[i].flip_addr)
++		if (pipe_ctx->bottom_pipe ||
++				!pipe_ctx->stream ||
++				pipe_ctx->stream != stream ||
++				!pipe_ctx->plane_state->update_flags.bits.addr_update)
+ 			continue;
+ 
+ 		if (pipe_ctx->stream_res.tg->funcs->program_manual_trigger)
+-- 
+2.17.1
+

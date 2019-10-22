@@ -1,0 +1,35 @@
+From 47dfbfb879ae5a9c8bd24c34cebfe586b8cf7614 Mon Sep 17 00:00:00 2001
+From: Samuel Pitoiset <samuel.pitoiset@gmail.com>
+Date: Mon, 29 Oct 2018 12:23:06 +0100
+Subject: [PATCH 0714/2940] drm/amdgpu: print an error when the parser can't be
+ initialized
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+Similar to other error messages, might help for tracking down
+issues.
+
+Signed-off-by: Samuel Pitoiset <samuel.pitoiset@gmail.com>
+Reviewed-by: Christian König <christian.koenig@amd.com>
+Signed-off-by: Alex Deucher <alexander.deucher@amd.com>
+---
+ drivers/gpu/drm/amd/amdgpu/amdgpu_cs.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/drivers/gpu/drm/amd/amdgpu/amdgpu_cs.c b/drivers/gpu/drm/amd/amdgpu/amdgpu_cs.c
+index 6b740e4adf10..7bdc24c3f8ce 100644
+--- a/drivers/gpu/drm/amd/amdgpu/amdgpu_cs.c
++++ b/drivers/gpu/drm/amd/amdgpu/amdgpu_cs.c
+@@ -1288,7 +1288,7 @@ int amdgpu_cs_ioctl(struct drm_device *dev, void *data, struct drm_file *filp)
+ 
+ 	r = amdgpu_cs_parser_init(&parser, data);
+ 	if (r) {
+-		DRM_ERROR("Failed to initialize parser !\n");
++		DRM_ERROR("Failed to initialize parser %d!\n", r);
+ 		goto out;
+ 	}
+ 
+-- 
+2.17.1
+

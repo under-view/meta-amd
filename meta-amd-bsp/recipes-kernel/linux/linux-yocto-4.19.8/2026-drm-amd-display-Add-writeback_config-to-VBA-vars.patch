@@ -1,0 +1,33 @@
+From b0dc0ab10c2aa43175879c6b17681f7965a2ae94 Mon Sep 17 00:00:00 2001
+From: Ilya Bakoulin <Ilya.Bakoulin@amd.com>
+Date: Fri, 12 Apr 2019 16:47:08 -0400
+Subject: [PATCH 2026/2940] drm/amd/display: Add writeback_config to VBA vars
+
+Adding writeback_config enum to vba_vars_st, replacing old flag.
+Initialize to dm_normal.
+
+Signed-off-by: Ilya Bakoulin <Ilya.Bakoulin@amd.com>
+Reviewed-by: Charlene Liu <Charlene.Liu@amd.com>
+Acked-by: Leo Li <sunpeng.li@amd.com>
+---
+ drivers/gpu/drm/amd/display/dc/dml/display_mode_enums.h | 6 ++++++
+ 1 file changed, 6 insertions(+)
+
+diff --git a/drivers/gpu/drm/amd/display/dc/dml/display_mode_enums.h b/drivers/gpu/drm/amd/display/dc/dml/display_mode_enums.h
+index c59e582c1f40..174c414e0982 100644
+--- a/drivers/gpu/drm/amd/display/dc/dml/display_mode_enums.h
++++ b/drivers/gpu/drm/amd/display/dc/dml/display_mode_enums.h
+@@ -147,4 +147,10 @@ enum dm_validation_status {
+ 	DML_FAIL_V_RATIO_PREFETCH,
+ };
+ 
++enum writeback_config {
++	dm_normal,
++	dm_whole_buffer_for_single_stream_no_interleave,
++	dm_whole_buffer_for_single_stream_interleave,
++};
++
+ #endif
+-- 
+2.17.1
+

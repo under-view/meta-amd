@@ -1,0 +1,28 @@
+From 0ba3119a9e4ed2b85d8915b0c2cdc6c6ef9ecf38 Mon Sep 17 00:00:00 2001
+From: Brajeswar Ghosh <brajeswar.linux@gmail.com>
+Date: Thu, 22 Nov 2018 19:31:26 +0530
+Subject: [PATCH 0848/2940] drm/amd/display: Remove duplicate header
+
+Remove dce/dce_mem_input.h which is included more than once
+
+Signed-off-by: Brajeswar Ghosh <brajeswar.linux@gmail.com>
+Signed-off-by: Alex Deucher <alexander.deucher@amd.com>
+---
+ drivers/gpu/drm/amd/display/dc/dce80/dce80_resource.c | 1 -
+ 1 file changed, 1 deletion(-)
+
+diff --git a/drivers/gpu/drm/amd/display/dc/dce80/dce80_resource.c b/drivers/gpu/drm/amd/display/dc/dce80/dce80_resource.c
+index 6d40b3d54ac1..cdd1d6b7b9f2 100644
+--- a/drivers/gpu/drm/amd/display/dc/dce80/dce80_resource.c
++++ b/drivers/gpu/drm/amd/display/dc/dce80/dce80_resource.c
+@@ -41,7 +41,6 @@
+ #include "dce/dce_mem_input.h"
+ #include "dce/dce_link_encoder.h"
+ #include "dce/dce_stream_encoder.h"
+-#include "dce/dce_mem_input.h"
+ #include "dce/dce_ipp.h"
+ #include "dce/dce_transform.h"
+ #include "dce/dce_opp.h"
+-- 
+2.17.1
+

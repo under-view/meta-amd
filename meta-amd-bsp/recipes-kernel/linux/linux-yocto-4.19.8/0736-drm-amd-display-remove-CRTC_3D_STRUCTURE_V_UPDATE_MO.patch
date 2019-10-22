@@ -1,0 +1,46 @@
+From 3d3d227eda23d2d72449efa9d3b71c85a6b059c4 Mon Sep 17 00:00:00 2001
+From: Charlene Liu <charlene.liu@amd.com>
+Date: Fri, 19 Oct 2018 16:03:57 -0400
+Subject: [PATCH 0736/2940] drm/amd/display: remove
+ CRTC_3D_STRUCTURE_V_UPDATE_MODE bit programming.
+
+[Description]
+This is based on HW programming guide update.
+
+Signed-off-by: Charlene Liu <charlene.liu@amd.com>
+Reviewed-by: Tony Cheng <Tony.Cheng@amd.com>
+Acked-by: Leo Li <sunpeng.li@amd.com>
+Signed-off-by: Alex Deucher <alexander.deucher@amd.com>
+---
+ drivers/gpu/drm/amd/display/dc/dcn10/dcn10_optc.c | 6 ++----
+ 1 file changed, 2 insertions(+), 4 deletions(-)
+
+diff --git a/drivers/gpu/drm/amd/display/dc/dcn10/dcn10_optc.c b/drivers/gpu/drm/amd/display/dc/dcn10/dcn10_optc.c
+index 47f80e0e8be8..7d1f66797cb3 100644
+--- a/drivers/gpu/drm/amd/display/dc/dcn10/dcn10_optc.c
++++ b/drivers/gpu/drm/amd/display/dc/dcn10/dcn10_optc.c
+@@ -87,9 +87,8 @@ static void optc1_disable_stereo(struct timing_generator *optc)
+ 	REG_SET(OTG_STEREO_CONTROL, 0,
+ 		OTG_STEREO_EN, 0);
+ 
+-	REG_SET_3(OTG_3D_STRUCTURE_CONTROL, 0,
++	REG_SET_2(OTG_3D_STRUCTURE_CONTROL, 0,
+ 		OTG_3D_STRUCTURE_EN, 0,
+-		OTG_3D_STRUCTURE_V_UPDATE_MODE, 0,
+ 		OTG_3D_STRUCTURE_STEREO_SEL_OVR, 0);
+ }
+ 
+@@ -1154,9 +1153,8 @@ static void optc1_enable_stereo(struct timing_generator *optc,
+ 				OTG_DISABLE_STEREOSYNC_OUTPUT_FOR_DP, 1);
+ 
+ 		if (flags->PROGRAM_STEREO)
+-			REG_UPDATE_3(OTG_3D_STRUCTURE_CONTROL,
++			REG_UPDATE_2(OTG_3D_STRUCTURE_CONTROL,
+ 				OTG_3D_STRUCTURE_EN, flags->FRAME_PACKED,
+-				OTG_3D_STRUCTURE_V_UPDATE_MODE, flags->FRAME_PACKED,
+ 				OTG_3D_STRUCTURE_STEREO_SEL_OVR, flags->FRAME_PACKED);
+ 
+ 	}
+-- 
+2.17.1
+

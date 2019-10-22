@@ -1,0 +1,67 @@
+From 19bc39f6b81e9d814eabdfeb8bb580cdbf90e228 Mon Sep 17 00:00:00 2001
+From: Hawking Zhang <Hawking.Zhang@amd.com>
+Date: Fri, 12 Apr 2019 18:17:24 -0500
+Subject: [PATCH 2178/2940] drm/amdgpu: correct pte mtype field for navi
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+The MTYPE filed moves from bits 58:57 to 50:48 for NV10
+And the size of MTYPE field is now 3bits
+
+Signed-off-by: Hawking Zhang <Hawking.Zhang@amd.com>
+Reviewed-by: Alex Deucher <alexander.deucher@amd.com>
+Reviewed-by: Christian König <christian.koenig@amd.com>
+Signed-off-by: Alex Deucher <alexander.deucher@amd.com>
+---
+ drivers/gpu/drm/amd/amdgpu/amdgpu_vm.c | 9 +++++++--
+ drivers/gpu/drm/amd/amdgpu/amdgpu_vm.h | 6 +++++-
+ 2 files changed, 12 insertions(+), 3 deletions(-)
+
+diff --git a/drivers/gpu/drm/amd/amdgpu/amdgpu_vm.c b/drivers/gpu/drm/amd/amdgpu/amdgpu_vm.c
+index 33d1de502eba..79d20453ff99 100644
+--- a/drivers/gpu/drm/amd/amdgpu/amdgpu_vm.c
++++ b/drivers/gpu/drm/amd/amdgpu/amdgpu_vm.c
+@@ -1540,8 +1540,13 @@ static int amdgpu_vm_bo_split_mapping(struct amdgpu_device *adev,
+ 	flags &= ~AMDGPU_PTE_EXECUTABLE;
+ 	flags |= mapping->flags & AMDGPU_PTE_EXECUTABLE;
+ 
+-	flags &= ~AMDGPU_PTE_MTYPE_MASK;
+-	flags |= (mapping->flags & AMDGPU_PTE_MTYPE_MASK);
++	if (adev->asic_type == CHIP_NAVI10) {
++		flags &= ~AMDGPU_PTE_MTYPE_NV10_MASK;
++		flags |= (mapping->flags & AMDGPU_PTE_MTYPE_NV10_MASK);
++	} else {
++		flags &= ~AMDGPU_PTE_MTYPE_MASK;
++		flags |= (mapping->flags & AMDGPU_PTE_MTYPE_MASK);
++	}
+ 
+ 	if ((mapping->flags & AMDGPU_PTE_PRT) &&
+ 	    (adev->asic_type >= CHIP_VEGA10)) {
+diff --git a/drivers/gpu/drm/amd/amdgpu/amdgpu_vm.h b/drivers/gpu/drm/amd/amdgpu/amdgpu_vm.h
+index 5d814f2b7606..f2dedc6860c9 100644
+--- a/drivers/gpu/drm/amd/amdgpu/amdgpu_vm.h
++++ b/drivers/gpu/drm/amd/amdgpu/amdgpu_vm.h
+@@ -75,7 +75,7 @@ struct amdgpu_bo_list_entry;
+ 
+ 
+ /* For GFX9 */
+-#define AMDGPU_PTE_MTYPE(a)    ((uint64_t)a << 57)
++#define AMDGPU_PTE_MTYPE(a)	((uint64_t)(a) << 57)
+ #define AMDGPU_PTE_MTYPE_MASK	AMDGPU_PTE_MTYPE(3ULL)
+ 
+ #define AMDGPU_MTYPE_NC 0
+@@ -88,6 +88,10 @@ struct amdgpu_bo_list_entry;
+                                 | AMDGPU_PTE_WRITEABLE  \
+                                 | AMDGPU_PTE_MTYPE(AMDGPU_MTYPE_CC))
+ 
++/* NAVI10 only */
++#define AMDGPU_PTE_MTYPE_NV10(a)       ((uint64_t)(a) << 48)
++#define AMDGPU_PTE_MTYPE_NV10_MASK     AMDGPU_PTE_MTYPE_NV10(7ULL)
++
+ /* How to programm VM fault handling */
+ #define AMDGPU_VM_FAULT_STOP_NEVER	0
+ #define AMDGPU_VM_FAULT_STOP_FIRST	1
+-- 
+2.17.1
+

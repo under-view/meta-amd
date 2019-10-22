@@ -1,0 +1,36 @@
+From 7b339c82bea14e0ef1ea4cc1ebcb8f842dd62e87 Mon Sep 17 00:00:00 2001
+From: xinhui pan <xinhui.pan@amd.com>
+Date: Thu, 7 Mar 2019 14:01:11 +0800
+Subject: [PATCH 1581/2940] drm/amdgpu: export both supported and enabled ras
+ features
+
+Signed-off-by: xinhui pan <xinhui.pan@amd.com>
+Reviewed-by: Evan Quan <evan.quan@amd.com>
+---
+ drivers/gpu/drm/amd/amdgpu/amdgpu_kms.c | 7 +++++--
+ 1 file changed, 5 insertions(+), 2 deletions(-)
+
+diff --git a/drivers/gpu/drm/amd/amdgpu/amdgpu_kms.c b/drivers/gpu/drm/amd/amdgpu/amdgpu_kms.c
+index 93759bcb099c..aaa728ebd378 100644
+--- a/drivers/gpu/drm/amd/amdgpu/amdgpu_kms.c
++++ b/drivers/gpu/drm/amd/amdgpu/amdgpu_kms.c
+@@ -952,11 +952,14 @@ static int amdgpu_info_ioctl(struct drm_device *dev, void *data, struct drm_file
+ 		return copy_to_user(out, &ui32, min(size, 4u)) ? -EFAULT : 0;
+ 	case AMDGPU_INFO_RAS_ENABLED_FEATURES: {
+ 		struct amdgpu_ras *ras = amdgpu_ras_get_context(adev);
++		uint64_t ras_mask;
+ 
+ 		if (!ras)
+ 			return -EINVAL;
+-		return copy_to_user(out, &ras->features,
+-				min_t(u32, size, sizeof(ras->features))) ?
++		ras_mask = (uint64_t)ras->supported << 32 | ras->features;
++
++		return copy_to_user(out, &ras_mask,
++				min_t(u64, size, sizeof(ras_mask))) ?
+ 			-EFAULT : 0;
+ 	}
+ 	default:
+-- 
+2.17.1
+

@@ -1,0 +1,49 @@
+From 868cce1450b76766ad1f69510fe02deef8f8c026 Mon Sep 17 00:00:00 2001
+From: Tao Zhou <tao.zhou1@amd.com>
+Date: Fri, 1 Mar 2019 14:01:04 +0800
+Subject: [PATCH 1548/2940] drm/amdgpu: add thick tile mode settings for Oland
+ of gfx6
+
+Adding thick tile mode for Oland to prevent UMD from getting mode value 0
+
+Change-Id: Ic73265c89e075361452830d673dfd8af9c18ab53
+Signed-off-by: Tao Zhou <tao.zhou1@amd.com>
+Tested-by: Hui.Deng <hui.deng@amd.com>
+Reviewed-by: Hawking Zhang <Hawking.Zhang@amd.com>
+---
+ drivers/gpu/drm/amd/amdgpu/gfx_v6_0.c | 19 +++++++++++++++++++
+ 1 file changed, 19 insertions(+)
+
+diff --git a/drivers/gpu/drm/amd/amdgpu/gfx_v6_0.c b/drivers/gpu/drm/amd/amdgpu/gfx_v6_0.c
+index 305276c7e4bf..c0cb244f58cd 100644
+--- a/drivers/gpu/drm/amd/amdgpu/gfx_v6_0.c
++++ b/drivers/gpu/drm/amd/amdgpu/gfx_v6_0.c
+@@ -782,6 +782,25 @@ static void gfx_v6_0_tiling_mode_table_init(struct amdgpu_device *adev)
+ 				BANK_WIDTH(ADDR_SURF_BANK_WIDTH_1) |
+ 				BANK_HEIGHT(ADDR_SURF_BANK_HEIGHT_1) |
+ 				MACRO_TILE_ASPECT(ADDR_SURF_MACRO_ASPECT_2);
++		tilemode[18] =  MICRO_TILE_MODE(ADDR_SURF_THIN_MICRO_TILING) |
++				ARRAY_MODE(ARRAY_1D_TILED_THICK) |
++				PIPE_CONFIG(ADDR_SURF_P4_8x16);
++		tilemode[19] =  MICRO_TILE_MODE(ADDR_SURF_THIN_MICRO_TILING) |
++				ARRAY_MODE(ARRAY_2D_TILED_XTHICK) |
++				PIPE_CONFIG(ADDR_SURF_P4_8x16) |
++				BANK_WIDTH(ADDR_SURF_BANK_WIDTH_1) |
++				BANK_HEIGHT(ADDR_SURF_BANK_HEIGHT_1) |
++				MACRO_TILE_ASPECT(ADDR_SURF_MACRO_ASPECT_2) |
++				NUM_BANKS(ADDR_SURF_16_BANK) |
++				TILE_SPLIT(split_equal_to_row_size);
++		tilemode[20] =  MICRO_TILE_MODE(ADDR_SURF_THIN_MICRO_TILING) |
++				ARRAY_MODE(ARRAY_2D_TILED_THICK) |
++				PIPE_CONFIG(ADDR_SURF_P4_8x16) |
++				BANK_WIDTH(ADDR_SURF_BANK_WIDTH_1) |
++				BANK_HEIGHT(ADDR_SURF_BANK_HEIGHT_1) |
++				MACRO_TILE_ASPECT(ADDR_SURF_MACRO_ASPECT_2) |
++				NUM_BANKS(ADDR_SURF_16_BANK) |
++				TILE_SPLIT(split_equal_to_row_size);
+ 		tilemode[21] =  MICRO_TILE_MODE(ADDR_SURF_THIN_MICRO_TILING) |
+ 				ARRAY_MODE(ARRAY_2D_TILED_THIN1) |
+ 				PIPE_CONFIG(ADDR_SURF_P8_32x32_8x16) |
+-- 
+2.17.1
+

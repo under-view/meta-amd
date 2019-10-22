@@ -1,0 +1,109 @@
+From 39beb722642c428d4f7ca3b3b44031ab21a431d0 Mon Sep 17 00:00:00 2001
+From: Oak Zeng <Oak.Zeng@amd.com>
+Date: Mon, 6 May 2019 22:11:14 -0500
+Subject: [PATCH 2785/2940] drm/amdkfd: New IOCTL to allocate queue GWS
+
+Add a new kfd ioctl to allocate queue GWS. Queue
+GWS is released on queue destroy.
+
+Change-Id: I60153c26a577992ad873e4292e759e5c3d5bbd15
+Signed-off-by: Oak Zeng <Oak.Zeng@amd.com>
+Reviewed-by: Felix Kuehling <Felix.Kuehling@amd.com>
+---
+ drivers/gpu/drm/amd/amdkfd/kfd_chardev.c | 29 +++++++++++++++++++++++-
+ include/uapi/linux/kfd_ioctl.h           | 18 +++++++++++++++
+ 2 files changed, 46 insertions(+), 1 deletion(-)
+
+diff --git a/drivers/gpu/drm/amd/amdkfd/kfd_chardev.c b/drivers/gpu/drm/amd/amdkfd/kfd_chardev.c
+index 94e5f33ae9d9..aa5243546ae1 100644
+--- a/drivers/gpu/drm/amd/amdkfd/kfd_chardev.c
++++ b/drivers/gpu/drm/amd/amdkfd/kfd_chardev.c
+@@ -1606,6 +1606,31 @@ static int kfd_ioctl_unmap_memory_from_gpu(struct file *filep,
+ 	return err;
+ }
+ 
++static int kfd_ioctl_alloc_queue_gws(struct file *filep,
++		struct kfd_process *p, void *data)
++{
++	int retval;
++	struct kfd_ioctl_alloc_queue_gws_args *args = data;
++	struct kfd_dev *dev = NULL;
++
++	if (!hws_gws_support ||
++		dev->dqm->sched_policy == KFD_SCHED_POLICY_NO_HWS)
++		return -EINVAL;
++
++	dev = kfd_device_by_id(args->gpu_id);
++	if (!dev) {
++		pr_debug("Could not find gpu id 0x%x\n", args->gpu_id);
++		return -EINVAL;
++	}
++
++	mutex_lock(&p->mutex);
++	retval = pqm_set_gws(&p->pqm, args->queue_id, args->num_gws ? dev->gws : NULL);
++	mutex_unlock(&p->mutex);
++
++	args->first_gws = 0;
++	return retval;
++}
++
+ static int kfd_ioctl_get_dmabuf_info(struct file *filep,
+ 		struct kfd_process *p, void *data)
+ {
+@@ -2870,6 +2895,9 @@ static const struct amdkfd_ioctl_desc amdkfd_ioctls[] = {
+ 	AMDKFD_IOCTL_DEF(AMDKFD_IOC_IMPORT_DMABUF,
+ 				kfd_ioctl_import_dmabuf, 0),
+ 
++	AMDKFD_IOCTL_DEF(AMDKFD_IOC_ALLOC_QUEUE_GWS,
++			kfd_ioctl_alloc_queue_gws, 0),
++
+ 	AMDKFD_IOCTL_DEF(AMDKFD_IOC_IPC_IMPORT_HANDLE,
+ 				kfd_ioctl_ipc_import_handle, 0),
+ 
+@@ -2881,7 +2909,6 @@ static const struct amdkfd_ioctl_desc amdkfd_ioctls[] = {
+ 
+ 	AMDKFD_IOCTL_DEF(AMDKFD_IOC_DBG_TRAP,
+ 			kfd_ioctl_dbg_set_debug_trap, 0),
+-
+ };
+ 
+ #define AMDKFD_CORE_IOCTL_COUNT	ARRAY_SIZE(amdkfd_ioctls)
+diff --git a/include/uapi/linux/kfd_ioctl.h b/include/uapi/linux/kfd_ioctl.h
+index 8f19d8524b4f..b2e1aca6eca0 100644
+--- a/include/uapi/linux/kfd_ioctl.h
++++ b/include/uapi/linux/kfd_ioctl.h
+@@ -475,6 +475,21 @@ enum kfd_mmio_remap {
+        KFD_MMIO_REMAP_HDP_REG_FLUSH_CNTL = 4,
+ };
+ 
++/* Allocate GWS for specific queue
++ *
++ * @gpu_id:      device identifier
++ * @queue_id:    queue's id that GWS is allocated for
++ * @num_gws:     how many GWS to allocate
++ * @first_gws:   index of the first GWS allocated.
++ *               only support contiguous GWS allocation
++ */
++struct kfd_ioctl_alloc_queue_gws_args {
++	__u32 gpu_id;		/* to KFD */
++	__u32 queue_id;		/* to KFD */
++	__u32 num_gws;		/* to KFD */
++	__u32 first_gws;	/* from KFD */
++};
++
+ struct kfd_ioctl_get_dmabuf_info_args {
+ 	__u64 size;		/* from KFD */
+ 	__u64 metadata_ptr;	/* to KFD */
+@@ -634,6 +649,9 @@ struct kfd_ioctl_cross_memory_copy_args {
+ #define AMDKFD_IOC_IMPORT_DMABUF		\
+ 		AMDKFD_IOWR(0x1D, struct kfd_ioctl_import_dmabuf_args)
+ 
++#define AMDKFD_IOC_ALLOC_QUEUE_GWS		\
++		AMDKFD_IOWR(0x1E, struct kfd_ioctl_alloc_queue_gws_args)
++
+ #define AMDKFD_IOC_IPC_IMPORT_HANDLE		\
+ 		AMDKFD_IOWR(0x1E, struct kfd_ioctl_ipc_import_handle_args)
+ 
+-- 
+2.17.1
+

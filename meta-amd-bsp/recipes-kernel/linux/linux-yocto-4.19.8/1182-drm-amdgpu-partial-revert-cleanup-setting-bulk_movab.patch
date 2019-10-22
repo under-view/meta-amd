@@ -1,0 +1,46 @@
+From 1593b4dd40c083756a01d75cce8e3e65e59f6054 Mon Sep 17 00:00:00 2001
+From: =?UTF-8?q?Christian=20K=C3=B6nig?= <christian.koenig@amd.com>
+Date: Wed, 30 Jan 2019 13:41:05 +0100
+Subject: [PATCH 1182/2940] drm/amdgpu: partial revert cleanup setting
+ bulk_movable v2
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+We still need to set bulk_movable to false when new BOs are added or removed.
+
+v2: also set it to false on removal
+
+Signed-off-by: Christian König <christian.koenig@amd.com>
+Tested-by: StDenis, Tom <Tom.StDenis@amd.com>
+Tested-by: Przemek Socha <soprwa@gmail.com>
+Reviewed-by: Zhou, David(ChunMing) <David1.Zhou@amd.com>
+---
+ drivers/gpu/drm/amd/amdgpu/amdgpu_vm.c | 4 ++++
+ 1 file changed, 4 insertions(+)
+
+diff --git a/drivers/gpu/drm/amd/amdgpu/amdgpu_vm.c b/drivers/gpu/drm/amd/amdgpu/amdgpu_vm.c
+index c6297e054166..2a4cbfa0d077 100644
+--- a/drivers/gpu/drm/amd/amdgpu/amdgpu_vm.c
++++ b/drivers/gpu/drm/amd/amdgpu/amdgpu_vm.c
+@@ -332,6 +332,7 @@ static void amdgpu_vm_bo_base_init(struct amdgpu_vm_bo_base *base,
+ 	if (bo->tbo.resv != vm->root.base.bo->tbo.resv)
+ 		return;
+ 
++	vm->bulk_moveable = false;
+ 	if (bo->tbo.type == ttm_bo_type_kernel)
+ 		amdgpu_vm_bo_relocated(base);
+ 	else
+@@ -2768,6 +2769,9 @@ void amdgpu_vm_bo_rmv(struct amdgpu_device *adev,
+ 	struct amdgpu_vm_bo_base **base;
+ 
+ 	if (bo) {
++		if (bo->tbo.resv == vm->root.base.bo->tbo.resv)
++			vm->bulk_moveable = false;
++
+ 		for (base = &bo_va->base.bo->vm_bo; *base;
+ 		     base = &(*base)->next) {
+ 			if (*base != &bo_va->base)
+-- 
+2.17.1
+

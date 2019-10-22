@@ -1,0 +1,51 @@
+From 4f834082b678441672665a5d966d623898649583 Mon Sep 17 00:00:00 2001
+From: hersen wu <hersenxs.wu@amd.com>
+Date: Thu, 28 Feb 2019 16:35:24 -0500
+Subject: [PATCH 2469/2940] drm/amd/display: disable dcn20 abm feature for
+ bring up
+
+[WHY] dcn20 enable usb-c dp ALT mode in dmcu. There is bug
+when enable abm feature which cause system crash. dal team
+will debug this bug later.
+
+[HOW] disable dcn abm feature for dcn20.
+
+Signed-off-by: hersen wu <hersenxs.wu@amd.com>
+Signed-off-by: Alex Deucher <alexander.deucher@amd.com>
+---
+ drivers/gpu/drm/amd/display/amdgpu_dm/amdgpu_dm.c | 11 +++++++----
+ 1 file changed, 7 insertions(+), 4 deletions(-)
+
+diff --git a/drivers/gpu/drm/amd/display/amdgpu_dm/amdgpu_dm.c b/drivers/gpu/drm/amd/display/amdgpu_dm/amdgpu_dm.c
+index 980d03046d69..46a02b945a4d 100644
+--- a/drivers/gpu/drm/amd/display/amdgpu_dm/amdgpu_dm.c
++++ b/drivers/gpu/drm/amd/display/amdgpu_dm/amdgpu_dm.c
+@@ -779,7 +779,7 @@ static int dm_late_init(void *handle)
+ 	unsigned int linear_lut[16];
+ 	int i;
+ 	struct dmcu *dmcu = adev->dm.dc->res_pool->dmcu;
+-	bool ret;
++	bool ret = false;
+ 
+ 	for (i = 0; i < 16; i++)
+ 		linear_lut[i] = 0xFFFF * i / 15;
+@@ -790,10 +790,13 @@ static int dm_late_init(void *handle)
+ 	params.backlight_lut_array_size = 16;
+ 	params.backlight_lut_array = linear_lut;
+ 
+-	ret = dmcu_load_iram(dmcu, params);
++	/* todo will enable for navi10 */
++	if (adev->asic_type <= CHIP_RAVEN) {
++		ret = dmcu_load_iram(dmcu, params);
+ 
+-	if (!ret)
+-		return -EINVAL;
++		if (!ret)
++			return -EINVAL;
++	}
+ 
+ 	return detect_mst_link_for_all_connectors(adev->ddev);
+ }
+-- 
+2.17.1
+

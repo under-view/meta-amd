@@ -1,0 +1,35 @@
+From 5950969802a1f2236fb234b8d1b4962d1b14f55f Mon Sep 17 00:00:00 2001
+From: Oak Zeng <Oak.Zeng@amd.com>
+Date: Mon, 3 Jun 2019 12:28:13 -0500
+Subject: [PATCH 2797/2940] drm/amdkfd: Only load sdma mqd when queue is active
+
+Also calls load_mqd with current->mm struct. The mm
+struct is used to read back user wptr of the queue.
+
+Change-Id: I0e419eadd874607e783c3d29625e89d46ff41635
+Signed-off-by: Oak Zeng <Oak.Zeng@amd.com>
+Reviewed-by: Felix Kuehling <Felix.Kuehling@amd.com>
+---
+ drivers/gpu/drm/amd/amdkfd/kfd_device_queue_manager.c | 5 ++++-
+ 1 file changed, 4 insertions(+), 1 deletion(-)
+
+diff --git a/drivers/gpu/drm/amd/amdkfd/kfd_device_queue_manager.c b/drivers/gpu/drm/amd/amdkfd/kfd_device_queue_manager.c
+index 1b95be774e74..188ef938d5d9 100644
+--- a/drivers/gpu/drm/amd/amdkfd/kfd_device_queue_manager.c
++++ b/drivers/gpu/drm/amd/amdkfd/kfd_device_queue_manager.c
+@@ -1072,8 +1072,11 @@ static int create_sdma_queue_nocpsch(struct device_queue_manager *dqm,
+ 	if (retval)
+ 		goto out_deallocate_doorbell;
+ 
++	if (!q->properties.is_active)
++		return 0;
++
+ 	retval = mqd_mgr->load_mqd(mqd_mgr, q->mqd, 0, 0, &q->properties,
+-				NULL);
++				current->mm);
+ 	if (retval)
+ 		goto out_uninit_mqd;
+ 
+-- 
+2.17.1
+

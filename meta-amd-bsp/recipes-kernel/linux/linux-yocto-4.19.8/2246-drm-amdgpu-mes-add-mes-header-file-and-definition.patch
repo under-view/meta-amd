@@ -1,0 +1,79 @@
+From 5dce8d937e15f61fc15732460a177dd81ddf499c Mon Sep 17 00:00:00 2001
+From: Jack Xiao <Jack.Xiao@amd.com>
+Date: Fri, 25 Jan 2019 14:36:23 +0800
+Subject: [PATCH 2246/2940] drm/amdgpu/mes: add mes header file and definition
+
+Add dummy header file and definitions of mes.
+
+Acked-by: Hawking Zhang <Hawking.Zhang@amd.com>
+Signed-off-by: Jack Xiao <Jack.Xiao@amd.com>
+Signed-off-by: Alex Deucher <alexander.deucher@amd.com>
+---
+ drivers/gpu/drm/amd/amdgpu/amdgpu.h     |  5 ++++
+ drivers/gpu/drm/amd/amdgpu/amdgpu_mes.h | 31 +++++++++++++++++++++++++
+ 2 files changed, 36 insertions(+)
+ create mode 100644 drivers/gpu/drm/amd/amdgpu/amdgpu_mes.h
+
+diff --git a/drivers/gpu/drm/amd/amdgpu/amdgpu.h b/drivers/gpu/drm/amd/amdgpu/amdgpu.h
+index e6673cde450f..56ff37805142 100644
+--- a/drivers/gpu/drm/amd/amdgpu/amdgpu.h
++++ b/drivers/gpu/drm/amd/amdgpu/amdgpu.h
+@@ -85,6 +85,7 @@
+ #include "amdgpu_doorbell.h"
+ #include "amdgpu_smu.h"
+ #include "amdgpu_discovery.h"
++#include "amdgpu_mes.h"
+ 
+ #define MAX_GPU_INSTANCE		16
+ 
+@@ -954,6 +955,10 @@ struct amdgpu_device {
+ 	/* discovery */
+ 	uint8_t				*discovery;
+ 
++	/* mes */
++	bool                            enable_mes;
++	struct amdgpu_mes               mes;
++
+ 	struct amdgpu_ip_block          ip_blocks[AMDGPU_MAX_IP_NUM];
+ 	int				num_ip_blocks;
+ 	struct mutex	mn_lock;
+diff --git a/drivers/gpu/drm/amd/amdgpu/amdgpu_mes.h b/drivers/gpu/drm/amd/amdgpu/amdgpu_mes.h
+new file mode 100644
+index 000000000000..621ef8a7f074
+--- /dev/null
++++ b/drivers/gpu/drm/amd/amdgpu/amdgpu_mes.h
+@@ -0,0 +1,31 @@
++/*
++ * Copyright 2019 Advanced Micro Devices, Inc.
++ *
++ * Permission is hereby granted, free of charge, to any person obtaining a
++ * copy of this software and associated documentation files (the "Software"),
++ * to deal in the Software without restriction, including without limitation
++ * the rights to use, copy, modify, merge, publish, distribute, sublicense,
++ * and/or sell copies of the Software, and to permit persons to whom the
++ * Software is furnished to do so, subject to the following conditions:
++ *
++ * The above copyright notice and this permission notice shall be included in
++ * all copies or substantial portions of the Software.
++ *
++ * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
++ * IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
++ * FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.  IN NO EVENT SHALL
++ * THE COPYRIGHT HOLDER(S) OR AUTHOR(S) BE LIABLE FOR ANY CLAIM, DAMAGES OR
++ * OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE,
++ * ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR
++ * OTHER DEALINGS IN THE SOFTWARE.
++ *
++ */
++
++#ifndef __AMDGPU_MES_H__
++#define __AMDGPU_MES_H__
++
++struct amdgpu_mes {
++
++};
++
++#endif /* __AMDGPU_MES_H__ */
+-- 
+2.17.1
+

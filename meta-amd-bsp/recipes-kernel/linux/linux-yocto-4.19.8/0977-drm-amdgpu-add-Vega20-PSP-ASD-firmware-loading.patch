@@ -1,0 +1,98 @@
+From b59037d06fa10693691732b9794cbcbec0988f3e Mon Sep 17 00:00:00 2001
+From: Evan Quan <evan.quan@amd.com>
+Date: Thu, 20 Dec 2018 22:44:54 +0800
+Subject: [PATCH 0977/2940] drm/amdgpu: add Vega20 PSP ASD firmware loading
+
+Add PSP ASD firmware loading on Vega20. Not sure why
+this was missing before.
+
+Signed-off-by: Evan Quan <evan.quan@amd.com>
+Reviewed-by: Alex Deucher <alexander.deucher@amd.com>
+Signed-off-by: Alex Deucher <alexander.deucher@amd.com>
+Cc: stable@vger.kernel.org
+---
+ drivers/gpu/drm/amd/amdgpu/psp_v11_0.c | 40 ++++++++++++++++++++------
+ 1 file changed, 31 insertions(+), 9 deletions(-)
+
+diff --git a/drivers/gpu/drm/amd/amdgpu/psp_v11_0.c b/drivers/gpu/drm/amd/amdgpu/psp_v11_0.c
+index f1137c6a3320..ed7a8c59170d 100644
+--- a/drivers/gpu/drm/amd/amdgpu/psp_v11_0.c
++++ b/drivers/gpu/drm/amd/amdgpu/psp_v11_0.c
+@@ -34,6 +34,7 @@
+ #include "nbio/nbio_7_4_offset.h"
+ 
+ MODULE_FIRMWARE("amdgpu/vega20_sos.bin");
++MODULE_FIRMWARE("amdgpu/vega20_asd.bin");
+ MODULE_FIRMWARE("amdgpu/vega20_ta.bin");
+ MODULE_FIRMWARE("amdgpu/vega20_sos_old.bin");
+ 
+@@ -103,6 +104,7 @@ static int psp_v11_0_init_microcode(struct psp_context *psp)
+ 	char fw_name[30];
+ 	int err = 0;
+         const struct psp_firmware_header_v1_0 *sos_hdr;
++	const struct psp_firmware_header_v1_0 *asd_hdr;
+         const struct ta_firmware_header_v1_0 *ta_hdr;
+ 	uint32_t bl_version;
+ 
+@@ -142,14 +144,30 @@ static int psp_v11_0_init_microcode(struct psp_context *psp)
+ 	adev->psp.sos_start_addr = (uint8_t *)adev->psp.sys_start_addr +
+ 				le32_to_cpu(sos_hdr->sos_offset_bytes);
+ 
++	snprintf(fw_name, sizeof(fw_name), "amdgpu/%s_asd.bin", chip_name);
++	err = request_firmware(&adev->psp.asd_fw, fw_name, adev->dev);
++	if (err)
++		goto out1;
++
++	err = amdgpu_ucode_validate(adev->psp.asd_fw);
++	if (err)
++		goto out1;
++
++	asd_hdr = (const struct psp_firmware_header_v1_0 *)adev->psp.asd_fw->data;
++	adev->psp.asd_fw_version = le32_to_cpu(asd_hdr->header.ucode_version);
++	adev->psp.asd_feature_version = le32_to_cpu(asd_hdr->ucode_feature_version);
++	adev->psp.asd_ucode_size = le32_to_cpu(asd_hdr->header.ucode_size_bytes);
++	adev->psp.asd_start_addr = (uint8_t *)asd_hdr +
++				le32_to_cpu(asd_hdr->header.ucode_array_offset_bytes);
++
+ 	snprintf(fw_name, sizeof(fw_name), "amdgpu/%s_ta.bin", chip_name);
+ 	err = request_firmware(&adev->psp.ta_fw, fw_name, adev->dev);
+ 	if (err)
+-		goto out;
++		goto out2;
+ 
+ 	err = amdgpu_ucode_validate(adev->psp.ta_fw);
+ 	if (err)
+-		goto out;
++		goto out2;
+ 
+ 	ta_hdr = (const struct ta_firmware_header_v1_0 *)adev->psp.ta_fw->data;
+ 	adev->psp.ta_xgmi_ucode_version = le32_to_cpu(ta_hdr->ta_xgmi_ucode_version);
+@@ -158,14 +176,18 @@ static int psp_v11_0_init_microcode(struct psp_context *psp)
+ 		le32_to_cpu(ta_hdr->header.ucode_array_offset_bytes);
+ 
+ 	return 0;
++
++out2:
++	release_firmware(adev->psp.ta_fw);
++	adev->psp.ta_fw = NULL;
++out1:
++	release_firmware(adev->psp.asd_fw);
++	adev->psp.asd_fw = NULL;
+ out:
+-	if (err) {
+-		dev_err(adev->dev,
+-			"psp v11.0: Failed to load firmware \"%s\"\n",
+-			fw_name);
+-		release_firmware(adev->psp.sos_fw);
+-		adev->psp.sos_fw = NULL;
+-	}
++	dev_err(adev->dev,
++		"psp v11.0: Failed to load firmware \"%s\"\n", fw_name);
++	release_firmware(adev->psp.sos_fw);
++	adev->psp.sos_fw = NULL;
+ 
+ 	return err;
+ }
+-- 
+2.17.1
+

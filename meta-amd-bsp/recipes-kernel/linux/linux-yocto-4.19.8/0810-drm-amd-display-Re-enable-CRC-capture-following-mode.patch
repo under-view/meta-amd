@@ -1,0 +1,174 @@
+From 95d4fdfab82ee0cefa30a83a720ed28864c18878 Mon Sep 17 00:00:00 2001
+From: Nicholas Kazlauskas <nicholas.kazlauskas@amd.com>
+Date: Tue, 15 Jan 2019 10:33:58 -0500
+Subject: [PATCH 0810/2940] drm/amd/display: Re-enable CRC capture following
+ modeset
+
+[Why]
+During any modeset the CRTC stream is removed and a new stream is added.
+This new stream doesn't carry over CRC capture state if it was
+previously set.
+
+[How]
+Re-program the stream for CRC capture. The existing DRM callback can
+be re-used here for the most part - the only modification needed is
+additional locking now that it's called from within commit tail.
+
+Signed-off-by: Nicholas Kazlauskas <nicholas.kazlauskas@amd.com>
+Reviewed-by: Harry Wentland <Harry.Wentland@amd.com>
+Reviewed-by: Sun peng Li <Sunpeng.Li@amd.com>
+Acked-by: Leo Li <sunpeng.li@amd.com>
+Signed-off-by: kalyan Alle <kalyan.alle@amd.com>
+---
+ drivers/gpu/drm/amd/display/amdgpu_dm/amdgpu_dm.c     | 4 ++++
+ drivers/gpu/drm/amd/display/amdgpu_dm/amdgpu_dm_crc.c | 1 +
+ drivers/gpu/drm/drm_debugfs_crc.c                     | 6 +++---
+ drivers/gpu/drm/i915/intel_drv.h                      | 3 +--
+ drivers/gpu/drm/i915/intel_pipe_crc.c                 | 4 +---
+ drivers/gpu/drm/rockchip/rockchip_drm_vop.c           | 6 ++----
+ include/drm/drm_crtc.h                                | 4 +---
+ 7 files changed, 13 insertions(+), 15 deletions(-)
+
+diff --git a/drivers/gpu/drm/amd/display/amdgpu_dm/amdgpu_dm.c b/drivers/gpu/drm/amd/display/amdgpu_dm/amdgpu_dm.c
+index b47c9f179846..583d29b4e4a4 100644
+--- a/drivers/gpu/drm/amd/display/amdgpu_dm/amdgpu_dm.c
++++ b/drivers/gpu/drm/amd/display/amdgpu_dm/amdgpu_dm.c
+@@ -4831,6 +4831,10 @@ static void amdgpu_dm_atomic_commit_tail(struct drm_atomic_state *state)
+ 			continue;
+ 
+ 		manage_dm_interrupts(adev, acrtc, true);
++
++		/* The stream has changed so CRC capture needs to re-enabled. */
++		if (dm_new_crtc_state->crc_enabled)
++			amdgpu_dm_crtc_set_crc_source(crtc, "auto");
+ 	}
+ 
+ 	/* update planes when needed per crtc*/
+diff --git a/drivers/gpu/drm/amd/display/amdgpu_dm/amdgpu_dm_crc.c b/drivers/gpu/drm/amd/display/amdgpu_dm/amdgpu_dm_crc.c
+index f088ac585978..09f813b726bd 100644
+--- a/drivers/gpu/drm/amd/display/amdgpu_dm/amdgpu_dm_crc.c
++++ b/drivers/gpu/drm/amd/display/amdgpu_dm/amdgpu_dm_crc.c
+@@ -64,6 +64,7 @@ amdgpu_dm_crtc_verify_crc_source(struct drm_crtc *crtc, const char *src_name,
+ 
+ int amdgpu_dm_crtc_set_crc_source(struct drm_crtc *crtc, const char *src_name)
+ {
++	struct amdgpu_device *adev = crtc->dev->dev_private;
+ 	struct dm_crtc_state *crtc_state = to_dm_crtc_state(crtc->state);
+ 	struct dc_stream_state *stream_state = crtc_state->stream;
+ 
+diff --git a/drivers/gpu/drm/drm_debugfs_crc.c b/drivers/gpu/drm/drm_debugfs_crc.c
+index 99961192bf03..6e4734f55f97 100644
+--- a/drivers/gpu/drm/drm_debugfs_crc.c
++++ b/drivers/gpu/drm/drm_debugfs_crc.c
+@@ -178,7 +178,7 @@ static int crtc_crc_open(struct inode *inode, struct file *filep)
+ 	if (ret)
+ 		return ret;
+ 
+-	ret = crtc->funcs->set_crc_source(crtc, crc->source, &values_cnt);
++	ret = crtc->funcs->set_crc_source(crtc, crc->source);
+ 	if (ret)
+ 		goto err;
+ 
+@@ -218,7 +218,7 @@ static int crtc_crc_open(struct inode *inode, struct file *filep)
+ 	return 0;
+ 
+ err_disable:
+-	crtc->funcs->set_crc_source(crtc, NULL, &values_cnt);
++	crtc->funcs->set_crc_source(crtc, NULL);
+ err:
+ 	spin_lock_irq(&crc->lock);
+ 	crtc_crc_cleanup(crc);
+@@ -232,7 +232,7 @@ static int crtc_crc_release(struct inode *inode, struct file *filep)
+ 	struct drm_crtc_crc *crc = &crtc->crc;
+ 	size_t values_cnt;
+ 
+-	crtc->funcs->set_crc_source(crtc, NULL, &values_cnt);
++	crtc->funcs->set_crc_source(crtc, NULL);
+ 
+ 	spin_lock_irq(&crc->lock);
+ 	crtc_crc_cleanup(crc);
+diff --git a/drivers/gpu/drm/i915/intel_drv.h b/drivers/gpu/drm/i915/intel_drv.h
+index 8fc61e96754f..537ae45dde4e 100644
+--- a/drivers/gpu/drm/i915/intel_drv.h
++++ b/drivers/gpu/drm/i915/intel_drv.h
+@@ -2172,8 +2172,7 @@ void lspcon_wait_pcon_mode(struct intel_lspcon *lspcon);
+ 
+ /* intel_pipe_crc.c */
+ #ifdef CONFIG_DEBUG_FS
+-int intel_crtc_set_crc_source(struct drm_crtc *crtc, const char *source_name,
+-			      size_t *values_cnt);
++int intel_crtc_set_crc_source(struct drm_crtc *crtc, const char *source_name);
+ void intel_crtc_disable_pipe_crc(struct intel_crtc *crtc);
+ void intel_crtc_enable_pipe_crc(struct intel_crtc *crtc);
+ #else
+diff --git a/drivers/gpu/drm/i915/intel_pipe_crc.c b/drivers/gpu/drm/i915/intel_pipe_crc.c
+index 849e1b69ba73..1e86d29ae6fe 100644
+--- a/drivers/gpu/drm/i915/intel_pipe_crc.c
++++ b/drivers/gpu/drm/i915/intel_pipe_crc.c
+@@ -468,8 +468,7 @@ void intel_display_crc_init(struct drm_i915_private *dev_priv)
+ 	}
+ }
+ 
+-int intel_crtc_set_crc_source(struct drm_crtc *crtc, const char *source_name,
+-			      size_t *values_cnt)
++int intel_crtc_set_crc_source(struct drm_crtc *crtc, const char *source_name)
+ {
+ 	struct drm_i915_private *dev_priv = to_i915(crtc->dev);
+ 	struct intel_pipe_crc *pipe_crc = &dev_priv->pipe_crc[crtc->index];
+@@ -508,7 +507,6 @@ int intel_crtc_set_crc_source(struct drm_crtc *crtc, const char *source_name,
+ 	}
+ 
+ 	pipe_crc->skipped = 0;
+-	*values_cnt = 5;
+ 
+ out:
+ 	intel_display_power_put(dev_priv, power_domain);
+diff --git a/drivers/gpu/drm/rockchip/rockchip_drm_vop.c b/drivers/gpu/drm/rockchip/rockchip_drm_vop.c
+index 1359e5c773e4..4034e0bd24b3 100644
+--- a/drivers/gpu/drm/rockchip/rockchip_drm_vop.c
++++ b/drivers/gpu/drm/rockchip/rockchip_drm_vop.c
+@@ -1111,7 +1111,7 @@ static struct drm_connector *vop_get_edp_connector(struct vop *vop)
+ }
+ 
+ static int vop_crtc_set_crc_source(struct drm_crtc *crtc,
+-				   const char *source_name, size_t *values_cnt)
++				   const char *source_name)
+ {
+ 	struct vop *vop = to_vop(crtc);
+ 	struct drm_connector *connector;
+@@ -1121,8 +1121,6 @@ static int vop_crtc_set_crc_source(struct drm_crtc *crtc,
+ 	if (!connector)
+ 		return -EINVAL;
+ 
+-	*values_cnt = 3;
+-
+ 	if (source_name && strcmp(source_name, "auto") == 0)
+ 		ret = analogix_dp_start_crc(connector);
+ 	else if (!source_name)
+@@ -1134,7 +1132,7 @@ static int vop_crtc_set_crc_source(struct drm_crtc *crtc,
+ }
+ #else
+ static int vop_crtc_set_crc_source(struct drm_crtc *crtc,
+-				   const char *source_name, size_t *values_cnt)
++				   const char *source_name)
+ {
+ 	return -ENODEV;
+ }
+diff --git a/include/drm/drm_crtc.h b/include/drm/drm_crtc.h
+index 92e7fc7f05a4..d089431a252c 100644
+--- a/include/drm/drm_crtc.h
++++ b/include/drm/drm_crtc.h
+@@ -744,9 +744,7 @@ struct drm_crtc_funcs {
+ 	 *
+ 	 * 0 on success or a negative error code on failure.
+ 	 */
+-	int (*set_crc_source)(struct drm_crtc *crtc, const char *source,
+-			      size_t *values_cnt);
+-
++	int (*set_crc_source)(struct drm_crtc *crtc, const char *source);
+ 	/**
+ 	 * @atomic_print_state:
+ 	 *
+-- 
+2.17.1
+

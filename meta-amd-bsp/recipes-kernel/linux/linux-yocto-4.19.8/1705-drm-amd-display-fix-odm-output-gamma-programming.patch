@@ -1,0 +1,53 @@
+From c2498ccf0e31387b391db7f1b003ee2beeea60f7 Mon Sep 17 00:00:00 2001
+From: Dmytro Laktyushkin <Dmytro.Laktyushkin@amd.com>
+Date: Fri, 15 Mar 2019 13:59:25 -0400
+Subject: [PATCH 1705/2940] drm/amd/display: fix odm output gamma programming
+
+Currently only top pipe gets output tf programmed. This change
+makes all odm head pipes get output tf programmed.
+
+Change-Id: I7f7c18d79668ba8cf7ffcfa1784a1fee82a108d6
+Signed-off-by: Dmytro Laktyushkin <Dmytro.Laktyushkin@amd.com>
+Reviewed-by: Nikola Cornij <Nikola.Cornij@amd.com>
+Acked-by: Bhawanpreet Lakha <Bhawanpreet.Lakha@amd.com>
+---
+ drivers/gpu/drm/amd/display/dc/core/dc_resource.c | 4 ++--
+ drivers/gpu/drm/amd/display/dc/inc/resource.h     | 1 +
+ 2 files changed, 3 insertions(+), 2 deletions(-)
+
+diff --git a/drivers/gpu/drm/amd/display/dc/core/dc_resource.c b/drivers/gpu/drm/amd/display/dc/core/dc_resource.c
+index 9130f86475e7..a972c446ec51 100644
+--- a/drivers/gpu/drm/amd/display/dc/core/dc_resource.c
++++ b/drivers/gpu/drm/amd/display/dc/core/dc_resource.c
+@@ -1302,7 +1302,7 @@ struct pipe_ctx *dc_res_get_odm_bottom_pipe(struct pipe_ctx *pipe_ctx)
+ 	return bottom_pipe;
+ }
+ 
+-static bool dc_res_is_odm_bottom_pipe(struct pipe_ctx *pipe_ctx)
++bool dc_res_is_odm_head_pipe(struct pipe_ctx *pipe_ctx)
+ {
+ 	struct pipe_ctx *top_pipe = pipe_ctx->top_pipe;
+ 	bool result = false;
+@@ -1345,7 +1345,7 @@ bool dc_remove_plane_from_context(
+ 		struct pipe_ctx *pipe_ctx = &context->res_ctx.pipe_ctx[i];
+ 
+ 		if (pipe_ctx->plane_state == plane_state) {
+-			if (dc_res_is_odm_bottom_pipe(pipe_ctx)) {
++			if (dc_res_is_odm_head_pipe(pipe_ctx)) {
+ 				pipe_ctx->plane_state = NULL;
+ 				pipe_ctx->bottom_pipe = NULL;
+ 				continue;
+diff --git a/drivers/gpu/drm/amd/display/dc/inc/resource.h b/drivers/gpu/drm/amd/display/dc/inc/resource.h
+index 0a70254d204f..3ce0a4fc5822 100644
+--- a/drivers/gpu/drm/amd/display/dc/inc/resource.h
++++ b/drivers/gpu/drm/amd/display/dc/inc/resource.h
+@@ -172,5 +172,6 @@ void update_audio_usage(
+ unsigned int resource_pixel_format_to_bpp(enum surface_pixel_format format);
+ 
+ struct pipe_ctx *dc_res_get_odm_bottom_pipe(struct pipe_ctx *pipe_ctx);
++bool dc_res_is_odm_head_pipe(struct pipe_ctx *pipe_ctx);
+ 
+ #endif /* DRIVERS_GPU_DRM_AMD_DC_DEV_DC_INC_RESOURCE_H_ */
+-- 
+2.17.1
+

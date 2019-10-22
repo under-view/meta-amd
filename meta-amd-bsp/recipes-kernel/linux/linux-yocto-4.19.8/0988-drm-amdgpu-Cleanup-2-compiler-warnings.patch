@@ -1,0 +1,41 @@
+From 1dfd782af56c3e428c96b55e05453ffcd2f3c41f Mon Sep 17 00:00:00 2001
+From: Kent Russell <kent.russell@amd.com>
+Date: Thu, 3 Jan 2019 08:33:15 -0500
+Subject: [PATCH 0988/2940] drm/amdgpu: Cleanup 2 compiler warnings
+
+These 2 variables are unused now, so remove their references.
+
+Fixes: e4ae0fc drm/amdgpu: implement gfx8 post_soft_reset
+Fixes: 5e01c09 drm/amdgpu/gfx_v8_0: Reorder the gfx, kiq and kcq rings
+test sequence
+
+Signed-off-by: Kent Russell <kent.russell@amd.com>
+Reviewed-by: Alex Deucher <alexander.deucher@amd.com>
+Signed-off-by: Alex Deucher <alexander.deucher@amd.com>
+---
+ drivers/gpu/drm/amd/amdgpu/gfx_v8_0.c | 2 --
+ 1 file changed, 2 deletions(-)
+
+diff --git a/drivers/gpu/drm/amd/amdgpu/gfx_v8_0.c b/drivers/gpu/drm/amd/amdgpu/gfx_v8_0.c
+index 79d35ff27a0d..e7be9448a329 100644
+--- a/drivers/gpu/drm/amd/amdgpu/gfx_v8_0.c
++++ b/drivers/gpu/drm/amd/amdgpu/gfx_v8_0.c
+@@ -4233,7 +4233,6 @@ static int gfx_v8_0_cp_gfx_resume(struct amdgpu_device *adev)
+ 	u32 tmp;
+ 	u32 rb_bufsz;
+ 	u64 rb_addr, rptr_addr, wptr_gpu_addr;
+-	int r;
+ 
+ 	/* Set the write pointer delay */
+ 	WREG32(mmCP_RB_WPTR_DELAY, 0);
+@@ -5074,7 +5073,6 @@ static int gfx_v8_0_post_soft_reset(void *handle)
+ {
+ 	struct amdgpu_device *adev = (struct amdgpu_device *)handle;
+ 	u32 grbm_soft_reset = 0;
+-	struct amdgpu_ring *ring;
+ 
+ 	if ((!adev->gfx.grbm_soft_reset) &&
+ 	    (!adev->gfx.srbm_soft_reset))
+-- 
+2.17.1
+

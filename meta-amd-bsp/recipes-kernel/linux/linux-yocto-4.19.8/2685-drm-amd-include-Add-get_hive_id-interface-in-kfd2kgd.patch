@@ -1,0 +1,45 @@
+From 792e06061a1b24ea08dcd5ae5508d070ef037ac5 Mon Sep 17 00:00:00 2001
+From: Shaoyun Liu <Shaoyun.Liu@amd.com>
+Date: Fri, 6 Jul 2018 11:26:08 -0400
+Subject: [PATCH 2685/2940] drm/amd/include: Add get_hive_id interface in
+ kfd2kgd
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+KFD need to get hive id from amdgpu to build up the XGMI topology
+
+Signed-off-by: Shaoyun Liu <Shaoyun.Liu@amd.com>
+Reviewed-by: Felix Kuehling <Felix.Kuehling@amd.com>
+Acked-by: Christian König <christian.koenig@amd.com>
+Signed-off-by: Alex Deucher <alexander.deucher@amd.com>
+---
+ drivers/gpu/drm/amd/include/kgd_kfd_interface.h | 5 +++++
+ 1 file changed, 5 insertions(+)
+
+diff --git a/drivers/gpu/drm/amd/include/kgd_kfd_interface.h b/drivers/gpu/drm/amd/include/kgd_kfd_interface.h
+index a94e72df468f..c8e8d8c164ae 100644
+--- a/drivers/gpu/drm/amd/include/kgd_kfd_interface.h
++++ b/drivers/gpu/drm/amd/include/kgd_kfd_interface.h
+@@ -285,6 +285,8 @@ struct tile_config {
+  * @set_compute_idle: Indicates that compute is idle on a device. This
+  * can be used to change power profiles depending on compute activity.
+  *
++ * @get_hive_id: Returns hive id of current  device,  0 if xgmi is not enabled
++ *
+  * This structure contains function pointers to services that the kgd driver
+  * provides to amdkfd driver.
+  *
+@@ -409,6 +411,9 @@ struct kfd2kgd_calls {
+ 	void (*gpu_recover)(struct kgd_dev *kgd);
+ 
+ 	void (*set_compute_idle)(struct kgd_dev *kgd, bool idle);
++
++	uint64_t (*get_hive_id)(struct kgd_dev *kgd);
++
+ };
+ 
+ /**
+-- 
+2.17.1
+

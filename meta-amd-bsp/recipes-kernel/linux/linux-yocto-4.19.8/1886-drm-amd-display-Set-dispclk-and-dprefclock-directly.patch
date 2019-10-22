@@ -1,0 +1,403 @@
+From 8781b577c8fa0b1890b9d57facb11ec37e365257 Mon Sep 17 00:00:00 2001
+From: Eric Yang <Eric.Yang2@amd.com>
+Date: Wed, 3 Apr 2019 15:40:05 -0400
+Subject: [PATCH 1886/2940] drm/amd/display: Set dispclk and dprefclock
+ directly
+
+[Why]
+To simply logic for setting DCN specific clocks, we will send
+SMU message directly through the VBIOS message box.
+
+[How]
+Add new structure in pp_smu to hold functions to set clocks
+through vbios message box
+
+Change-Id: I8dcad7a1ebb8a9ae317d03e492d9090af5d3443c
+Signed-off-by: Eric Yang <Eric.Yang2@amd.com>
+Reviewed-by: Tony Cheng <Tony.Cheng@amd.com>
+Acked-by: Bhawanpreet Lakha <Bhawanpreet Lakha@amd.com>
+Signed-off-by: Chaudhary Amit Kumar <Chaudharyamit.Kumar@amd.com>
+---
+ drivers/gpu/drm/amd/display/dc/dc_helper.c    |  2 +-
+ .../gpu/drm/amd/display/dc/dce/dce_clk_mgr.c  |  8 +-
+ .../gpu/drm/amd/display/dc/dce/dce_clk_mgr.h  | 21 +++++
+ .../drm/amd/display/dc/dcn10/dcn10_clk_mgr.c  | 78 +++++++++++++++++--
+ .../drm/amd/display/dc/dcn10/dcn10_resource.c | 37 ++++++---
+ drivers/gpu/drm/amd/display/dc/dm_pp_smu.h    |  2 +-
+ .../gpu/drm/amd/display/dc/inc/hw/clk_mgr.h   |  8 +-
+ .../gpu/drm/amd/display/include/dal_asic_id.h |  3 +-
+ 8 files changed, 136 insertions(+), 23 deletions(-)
+
+diff --git a/drivers/gpu/drm/amd/display/dc/dc_helper.c b/drivers/gpu/drm/amd/display/dc/dc_helper.c
+index 5360f0858c8c..e45278a246d8 100644
+--- a/drivers/gpu/drm/amd/display/dc/dc_helper.c
++++ b/drivers/gpu/drm/amd/display/dc/dc_helper.c
+@@ -338,7 +338,7 @@ void generic_reg_wait(const struct dc_context *ctx,
+ 	int i;
+ 
+ 	/* something is terribly wrong if time out is > 200ms. (5Hz) */
+-	ASSERT(delay_between_poll_us * time_out_num_tries <= 200000);
++	ASSERT(delay_between_poll_us * time_out_num_tries <= 3000000);
+ 
+ 	for (i = 0; i <= time_out_num_tries; i++) {
+ 		if (i) {
+diff --git a/drivers/gpu/drm/amd/display/dc/dce/dce_clk_mgr.c b/drivers/gpu/drm/amd/display/dc/dce/dce_clk_mgr.c
+index 03b64028a733..df093e6200b6 100644
+--- a/drivers/gpu/drm/amd/display/dc/dce/dce_clk_mgr.c
++++ b/drivers/gpu/drm/amd/display/dc/dce/dce_clk_mgr.c
+@@ -778,22 +778,22 @@ static void dce12_update_clocks(struct clk_mgr *clk_mgr,
+ 	dce11_pplib_apply_display_requirements(clk_mgr->ctx->dc, context);
+ }
+ 
+-static const struct clk_mgr_funcs dce120_funcs = {
++static struct clk_mgr_funcs dce120_funcs = {
+ 	.get_dp_ref_clk_frequency = dce12_get_dp_ref_freq_khz,
+ 	.update_clocks = dce12_update_clocks
+ };
+ 
+-static const struct clk_mgr_funcs dce112_funcs = {
++static struct clk_mgr_funcs dce112_funcs = {
+ 	.get_dp_ref_clk_frequency = dce_get_dp_ref_freq_khz,
+ 	.update_clocks = dce112_update_clocks
+ };
+ 
+-static const struct clk_mgr_funcs dce110_funcs = {
++static struct clk_mgr_funcs dce110_funcs = {
+ 	.get_dp_ref_clk_frequency = dce_get_dp_ref_freq_khz,
+ 	.update_clocks = dce11_update_clocks,
+ };
+ 
+-static const struct clk_mgr_funcs dce_funcs = {
++static struct clk_mgr_funcs dce_funcs = {
+ 	.get_dp_ref_clk_frequency = dce_get_dp_ref_freq_khz,
+ 	.update_clocks = dce_update_clocks
+ };
+diff --git a/drivers/gpu/drm/amd/display/dc/dce/dce_clk_mgr.h b/drivers/gpu/drm/amd/display/dc/dce/dce_clk_mgr.h
+index c8f8c442142a..36942ab022a2 100644
+--- a/drivers/gpu/drm/amd/display/dc/dce/dce_clk_mgr.h
++++ b/drivers/gpu/drm/amd/display/dc/dce/dce_clk_mgr.h
+@@ -39,6 +39,11 @@
+ #define CLK_COMMON_REG_LIST_DCN_BASE() \
+ 	SR(DENTIST_DISPCLK_CNTL)
+ 
++#define VBIOS_SMU_MSG_BOX_REG_LIST_RV() \
++	.MP1_SMN_C2PMSG_91 = mmMP1_SMN_C2PMSG_91, \
++	.MP1_SMN_C2PMSG_83 = mmMP1_SMN_C2PMSG_83, \
++	.MP1_SMN_C2PMSG_67 = mmMP1_SMN_C2PMSG_67
++
+ #define CLK_SF(reg_name, field_name, post_fix)\
+ 	.field_name = reg_name ## __ ## field_name ## post_fix
+ 
+@@ -50,23 +55,39 @@
+ 	CLK_SF(DENTIST_DISPCLK_CNTL, DENTIST_DISPCLK_WDIVIDER, mask_sh),\
+ 	CLK_SF(DENTIST_DISPCLK_CNTL, DENTIST_DISPCLK_CHG_DONE, mask_sh)
+ 
++#define CLK_MASK_SH_LIST_RV1(mask_sh) \
++	CLK_COMMON_MASK_SH_LIST_DCN_COMMON_BASE(mask_sh),\
++	CLK_SF(MP1_SMN_C2PMSG_67, CONTENT, mask_sh),\
++	CLK_SF(MP1_SMN_C2PMSG_83, CONTENT, mask_sh),\
++	CLK_SF(MP1_SMN_C2PMSG_91, CONTENT, mask_sh),
++
++
+ #define CLK_REG_FIELD_LIST(type) \
+ 	type DPREFCLK_SRC_SEL; \
+ 	type DENTIST_DPREFCLK_WDIVIDER; \
+ 	type DENTIST_DISPCLK_WDIVIDER; \
+ 	type DENTIST_DISPCLK_CHG_DONE;
+ 
++#define VBIOS_SMU_REG_FIELD_LIST(type) \
++	type CONTENT;
++
+ struct clk_mgr_shift {
+ 	CLK_REG_FIELD_LIST(uint8_t)
++	VBIOS_SMU_REG_FIELD_LIST(uint32_t)
+ };
+ 
+ struct clk_mgr_mask {
+ 	CLK_REG_FIELD_LIST(uint32_t)
++	VBIOS_SMU_REG_FIELD_LIST(uint32_t)
+ };
+ 
+ struct clk_mgr_registers {
+ 	uint32_t DPREFCLK_CNTL;
+ 	uint32_t DENTIST_DISPCLK_CNTL;
++
++	uint32_t MP1_SMN_C2PMSG_67;
++	uint32_t MP1_SMN_C2PMSG_83;
++	uint32_t MP1_SMN_C2PMSG_91;
+ };
+ 
+ struct state_dependent_clocks {
+diff --git a/drivers/gpu/drm/amd/display/dc/dcn10/dcn10_clk_mgr.c b/drivers/gpu/drm/amd/display/dc/dcn10/dcn10_clk_mgr.c
+index c3853a644514..920714e001df 100644
+--- a/drivers/gpu/drm/amd/display/dc/dcn10/dcn10_clk_mgr.c
++++ b/drivers/gpu/drm/amd/display/dc/dcn10/dcn10_clk_mgr.c
+@@ -27,6 +27,7 @@
+ 
+ #include "reg_helper.h"
+ #include "core_types.h"
++#include "dal_asic_id.h"
+ 
+ #define TO_DCE_CLK_MGR(clocks)\
+ 	container_of(clocks, struct dce_clk_mgr, base)
+@@ -91,13 +92,18 @@ static int dcn1_determine_dppclk_threshold(struct clk_mgr *clk_mgr, struct dc_cl
+ 
+ static void dcn1_ramp_up_dispclk_with_dpp(struct clk_mgr *clk_mgr, struct dc_clocks *new_clocks)
+ {
++	int i;
+ 	struct dc *dc = clk_mgr->ctx->dc;
+ 	int dispclk_to_dpp_threshold = dcn1_determine_dppclk_threshold(clk_mgr, new_clocks);
+ 	bool request_dpp_div = new_clocks->dispclk_khz > new_clocks->dppclk_khz;
+-	int i;
+ 
+ 	/* set disp clk to dpp clk threshold */
+-	dce112_set_clock(clk_mgr, dispclk_to_dpp_threshold);
++
++	if (clk_mgr->funcs->set_dispclk && clk_mgr->funcs->set_dprefclk) {
++		clk_mgr->funcs->set_dispclk(clk_mgr, dispclk_to_dpp_threshold);
++		clk_mgr->funcs->set_dprefclk(clk_mgr);
++	} else
++		dce112_set_clock(clk_mgr, dispclk_to_dpp_threshold);
+ 
+ 	/* update request dpp clk division option */
+ 	for (i = 0; i < dc->res_pool->pipe_count; i++) {
+@@ -113,8 +119,13 @@ static void dcn1_ramp_up_dispclk_with_dpp(struct clk_mgr *clk_mgr, struct dc_clo
+ 	}
+ 
+ 	/* If target clk not same as dppclk threshold, set to target clock */
+-	if (dispclk_to_dpp_threshold != new_clocks->dispclk_khz)
+-		dce112_set_clock(clk_mgr, new_clocks->dispclk_khz);
++	if (dispclk_to_dpp_threshold != new_clocks->dispclk_khz) {
++		if (clk_mgr->funcs->set_dispclk && clk_mgr->funcs->set_dprefclk) {
++			clk_mgr->funcs->set_dispclk(clk_mgr, new_clocks->dispclk_khz);
++			clk_mgr->funcs->set_dprefclk(clk_mgr);
++		} else
++			dce112_set_clock(clk_mgr, dispclk_to_dpp_threshold);
++	}
+ 
+ 	clk_mgr->clks.dispclk_khz = new_clocks->dispclk_khz;
+ 	clk_mgr->clks.dppclk_khz = new_clocks->dppclk_khz;
+@@ -245,7 +256,62 @@ static void dcn1_update_clocks(struct clk_mgr *clk_mgr,
+ 
+ 	}
+ }
+-static const struct clk_mgr_funcs dcn1_funcs = {
++
++#define VBIOSSMC_MSG_SetDispclkFreq           0x4
++#define VBIOSSMC_MSG_SetDprefclkFreq          0x5
++
++int dcn10_set_dispclk(struct clk_mgr *clk_mgr_base, int requested_dispclk_khz)
++{
++	int actual_dispclk_set_khz = -1;
++	struct dce_clk_mgr *clk_mgr_dce = TO_DCE_CLK_MGR(clk_mgr_base);
++
++	/* First clear response register */
++	//dm_write_reg(ctx, mmMP1_SMN_C2PMSG_91, 0);
++	REG_WRITE(MP1_SMN_C2PMSG_91, 0);
++
++	/* Set the parameter register for the SMU message, unit is Mhz */
++	//dm_write_reg(ctx, mmMP1_SMN_C2PMSG_83, requested_dispclk_khz / 1000);
++	REG_WRITE(MP1_SMN_C2PMSG_83, requested_dispclk_khz / 1000);
++
++	/* Trigger the message transaction by writing the message ID */
++	//dm_write_reg(ctx, mmMP1_SMN_C2PMSG_67, VBIOSSMC_MSG_SetDispclkFreq);
++	REG_WRITE(MP1_SMN_C2PMSG_67, VBIOSSMC_MSG_SetDispclkFreq);
++
++	REG_WAIT(MP1_SMN_C2PMSG_91, CONTENT, 1, 10, 200000);
++
++	/* Actual dispclk set is returned in the parameter register */
++	actual_dispclk_set_khz = REG_READ(MP1_SMN_C2PMSG_83) * 1000;
++
++	return actual_dispclk_set_khz;
++
++}
++
++int dcn10_set_dprefclk(struct clk_mgr *clk_mgr_base)
++{
++	int actual_dprefclk_set_khz = -1;
++	struct dce_clk_mgr *clk_mgr_dce = TO_DCE_CLK_MGR(clk_mgr_base);
++
++	REG_WRITE(MP1_SMN_C2PMSG_91, 0);
++
++	/* Set the parameter register for the SMU message */
++	REG_WRITE(MP1_SMN_C2PMSG_83, clk_mgr_dce->dprefclk_khz / 1000);
++
++	/* Trigger the message transaction by writing the message ID */
++	REG_WRITE(MP1_SMN_C2PMSG_67, VBIOSSMC_MSG_SetDprefclkFreq);
++
++	/* Wait for SMU response */
++	REG_WAIT(MP1_SMN_C2PMSG_91, CONTENT, 1, 10, 200000);
++
++	actual_dprefclk_set_khz = REG_READ(MP1_SMN_C2PMSG_83) * 1000;
++
++	return actual_dprefclk_set_khz;
++}
++
++int (*set_dispclk)(struct pp_smu *pp_smu, int dispclk);
++
++int (*set_dprefclk)(struct pp_smu *pp_smu);
++
++static struct clk_mgr_funcs dcn1_funcs = {
+ 	.get_dp_ref_clk_frequency = dce12_get_dp_ref_freq_khz,
+ 	.update_clocks = dcn1_update_clocks
+ };
+@@ -269,8 +335,8 @@ struct clk_mgr *dcn1_clk_mgr_create(struct dc_context *ctx)
+ 	clk_mgr_dce->dprefclk_ss_percentage = 0;
+ 	clk_mgr_dce->dprefclk_ss_divider = 1000;
+ 	clk_mgr_dce->ss_on_dprefclk = false;
+-
+ 	clk_mgr_dce->dprefclk_khz = 600000;
++
+ 	if (bp->integrated_info)
+ 		clk_mgr_dce->dentist_vco_freq_khz = bp->integrated_info->dentist_vco_freq;
+ 	if (clk_mgr_dce->dentist_vco_freq_khz == 0) {
+diff --git a/drivers/gpu/drm/amd/display/dc/dcn10/dcn10_resource.c b/drivers/gpu/drm/amd/display/dc/dcn10/dcn10_resource.c
+index 7eccb54c421d..ddb020a53098 100644
+--- a/drivers/gpu/drm/amd/display/dc/dcn10/dcn10_resource.c
++++ b/drivers/gpu/drm/amd/display/dc/dcn10/dcn10_resource.c
+@@ -29,7 +29,6 @@
+ #include "resource.h"
+ #include "include/irq_service_interface.h"
+ #include "dcn10_resource.h"
+-
+ #include "dcn10_ipp.h"
+ #include "dcn10_mpc.h"
+ #include "irq/dcn10/irq_service_dcn10.h"
+@@ -445,7 +444,6 @@ static const struct bios_registers bios_regs = {
+ 	HUBP_REG_LIST_DCN10(id)\
+ }
+ 
+-
+ static const struct dcn_mi_registers hubp_regs[] = {
+ 	hubp_regs(0),
+ 	hubp_regs(1),
+@@ -461,7 +459,6 @@ static const struct dcn_mi_mask hubp_mask = {
+ 		HUBP_MASK_SH_LIST_DCN10(_MASK)
+ };
+ 
+-
+ static const struct dcn_hubbub_registers hubbub_reg = {
+ 		HUBBUB_REG_LIST_DCN10(0)
+ };
+@@ -494,6 +491,27 @@ static const struct dce110_clk_src_mask cs_mask = {
+ 		CS_COMMON_MASK_SH_LIST_DCN1_0(_MASK)
+ };
+ 
++
++#define mmMP1_SMN_C2PMSG_91            0x1629B
++#define mmMP1_SMN_C2PMSG_83            0x16293
++#define mmMP1_SMN_C2PMSG_67            0x16283
++
++#define MP1_SMN_C2PMSG_91__CONTENT_MASK                    0xffffffffL
++#define MP1_SMN_C2PMSG_83__CONTENT_MASK                    0xffffffffL
++#define MP1_SMN_C2PMSG_67__CONTENT_MASK                    0xffffffffL
++#define	MP1_SMN_C2PMSG_91__CONTENT__SHIFT                  0x00000000
++#define	MP1_SMN_C2PMSG_83__CONTENT__SHIFT                  0x00000000
++#define	MP1_SMN_C2PMSG_67__CONTENT__SHIFT                  0x00000000
++
++
++static const struct clk_mgr_shift clk_mgr_shift = {
++		CLK_MASK_SH_LIST_RV1(__SHIFT)
++};
++
++static const struct clk_mgr_mask clk_mgr_mask = {
++		CLK_MASK_SH_LIST_RV1(_MASK)
++};
++
+ static const struct resource_caps res_cap = {
+ 		.num_timing_generator = 4,
+ 		.num_opp = 4,
+@@ -1343,12 +1361,6 @@ static bool construct(
+ 			goto fail;
+ 		}
+ 	}
+-	pool->base.clk_mgr = dcn1_clk_mgr_create(ctx);
+-	if (pool->base.clk_mgr == NULL) {
+-		dm_error("DC: failed to create display clock!\n");
+-		BREAK_TO_DEBUGGER();
+-		goto fail;
+-	}
+ 
+ 	pool->base.dmcu = dcn10_dmcu_create(ctx,
+ 			&dmcu_regs,
+@@ -1410,6 +1422,13 @@ static bool construct(
+ 
+ 	pool->base.pp_smu = dcn10_pp_smu_create(ctx);
+ 
++	pool->base.clk_mgr = dcn1_clk_mgr_create(ctx);
++	if (pool->base.clk_mgr == NULL) {
++		dm_error("DC: failed to create display clock!\n");
++		BREAK_TO_DEBUGGER();
++		goto fail;
++	}
++
+ 	if (!dc->debug.disable_pplib_clock_request)
+ 		dcn_bw_update_from_pplib(dc);
+ 	dcn_bw_sync_calcs_and_dml(dc);
+diff --git a/drivers/gpu/drm/amd/display/dc/dm_pp_smu.h b/drivers/gpu/drm/amd/display/dc/dm_pp_smu.h
+index ef8876843a11..d3ed5d61ea19 100644
+--- a/drivers/gpu/drm/amd/display/dc/dm_pp_smu.h
++++ b/drivers/gpu/drm/amd/display/dc/dm_pp_smu.h
+@@ -80,6 +80,7 @@ struct pp_smu_funcs_rv {
+ 	/* PPSMC_MSG_SetDisplayCount
+ 	 * 0 triggers S0i2 optimization
+ 	 */
++
+ 	void (*set_display_count)(struct pp_smu *pp, int count);
+ 
+ 	/*  reader and writer WM's are sent together as part of one table*/
+@@ -109,7 +110,6 @@ struct pp_smu_funcs_rv {
+ 
+ 	/* PME w/a */
+ 	void (*set_pme_wa_enable)(struct pp_smu *pp);
+-
+ };
+ 
+ struct pp_smu_funcs {
+diff --git a/drivers/gpu/drm/amd/display/dc/inc/hw/clk_mgr.h b/drivers/gpu/drm/amd/display/dc/inc/hw/clk_mgr.h
+index 31bd6d5183ab..f3fd3f8cac26 100644
+--- a/drivers/gpu/drm/amd/display/dc/inc/hw/clk_mgr.h
++++ b/drivers/gpu/drm/amd/display/dc/inc/hw/clk_mgr.h
+@@ -31,7 +31,7 @@
+ 
+ struct clk_mgr {
+ 	struct dc_context *ctx;
+-	const struct clk_mgr_funcs *funcs;
++	struct clk_mgr_funcs *funcs;
+ 
+ 	struct dc_clocks clks;
+ };
+@@ -44,6 +44,12 @@ struct clk_mgr_funcs {
+ 	int (*get_dp_ref_clk_frequency)(struct clk_mgr *clk_mgr);
+ 
+ 	void (*init_clocks)(struct clk_mgr *clk_mgr);
++
++	/* Returns actual clk that's set */
++	int (*set_dispclk)(struct clk_mgr *clk_mgr, int requested_dispclk_khz);
++	int (*set_dprefclk)(struct clk_mgr *clk_mgr);
+ };
+ 
++
++
+ #endif /* __DAL_CLK_MGR_H__ */
+diff --git a/drivers/gpu/drm/amd/display/include/dal_asic_id.h b/drivers/gpu/drm/amd/display/include/dal_asic_id.h
+index 34d6fdcb32e2..1a9b7507784f 100644
+--- a/drivers/gpu/drm/amd/display/include/dal_asic_id.h
++++ b/drivers/gpu/drm/amd/display/include/dal_asic_id.h
+@@ -131,11 +131,12 @@
+ #define INTERNAL_REV_RAVEN_A0             0x00    /* First spin of Raven */
+ #define RAVEN_A0 0x01
+ #define RAVEN_B0 0x21
+-#define PICASSO_A0 0x41
+ #if defined(CONFIG_DRM_AMD_DC_DCN1_01)
+ /* DCN1_01 */
++#define PICASSO_A0 0x41
+ #define RAVEN2_A0 0x81
+ #endif
++#define RAVEN1_F0 0xF0
+ #define RAVEN_UNKNOWN 0xFF
+ 
+ #if defined(CONFIG_DRM_AMD_DC_DCN1_01)
+-- 
+2.17.1
+

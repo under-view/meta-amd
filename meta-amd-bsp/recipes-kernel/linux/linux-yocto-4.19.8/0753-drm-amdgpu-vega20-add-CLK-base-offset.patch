@@ -1,0 +1,28 @@
+From 89966c9bd37d5b3357752afa54ee48f0eab37ec6 Mon Sep 17 00:00:00 2001
+From: Alex Deucher <alexander.deucher@amd.com>
+Date: Tue, 6 Nov 2018 11:19:00 -0500
+Subject: [PATCH 0753/2940] drm/amdgpu/vega20: add CLK base offset
+
+In case we need to access CLK registers.
+
+Acked-by: Harry Wentland <harry.wentland@amd.com>
+Signed-off-by: Alex Deucher <alexander.deucher@amd.com>
+---
+ drivers/gpu/drm/amd/amdgpu/vega20_reg_init.c | 1 +
+ 1 file changed, 1 insertion(+)
+
+diff --git a/drivers/gpu/drm/amd/amdgpu/vega20_reg_init.c b/drivers/gpu/drm/amd/amdgpu/vega20_reg_init.c
+index 2d4473557b0d..d13fc4fcb517 100644
+--- a/drivers/gpu/drm/amd/amdgpu/vega20_reg_init.c
++++ b/drivers/gpu/drm/amd/amdgpu/vega20_reg_init.c
+@@ -49,6 +49,7 @@ int vega20_reg_base_init(struct amdgpu_device *adev)
+ 		adev->reg_offset[SMUIO_HWIP][i] = (uint32_t *)(&(SMUIO_BASE.instance[i]));
+ 		adev->reg_offset[NBIF_HWIP][i] = (uint32_t *)(&(NBIO_BASE.instance[i]));
+ 		adev->reg_offset[THM_HWIP][i] = (uint32_t *)(&(THM_BASE.instance[i]));
++		adev->reg_offset[CLK_HWIP][i] = (uint32_t *)(&(CLK_BASE.instance[i]));
+ 	}
+ 	return 0;
+ }
+-- 
+2.17.1
+

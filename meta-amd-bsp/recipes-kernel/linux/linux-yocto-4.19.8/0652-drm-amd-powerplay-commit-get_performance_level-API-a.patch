@@ -1,0 +1,73 @@
+From 303366e231acd37285009f8b4f6c9a586e829d51 Mon Sep 17 00:00:00 2001
+From: Evan Quan <evan.quan@amd.com>
+Date: Mon, 22 Oct 2018 14:35:40 +0800
+Subject: [PATCH 0652/2940] drm/amd/powerplay: commit get_performance_level API
+ as DAL needed
+
+This can suppress the error reported on driver loading. Also these
+are empty APIs as Vega12/Vega20 has no performance levels.
+
+Signed-off-by: Evan Quan <evan.quan@amd.com>
+Reviewed-by: Feifei Xu <Feifei.Xu@amd.com>
+Signed-off-by: Alex Deucher <alexander.deucher@amd.com>
+---
+ drivers/gpu/drm/amd/powerplay/hwmgr/vega12_hwmgr.c | 8 ++++++++
+ drivers/gpu/drm/amd/powerplay/hwmgr/vega20_hwmgr.c | 9 +++++++++
+ 2 files changed, 17 insertions(+)
+
+diff --git a/drivers/gpu/drm/amd/powerplay/hwmgr/vega12_hwmgr.c b/drivers/gpu/drm/amd/powerplay/hwmgr/vega12_hwmgr.c
+index 9600e2f226e9..74bc37308dc0 100644
+--- a/drivers/gpu/drm/amd/powerplay/hwmgr/vega12_hwmgr.c
++++ b/drivers/gpu/drm/amd/powerplay/hwmgr/vega12_hwmgr.c
+@@ -2356,6 +2356,13 @@ static int vega12_gfx_off_control(struct pp_hwmgr *hwmgr, bool enable)
+ 		return vega12_disable_gfx_off(hwmgr);
+ }
+ 
++static int vega12_get_performance_level(struct pp_hwmgr *hwmgr, const struct pp_hw_power_state *state,
++				PHM_PerformanceLevelDesignation designation, uint32_t index,
++				PHM_PerformanceLevel *level)
++{
++	return 0;
++}
++
+ static const struct pp_hwmgr_func vega12_hwmgr_funcs = {
+ 	.backend_init = vega12_hwmgr_backend_init,
+ 	.backend_fini = vega12_hwmgr_backend_fini,
+@@ -2406,6 +2413,7 @@ static const struct pp_hwmgr_func vega12_hwmgr_funcs = {
+ 	.register_irq_handlers = smu9_register_irq_handlers,
+ 	.start_thermal_controller = vega12_start_thermal_controller,
+ 	.powergate_gfx = vega12_gfx_off_control,
++	.get_performance_level = vega12_get_performance_level,
+ };
+ 
+ int vega12_hwmgr_init(struct pp_hwmgr *hwmgr)
+diff --git a/drivers/gpu/drm/amd/powerplay/hwmgr/vega20_hwmgr.c b/drivers/gpu/drm/amd/powerplay/hwmgr/vega20_hwmgr.c
+index 783bcbd39235..8a1ee9ce7386 100644
+--- a/drivers/gpu/drm/amd/powerplay/hwmgr/vega20_hwmgr.c
++++ b/drivers/gpu/drm/amd/powerplay/hwmgr/vega20_hwmgr.c
+@@ -2040,6 +2040,13 @@ int vega20_display_clock_voltage_request(struct pp_hwmgr *hwmgr,
+ 	return result;
+ }
+ 
++static int vega20_get_performance_level(struct pp_hwmgr *hwmgr, const struct pp_hw_power_state *state,
++				PHM_PerformanceLevelDesignation designation, uint32_t index,
++				PHM_PerformanceLevel *level)
++{
++	return 0;
++}
++
+ static int vega20_notify_smc_display_config_after_ps_adjustment(
+ 		struct pp_hwmgr *hwmgr)
+ {
+@@ -3486,6 +3493,8 @@ static const struct pp_hwmgr_func vega20_hwmgr_funcs = {
+ 		vega20_set_watermarks_for_clocks_ranges,
+ 	.display_clock_voltage_request =
+ 		vega20_display_clock_voltage_request,
++	.get_performance_level =
++		vega20_get_performance_level,
+ 	/* UMD pstate, profile related */
+ 	.force_dpm_level =
+ 		vega20_dpm_force_dpm_level,
+-- 
+2.17.1
+

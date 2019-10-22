@@ -1,0 +1,143 @@
+From 1974d392b57f6c362a030c20d8e2286d5ab286ac Mon Sep 17 00:00:00 2001
+From: David Francis <David.Francis@amd.com>
+Date: Tue, 13 Nov 2018 10:37:16 -0500
+Subject: [PATCH 1014/2940] drm/amd/display: Add backlight pwm debugfs
+
+[Why]
+ABM enablement testing can be automated if a way of reading
+target and current hardware backlight is available
+
+[How]
+Expand debugfs interface with two new entries.
+Hook directly into dc interface.  Units are as
+a fraction of 0x1000 = 100%
+
+Use the built-in amdgpu function for creating
+read-only debugfs files
+
+Signed-off-by: David Francis <David.Francis@amd.com>
+Reviewed-by: Harry Wentland <Harry.Wentland@amd.com>
+Acked-by: Leo Li <sunpeng.li@amd.com>
+Signed-off-by: Alex Deucher <alexander.deucher@amd.com>
+---
+ .../amd/display/amdgpu_dm/amdgpu_dm_debugfs.c | 49 ++++++++++++++++++-
+ drivers/gpu/drm/amd/display/dc/core/dc.c      | 20 ++++++++
+ drivers/gpu/drm/amd/display/dc/dc.h           |  3 ++
+ 3 files changed, 70 insertions(+), 2 deletions(-)
+
+diff --git a/drivers/gpu/drm/amd/display/amdgpu_dm/amdgpu_dm_debugfs.c b/drivers/gpu/drm/amd/display/amdgpu_dm/amdgpu_dm_debugfs.c
+index 9a7ac58eb18e..cca3e16cda4f 100644
+--- a/drivers/gpu/drm/amd/display/amdgpu_dm/amdgpu_dm_debugfs.c
++++ b/drivers/gpu/drm/amd/display/amdgpu_dm/amdgpu_dm_debugfs.c
+@@ -783,6 +783,45 @@ static ssize_t dtn_log_write(
+ 	return size;
+ }
+ 
++/*
++ * Backlight at this moment.  Read only.
++ * As written to display, taking ABM and backlight lut into account.
++ * Ranges from 0x0 to 0x10000 (= 100% PWM)
++ */
++static int current_backlight_read(struct seq_file *m, void *data)
++{
++	struct drm_info_node *node = (struct drm_info_node *)m->private;
++	struct drm_device *dev = node->minor->dev;
++	struct amdgpu_device *adev = dev->dev_private;
++	struct dc *dc = adev->dm.dc;
++	unsigned int backlight = dc_get_current_backlight_pwm(dc);
++
++	seq_printf(m, "0x%x\n", backlight);
++	return 0;
++}
++
++/*
++ * Backlight value that is being approached.  Read only.
++ * As written to display, taking ABM and backlight lut into account.
++ * Ranges from 0x0 to 0x10000 (= 100% PWM)
++ */
++static int target_backlight_read(struct seq_file *m, void *data)
++{
++	struct drm_info_node *node = (struct drm_info_node *)m->private;
++	struct drm_device *dev = node->minor->dev;
++	struct amdgpu_device *adev = dev->dev_private;
++	struct dc *dc = adev->dm.dc;
++	unsigned int backlight = dc_get_target_backlight_pwm(dc);
++
++	seq_printf(m, "0x%x\n", backlight);
++	return 0;
++}
++
++static const struct drm_info_list amdgpu_dm_debugfs_list[] = {
++	{"amdgpu_current_backlight_pwm", &current_backlight_read},
++	{"amdgpu_target_backlight_pwm", &target_backlight_read},
++};
++
+ int dtn_debugfs_init(struct amdgpu_device *adev)
+ {
+ 	static const struct file_operations dtn_log_fops = {
+@@ -793,9 +832,15 @@ int dtn_debugfs_init(struct amdgpu_device *adev)
+ 	};
+ 
+ 	struct drm_minor *minor = adev->ddev->primary;
+-	struct dentry *root = minor->debugfs_root;
++	struct dentry *ent, *root = minor->debugfs_root;
++	int ret;
++
++	ret = amdgpu_debugfs_add_files(adev, amdgpu_dm_debugfs_list,
++				ARRAY_SIZE(amdgpu_dm_debugfs_list));
++	if (ret)
++		return ret;
+ 
+-	struct dentry *ent = debugfs_create_file(
++	ent = debugfs_create_file(
+ 		"amdgpu_dm_dtn_log",
+ 		0644,
+ 		root,
+diff --git a/drivers/gpu/drm/amd/display/dc/core/dc.c b/drivers/gpu/drm/amd/display/dc/core/dc.c
+index 55c68a4d4b83..8c215f41a0e4 100644
+--- a/drivers/gpu/drm/amd/display/dc/core/dc.c
++++ b/drivers/gpu/drm/amd/display/dc/core/dc.c
+@@ -1779,6 +1779,26 @@ void dc_resume(struct dc *dc)
+ 		core_link_resume(dc->links[i]);
+ }
+ 
++unsigned int dc_get_current_backlight_pwm(struct dc *dc)
++{
++	struct abm *abm = dc->res_pool->abm;
++
++	if (abm)
++		return abm->funcs->get_current_backlight(abm);
++
++	return 0;
++}
++
++unsigned int dc_get_target_backlight_pwm(struct dc *dc)
++{
++	struct abm *abm = dc->res_pool->abm;
++
++	if (abm)
++		return abm->funcs->get_target_backlight(abm);
++
++	return 0;
++}
++
+ bool dc_is_dmcu_initialized(struct dc *dc)
+ {
+ 	struct dmcu *dmcu = dc->res_pool->dmcu;
+diff --git a/drivers/gpu/drm/amd/display/dc/dc.h b/drivers/gpu/drm/amd/display/dc/dc.h
+index 61481e4e5144..93fb806aea92 100644
+--- a/drivers/gpu/drm/amd/display/dc/dc.h
++++ b/drivers/gpu/drm/amd/display/dc/dc.h
+@@ -749,6 +749,9 @@ void dc_set_power_state(
+ 		struct dc *dc,
+ 		enum dc_acpi_cm_power_state power_state);
+ void dc_resume(struct dc *dc);
++unsigned int dc_get_current_backlight_pwm(struct dc *dc);
++unsigned int dc_get_target_backlight_pwm(struct dc *dc);
++
+ bool dc_is_dmcu_initialized(struct dc *dc);
+ 
+ #endif /* DC_INTERFACE_H_ */
+-- 
+2.17.1
+

@@ -1,0 +1,100 @@
+From 55a9f300824f1cd73f3c097458249bd9afd30765 Mon Sep 17 00:00:00 2001
+From: Yong Zhao <Yong.Zhao@amd.com>
+Date: Tue, 19 Feb 2019 11:21:51 -0500
+Subject: [PATCH 1274/2940] Revert "drm/amdgpu: Fix bugs in setting CP RB/MEC
+ DOORBELL_RANGE registers"
+
+The original change caused a regression, so revert it until the new fix
+is ready.
+
+BUG: https://bugs.freedesktop.org/show_bug.cgi?id=109650
+
+This reverts commit 764c85fef41722db0f21558c6c2fb38bee172d19.
+
+Change-Id: I6c634d8bdb98efcfdec33581d92f7ba02416061b
+Signed-off-by: Yong Zhao <Yong.Zhao@amd.com>
+Acked-by: Alex Deucher <alexander.deucher@amd.com>
+Reviewed-by: Felix Kuehling <Felix.Kuehling@amd.com>
+---
+ drivers/gpu/drm/amd/amdgpu/gfx_v8_0.c | 19 ++++---------------
+ drivers/gpu/drm/amd/amdgpu/gfx_v9_0.c | 19 +++++--------------
+ 2 files changed, 9 insertions(+), 29 deletions(-)
+
+diff --git a/drivers/gpu/drm/amd/amdgpu/gfx_v8_0.c b/drivers/gpu/drm/amd/amdgpu/gfx_v8_0.c
+index a0ee869f5706..e6f66bf7e1f0 100644
+--- a/drivers/gpu/drm/amd/amdgpu/gfx_v8_0.c
++++ b/drivers/gpu/drm/amd/amdgpu/gfx_v8_0.c
+@@ -4223,8 +4223,8 @@ static void gfx_v8_0_set_cpg_door_bell(struct amdgpu_device *adev, struct amdgpu
+ 					adev->doorbell_index.gfx_ring0);
+ 	WREG32(mmCP_RB_DOORBELL_RANGE_LOWER, tmp);
+ 
+-	/* There is only one GFX queue */
+-	WREG32(mmCP_RB_DOORBELL_RANGE_UPPER, tmp);
++	WREG32(mmCP_RB_DOORBELL_RANGE_UPPER,
++		CP_RB_DOORBELL_RANGE_UPPER__DOORBELL_RANGE_UPPER_MASK);
+ }
+ 
+ static int gfx_v8_0_cp_gfx_resume(struct amdgpu_device *adev)
+@@ -4646,19 +4646,8 @@ static int gfx_v8_0_kcq_init_queue(struct amdgpu_ring *ring)
+ static void gfx_v8_0_set_mec_doorbell_range(struct amdgpu_device *adev)
+ {
+ 	if (adev->asic_type > CHIP_TONGA) {
+-		/* The first few doorbells in pci doorbell bar are for GFX RB
+-		 * rings and all the leftover for MEC.
+-		 * So CP_MEC_DOORBELL_RANGE_LOWER should be set one index after
+-		 * CP_RB_DOORBELL_RANGE_UPPER, as we assume there is only one
+-		 * GFX RB rings.
+-		 */
+-		u32 tmp = REG_SET_FIELD(0, CP_MEC_DOORBELL_RANGE_LOWER,
+-				DOORBELL_RANGE_LOWER,
+-				adev->gfx.gfx_ring[0].doorbell_index + 1);
+-
+-		WREG32(mmCP_MEC_DOORBELL_RANGE_LOWER, tmp);
+-		WREG32(mmCP_MEC_DOORBELL_RANGE_UPPER,
+-				CP_MEC_DOORBELL_RANGE_UPPER__DOORBELL_RANGE_UPPER_MASK);
++		WREG32(mmCP_MEC_DOORBELL_RANGE_LOWER, adev->doorbell_index.kiq << 2);
++		WREG32(mmCP_MEC_DOORBELL_RANGE_UPPER, adev->doorbell_index.mec_ring7 << 2);
+ 	}
+ 	/* enable doorbells */
+ 	WREG32_FIELD(CP_PQ_STATUS, DOORBELL_ENABLE, 1);
+diff --git a/drivers/gpu/drm/amd/amdgpu/gfx_v9_0.c b/drivers/gpu/drm/amd/amdgpu/gfx_v9_0.c
+index 54d5e788dffa..1478e784cff0 100644
+--- a/drivers/gpu/drm/amd/amdgpu/gfx_v9_0.c
++++ b/drivers/gpu/drm/amd/amdgpu/gfx_v9_0.c
+@@ -2635,8 +2635,8 @@ static int gfx_v9_0_cp_gfx_resume(struct amdgpu_device *adev)
+ 			DOORBELL_RANGE_LOWER, ring->doorbell_index);
+ 	WREG32_SOC15(GC, 0, mmCP_RB_DOORBELL_RANGE_LOWER, tmp);
+ 
+-	/* There is only one GFX queue */
+-	WREG32_SOC15(GC, 0, mmCP_RB_DOORBELL_RANGE_UPPER, tmp);
++	WREG32_SOC15(GC, 0, mmCP_RB_DOORBELL_RANGE_UPPER,
++		       CP_RB_DOORBELL_RANGE_UPPER__DOORBELL_RANGE_UPPER_MASK);
+ 
+ 
+ 	/* start the ring */
+@@ -2999,19 +2999,10 @@ static int gfx_v9_0_kiq_init_register(struct amdgpu_ring *ring)
+ 
+ 	/* enable the doorbell if requested */
+ 	if (ring->use_doorbell) {
+-		/* The first few doorbells in pci doorbell bar are for GFX RB
+-		 * rings and all the leftover for MEC.
+-		 * So CP_MEC_DOORBELL_RANGE_LOWER should be set one index after
+-		 * CP_RB_DOORBELL_RANGE_UPPER, as we assume there is only one
+-		 * GFX RB rings.
+-		 */
+-		u32 tmp = REG_SET_FIELD(0, CP_MEC_DOORBELL_RANGE_LOWER,
+-				DOORBELL_RANGE_LOWER,
+-				adev->gfx.gfx_ring[0].doorbell_index + 2);
+-
+-		WREG32_SOC15(GC, 0, mmCP_MEC_DOORBELL_RANGE_LOWER, tmp);
++		WREG32_SOC15(GC, 0, mmCP_MEC_DOORBELL_RANGE_LOWER,
++					(adev->doorbell_index.kiq * 2) << 2);
+ 		WREG32_SOC15(GC, 0, mmCP_MEC_DOORBELL_RANGE_UPPER,
+-				CP_MEC_DOORBELL_RANGE_UPPER__DOORBELL_RANGE_UPPER_MASK);
++					(adev->doorbell_index.userqueue_end * 2) << 2);
+ 	}
+ 
+ 	WREG32_SOC15(GC, 0, mmCP_HQD_PQ_DOORBELL_CONTROL,
+-- 
+2.17.1
+

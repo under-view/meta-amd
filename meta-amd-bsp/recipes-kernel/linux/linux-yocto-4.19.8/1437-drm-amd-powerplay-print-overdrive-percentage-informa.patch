@@ -1,0 +1,123 @@
+From 5469d69eaa6c00f8393f7582377df380ebe1a558 Mon Sep 17 00:00:00 2001
+From: Likun Gao <Likun.Gao@amd.com>
+Date: Fri, 11 Jan 2019 18:47:14 +0800
+Subject: [PATCH 1437/2940] drm/amd/powerplay: print overdrive percentage
+ information for smu11
+
+Add function to get sclk or mclk overdrive percentage information for smu11.
+
+Signed-off-by: Likun Gao <Likun.Gao@amd.com>
+Reviewed-by: Kevin Wang <kevin1.wang@amd.com>
+Reviewed-by: Evan Quan <evan.quan@amd.com>
+Acked-by: Alex Deucher <alexander.deucher@amd.com>
+---
+ drivers/gpu/drm/amd/amdgpu/amdgpu_pm.c        |  8 +++-
+ .../gpu/drm/amd/powerplay/inc/amdgpu_smu.h    |  3 ++
+ drivers/gpu/drm/amd/powerplay/vega20_ppt.c    | 37 +++++++++++++++++++
+ 3 files changed, 46 insertions(+), 2 deletions(-)
+
+diff --git a/drivers/gpu/drm/amd/amdgpu/amdgpu_pm.c b/drivers/gpu/drm/amd/amdgpu/amdgpu_pm.c
+index 896dcac33656..ebe694594780 100644
+--- a/drivers/gpu/drm/amd/amdgpu/amdgpu_pm.c
++++ b/drivers/gpu/drm/amd/amdgpu/amdgpu_pm.c
+@@ -1016,7 +1016,9 @@ static ssize_t amdgpu_get_pp_sclk_od(struct device *dev,
+ 	struct amdgpu_device *adev = ddev->dev_private;
+ 	uint32_t value = 0;
+ 
+-	if (adev->powerplay.pp_funcs->get_sclk_od)
++	if (is_support_sw_smu(adev))
++		value = smu_get_od_percentage(&(adev->smu), OD_SCLK);
++	else if (adev->powerplay.pp_funcs->get_sclk_od)
+ 		value = amdgpu_dpm_get_sclk_od(adev);
+ 
+ 	return snprintf(buf, PAGE_SIZE, "%d\n", value);
+@@ -1060,7 +1062,9 @@ static ssize_t amdgpu_get_pp_mclk_od(struct device *dev,
+ 	struct amdgpu_device *adev = ddev->dev_private;
+ 	uint32_t value = 0;
+ 
+-	if (adev->powerplay.pp_funcs->get_mclk_od)
++	if (is_support_sw_smu(adev))
++		value = smu_get_od_percentage(&(adev->smu), OD_MCLK);
++	else if (adev->powerplay.pp_funcs->get_mclk_od)
+ 		value = amdgpu_dpm_get_mclk_od(adev);
+ 
+ 	return snprintf(buf, PAGE_SIZE, "%d\n", value);
+diff --git a/drivers/gpu/drm/amd/powerplay/inc/amdgpu_smu.h b/drivers/gpu/drm/amd/powerplay/inc/amdgpu_smu.h
+index 9e376eea847d..bab7847b2143 100644
+--- a/drivers/gpu/drm/amd/powerplay/inc/amdgpu_smu.h
++++ b/drivers/gpu/drm/amd/powerplay/inc/amdgpu_smu.h
+@@ -262,6 +262,7 @@ struct pptable_funcs {
+ 	int (*print_clk_levels)(struct smu_context *smu, enum pp_clock_type type, char *buf);
+ 	int (*force_clk_levels)(struct smu_context *smu, enum pp_clock_type type, uint32_t mask);
+ 	int (*set_default_od8_settings)(struct smu_context *smu);
++	int (*get_od_percentage)(struct smu_context *smu, enum pp_clock_type type);
+ 	int (*get_clock_by_type_with_latency)(struct smu_context *smu,
+ 					      enum amd_pp_clock_type type,
+ 					      struct
+@@ -424,6 +425,8 @@ struct smu_funcs
+ 	((smu)->ppt_funcs->print_clk_levels ? (smu)->ppt_funcs->print_clk_levels((smu), (type), (buf)) : 0)
+ #define smu_force_clk_levels(smu, type, level) \
+ 	((smu)->ppt_funcs->force_clk_levels ? (smu)->ppt_funcs->force_clk_levels((smu), (type), (level)) : 0)
++#define smu_get_od_percentage(smu, type) \
++	((smu)->ppt_funcs->get_od_percentage ? (smu)->ppt_funcs->get_od_percentage((smu), (type)) : 0)
+ #define smu_start_thermal_control(smu) \
+ 	((smu)->funcs->start_thermal_control? (smu)->funcs->start_thermal_control((smu)) : 0)
+ #define smu_read_sensor(smu, sensor, data, size) \
+diff --git a/drivers/gpu/drm/amd/powerplay/vega20_ppt.c b/drivers/gpu/drm/amd/powerplay/vega20_ppt.c
+index aa7f41a59e82..42eb82832b3e 100644
+--- a/drivers/gpu/drm/amd/powerplay/vega20_ppt.c
++++ b/drivers/gpu/drm/amd/powerplay/vega20_ppt.c
+@@ -1120,6 +1120,42 @@ static int vega20_set_default_od8_setttings(struct smu_context *smu)
+ 	return 0;
+ }
+ 
++static int vega20_get_od_percentage(struct smu_context *smu,
++				    enum pp_clock_type type)
++{
++	struct smu_dpm_context *smu_dpm = &smu->smu_dpm;
++	struct vega20_dpm_table *dpm_table = NULL;
++	struct vega20_dpm_table *golden_table = NULL;
++	struct vega20_single_dpm_table *single_dpm_table;
++	struct vega20_single_dpm_table *golden_dpm_table;
++	int value, golden_value;
++
++	dpm_table = smu_dpm->dpm_context;
++	golden_table = smu_dpm->golden_dpm_context;
++
++	switch (type) {
++	case OD_SCLK:
++		single_dpm_table = &(dpm_table->gfx_table);
++		golden_dpm_table = &(golden_table->gfx_table);
++		break;
++	case OD_MCLK:
++		single_dpm_table = &(dpm_table->mem_table);
++		golden_dpm_table = &(golden_table->mem_table);
++		break;
++	default:
++		return -EINVAL;
++		break;
++	}
++
++	value = single_dpm_table->dpm_levels[single_dpm_table->count - 1].value;
++	golden_value = golden_dpm_table->dpm_levels[golden_dpm_table->count - 1].value;
++
++	value -= golden_value;
++	value = DIV_ROUND_UP(value * 100, golden_value);
++
++	return value;
++}
++
+ static const struct pptable_funcs vega20_ppt_funcs = {
+ 	.alloc_dpm_context = vega20_allocate_dpm_context,
+ 	.store_powerplay_table = vega20_store_powerplay_table,
+@@ -1134,6 +1170,7 @@ static const struct pptable_funcs vega20_ppt_funcs = {
+ 	.force_clk_levels = vega20_force_clk_levels,
+ 	.get_clock_by_type_with_latency = vega20_get_clock_by_type_with_latency,
+ 	.set_default_od8_settings = vega20_set_default_od8_setttings,
++	.get_od_percentage = vega20_get_od_percentage,
+ };
+ 
+ void vega20_set_ppt_funcs(struct smu_context *smu)
+-- 
+2.17.1
+

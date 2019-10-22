@@ -1,0 +1,42 @@
+From 1a21459aed6bbfda5d15e6c6fb96eb7f93d81e0b Mon Sep 17 00:00:00 2001
+From: shaoyunl <shaoyun.liu@amd.com>
+Date: Mon, 1 Apr 2019 16:09:34 -0400
+Subject: [PATCH 1729/2940] drm/amdgpu: Adjust IB test timeout for XGMI
+ configuration
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+On XGMI configuration the ib test may take longer to finish
+
+Change-Id: If3afd8eac3c342d32c387804b51fc4a4bdd35d35
+Signed-off-by: shaoyunl <shaoyun.liu@amd.com>
+Reviewed-by: Christian König <christian.koenig@amd.com>
+---
+ drivers/gpu/drm/amd/amdgpu/amdgpu_ib.c | 3 +++
+ 1 file changed, 3 insertions(+)
+
+diff --git a/drivers/gpu/drm/amd/amdgpu/amdgpu_ib.c b/drivers/gpu/drm/amd/amdgpu/amdgpu_ib.c
+index ca3f7b75e7d8..a3d30c65f01d 100644
+--- a/drivers/gpu/drm/amd/amdgpu/amdgpu_ib.c
++++ b/drivers/gpu/drm/amd/amdgpu/amdgpu_ib.c
+@@ -35,6 +35,7 @@
+ #include "amdgpu_trace.h"
+ 
+ #define AMDGPU_IB_TEST_TIMEOUT	msecs_to_jiffies(1000)
++#define AMDGPU_IB_TEST_GFX_XGMI_TIMEOUT	msecs_to_jiffies(2000)
+ 
+ /*
+  * IB
+@@ -352,6 +353,8 @@ int amdgpu_ib_ring_tests(struct amdgpu_device *adev)
+ 		 * cost waiting for it coming back under RUNTIME only
+ 		*/
+ 		tmo_gfx = 8 * AMDGPU_IB_TEST_TIMEOUT;
++	} else if (adev->gmc.xgmi.hive_id) {
++		tmo_gfx = AMDGPU_IB_TEST_GFX_XGMI_TIMEOUT;
+ 	}
+ 
+ 	for (i = 0; i < adev->num_rings; ++i) {
+-- 
+2.17.1
+

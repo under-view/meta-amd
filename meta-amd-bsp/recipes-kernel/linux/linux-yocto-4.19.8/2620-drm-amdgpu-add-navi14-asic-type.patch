@@ -1,0 +1,43 @@
+From a47fa9a67c15659a3d099abb1228be7076b47971 Mon Sep 17 00:00:00 2001
+From: Xiaojie Yuan <xiaojie.yuan@amd.com>
+Date: Mon, 17 Dec 2018 18:00:26 +0800
+Subject: [PATCH 2620/2940] drm/amdgpu: add navi14 asic type
+
+Add CHIP_NAVI14 to the list of asic types.
+
+Signed-off-by: Xiaojie Yuan <xiaojie.yuan@amd.com>
+Reviewed-by: Alex Deucher <alexander.deucher@amd.com>
+Reviewed-by: Jack Xiao <Jack.Xiao@amd.com>
+Signed-off-by: Alex Deucher <alexander.deucher@amd.com>
+---
+ drivers/gpu/drm/amd/amdgpu/amdgpu_device.c | 1 +
+ include/drm/amd_asic_type.h                | 1 +
+ 2 files changed, 2 insertions(+)
+
+diff --git a/drivers/gpu/drm/amd/amdgpu/amdgpu_device.c b/drivers/gpu/drm/amd/amdgpu/amdgpu_device.c
+index 4a76f062906e..f9ef994462b1 100644
+--- a/drivers/gpu/drm/amd/amdgpu/amdgpu_device.c
++++ b/drivers/gpu/drm/amd/amdgpu/amdgpu_device.c
+@@ -98,6 +98,7 @@ static const char *amdgpu_asic_name[] = {
+ 	"VEGA20",
+ 	"RAVEN",
+ 	"NAVI10",
++	"NAVI14",
+ 	"LAST",
+ };
+ 
+diff --git a/include/drm/amd_asic_type.h b/include/drm/amd_asic_type.h
+index 630fb73b2750..e0c4c9a6db83 100644
+--- a/include/drm/amd_asic_type.h
++++ b/include/drm/amd_asic_type.h
+@@ -51,6 +51,7 @@ enum amd_asic_type {
+ 	CHIP_RAVEN,
+ 	CHIP_PICASSO,
+ 	CHIP_NAVI10,
++	CHIP_NAVI14,
+ 	CHIP_LAST,
+ };
+ 
+-- 
+2.17.1
+

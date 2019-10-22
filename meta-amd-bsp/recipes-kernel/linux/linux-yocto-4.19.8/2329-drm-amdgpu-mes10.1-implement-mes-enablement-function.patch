@@ -1,0 +1,62 @@
+From 68d80e3e0deefc2895e79055c18af287149009a3 Mon Sep 17 00:00:00 2001
+From: Jack Xiao <Jack.Xiao@amd.com>
+Date: Sun, 14 Apr 2019 17:16:48 +0800
+Subject: [PATCH 2329/2940] drm/amdgpu/mes10.1: implement mes enablement
+ function
+
+After MES firmware gets loaded, it enables MES engine starting execution.
+
+Signed-off-by: Jack Xiao <Jack.Xiao@amd.com>
+Reviewed-by: Hawking Zhang <Hawking.Zhang@amd.com>
+Signed-off-by: Alex Deucher <alexander.deucher@amd.com>
+---
+ drivers/gpu/drm/amd/amdgpu/mes_v10_1.c | 33 ++++++++++++++++++++++++++
+ 1 file changed, 33 insertions(+)
+
+diff --git a/drivers/gpu/drm/amd/amdgpu/mes_v10_1.c b/drivers/gpu/drm/amd/amdgpu/mes_v10_1.c
+index 5c5d27cd1029..0644ca0ef353 100644
+--- a/drivers/gpu/drm/amd/amdgpu/mes_v10_1.c
++++ b/drivers/gpu/drm/amd/amdgpu/mes_v10_1.c
+@@ -183,6 +183,39 @@ static void mes_v10_1_free_ucode_buffers(struct amdgpu_device *adev)
+ 			      (void **)&adev->mes.ucode_fw_ptr);
+ }
+ 
++static void mes_v10_1_enable(struct amdgpu_device *adev, bool enable)
++{
++	uint32_t data = 0;
++
++	if (enable) {
++		data = RREG32_SOC15(GC, 0, mmCP_MES_CNTL);
++		data = REG_SET_FIELD(data, CP_MES_CNTL, MES_PIPE0_RESET, 1);
++		WREG32_SOC15(GC, 0, mmCP_MES_CNTL, data);
++
++		/* set ucode start address */
++		WREG32_SOC15(GC, 0, mmCP_MES_PRGRM_CNTR_START,
++			     (uint32_t)(adev->mes.uc_start_addr) >> 2);
++
++		/* clear BYPASS_UNCACHED to avoid hangs after interrupt. */
++		data = RREG32_SOC15(GC, 0, mmCP_MES_DC_OP_CNTL);
++		data = REG_SET_FIELD(data, CP_MES_DC_OP_CNTL,
++				     BYPASS_UNCACHED, 0);
++		WREG32_SOC15(GC, 0, mmCP_MES_DC_OP_CNTL, data);
++
++		/* unhalt MES and activate pipe0 */
++		data = REG_SET_FIELD(0, CP_MES_CNTL, MES_PIPE0_ACTIVE, 1);
++		WREG32_SOC15(GC, 0, mmCP_MES_CNTL, data);
++	} else {
++		data = RREG32_SOC15(GC, 0, mmCP_MES_CNTL);
++		data = REG_SET_FIELD(data, CP_MES_CNTL, MES_PIPE0_ACTIVE, 0);
++		data = REG_SET_FIELD(data, CP_MES_CNTL,
++				     MES_INVALIDATE_ICACHE, 1);
++		data = REG_SET_FIELD(data, CP_MES_CNTL, MES_PIPE0_RESET, 1);
++		data = REG_SET_FIELD(data, CP_MES_CNTL, MES_HALT, 1);
++		WREG32_SOC15(GC, 0, mmCP_MES_CNTL, data);
++	}
++}
++
+ /* This function is for backdoor MES firmware */
+ static int mes_v10_1_load_microcode(struct amdgpu_device *adev)
+ {
+-- 
+2.17.1
+

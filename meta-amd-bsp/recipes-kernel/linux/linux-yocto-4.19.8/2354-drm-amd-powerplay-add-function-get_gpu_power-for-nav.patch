@@ -1,0 +1,55 @@
+From bab3e0fd5c6a807eb7884d8056137e789bb1a7d3 Mon Sep 17 00:00:00 2001
+From: Kevin Wang <kevin1.wang@amd.com>
+Date: Tue, 23 Apr 2019 11:07:52 +0800
+Subject: [PATCH 2354/2940] drm/amd/powerplay: add function get_gpu_power for
+ navi10
+
+add callback function get_gpu_power for navi10 asic
+
+Signed-off-by: Kevin Wang <kevin1.wang@amd.com>
+Reviewed-by: Huang Rui <ray.huang@amd.com>
+Signed-off-by: Alex Deucher <alexander.deucher@amd.com>
+---
+ drivers/gpu/drm/amd/powerplay/navi10_ppt.c | 19 +++++++++++++++++++
+ 1 file changed, 19 insertions(+)
+
+diff --git a/drivers/gpu/drm/amd/powerplay/navi10_ppt.c b/drivers/gpu/drm/amd/powerplay/navi10_ppt.c
+index 22b6ae93137c..e21a1eaee8b9 100644
+--- a/drivers/gpu/drm/amd/powerplay/navi10_ppt.c
++++ b/drivers/gpu/drm/amd/powerplay/navi10_ppt.c
+@@ -749,6 +749,24 @@ static int navi10_unforce_dpm_levels(struct smu_context *smu) {
+ 	return ret;
+ }
+ 
++static int navi10_get_gpu_power(struct smu_context *smu, uint32_t *value)
++{
++	int ret = 0;
++	SmuMetrics_t metrics;
++
++	if (!value)
++		return -EINVAL;
++
++	ret = smu_update_table(smu, SMU_TABLE_SMU_METRICS, (void *)&metrics,
++			       false);
++	if (ret)
++		return ret;
++
++	*value = metrics.CurrSocketPower << 8;
++
++	return 0;
++}
++
+ static const struct pptable_funcs navi10_ppt_funcs = {
+ 	.tables_init = navi10_tables_init,
+ 	.alloc_dpm_context = navi10_allocate_dpm_context,
+@@ -772,6 +790,7 @@ static const struct pptable_funcs navi10_ppt_funcs = {
+ 	.display_config_changed = navi10_display_config_changed,
+ 	.force_dpm_limit_value = navi10_force_dpm_limit_value,
+ 	.unforce_dpm_levels = navi10_unforce_dpm_levels,
++	.get_gpu_power = navi10_get_gpu_power,
+ };
+ 
+ void navi10_set_ppt_funcs(struct smu_context *smu)
+-- 
+2.17.1
+

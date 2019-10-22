@@ -1,0 +1,31 @@
+From 82575f25d7e29fade4b8b783de643b54f3d7f3a8 Mon Sep 17 00:00:00 2001
+From: Kevin Wang <kevin1.wang@amd.com>
+Date: Tue, 14 May 2019 14:01:01 +0800
+Subject: [PATCH 2376/2940] drm/amd/powerplay: add sclk sysfs interface support
+ for navi10
+
+miss sclk support in force_clk_levels function
+
+Change-Id: I441d23f8b099c0d514cbe91a775a72bdd30b369d
+Signed-off-by: Kevin Wang <kevin1.wang@amd.com>
+Reviewed-by: Xiaojie Yuan <xiaojie.yuan@amd.com>
+Signed-off-by: Alex Deucher <alexander.deucher@amd.com>
+---
+ drivers/gpu/drm/amd/powerplay/navi10_ppt.c | 1 +
+ 1 file changed, 1 insertion(+)
+
+diff --git a/drivers/gpu/drm/amd/powerplay/navi10_ppt.c b/drivers/gpu/drm/amd/powerplay/navi10_ppt.c
+index 4f3d8604540d..dece57fc751e 100644
+--- a/drivers/gpu/drm/amd/powerplay/navi10_ppt.c
++++ b/drivers/gpu/drm/amd/powerplay/navi10_ppt.c
+@@ -648,6 +648,7 @@ static int navi10_force_clk_levels(struct smu_context *smu,
+ 
+ 	switch (clk_type) {
+ 	case SMU_GFXCLK:
++	case SMU_SCLK:
+ 	case SMU_SOCCLK:
+ 	case SMU_MCLK:
+ 	case SMU_UCLK:
+-- 
+2.17.1
+

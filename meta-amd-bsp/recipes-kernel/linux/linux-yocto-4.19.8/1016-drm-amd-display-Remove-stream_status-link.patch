@@ -1,0 +1,37 @@
+From 877a941a8087820ae590e625c6420463fce61ae5 Mon Sep 17 00:00:00 2001
+From: Leo Li <sunpeng.li@amd.com>
+Date: Tue, 20 Nov 2018 10:07:07 -0500
+Subject: [PATCH 1016/2940] drm/amd/display: Remove stream_status->link
+
+[Why]
+It's not being used anywhere.
+
+[How]
+Remove it.
+
+Signed-off-by: Leo Li <sunpeng.li@amd.com>
+Reviewed-by: David Francis <David.Francis@amd.com>
+Signed-off-by: Alex Deucher <alexander.deucher@amd.com>
+---
+ drivers/gpu/drm/amd/display/dc/dc_stream.h | 5 -----
+ 1 file changed, 5 deletions(-)
+
+diff --git a/drivers/gpu/drm/amd/display/dc/dc_stream.h b/drivers/gpu/drm/amd/display/dc/dc_stream.h
+index 0dfad73d1743..1e1e89e7c2c5 100644
+--- a/drivers/gpu/drm/amd/display/dc/dc_stream.h
++++ b/drivers/gpu/drm/amd/display/dc/dc_stream.h
+@@ -38,11 +38,6 @@ struct dc_stream_status {
+ 	int stream_enc_inst;
+ 	int plane_count;
+ 	struct dc_plane_state *plane_states[MAX_SURFACE_NUM];
+-
+-	/*
+-	 * link this stream passes through
+-	 */
+-	struct dc_link *link;
+ };
+ 
+ // TODO: References to this needs to be removed..
+-- 
+2.17.1
+

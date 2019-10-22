@@ -1,0 +1,91 @@
+From b8f67e2a227474e2c8102b9f9f456046d8eedc95 Mon Sep 17 00:00:00 2001
+From: =?UTF-8?q?Christian=20K=C3=B6nig?= <christian.koenig@amd.com>
+Date: Wed, 26 Sep 2018 13:45:38 +0200
+Subject: [PATCH 1112/2940] drm/amdgpu: add support for processing IH ring 1 &
+ 2
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+Previously we only added the ring buffer memory, now add the handling as
+well.
+
+Signed-off-by: Christian König <christian.koenig@amd.com>
+Acked-by: Alex Deucher <alexander.deucher@amd.com>
+Reviewed-by: Alex Deucher <alexander.deucher@amd.com>
+Reviewed-by: Felix Kuehling <Felix.Kuehling@amd.com>
+Signed-off-by: Alex Deucher <alexander.deucher@amd.com>
+---
+ drivers/gpu/drm/amd/amdgpu/amdgpu_irq.c | 33 +++++++++++++++++++++++++
+ drivers/gpu/drm/amd/amdgpu/amdgpu_irq.h |  4 ++-
+ 2 files changed, 36 insertions(+), 1 deletion(-)
+
+diff --git a/drivers/gpu/drm/amd/amdgpu/amdgpu_irq.c b/drivers/gpu/drm/amd/amdgpu/amdgpu_irq.c
+index 868f23bd3017..ddc88cf9069b 100644
+--- a/drivers/gpu/drm/amd/amdgpu/amdgpu_irq.c
++++ b/drivers/gpu/drm/amd/amdgpu/amdgpu_irq.c
+@@ -179,6 +179,36 @@ irqreturn_t amdgpu_irq_handler(int irq, void *arg)
+ 	return ret;
+ }
+ 
++/**
++ * amdgpu_irq_handle_ih1 - kick of processing for IH1
++ *
++ * @work: work structure in struct amdgpu_irq
++ *
++ * Kick of processing IH ring 1.
++ */
++static void amdgpu_irq_handle_ih1(struct work_struct *work)
++{
++	struct amdgpu_device *adev = container_of(work, struct amdgpu_device,
++						  irq.ih1_work);
++
++	amdgpu_ih_process(adev, &adev->irq.ih1, amdgpu_irq_callback);
++}
++
++/**
++ * amdgpu_irq_handle_ih2 - kick of processing for IH2
++ *
++ * @work: work structure in struct amdgpu_irq
++ *
++ * Kick of processing IH ring 2.
++ */
++static void amdgpu_irq_handle_ih2(struct work_struct *work)
++{
++	struct amdgpu_device *adev = container_of(work, struct amdgpu_device,
++						  irq.ih2_work);
++
++	amdgpu_ih_process(adev, &adev->irq.ih2, amdgpu_irq_callback);
++}
++
+ /**
+  * amdgpu_msi_ok - check whether MSI functionality is enabled
+  *
+@@ -243,6 +273,9 @@ int amdgpu_irq_init(struct amdgpu_device *adev)
+ 				amdgpu_hotplug_work_func);
+ 	}
+ 
++	INIT_WORK(&adev->irq.ih1_work, amdgpu_irq_handle_ih1);
++	INIT_WORK(&adev->irq.ih2_work, amdgpu_irq_handle_ih2);
++
+ 	adev->irq.installed = true;
+ 	r = drm_irq_install(adev->ddev, adev->ddev->pdev->irq);
+ 	if (r) {
+diff --git a/drivers/gpu/drm/amd/amdgpu/amdgpu_irq.h b/drivers/gpu/drm/amd/amdgpu/amdgpu_irq.h
+index c9dc17469242..005267d6efe8 100644
+--- a/drivers/gpu/drm/amd/amdgpu/amdgpu_irq.h
++++ b/drivers/gpu/drm/amd/amdgpu/amdgpu_irq.h
+@@ -89,7 +89,9 @@ struct amdgpu_irq {
+ 
+ 	/* interrupt rings */
+ 	struct amdgpu_ih_ring		ih, ih1, ih2;
+-	const struct amdgpu_ih_funcs	*ih_funcs;
++	const struct amdgpu_ih_funcs    *ih_funcs;
++	struct work_struct		ih1_work, ih2_work;
++	struct amdgpu_irq_src		self_irq;
+ 
+ 	/* gen irq stuff */
+ 	struct irq_domain		*domain; /* GPU irq controller domain */
+-- 
+2.17.1
+

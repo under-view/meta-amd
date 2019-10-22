@@ -1,0 +1,41 @@
+From e47fbdcb6b01ead23db8a298f6a9d173502935a3 Mon Sep 17 00:00:00 2001
+From: Evan Quan <evan.quan@amd.com>
+Date: Mon, 19 Nov 2018 12:03:24 +0800
+Subject: [PATCH 0821/2940] drm/amd/powerplay: disable Vega20 DS related
+ features
+
+Disable these features on Vega20 for now.
+
+Signed-off-by: Evan Quan <evan.quan@amd.com>
+Acked-by: Feifei Xu<Feifei.Xu@amd.com>
+Signed-off-by: Alex Deucher <alexander.deucher@amd.com>
+---
+ drivers/gpu/drm/amd/powerplay/hwmgr/vega20_hwmgr.c | 12 +++++++++++-
+ 1 file changed, 11 insertions(+), 1 deletion(-)
+
+diff --git a/drivers/gpu/drm/amd/powerplay/hwmgr/vega20_hwmgr.c b/drivers/gpu/drm/amd/powerplay/hwmgr/vega20_hwmgr.c
+index f2daf00cc911..9a773d8e880d 100644
+--- a/drivers/gpu/drm/amd/powerplay/hwmgr/vega20_hwmgr.c
++++ b/drivers/gpu/drm/amd/powerplay/hwmgr/vega20_hwmgr.c
+@@ -75,7 +75,17 @@ static void vega20_set_default_registry_data(struct pp_hwmgr *hwmgr)
+ 	data->phy_clk_quad_eqn_b = PPREGKEY_VEGA20QUADRATICEQUATION_DFLT;
+ 	data->phy_clk_quad_eqn_c = PPREGKEY_VEGA20QUADRATICEQUATION_DFLT;
+ 
+-	data->registry_data.disallowed_features = 0x0;
++	/*
++	 * Disable the following features for now:
++	 *   GFXCLK DS
++	 *   SOCLK DS
++	 *   LCLK DS
++	 *   DCEFCLK DS
++	 *   FCLK DS
++	 *   MP1CLK DS
++	 *   MP0CLK DS
++	 */
++	data->registry_data.disallowed_features = 0xE0041C00;
+ 	data->registry_data.od_state_in_dc_support = 0;
+ 	data->registry_data.thermal_support = 1;
+ 	data->registry_data.skip_baco_hardware = 0;
+-- 
+2.17.1
+

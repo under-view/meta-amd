@@ -1,0 +1,29 @@
+From 37a9c192460a5959cc4f4d1df52f32d559e757fa Mon Sep 17 00:00:00 2001
+From: Alex Deucher <alexander.deucher@amd.com>
+Date: Fri, 21 Jun 2019 16:32:25 -0500
+Subject: [PATCH 2579/2940] drm/amdgpu: drop unused df init callback
+
+It was replaced with the sw_init callback so is no longer
+needed.
+
+Reviewed-by: Felix Kuehling <Felix.Kuehling@amd.com>
+Signed-off-by: Alex Deucher <alexander.deucher@amd.com>
+---
+ drivers/gpu/drm/amd/amdgpu/amdgpu.h | 1 -
+ 1 file changed, 1 deletion(-)
+
+diff --git a/drivers/gpu/drm/amd/amdgpu/amdgpu.h b/drivers/gpu/drm/amd/amdgpu/amdgpu.h
+index 6972f808b388..8e55e1c94317 100644
+--- a/drivers/gpu/drm/amd/amdgpu/amdgpu.h
++++ b/drivers/gpu/drm/amd/amdgpu/amdgpu.h
+@@ -702,7 +702,6 @@ struct amdgpu_nbio_funcs {
+ };
+ 
+ struct amdgpu_df_funcs {
+-	void (*init)(struct amdgpu_device *adev);
+ 	void (*sw_init)(struct amdgpu_device *adev);
+ 	void (*enable_broadcast_mode)(struct amdgpu_device *adev,
+ 				      bool enable);
+-- 
+2.17.1
+

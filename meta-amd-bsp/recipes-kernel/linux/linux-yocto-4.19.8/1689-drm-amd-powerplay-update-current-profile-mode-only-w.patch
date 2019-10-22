@@ -1,0 +1,88 @@
+From 60121c1dabc1fd5764bdf12de0cf2c745490c71b Mon Sep 17 00:00:00 2001
+From: Evan Quan <evan.quan@amd.com>
+Date: Tue, 26 Mar 2019 17:16:36 +0800
+Subject: [PATCH 1689/2940] drm/amd/powerplay: update current profile mode only
+ when it's really applied
+
+No need to update current profile mode if the new profile mode
+does not take effect in fact.
+
+Change-Id: If24474d201840bfaefacc189f6a6ff6856695dff
+Signed-off-by: Evan Quan <evan.quan@amd.com>
+Reviewed-by: Kent Russell <kent.russell@amd.com>
+---
+ drivers/gpu/drm/amd/powerplay/hwmgr/vega10_hwmgr.c |  9 +++++----
+ drivers/gpu/drm/amd/powerplay/hwmgr/vega20_hwmgr.c | 13 +++++++------
+ 2 files changed, 12 insertions(+), 10 deletions(-)
+
+diff --git a/drivers/gpu/drm/amd/powerplay/hwmgr/vega10_hwmgr.c b/drivers/gpu/drm/amd/powerplay/hwmgr/vega10_hwmgr.c
+index 45c672993fe9..fe9a92fcfcbb 100644
+--- a/drivers/gpu/drm/amd/powerplay/hwmgr/vega10_hwmgr.c
++++ b/drivers/gpu/drm/amd/powerplay/hwmgr/vega10_hwmgr.c
+@@ -4904,13 +4904,12 @@ static int vega10_set_power_profile_mode(struct pp_hwmgr *hwmgr, long *input, ui
+ 	uint8_t FPS;
+ 	uint8_t use_rlc_busy;
+ 	uint8_t min_active_level;
+-
+-	hwmgr->power_profile_mode = input[size];
++	uint32_t power_profile_mode = input[size];
+ 
+ 	smum_send_msg_to_smc_with_parameter(hwmgr, PPSMC_MSG_SetWorkloadMask,
+-						1<<hwmgr->power_profile_mode);
++						1 << power_profile_mode);
+ 
+-	if (hwmgr->power_profile_mode == PP_SMC_POWER_PROFILE_CUSTOM) {
++	if (power_profile_mode == PP_SMC_POWER_PROFILE_CUSTOM) {
+ 		if (size == 0 || size > 4)
+ 			return -EINVAL;
+ 
+@@ -4924,6 +4923,8 @@ static int vega10_set_power_profile_mode(struct pp_hwmgr *hwmgr, long *input, ui
+ 					use_rlc_busy << 16 | min_active_level<<24);
+ 	}
+ 
++	hwmgr->power_profile_mode = power_profile_mode;
++
+ 	return 0;
+ }
+ 
+diff --git a/drivers/gpu/drm/amd/powerplay/hwmgr/vega20_hwmgr.c b/drivers/gpu/drm/amd/powerplay/hwmgr/vega20_hwmgr.c
+index 9f72bc49d885..8168ed26607d 100644
+--- a/drivers/gpu/drm/amd/powerplay/hwmgr/vega20_hwmgr.c
++++ b/drivers/gpu/drm/amd/powerplay/hwmgr/vega20_hwmgr.c
+@@ -3827,15 +3827,14 @@ static int vega20_set_power_profile_mode(struct pp_hwmgr *hwmgr, long *input, ui
+ {
+ 	DpmActivityMonitorCoeffInt_t activity_monitor;
+ 	int workload_type, result = 0;
++	uint32_t power_profile_mode = input[size];
+ 
+-	hwmgr->power_profile_mode = input[size];
+-
+-	if (hwmgr->power_profile_mode > PP_SMC_POWER_PROFILE_CUSTOM) {
+-		pr_err("Invalid power profile mode %d\n", hwmgr->power_profile_mode);
++	if (power_profile_mode > PP_SMC_POWER_PROFILE_CUSTOM) {
++		pr_err("Invalid power profile mode %d\n", power_profile_mode);
+ 		return -EINVAL;
+ 	}
+ 
+-	if (hwmgr->power_profile_mode == PP_SMC_POWER_PROFILE_CUSTOM) {
++	if (power_profile_mode == PP_SMC_POWER_PROFILE_CUSTOM) {
+ 		if (size < 10)
+ 			return -EINVAL;
+ 
+@@ -3903,10 +3902,12 @@ static int vega20_set_power_profile_mode(struct pp_hwmgr *hwmgr, long *input, ui
+ 
+ 	/* conv PP_SMC_POWER_PROFILE* to WORKLOAD_PPLIB_*_BIT */
+ 	workload_type =
+-		conv_power_profile_to_pplib_workload(hwmgr->power_profile_mode);
++		conv_power_profile_to_pplib_workload(power_profile_mode);
+ 	smum_send_msg_to_smc_with_parameter(hwmgr, PPSMC_MSG_SetWorkloadMask,
+ 						1 << workload_type);
+ 
++	hwmgr->power_profile_mode = power_profile_mode;
++
+ 	return 0;
+ }
+ 
+-- 
+2.17.1
+

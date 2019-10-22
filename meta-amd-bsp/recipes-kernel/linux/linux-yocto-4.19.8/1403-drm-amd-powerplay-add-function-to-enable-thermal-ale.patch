@@ -1,0 +1,43 @@
+From c2980de0a3e7b0791a35fd945a3a5ed09ca2c8e9 Mon Sep 17 00:00:00 2001
+From: Likun Gao <Likun.Gao@amd.com>
+Date: Fri, 4 Jan 2019 14:36:35 +0800
+Subject: [PATCH 1403/2940] drm/amd/powerplay: add function to enable thermal
+ alert
+
+Add function to enable thermal alerts on thermal control for smu11.
+
+Signed-off-by: Likun Gao <Likun.Gao@amd.com>
+Acked-by: Alex Deucher <alexander.deucher@amd.com>
+Reviewed-by: Huang Rui <ray.huang@amd.com>
+---
+ drivers/gpu/drm/amd/powerplay/smu_v11_0.c | 14 ++++++++++++++
+ 1 file changed, 14 insertions(+)
+
+diff --git a/drivers/gpu/drm/amd/powerplay/smu_v11_0.c b/drivers/gpu/drm/amd/powerplay/smu_v11_0.c
+index cf6b203032f6..59e84581f449 100644
+--- a/drivers/gpu/drm/amd/powerplay/smu_v11_0.c
++++ b/drivers/gpu/drm/amd/powerplay/smu_v11_0.c
+@@ -937,6 +937,20 @@ static int smu_v11_0_set_thermal_range(struct smu_context *smu,
+ 	return 0;
+ }
+ 
++static int smu_v11_0_enable_thermal_alert(struct smu_context *smu)
++{
++	struct amdgpu_device *adev = smu->adev;
++	uint32_t val = 0;
++
++	val |= (1 << THM_THERMAL_INT_ENA__THERM_INTH_CLR__SHIFT);
++	val |= (1 << THM_THERMAL_INT_ENA__THERM_INTL_CLR__SHIFT);
++	val |= (1 << THM_THERMAL_INT_ENA__THERM_TRIGGER_CLR__SHIFT);
++
++	WREG32_SOC15(THM, 0, mmTHM_THERMAL_INT_ENA, val);
++
++	return 0;
++}
++
+ static const struct smu_funcs smu_v11_0_funcs = {
+ 	.init_microcode = smu_v11_0_init_microcode,
+ 	.load_microcode = smu_v11_0_load_microcode,
+-- 
+2.17.1
+

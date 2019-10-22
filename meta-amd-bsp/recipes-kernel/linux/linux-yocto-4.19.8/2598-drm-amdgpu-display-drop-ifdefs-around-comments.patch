@@ -1,0 +1,56 @@
+From 04bf2d5f7329b37ab4a19de2fb781d803e0d9a34 Mon Sep 17 00:00:00 2001
+From: Alex Deucher <alexander.deucher@amd.com>
+Date: Mon, 24 Jun 2019 10:13:56 -0500
+Subject: [PATCH 2598/2940] drm/amdgpu/display: drop ifdefs around comments
+
+No need to protect the comments.  The DCN1_01 config
+was dopped anyway.  Got accidently brought back with the
+navi merge.
+
+Reviewed-by: Nicholas Kazlauskas <nicholas.kazlauskas@amd.com>
+Signed-off-by: Alex Deucher <alexander.deucher@amd.com>
+---
+ drivers/gpu/drm/amd/display/dc/dcn10/dcn10_hubbub.c | 6 ------
+ 1 file changed, 6 deletions(-)
+
+diff --git a/drivers/gpu/drm/amd/display/dc/dcn10/dcn10_hubbub.c b/drivers/gpu/drm/amd/display/dc/dcn10/dcn10_hubbub.c
+index daa229b97fcf..0ab391446d3d 100644
+--- a/drivers/gpu/drm/amd/display/dc/dcn10/dcn10_hubbub.c
++++ b/drivers/gpu/drm/amd/display/dc/dcn10/dcn10_hubbub.c
+@@ -145,7 +145,6 @@ bool hubbub1_verify_allow_pstate_change_high(
+ 		forced_pstate_allow = false;
+ 	}
+ 
+-#ifdef CONFIG_DRM_AMD_DC_DCN1_01
+ 	/* RV2:
+ 	 * dchubbubdebugind, at: 0xB
+ 	 * description
+@@ -182,8 +181,6 @@ bool hubbub1_verify_allow_pstate_change_high(
+ 	 * 30:    Arbiter's allow_pstate_change
+ 	 * 31:    SOC pstate change request"
+ 	 */
+-#else
+-#ifdef CONFIG_DRM_AMD_DC_DCN2_0
+ 	/*DCN2.x:
+ 	HUBBUB:DCHUBBUB_TEST_ARB_DEBUG10 DCHUBBUBDEBUGIND:0xB
+ 	0: Pipe0 Plane0 Allow P-state Change
+@@ -219,7 +216,6 @@ bool hubbub1_verify_allow_pstate_change_high(
+ 	30: Arbiter`s Allow P-state Change
+ 	31: SOC P-state Change request
+ 	*/
+-#else
+ 	/* RV1:
+ 	 * dchubbubdebugind, at: 0x7
+ 	 * description "3-0:   Pipe0 cursor0 QOS
+@@ -243,8 +239,6 @@ bool hubbub1_verify_allow_pstate_change_high(
+ 	 * 30:    Arbiter's allow_pstate_change
+ 	 * 31:    SOC pstate change request
+ 	 */
+-#endif
+-#endif
+ 
+ 	REG_WRITE(DCHUBBUB_TEST_DEBUG_INDEX, hubbub1->debug_test_index_pstate);
+ 
+-- 
+2.17.1
+

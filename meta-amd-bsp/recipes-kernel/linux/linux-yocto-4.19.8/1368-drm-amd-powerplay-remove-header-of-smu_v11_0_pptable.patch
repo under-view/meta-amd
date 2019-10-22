@@ -1,0 +1,40 @@
+From 006ed6c9bcef041c9fc096c00450a125be810ecc Mon Sep 17 00:00:00 2001
+From: Kevin Wang <Kevin1.Wang@amd.com>
+Date: Tue, 18 Dec 2018 10:58:17 +0800
+Subject: [PATCH 1368/2940] drm/amd/powerplay: remove header of
+ smu_v11_0_pptable
+
+different ASICs have different pptables, so the header will move
+to asic source code to implement.
+
+Signed-off-by: Kevin Wang <Kevin1.Wang@amd.com>
+Reviewed-by: Huang Rui <Ray.Huang@amd.com>
+Acked-by: Alex Deucher <alexander.deucher@amd.com>
+---
+ drivers/gpu/drm/amd/powerplay/smu_v11_0.c | 3 +--
+ 1 file changed, 1 insertion(+), 2 deletions(-)
+
+diff --git a/drivers/gpu/drm/amd/powerplay/smu_v11_0.c b/drivers/gpu/drm/amd/powerplay/smu_v11_0.c
+index ff8a32d37c51..a68d0a090d68 100644
+--- a/drivers/gpu/drm/amd/powerplay/smu_v11_0.c
++++ b/drivers/gpu/drm/amd/powerplay/smu_v11_0.c
+@@ -30,7 +30,6 @@
+ #include "smu_v11_0_ppsmc.h"
+ #include "smu11_driver_if.h"
+ #include "soc15_common.h"
+-#include "smu_v11_0_pptable.h"
+ 
+ #include "asic_reg/thm/thm_11_0_2_offset.h"
+ #include "asic_reg/thm/thm_11_0_2_sh_mask.h"
+@@ -218,7 +217,7 @@ static int smu_v11_0_read_pptable_from_vbios(struct smu_context *smu)
+ 	int ret, index;
+ 	uint16_t size;
+ 	uint8_t frev, crev;
+-	struct smu_11_0_powerplay_table *table;
++	void *table;
+ 
+ 	index = get_index_into_master_table(atom_master_list_of_data_tables_v2_1,
+ 					    powerplayinfo);
+-- 
+2.17.1
+

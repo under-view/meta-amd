@@ -1,0 +1,29 @@
+From e7d6c6588ffe27b365fb822bd263fee4f11713ff Mon Sep 17 00:00:00 2001
+From: Brajeswar Ghosh <brajeswar.linux@gmail.com>
+Date: Thu, 20 Dec 2018 18:04:55 +0530
+Subject: [PATCH 1030/2940] drm/amd/display/i2c_hw_engine_dce110: Remove
+ duplicate header
+
+Remove reg_helper.h which is included more than once
+
+Signed-off-by: Brajeswar Ghosh <brajeswar.linux@gmail.com>
+Signed-off-by: Alex Deucher <alexander.deucher@amd.com>
+---
+ .../gpu/drm/amd/display/dc/i2caux/dce110/i2c_hw_engine_dce110.c  | 1 -
+ 1 file changed, 1 deletion(-)
+
+diff --git a/drivers/gpu/drm/amd/display/dc/i2caux/dce110/i2c_hw_engine_dce110.c b/drivers/gpu/drm/amd/display/dc/i2caux/dce110/i2c_hw_engine_dce110.c
+index 9cbe1a7a6bcb..137350142fb2 100644
+--- a/drivers/gpu/drm/amd/display/dc/i2caux/dce110/i2c_hw_engine_dce110.c
++++ b/drivers/gpu/drm/amd/display/dc/i2caux/dce110/i2c_hw_engine_dce110.c
+@@ -97,7 +97,6 @@ enum dc_i2c_arbitration {
+ #define FN(reg_name, field_name) \
+ 	hw_engine->i2c_shift->field_name, hw_engine->i2c_mask->field_name
+ 
+-#include "reg_helper.h"
+ 
+ static void disable_i2c_hw_engine(
+ 	struct i2c_hw_engine_dce110 *hw_engine)
+-- 
+2.17.1
+

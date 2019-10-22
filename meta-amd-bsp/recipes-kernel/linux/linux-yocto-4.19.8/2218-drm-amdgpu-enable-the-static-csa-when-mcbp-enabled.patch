@@ -1,0 +1,97 @@
+From e513598390aab04f87485ec7c992c072a978978d Mon Sep 17 00:00:00 2001
+From: Jack Xiao <Jack.Xiao@amd.com>
+Date: Thu, 10 Jan 2019 15:50:10 +0800
+Subject: [PATCH 2218/2940] drm/amdgpu: enable the static csa when mcbp enabled
+
+Acked-by: Hawking Zhang <Hawking.Zhang@amd.com>
+Signed-off-by: Jack Xiao <Jack.Xiao@amd.com>
+Signed-off-by: Alex Deucher <alexander.deucher@amd.com>
+---
+ drivers/gpu/drm/amd/amdgpu/amdgpu_cs.c     | 5 +++--
+ drivers/gpu/drm/amd/amdgpu/amdgpu_device.c | 2 +-
+ drivers/gpu/drm/amd/amdgpu/amdgpu_ib.c     | 1 +
+ drivers/gpu/drm/amd/amdgpu/amdgpu_kms.c    | 6 +++---
+ 4 files changed, 8 insertions(+), 6 deletions(-)
+
+diff --git a/drivers/gpu/drm/amd/amdgpu/amdgpu_cs.c b/drivers/gpu/drm/amd/amdgpu/amdgpu_cs.c
+index 97e881717672..4e3dc5dd295a 100644
+--- a/drivers/gpu/drm/amd/amdgpu/amdgpu_cs.c
++++ b/drivers/gpu/drm/amd/amdgpu/amdgpu_cs.c
+@@ -873,7 +873,7 @@ static int amdgpu_cs_vm_handling(struct amdgpu_cs_parser *p)
+ 	if (r)
+ 		return r;
+ 
+-	if (amdgpu_sriov_vf(adev)) {
++	if (amdgpu_mcbp || amdgpu_sriov_vf(adev)) {
+ 		struct dma_fence *f;
+ 
+ 		bo_va = fpriv->csa_va;
+@@ -962,7 +962,8 @@ static int amdgpu_cs_ib_fill(struct amdgpu_device *adev,
+ 		if (chunk->chunk_id != AMDGPU_CHUNK_ID_IB)
+ 			continue;
+ 
+-		if (chunk_ib->ip_type == AMDGPU_HW_IP_GFX && amdgpu_sriov_vf(adev)) {
++		if (chunk_ib->ip_type == AMDGPU_HW_IP_GFX &&
++		    (amdgpu_mcbp || amdgpu_sriov_vf(adev))) {
+ 			if (chunk_ib->flags & AMDGPU_IB_FLAG_PREEMPT) {
+ 				if (chunk_ib->flags & AMDGPU_IB_FLAG_CE)
+ 					ce_preempt++;
+diff --git a/drivers/gpu/drm/amd/amdgpu/amdgpu_device.c b/drivers/gpu/drm/amd/amdgpu/amdgpu_device.c
+index bf8d8adc0918..2acf005782bb 100644
+--- a/drivers/gpu/drm/amd/amdgpu/amdgpu_device.c
++++ b/drivers/gpu/drm/amd/amdgpu/amdgpu_device.c
+@@ -1709,7 +1709,7 @@ static int amdgpu_device_ip_init(struct amdgpu_device *adev)
+ 			adev->ip_blocks[i].status.hw = true;
+ 
+ 			/* right after GMC hw init, we create CSA */
+-			if (amdgpu_sriov_vf(adev)) {
++			if (amdgpu_mcbp || amdgpu_sriov_vf(adev)) {
+ 				r = amdgpu_allocate_static_csa(adev, &adev->virt.csa_obj,
+ 								AMDGPU_GEM_DOMAIN_VRAM,
+ 								AMDGPU_CSA_SIZE);
+diff --git a/drivers/gpu/drm/amd/amdgpu/amdgpu_ib.c b/drivers/gpu/drm/amd/amdgpu/amdgpu_ib.c
+index a3d30c65f01d..70fa9a48e1f8 100644
+--- a/drivers/gpu/drm/amd/amdgpu/amdgpu_ib.c
++++ b/drivers/gpu/drm/amd/amdgpu/amdgpu_ib.c
+@@ -227,6 +227,7 @@ int amdgpu_ib_schedule(struct amdgpu_ring *ring, unsigned num_ibs,
+ 		if ((ib->flags & AMDGPU_IB_FLAG_PREAMBLE) &&
+ 			skip_preamble &&
+ 			!(status & AMDGPU_PREAMBLE_IB_PRESENT_FIRST) &&
++		        !amdgpu_mcbp &&
+ 			!amdgpu_sriov_vf(adev)) /* for SRIOV preemption, Preamble CE ib must be inserted anyway */
+ 			continue;
+ 
+diff --git a/drivers/gpu/drm/amd/amdgpu/amdgpu_kms.c b/drivers/gpu/drm/amd/amdgpu/amdgpu_kms.c
+index 2cdaacef0226..2e4d2b61573d 100644
+--- a/drivers/gpu/drm/amd/amdgpu/amdgpu_kms.c
++++ b/drivers/gpu/drm/amd/amdgpu/amdgpu_kms.c
+@@ -723,7 +723,7 @@ static int amdgpu_info_ioctl(struct drm_device *dev, void *data, struct drm_file
+ 		dev_info.ids_flags = 0;
+ 		if (adev->flags & AMD_IS_APU)
+ 			dev_info.ids_flags |= AMDGPU_IDS_FLAGS_FUSION;
+-		if (amdgpu_sriov_vf(adev))
++		if (amdgpu_mcbp || amdgpu_sriov_vf(adev))
+ 			dev_info.ids_flags |= AMDGPU_IDS_FLAGS_PREEMPTION;
+ 
+ 		vm_size = adev->vm_manager.max_pfn * AMDGPU_GPU_PAGE_SIZE;
+@@ -1032,7 +1032,7 @@ int amdgpu_driver_open_kms(struct drm_device *dev, struct drm_file *file_priv)
+ 		goto error_vm;
+ 	}
+ 
+-	if (amdgpu_sriov_vf(adev)) {
++	if (amdgpu_mcbp || amdgpu_sriov_vf(adev)) {
+ 		uint64_t csa_addr = amdgpu_csa_vaddr(adev) & AMDGPU_GMC_HOLE_MASK;
+ 
+ 		r = amdgpu_map_static_csa(adev, &fpriv->vm, adev->virt.csa_obj,
+@@ -1098,7 +1098,7 @@ void amdgpu_driver_postclose_kms(struct drm_device *dev,
+ 
+ 	amdgpu_vm_bo_rmv(adev, fpriv->prt_va);
+ 
+-	if (amdgpu_sriov_vf(adev)) {
++	if (amdgpu_mcbp || amdgpu_sriov_vf(adev)) {
+ 		/* TODO: how to handle reserve failure */
+ 		BUG_ON(amdgpu_bo_reserve(adev->virt.csa_obj, true));
+ 		amdgpu_vm_bo_rmv(adev, fpriv->csa_va);
+-- 
+2.17.1
+

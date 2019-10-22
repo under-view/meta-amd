@@ -1,0 +1,337 @@
+From 4ec582df2d7ce0187db8d97d5c07e8609aea18c6 Mon Sep 17 00:00:00 2001
+From: =?UTF-8?q?Christian=20K=C3=B6nig?= <christian.koenig@amd.com>
+Date: Fri, 10 May 2019 19:56:30 +0200
+Subject: [PATCH 1947/2940] drm/amdgpu: remove static GDS, GWS and OA
+ allocation
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+As far as we know this was never used by userspace and so should be removed.
+
+Signed-off-by: Christian König <christian.koenig@amd.com>
+Reviewed-by: Marek Olšák <marek.olsak@amd.com>
+---
+ drivers/gpu/drm/amd/amdgpu/amdgpu_bo_list.c |  6 ++--
+ drivers/gpu/drm/amd/amdgpu/amdgpu_gds.h     | 21 ++---------
+ drivers/gpu/drm/amd/amdgpu/amdgpu_kms.c     | 11 +++---
+ drivers/gpu/drm/amd/amdgpu/amdgpu_ttm.c     | 24 ++-----------
+ drivers/gpu/drm/amd/amdgpu/gfx_v7_0.c       | 32 +++--------------
+ drivers/gpu/drm/amd/amdgpu/gfx_v8_0.c       | 32 +++--------------
+ drivers/gpu/drm/amd/amdgpu/gfx_v9_0.c       | 39 ++++-----------------
+ 7 files changed, 28 insertions(+), 137 deletions(-)
+
+diff --git a/drivers/gpu/drm/amd/amdgpu/amdgpu_bo_list.c b/drivers/gpu/drm/amd/amdgpu/amdgpu_bo_list.c
+index 5c79da8e1150..d497467b7fc6 100644
+--- a/drivers/gpu/drm/amd/amdgpu/amdgpu_bo_list.c
++++ b/drivers/gpu/drm/amd/amdgpu/amdgpu_bo_list.c
+@@ -81,9 +81,9 @@ int amdgpu_bo_list_create(struct amdgpu_device *adev, struct drm_file *filp,
+ 		return -ENOMEM;
+ 
+ 	kref_init(&list->refcount);
+-	list->gds_obj = adev->gds.gds_gfx_bo;
+-	list->gws_obj = adev->gds.gws_gfx_bo;
+-	list->oa_obj = adev->gds.oa_gfx_bo;
++	list->gds_obj = NULL;
++	list->gws_obj = NULL;
++	list->oa_obj = NULL;
+ 
+ 	array = amdgpu_bo_list_array_entry(list, 0);
+ 	memset(array, 0, num_entries * sizeof(struct amdgpu_bo_list_entry));
+diff --git a/drivers/gpu/drm/amd/amdgpu/amdgpu_gds.h b/drivers/gpu/drm/amd/amdgpu/amdgpu_gds.h
+index f89f5734d985..dad2186f4ed5 100644
+--- a/drivers/gpu/drm/amd/amdgpu/amdgpu_gds.h
++++ b/drivers/gpu/drm/amd/amdgpu/amdgpu_gds.h
+@@ -27,26 +27,11 @@
+ struct amdgpu_ring;
+ struct amdgpu_bo;
+ 
+-struct amdgpu_gds_asic_info {
+-	uint32_t	total_size;
+-	uint32_t	gfx_partition_size;
+-	uint32_t	cs_partition_size;
+-};
+-
+ struct amdgpu_gds {
+-	struct amdgpu_gds_asic_info	mem;
+-	struct amdgpu_gds_asic_info	gws;
+-	struct amdgpu_gds_asic_info	oa;
++	uint32_t gds_size;
++	uint32_t gws_size;
++	uint32_t oa_size;
+ 	uint32_t			gds_compute_max_wave_id;
+-
+-	/* At present, GDS, GWS and OA resources for gfx (graphics)
+-	 * is always pre-allocated and available for graphics operation.
+-	 * Such resource is shared between all gfx clients.
+-	 * TODO: move this operation to user space
+-	 * */
+-	struct amdgpu_bo*		gds_gfx_bo;
+-	struct amdgpu_bo*		gws_gfx_bo;
+-	struct amdgpu_bo*		oa_gfx_bo;
+ };
+ 
+ struct amdgpu_gds_reg_offset {
+diff --git a/drivers/gpu/drm/amd/amdgpu/amdgpu_kms.c b/drivers/gpu/drm/amd/amdgpu/amdgpu_kms.c
+index d4f822307bc2..dfa59c31e5e0 100644
+--- a/drivers/gpu/drm/amd/amdgpu/amdgpu_kms.c
++++ b/drivers/gpu/drm/amd/amdgpu/amdgpu_kms.c
+@@ -604,13 +604,10 @@ static int amdgpu_info_ioctl(struct drm_device *dev, void *data, struct drm_file
+ 		struct drm_amdgpu_info_gds gds_info;
+ 
+ 		memset(&gds_info, 0, sizeof(gds_info));
+-		gds_info.gds_gfx_partition_size = adev->gds.mem.gfx_partition_size;
+-		gds_info.compute_partition_size = adev->gds.mem.cs_partition_size;
+-		gds_info.gds_total_size = adev->gds.mem.total_size;
+-		gds_info.gws_per_gfx_partition = adev->gds.gws.gfx_partition_size;
+-		gds_info.gws_per_compute_partition = adev->gds.gws.cs_partition_size;
+-		gds_info.oa_per_gfx_partition = adev->gds.oa.gfx_partition_size;
+-		gds_info.oa_per_compute_partition = adev->gds.oa.cs_partition_size;
++		gds_info.compute_partition_size = adev->gds.gds_size;
++		gds_info.gds_total_size = adev->gds.gds_size;
++		gds_info.gws_per_compute_partition = adev->gds.gws_size;
++		gds_info.oa_per_compute_partition = adev->gds.oa_size;
+ 		return copy_to_user(out, &gds_info,
+ 				    min((size_t)size, sizeof(gds_info))) ? -EFAULT : 0;
+ 	}
+diff --git a/drivers/gpu/drm/amd/amdgpu/amdgpu_ttm.c b/drivers/gpu/drm/amd/amdgpu/amdgpu_ttm.c
+index 7d5c4546582d..aaa364a6e2f9 100644
+--- a/drivers/gpu/drm/amd/amdgpu/amdgpu_ttm.c
++++ b/drivers/gpu/drm/amd/amdgpu/amdgpu_ttm.c
+@@ -2087,44 +2087,26 @@ int amdgpu_ttm_init(struct amdgpu_device *adev)
+ 
+ 	/* Initialize various on-chip memory pools */
+ 	r = ttm_bo_init_mm(&adev->mman.bdev, AMDGPU_PL_GDS,
+-			   adev->gds.mem.total_size);
++			   adev->gds.gds_size);
+ 	if (r) {
+ 		DRM_ERROR("Failed initializing GDS heap.\n");
+ 		return r;
+ 	}
+ 
+-	r = amdgpu_bo_create_kernel(adev, adev->gds.mem.gfx_partition_size,
+-				    4, AMDGPU_GEM_DOMAIN_GDS,
+-				    &adev->gds.gds_gfx_bo, NULL, NULL);
+-	if (r)
+-		return r;
+-
+ 	r = ttm_bo_init_mm(&adev->mman.bdev, AMDGPU_PL_GWS,
+-			   adev->gds.gws.total_size);
++			   adev->gds.gws_size);
+ 	if (r) {
+ 		DRM_ERROR("Failed initializing gws heap.\n");
+ 		return r;
+ 	}
+ 
+-	r = amdgpu_bo_create_kernel(adev, adev->gds.gws.gfx_partition_size,
+-				    1, AMDGPU_GEM_DOMAIN_GWS,
+-				    &adev->gds.gws_gfx_bo, NULL, NULL);
+-	if (r)
+-		return r;
+-
+ 	r = ttm_bo_init_mm(&adev->mman.bdev, AMDGPU_PL_OA,
+-			   adev->gds.oa.total_size);
++			   adev->gds.oa_size);
+ 	if (r) {
+ 		DRM_ERROR("Failed initializing oa heap.\n");
+ 		return r;
+ 	}
+ 
+-	r = amdgpu_bo_create_kernel(adev, adev->gds.oa.gfx_partition_size,
+-				    1, AMDGPU_GEM_DOMAIN_OA,
+-				    &adev->gds.oa_gfx_bo, NULL, NULL);
+-	if (r)
+-		return r;
+-
+ 	/* Register debugfs entries for amdgpu_ttm */
+ 	r = amdgpu_ttm_debugfs_init(adev);
+ 	if (r) {
+diff --git a/drivers/gpu/drm/amd/amdgpu/gfx_v7_0.c b/drivers/gpu/drm/amd/amdgpu/gfx_v7_0.c
+index a59e0fdf5a97..4cd1731d62fd 100644
+--- a/drivers/gpu/drm/amd/amdgpu/gfx_v7_0.c
++++ b/drivers/gpu/drm/amd/amdgpu/gfx_v7_0.c
+@@ -4493,12 +4493,8 @@ static int gfx_v7_0_sw_init(void *handle)
+ 
+ static int gfx_v7_0_sw_fini(void *handle)
+ {
+-	int i;
+ 	struct amdgpu_device *adev = (struct amdgpu_device *)handle;
+-
+-	amdgpu_bo_free_kernel(&adev->gds.oa_gfx_bo, NULL, NULL);
+-	amdgpu_bo_free_kernel(&adev->gds.gws_gfx_bo, NULL, NULL);
+-	amdgpu_bo_free_kernel(&adev->gds.gds_gfx_bo, NULL, NULL);
++	int i;
+ 
+ 	for (i = 0; i < adev->gfx.num_gfx_rings; i++)
+ 		amdgpu_ring_fini(&adev->gfx.gfx_ring[i]);
+@@ -5070,30 +5066,10 @@ static void gfx_v7_0_set_irq_funcs(struct amdgpu_device *adev)
+ static void gfx_v7_0_set_gds_init(struct amdgpu_device *adev)
+ {
+ 	/* init asci gds info */
+-	adev->gds.mem.total_size = RREG32(mmGDS_VMID0_SIZE);
+-	adev->gds.gws.total_size = 64;
+-	adev->gds.oa.total_size = 16;
++	adev->gds.gds_size = RREG32(mmGDS_VMID0_SIZE);
++	adev->gds.gws_size = 64;
++	adev->gds.oa_size = 16;
+ 	adev->gds.gds_compute_max_wave_id = RREG32(mmGDS_COMPUTE_MAX_WAVE_ID);
+-
+-	if (adev->gds.mem.total_size == 64 * 1024) {
+-		adev->gds.mem.gfx_partition_size = 4096;
+-		adev->gds.mem.cs_partition_size = 4096;
+-
+-		adev->gds.gws.gfx_partition_size = 4;
+-		adev->gds.gws.cs_partition_size = 4;
+-
+-		adev->gds.oa.gfx_partition_size = 4;
+-		adev->gds.oa.cs_partition_size = 1;
+-	} else {
+-		adev->gds.mem.gfx_partition_size = 1024;
+-		adev->gds.mem.cs_partition_size = 1024;
+-
+-		adev->gds.gws.gfx_partition_size = 16;
+-		adev->gds.gws.cs_partition_size = 16;
+-
+-		adev->gds.oa.gfx_partition_size = 4;
+-		adev->gds.oa.cs_partition_size = 4;
+-	}
+ }
+ 
+ 
+diff --git a/drivers/gpu/drm/amd/amdgpu/gfx_v8_0.c b/drivers/gpu/drm/amd/amdgpu/gfx_v8_0.c
+index 3ea36c6fef83..5a2bd2870c3d 100644
+--- a/drivers/gpu/drm/amd/amdgpu/gfx_v8_0.c
++++ b/drivers/gpu/drm/amd/amdgpu/gfx_v8_0.c
+@@ -2057,12 +2057,8 @@ static int gfx_v8_0_sw_init(void *handle)
+ 
+ static int gfx_v8_0_sw_fini(void *handle)
+ {
+-	int i;
+ 	struct amdgpu_device *adev = (struct amdgpu_device *)handle;
+-
+-	amdgpu_bo_free_kernel(&adev->gds.oa_gfx_bo, NULL, NULL);
+-	amdgpu_bo_free_kernel(&adev->gds.gws_gfx_bo, NULL, NULL);
+-	amdgpu_bo_free_kernel(&adev->gds.gds_gfx_bo, NULL, NULL);
++	int i;
+ 
+ 	for (i = 0; i < adev->gfx.num_gfx_rings; i++)
+ 		amdgpu_ring_fini(&adev->gfx.gfx_ring[i]);
+@@ -7009,30 +7005,10 @@ static void gfx_v8_0_set_rlc_funcs(struct amdgpu_device *adev)
+ static void gfx_v8_0_set_gds_init(struct amdgpu_device *adev)
+ {
+ 	/* init asci gds info */
+-	adev->gds.mem.total_size = RREG32(mmGDS_VMID0_SIZE);
+-	adev->gds.gws.total_size = 64;
+-	adev->gds.oa.total_size = 16;
++	adev->gds.gds_size = RREG32(mmGDS_VMID0_SIZE);
++	adev->gds.gws_size = 64;
++	adev->gds.oa_size = 16;
+ 	adev->gds.gds_compute_max_wave_id = RREG32(mmGDS_COMPUTE_MAX_WAVE_ID);
+-
+-	if (adev->gds.mem.total_size == 64 * 1024) {
+-		adev->gds.mem.gfx_partition_size = 4096;
+-		adev->gds.mem.cs_partition_size = 4096;
+-
+-		adev->gds.gws.gfx_partition_size = 4;
+-		adev->gds.gws.cs_partition_size = 4;
+-
+-		adev->gds.oa.gfx_partition_size = 4;
+-		adev->gds.oa.cs_partition_size = 1;
+-	} else {
+-		adev->gds.mem.gfx_partition_size = 1024;
+-		adev->gds.mem.cs_partition_size = 1024;
+-
+-		adev->gds.gws.gfx_partition_size = 16;
+-		adev->gds.gws.cs_partition_size = 16;
+-
+-		adev->gds.oa.gfx_partition_size = 4;
+-		adev->gds.oa.cs_partition_size = 4;
+-	}
+ }
+ 
+ static void gfx_v8_0_set_user_cu_inactive_bitmap(struct amdgpu_device *adev,
+diff --git a/drivers/gpu/drm/amd/amdgpu/gfx_v9_0.c b/drivers/gpu/drm/amd/amdgpu/gfx_v9_0.c
+index 58c1d883c913..ab201dc67aa5 100644
+--- a/drivers/gpu/drm/amd/amdgpu/gfx_v9_0.c
++++ b/drivers/gpu/drm/amd/amdgpu/gfx_v9_0.c
+@@ -1461,8 +1461,7 @@ static int gfx_v9_0_ngg_init(struct amdgpu_device *adev)
+ 
+ 	/* GDS reserve memory: 64 bytes alignment */
+ 	adev->gfx.ngg.gds_reserve_size = ALIGN(5 * 4, 0x40);
+-	adev->gds.mem.total_size -= adev->gfx.ngg.gds_reserve_size;
+-	adev->gds.mem.gfx_partition_size -= adev->gfx.ngg.gds_reserve_size;
++	adev->gds.gds_size -= adev->gfx.ngg.gds_reserve_size;
+ 	adev->gfx.ngg.gds_reserve_addr = RREG32_SOC15(GC, 0, mmGDS_VMID0_BASE);
+ 	adev->gfx.ngg.gds_reserve_addr += RREG32_SOC15(GC, 0, mmGDS_VMID0_SIZE);
+ 
+@@ -1570,7 +1569,7 @@ static int gfx_v9_0_ngg_en(struct amdgpu_device *adev)
+ 
+ 	gfx_v9_0_write_data_to_reg(ring, 0, false,
+ 				   SOC15_REG_OFFSET(GC, 0, mmGDS_VMID0_SIZE),
+-			           (adev->gds.mem.total_size +
++			           (adev->gds.gds_size +
+ 				    adev->gfx.ngg.gds_reserve_size));
+ 
+ 	amdgpu_ring_write(ring, PACKET3(PACKET3_DMA_DATA, 5));
+@@ -1784,10 +1783,6 @@ static int gfx_v9_0_sw_fini(void *handle)
+ 		kfree(ras_if);
+ 	}
+ 
+-	amdgpu_bo_free_kernel(&adev->gds.oa_gfx_bo, NULL, NULL);
+-	amdgpu_bo_free_kernel(&adev->gds.gws_gfx_bo, NULL, NULL);
+-	amdgpu_bo_free_kernel(&adev->gds.gds_gfx_bo, NULL, NULL);
+-
+ 	for (i = 0; i < adev->gfx.num_gfx_rings; i++)
+ 		amdgpu_ring_fini(&adev->gfx.gfx_ring[i]);
+ 	for (i = 0; i < adev->gfx.num_compute_rings; i++)
+@@ -5326,13 +5321,13 @@ static void gfx_v9_0_set_gds_init(struct amdgpu_device *adev)
+ 	case CHIP_VEGA10:
+ 	case CHIP_VEGA12:
+ 	case CHIP_VEGA20:
+-		adev->gds.mem.total_size = 0x10000;
++		adev->gds.gds_size = 0x10000;
+ 		break;
+ 	case CHIP_RAVEN:
+-		adev->gds.mem.total_size = 0x1000;
++		adev->gds.gds_size = 0x1000;
+ 		break;
+ 	default:
+-		adev->gds.mem.total_size = 0x10000;
++		adev->gds.gds_size = 0x10000;
+ 		break;
+ 	}
+ 
+@@ -5356,28 +5351,8 @@ static void gfx_v9_0_set_gds_init(struct amdgpu_device *adev)
+ 		break;
+ 	}
+ 
+-	adev->gds.gws.total_size = 64;
+-	adev->gds.oa.total_size = 16;
+-
+-	if (adev->gds.mem.total_size == 64 * 1024) {
+-		adev->gds.mem.gfx_partition_size = 4096;
+-		adev->gds.mem.cs_partition_size = 4096;
+-
+-		adev->gds.gws.gfx_partition_size = 4;
+-		adev->gds.gws.cs_partition_size = 4;
+-
+-		adev->gds.oa.gfx_partition_size = 4;
+-		adev->gds.oa.cs_partition_size = 1;
+-	} else {
+-		adev->gds.mem.gfx_partition_size = 1024;
+-		adev->gds.mem.cs_partition_size = 1024;
+-
+-		adev->gds.gws.gfx_partition_size = 16;
+-		adev->gds.gws.cs_partition_size = 16;
+-
+-		adev->gds.oa.gfx_partition_size = 4;
+-		adev->gds.oa.cs_partition_size = 4;
+-	}
++	adev->gds.gws_size = 64;
++	adev->gds.oa_size = 16;
+ }
+ 
+ static void gfx_v9_0_set_user_cu_inactive_bitmap(struct amdgpu_device *adev,
+-- 
+2.17.1
+

@@ -1,0 +1,35 @@
+From 46b8aeeebf8fd1898d0b191107b0a47a383e89c8 Mon Sep 17 00:00:00 2001
+From: Kevin Wang <kevin1.wang@amd.com>
+Date: Thu, 11 Jul 2019 21:33:17 +0800
+Subject: [PATCH 2858/2940] drm/amd/powerplay: fix smu clock type change miss
+ error
+
+in the smu module, use the smu_xxxclk type to identify the CLK type
+use SMU_SCLK, SMU_MCLK to replace PP_SCLK, PP_MCLK.
+
+Change-Id: Iac3bd575c6c1ce8757f33c71dfcbf622cad2e361
+Signed-off-by: Kevin Wang <kevin1.wang@amd.com>
+Reviewed-by: Feifei Xu <Feifei.Xu@amd.com>
+Reviewed-by: Evan Quan <evan.quan@amd.com>
+---
+ drivers/gpu/drm/amd/powerplay/amdgpu_smu.c | 4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
+
+diff --git a/drivers/gpu/drm/amd/powerplay/amdgpu_smu.c b/drivers/gpu/drm/amd/powerplay/amdgpu_smu.c
+index 1c15f02101fe..de6cc5d489cd 100644
+--- a/drivers/gpu/drm/amd/powerplay/amdgpu_smu.c
++++ b/drivers/gpu/drm/amd/powerplay/amdgpu_smu.c
+@@ -1386,8 +1386,8 @@ int smu_adjust_power_state_dynamic(struct smu_context *smu,
+ 							 &soc_mask);
+ 			if (ret)
+ 				return ret;
+-			smu_force_clk_levels(smu, PP_SCLK, 1 << sclk_mask);
+-			smu_force_clk_levels(smu, PP_MCLK, 1 << mclk_mask);
++			smu_force_clk_levels(smu, SMU_SCLK, 1 << sclk_mask);
++			smu_force_clk_levels(smu, SMU_MCLK, 1 << mclk_mask);
+ 			break;
+ 
+ 		case AMD_DPM_FORCED_LEVEL_MANUAL:
+-- 
+2.17.1
+

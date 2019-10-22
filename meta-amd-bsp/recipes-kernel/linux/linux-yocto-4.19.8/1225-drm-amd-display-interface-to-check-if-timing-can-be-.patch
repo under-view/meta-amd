@@ -1,0 +1,316 @@
+From 3a29280de172e1346bb6c5bca327ad4f87a4fff5 Mon Sep 17 00:00:00 2001
+From: Anthony Koo <Anthony.Koo@amd.com>
+Date: Sun, 20 Jan 2019 01:08:02 -0500
+Subject: [PATCH 1225/2940] drm/amd/display: interface to check if timing can
+ be seamless
+
+[Why]
+Need to figure out whether a timing we want to commit matches
+something that GOP already programmed, in which case
+we can decide to some optimizations
+
+[How]
+1. Add way to check for DIG FE
+2. Add way to check for matching OTG timing
+3. Add way to check for matching pixel clock (if possible)
+    - Currently only support DP for pixel clock, since it is easy to calc
+
+Change-Id: Iaf9e0f674f4afd4720e68ccfd8431d6a5d8346ba
+Signed-off-by: Anthony Koo <Anthony.Koo@amd.com>
+Reviewed-by: Aric Cyr <Aric.Cyr@amd.com>
+Acked-by: Bhawanpreet Lakha <Bhawanpreet.Lakha@amd.com>
+---
+ drivers/gpu/drm/amd/display/dc/core/dc.c      | 46 +++++++++++++++
+ drivers/gpu/drm/amd/display/dc/dc.h           |  4 ++
+ .../drm/amd/display/dc/dce/dce_clock_source.c | 28 ++++++++-
+ .../amd/display/dc/dcn10/dcn10_link_encoder.c | 10 ++++
+ .../amd/display/dc/dcn10/dcn10_link_encoder.h |  2 +
+ .../gpu/drm/amd/display/dc/dcn10/dcn10_optc.c | 59 +++++++++++++++++++
+ .../gpu/drm/amd/display/dc/inc/clock_source.h |  4 ++
+ .../drm/amd/display/dc/inc/hw/link_encoder.h  |  1 +
+ .../amd/display/dc/inc/hw/timing_generator.h  |  2 +
+ 9 files changed, 154 insertions(+), 2 deletions(-)
+
+diff --git a/drivers/gpu/drm/amd/display/dc/core/dc.c b/drivers/gpu/drm/amd/display/dc/core/dc.c
+index 85cf8535ec69..d32eb04156ca 100644
+--- a/drivers/gpu/drm/amd/display/dc/core/dc.c
++++ b/drivers/gpu/drm/amd/display/dc/core/dc.c
+@@ -969,6 +969,52 @@ static bool context_changed(
+ 	return false;
+ }
+ 
++bool dc_validate_seamless_boot_timing(struct dc *dc,
++				const struct dc_sink *sink,
++				struct dc_crtc_timing *crtc_timing)
++{
++	struct timing_generator *tg;
++	struct dc_link *link = sink->link;
++	unsigned int inst;
++
++	/* Check for enabled DIG to identify enabled display */
++	if (!link->link_enc->funcs->is_dig_enabled(link->link_enc))
++		return false;
++
++	/* Check for which front end is used by this encoder.
++	 * Note the inst is 1 indexed, where 0 is undefined.
++	 * Note that DIG_FE can source from different OTG but our
++	 * current implementation always map 1-to-1, so this code makes
++	 * the same assumption and doesn't check OTG source.
++	 */
++	inst = link->link_enc->funcs->get_dig_frontend(link->link_enc) - 1;
++
++	/* Instance should be within the range of the pool */
++	if (inst >= dc->res_pool->pipe_count)
++		return false;
++
++	tg = dc->res_pool->timing_generators[inst];
++
++	if (!tg->funcs->is_matching_timing)
++		return false;
++
++	if (!tg->funcs->is_matching_timing(tg, crtc_timing))
++		return false;
++
++	if (dc_is_dp_signal(link->connector_signal)) {
++		unsigned int pix_clk_100hz;
++
++		dc->res_pool->dp_clock_source->funcs->get_pixel_clk_frequency_100hz(
++			dc->res_pool->dp_clock_source,
++			inst, &pix_clk_100hz);
++
++		if (crtc_timing->pix_clk_100hz != pix_clk_100hz)
++			return false;
++	}
++
++	return true;
++}
++
+ bool dc_enable_stereo(
+ 	struct dc *dc,
+ 	struct dc_state *context,
+diff --git a/drivers/gpu/drm/amd/display/dc/dc.h b/drivers/gpu/drm/amd/display/dc/dc.h
+index 679c7f4b9424..3081a4b7b456 100644
+--- a/drivers/gpu/drm/amd/display/dc/dc.h
++++ b/drivers/gpu/drm/amd/display/dc/dc.h
+@@ -594,6 +594,10 @@ struct dc_validation_set {
+ 	uint8_t plane_count;
+ };
+ 
++bool dc_validate_seamless_boot_timing(struct dc *dc,
++				const struct dc_sink *sink,
++				struct dc_crtc_timing *crtc_timing);
++
+ enum dc_status dc_validate_plane(struct dc *dc, const struct dc_plane_state *plane_state);
+ 
+ void get_clock_requirements_for_state(struct dc_state *state, struct AsicStateEx *info);
+diff --git a/drivers/gpu/drm/amd/display/dc/dce/dce_clock_source.c b/drivers/gpu/drm/amd/display/dc/dce/dce_clock_source.c
+index c67e90e5c339..71d5777de961 100644
+--- a/drivers/gpu/drm/amd/display/dc/dce/dce_clock_source.c
++++ b/drivers/gpu/drm/amd/display/dc/dce/dce_clock_source.c
+@@ -977,6 +977,28 @@ static bool dce110_clock_source_power_down(
+ 	return bp_result == BP_RESULT_OK;
+ }
+ 
++static bool get_pixel_clk_frequency_100hz(
++		struct clock_source *clock_source,
++		unsigned int inst,
++		unsigned int *pixel_clk_khz)
++{
++	struct dce110_clk_src *clk_src = TO_DCE110_CLK_SRC(clock_source);
++	unsigned int clock_hz = 0;
++
++	if (clock_source->id == CLOCK_SOURCE_ID_DP_DTO) {
++		clock_hz = REG_READ(PHASE[inst]);
++
++		/* NOTE: There is agreement with VBIOS here that MODULO is
++		 * programmed equal to DPREFCLK, in which case PHASE will be
++		 * equivalent to pixel clock.
++		 */
++		*pixel_clk_khz = clock_hz / 100;
++		return true;
++	}
++
++	return false;
++}
++
+ /*****************************************/
+ /* Constructor                           */
+ /*****************************************/
+@@ -984,12 +1006,14 @@ static bool dce110_clock_source_power_down(
+ static const struct clock_source_funcs dce112_clk_src_funcs = {
+ 	.cs_power_down = dce110_clock_source_power_down,
+ 	.program_pix_clk = dce112_program_pix_clk,
+-	.get_pix_clk_dividers = dce112_get_pix_clk_dividers
++	.get_pix_clk_dividers = dce112_get_pix_clk_dividers,
++	.get_pixel_clk_frequency_100hz = get_pixel_clk_frequency_100hz
+ };
+ static const struct clock_source_funcs dce110_clk_src_funcs = {
+ 	.cs_power_down = dce110_clock_source_power_down,
+ 	.program_pix_clk = dce110_program_pix_clk,
+-	.get_pix_clk_dividers = dce110_get_pix_clk_dividers
++	.get_pix_clk_dividers = dce110_get_pix_clk_dividers,
++	.get_pixel_clk_frequency_100hz = get_pixel_clk_frequency_100hz
+ };
+ 
+ 
+diff --git a/drivers/gpu/drm/amd/display/dc/dcn10/dcn10_link_encoder.c b/drivers/gpu/drm/amd/display/dc/dcn10/dcn10_link_encoder.c
+index 771449f8984f..a9db372688ff 100644
+--- a/drivers/gpu/drm/amd/display/dc/dcn10/dcn10_link_encoder.c
++++ b/drivers/gpu/drm/amd/display/dc/dcn10/dcn10_link_encoder.c
+@@ -85,6 +85,7 @@ static const struct link_encoder_funcs dcn10_lnk_enc_funcs = {
+ 	.enable_hpd = dcn10_link_encoder_enable_hpd,
+ 	.disable_hpd = dcn10_link_encoder_disable_hpd,
+ 	.is_dig_enabled = dcn10_is_dig_enabled,
++	.get_dig_frontend = dcn10_get_dig_frontend,
+ 	.destroy = dcn10_link_encoder_destroy
+ };
+ 
+@@ -495,6 +496,15 @@ bool dcn10_is_dig_enabled(struct link_encoder *enc)
+ 	return value;
+ }
+ 
++unsigned int dcn10_get_dig_frontend(struct link_encoder *enc)
++{
++	struct dcn10_link_encoder *enc10 = TO_DCN10_LINK_ENC(enc);
++	uint32_t value;
++
++	REG_GET(DIG_BE_CNTL, DIG_FE_SOURCE_SELECT, &value);
++	return value;
++}
++
+ static void link_encoder_disable(struct dcn10_link_encoder *enc10)
+ {
+ 	/* reset training pattern */
+diff --git a/drivers/gpu/drm/amd/display/dc/dcn10/dcn10_link_encoder.h b/drivers/gpu/drm/amd/display/dc/dcn10/dcn10_link_encoder.h
+index 670b46e887ed..b74b80a247ec 100644
+--- a/drivers/gpu/drm/amd/display/dc/dcn10/dcn10_link_encoder.h
++++ b/drivers/gpu/drm/amd/display/dc/dcn10/dcn10_link_encoder.h
+@@ -336,6 +336,8 @@ void dcn10_psr_program_secondary_packet(struct link_encoder *enc,
+ 
+ bool dcn10_is_dig_enabled(struct link_encoder *enc);
+ 
++unsigned int dcn10_get_dig_frontend(struct link_encoder *enc);
++
+ void dcn10_aux_initialize(struct dcn10_link_encoder *enc10);
+ 
+ #endif /* __DC_LINK_ENCODER__DCN10_H__ */
+diff --git a/drivers/gpu/drm/amd/display/dc/dcn10/dcn10_optc.c b/drivers/gpu/drm/amd/display/dc/dcn10/dcn10_optc.c
+index 0355dcb8554a..51c98e99237e 100644
+--- a/drivers/gpu/drm/amd/display/dc/dcn10/dcn10_optc.c
++++ b/drivers/gpu/drm/amd/display/dc/dcn10/dcn10_optc.c
+@@ -1208,6 +1208,64 @@ bool optc1_is_stereo_left_eye(struct timing_generator *optc)
+ 	return ret;
+ }
+ 
++bool optc1_is_matching_timing(struct timing_generator *tg,
++		const struct dc_crtc_timing *otg_timing)
++{
++	struct dc_crtc_timing hw_crtc_timing = {0};
++	struct dcn_otg_state s = {0};
++
++	if (tg == NULL || otg_timing == NULL)
++		return false;
++
++	optc1_read_otg_state(DCN10TG_FROM_TG(tg), &s);
++
++	hw_crtc_timing.h_total = s.h_total + 1;
++	hw_crtc_timing.h_addressable = s.h_total - ((s.h_total - s.h_blank_start) + s.h_blank_end);
++	hw_crtc_timing.h_front_porch = s.h_total + 1 - s.h_blank_start;
++	hw_crtc_timing.h_sync_width = s.h_sync_a_end - s.h_sync_a_start;
++
++	hw_crtc_timing.v_total = s.v_total + 1;
++	hw_crtc_timing.v_addressable = s.v_total - ((s.v_total - s.v_blank_start) + s.v_blank_end);
++	hw_crtc_timing.v_front_porch = s.v_total + 1 - s.v_blank_start;
++	hw_crtc_timing.v_sync_width = s.v_sync_a_end - s.v_sync_a_start;
++
++	if (otg_timing->h_total != hw_crtc_timing.h_total)
++		return false;
++
++	if (otg_timing->h_border_left != hw_crtc_timing.h_border_left)
++		return false;
++
++	if (otg_timing->h_addressable != hw_crtc_timing.h_addressable)
++		return false;
++
++	if (otg_timing->h_border_right != hw_crtc_timing.h_border_right)
++		return false;
++
++	if (otg_timing->h_front_porch != hw_crtc_timing.h_front_porch)
++		return false;
++
++	if (otg_timing->h_sync_width != hw_crtc_timing.h_sync_width)
++		return false;
++
++	if (otg_timing->v_total != hw_crtc_timing.v_total)
++		return false;
++
++	if (otg_timing->v_border_top != hw_crtc_timing.v_border_top)
++		return false;
++
++	if (otg_timing->v_addressable != hw_crtc_timing.v_addressable)
++		return false;
++
++	if (otg_timing->v_border_bottom != hw_crtc_timing.v_border_bottom)
++		return false;
++
++	if (otg_timing->v_sync_width != hw_crtc_timing.v_sync_width)
++		return false;
++
++	return true;
++}
++
++
+ void optc1_read_otg_state(struct optc *optc1,
+ 		struct dcn_otg_state *s)
+ {
+@@ -1404,6 +1462,7 @@ static const struct timing_generator_funcs dcn10_tg_funcs = {
+ 		.get_frame_count = optc1_get_vblank_counter,
+ 		.get_scanoutpos = optc1_get_crtc_scanoutpos,
+ 		.get_otg_active_size = optc1_get_otg_active_size,
++		.is_matching_timing = optc1_is_matching_timing,
+ 		.set_early_control = optc1_set_early_control,
+ 		/* used by enable_timing_synchronization. Not need for FPGA */
+ 		.wait_for_state = optc1_wait_for_state,
+diff --git a/drivers/gpu/drm/amd/display/dc/inc/clock_source.h b/drivers/gpu/drm/amd/display/dc/inc/clock_source.h
+index 43d1fbd8ace5..fe6301cb8681 100644
+--- a/drivers/gpu/drm/amd/display/dc/inc/clock_source.h
++++ b/drivers/gpu/drm/amd/display/dc/inc/clock_source.h
+@@ -166,6 +166,10 @@ struct clock_source_funcs {
+ 			struct clock_source *,
+ 			struct pixel_clk_params *,
+ 			struct pll_settings *);
++	bool (*get_pixel_clk_frequency_100hz)(
++			struct clock_source *clock_source,
++			unsigned int inst,
++			unsigned int *pixel_clk_khz);
+ };
+ 
+ struct clock_source {
+diff --git a/drivers/gpu/drm/amd/display/dc/inc/hw/link_encoder.h b/drivers/gpu/drm/amd/display/dc/inc/hw/link_encoder.h
+index c20fdcaac53b..c9d3e37e9531 100644
+--- a/drivers/gpu/drm/amd/display/dc/inc/hw/link_encoder.h
++++ b/drivers/gpu/drm/amd/display/dc/inc/hw/link_encoder.h
+@@ -153,6 +153,7 @@ struct link_encoder_funcs {
+ 	void (*enable_hpd)(struct link_encoder *enc);
+ 	void (*disable_hpd)(struct link_encoder *enc);
+ 	bool (*is_dig_enabled)(struct link_encoder *enc);
++	unsigned int (*get_dig_frontend)(struct link_encoder *enc);
+ 	void (*destroy)(struct link_encoder **enc);
+ };
+ 
+diff --git a/drivers/gpu/drm/amd/display/dc/inc/hw/timing_generator.h b/drivers/gpu/drm/amd/display/dc/inc/hw/timing_generator.h
+index 39fec0186c10..5d6cca7826f3 100644
+--- a/drivers/gpu/drm/amd/display/dc/inc/hw/timing_generator.h
++++ b/drivers/gpu/drm/amd/display/dc/inc/hw/timing_generator.h
+@@ -170,6 +170,8 @@ struct timing_generator_funcs {
+ 	bool (*get_otg_active_size)(struct timing_generator *optc,
+ 			uint32_t *otg_active_width,
+ 			uint32_t *otg_active_height);
++	bool (*is_matching_timing)(struct timing_generator *tg,
++			const struct dc_crtc_timing *otg_timing);
+ 	void (*set_early_control)(struct timing_generator *tg,
+ 							   uint32_t early_cntl);
+ 	void (*wait_for_state)(struct timing_generator *tg,
+-- 
+2.17.1
+

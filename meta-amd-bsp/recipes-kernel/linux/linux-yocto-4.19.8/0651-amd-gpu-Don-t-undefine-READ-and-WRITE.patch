@@ -1,0 +1,33 @@
+From 2e477f55ea48a456c7636f0c190ac58950a06b00 Mon Sep 17 00:00:00 2001
+From: David Howells <dhowells@redhat.com>
+Date: Wed, 24 Oct 2018 00:36:12 +0100
+Subject: [PATCH 0651/2940] amd-gpu: Don't undefine READ and WRITE
+
+Remove the undefinition of READ and WRITE because these constants may be
+used elsewhere in subsequently included header files, thus breaking them.
+
+These constants don't actually appear to be used in the driver, so the
+undefinition seems pointless.
+
+Fixes: 4562236b3bc0 ("drm/amd/dc: Add dc display driver (v2)")
+Signed-off-by: David Howells <dhowells@redhat.com>
+---
+ drivers/gpu/drm/amd/display/dc/os_types.h | 2 --
+ 1 file changed, 2 deletions(-)
+
+diff --git a/drivers/gpu/drm/amd/display/dc/os_types.h b/drivers/gpu/drm/amd/display/dc/os_types.h
+index fc81caeff901..dbe02aab4e17 100644
+--- a/drivers/gpu/drm/amd/display/dc/os_types.h
++++ b/drivers/gpu/drm/amd/display/dc/os_types.h
+@@ -40,8 +40,6 @@
+ #define LITTLEENDIAN_CPU
+ #endif
+ 
+-#undef READ
+-#undef WRITE
+ #undef FRAME_SIZE
+ 
+ #define dm_output_to_console(fmt, ...) DRM_DEBUG_KMS(fmt, ##__VA_ARGS__)
+-- 
+2.17.1
+

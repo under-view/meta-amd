@@ -1,0 +1,53 @@
+From 685037c969ecce5e6e0c453bb1e05beae9412227 Mon Sep 17 00:00:00 2001
+From: Tom St Denis <tom.stdenis@amd.com>
+Date: Fri, 14 Jun 2019 11:47:21 -0400
+Subject: [PATCH 2117/2940] drm/amd/amdgpu: cast mem->num_pages to 64-bits when
+ shifting (v2)
+
+On 32-bit hosts mem->num_pages is 32-bits and can overflow
+when shifted.  Add a cast to avoid this.
+
+(v2): Style fix.
+
+Signed-off-by: Tom St Denis <tom.stdenis@amd.com>
+---
+ drivers/gpu/drm/amd/amdgpu/amdgpu_vram_mgr.c | 9 +++++----
+ 1 file changed, 5 insertions(+), 4 deletions(-)
+
+diff --git a/drivers/gpu/drm/amd/amdgpu/amdgpu_vram_mgr.c b/drivers/gpu/drm/amd/amdgpu/amdgpu_vram_mgr.c
+index c963ad86072e..1150e34bc28f 100644
+--- a/drivers/gpu/drm/amd/amdgpu/amdgpu_vram_mgr.c
++++ b/drivers/gpu/drm/amd/amdgpu/amdgpu_vram_mgr.c
+@@ -276,7 +276,7 @@ static int amdgpu_vram_mgr_new(struct ttm_mem_type_manager *man,
+ 	struct drm_mm_node *nodes;
+ 	enum drm_mm_insert_mode mode;
+ 	unsigned long lpfn, num_nodes, pages_per_node, pages_left;
+-	uint64_t vis_usage = 0;
++	uint64_t vis_usage = 0, mem_bytes;
+ 	unsigned i;
+ 	int r;
+ 
+@@ -285,8 +285,9 @@ static int amdgpu_vram_mgr_new(struct ttm_mem_type_manager *man,
+ 		lpfn = man->size;
+ 
+ 	/* bail out quickly if there's likely not enough VRAM for this BO */
+-	if (atomic64_add_return(mem->num_pages << PAGE_SHIFT, &mgr->usage) > adev->gmc.mc_vram_size) {
+-		atomic64_sub(mem->num_pages << PAGE_SHIFT, &mgr->usage);
++	mem_bytes = (u64)mem->num_pages << PAGE_SHIFT;
++	if (atomic64_add_return(mem_bytes, &mgr->usage) > adev->gmc.mc_vram_size) {
++		atomic64_sub(mem_bytes, &mgr->usage);
+ 		mem->mm_node = NULL;
+ 		return 0;
+ 	}
+@@ -308,7 +309,7 @@ static int amdgpu_vram_mgr_new(struct ttm_mem_type_manager *man,
+ 	nodes = kvmalloc_array((uint32_t)num_nodes, sizeof(*nodes),
+ 			       GFP_KERNEL | __GFP_ZERO);
+ 	if (!nodes) {
+-		atomic64_sub(mem->num_pages << PAGE_SHIFT, &mgr->usage);
++		atomic64_sub(mem_bytes, &mgr->usage);
+ 		return -ENOMEM;
+ 	}
+ 
+-- 
+2.17.1
+

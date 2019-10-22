@@ -1,0 +1,47 @@
+From 08db4befcda78e5435ec6c6d2341445ec64a5b55 Mon Sep 17 00:00:00 2001
+From: Vitaly Prosyak <vitaly.prosyak@amd.com>
+Date: Tue, 19 Mar 2019 15:46:50 -0500
+Subject: [PATCH 2478/2940] drm/amd/display: Add a flags union for 3dlut
+ transformation matrix
+
+[Why & How]
+When TM is enabled with 3dlut, we apply conversion to
+dcip3 in gamut remap matrix, if source area less than
+dcip3. If it is bigger, we remap to bt2020. The added
+flags will be used to facilitate this logic.
+
+Signed-off-by: Vitaly Prosyak <vitaly.prosyak@amd.com>
+Reviewed-by: Aric Cyr <Aric.Cyr@amd.com>
+Acked-by: Krunoslav Kovac <Krunoslav.Kovac@amd.com>
+Acked-by: Leo Li <sunpeng.li@amd.com>
+Signed-off-by: Alex Deucher <alexander.deucher@amd.com>
+---
+ .../gpu/drm/amd/display/modules/color/color_gamma.h  | 12 ++++++++++++
+ 1 file changed, 12 insertions(+)
+
+diff --git a/drivers/gpu/drm/amd/display/modules/color/color_gamma.h b/drivers/gpu/drm/amd/display/modules/color/color_gamma.h
+index 369953fafadf..c56c203abfcb 100644
+--- a/drivers/gpu/drm/amd/display/modules/color/color_gamma.h
++++ b/drivers/gpu/drm/amd/display/modules/color/color_gamma.h
+@@ -82,6 +82,18 @@ struct freesync_hdr_tf_params {
+ 	unsigned int skip_tm; // skip tm
+ };
+ 
++union tm3dlut_flags {
++	unsigned int raw;
++	struct {
++		unsigned int dochroma_scale			:1;
++		unsigned int spec_version			:3;
++		unsigned int less_than_dcip3			:1;
++		unsigned int exp_shaper_max			:6;
++		unsigned int zero_display_black			:1;
++		unsigned int reseved				:20;
++	} bits;
++};
++
+ void setup_x_points_distribution(void);
+ void precompute_pq(void);
+ void precompute_de_pq(void);
+-- 
+2.17.1
+

@@ -1,0 +1,155 @@
+From 7c494d1b1d1cca531f46ba5279a45ec345464450 Mon Sep 17 00:00:00 2001
+From: Kevin Wang <Kevin1.Wang@amd.com>
+Date: Sat, 15 Dec 2018 10:50:03 +0800
+Subject: [PATCH 1366/2940] drm/amd/powerplay: implement smu_init[fini]_power
+ function for smu11
+
+This patch implements smu_init[fini]_power function for smu v11.
+
+Signed-off-by: Kevin Wang <Kevin1.Wang@amd.com>
+Reviewed-by: Huang Rui <ray.huang@amd.com>
+Acked-by: Alex Deucher <alexander.deucher@amd.com>
+---
+ drivers/gpu/drm/amd/powerplay/amdgpu_smu.c    |  6 ++++
+ .../gpu/drm/amd/powerplay/inc/amdgpu_smu.h    |  9 +++++
+ drivers/gpu/drm/amd/powerplay/inc/smu_v11_0.h | 14 ++++++++
+ drivers/gpu/drm/amd/powerplay/smu_v11_0.c     | 33 +++++++++++++++++++
+ 4 files changed, 62 insertions(+)
+
+diff --git a/drivers/gpu/drm/amd/powerplay/amdgpu_smu.c b/drivers/gpu/drm/amd/powerplay/amdgpu_smu.c
+index f79a125a91bc..b275139ae96b 100644
+--- a/drivers/gpu/drm/amd/powerplay/amdgpu_smu.c
++++ b/drivers/gpu/drm/amd/powerplay/amdgpu_smu.c
+@@ -167,6 +167,12 @@ static int smu_sw_fini(void *handle)
+ 		return ret;
+ 	}
+ 
++	ret = smu_fini_power(smu);
++	if (ret) {
++		pr_err("Failed to init smu_fini_power!\n");
++		return ret;
++	}
++
+ 	return 0;
+ }
+ 
+diff --git a/drivers/gpu/drm/amd/powerplay/inc/amdgpu_smu.h b/drivers/gpu/drm/amd/powerplay/inc/amdgpu_smu.h
+index 0fce87c99b41..a12af78a2b9c 100644
+--- a/drivers/gpu/drm/amd/powerplay/inc/amdgpu_smu.h
++++ b/drivers/gpu/drm/amd/powerplay/inc/amdgpu_smu.h
+@@ -54,6 +54,11 @@ struct smu_dpm_context {
+ 	uint32_t dpm_context_size;
+ };
+ 
++struct smu_power_context {
++	void *power_context;
++	uint32_t power_context_size;
++};
++
+ struct smu_context
+ {
+ 	struct amdgpu_device            *adev;
+@@ -63,6 +68,7 @@ struct smu_context
+ 
+ 	struct smu_table_context	smu_table;
+ 	struct smu_dpm_context		smu_dpm;
++	struct smu_power_context	smu_power;
+ };
+ 
+ struct smu_funcs
+@@ -71,6 +77,7 @@ struct smu_funcs
+ 	int (*init_smc_tables)(struct smu_context *smu);
+ 	int (*fini_smc_tables)(struct smu_context *smu);
+ 	int (*init_power)(struct smu_context *smu);
++	int (*fini_power)(struct smu_context *smu);
+ 	int (*load_microcode)(struct smu_context *smu);
+ 	int (*check_fw_status)(struct smu_context *smu);
+ 	int (*read_pptable_from_vbios)(struct smu_context *smu);
+@@ -99,6 +106,8 @@ struct smu_funcs
+ 	((smu)->funcs->fini_smc_tables ? (smu)->funcs->fini_smc_tables((smu)) : 0)
+ #define smu_init_power(smu) \
+ 	((smu)->funcs->init_power ? (smu)->funcs->init_power((smu)) : 0)
++#define smu_fini_power(smu) \
++	((smu)->funcs->fini_power ? (smu)->funcs->fini_power((smu)) : 0)
+ #define smu_load_microcode(smu) \
+ 	((smu)->funcs->load_microcode ? (smu)->funcs->load_microcode((smu)) : 0)
+ #define smu_check_fw_status(smu) \
+diff --git a/drivers/gpu/drm/amd/powerplay/inc/smu_v11_0.h b/drivers/gpu/drm/amd/powerplay/inc/smu_v11_0.h
+index c7fccce244fc..2853ab717d80 100644
+--- a/drivers/gpu/drm/amd/powerplay/inc/smu_v11_0.h
++++ b/drivers/gpu/drm/amd/powerplay/inc/smu_v11_0.h
+@@ -62,6 +62,20 @@ struct smu_11_0_dpm_context {
+ 	uint32_t                    dcef_min_ds_clk;
+ };
+ 
++enum smu_11_0_power_state {
++	SMU_11_0_POWER_STATE__D0 = 0,
++	SMU_11_0_POWER_STATE__D1,
++	SMU_11_0_POWER_STATE__D3, /* Sleep*/
++	SMU_11_0_POWER_STATE__D4, /* Hibernate*/
++	SMU_11_0_POWER_STATE__D5, /* Power off*/
++};
++
++struct smu_11_0_power_context {
++	uint32_t	power_source;
++	uint8_t		in_power_limit_boost_mode;
++	enum smu_11_0_power_state power_state;
++};
++
+ void smu_v11_0_set_smu_funcs(struct smu_context *smu);
+ 
+ #endif
+diff --git a/drivers/gpu/drm/amd/powerplay/smu_v11_0.c b/drivers/gpu/drm/amd/powerplay/smu_v11_0.c
+index 64125ee792bf..ff8a32d37c51 100644
+--- a/drivers/gpu/drm/amd/powerplay/smu_v11_0.c
++++ b/drivers/gpu/drm/amd/powerplay/smu_v11_0.c
+@@ -313,6 +313,37 @@ static int smu_v11_0_fini_smc_tables(struct smu_context *smu)
+ 	return 0;
+ 
+ }
++
++static int smu_v11_0_init_power(struct smu_context *smu)
++{
++	struct smu_power_context *smu_power = &smu->smu_power;
++
++	if (smu_power->power_context || smu_power->power_context_size != 0)
++		return -EINVAL;
++
++	smu_power->power_context = kzalloc(sizeof(struct smu_11_0_dpm_context),
++					   GFP_KERNEL);
++	if (!smu_power->power_context)
++		return -ENOMEM;
++	smu_power->power_context_size = sizeof(struct smu_11_0_dpm_context);
++
++	return 0;
++}
++
++static int smu_v11_0_fini_power(struct smu_context *smu)
++{
++	struct smu_power_context *smu_power = &smu->smu_power;
++
++	if (!smu_power->power_context || smu_power->power_context_size == 0)
++		return -EINVAL;
++
++	kfree(smu_power->power_context);
++	smu_power->power_context = NULL;
++	smu_power->power_context_size = 0;
++
++	return 0;
++}
++
+ static const struct smu_funcs smu_v11_0_funcs = {
+ 	.init_microcode = smu_v11_0_init_microcode,
+ 	.load_microcode = smu_v11_0_load_microcode,
+@@ -323,6 +354,8 @@ static const struct smu_funcs smu_v11_0_funcs = {
+ 	.read_pptable_from_vbios = smu_v11_0_read_pptable_from_vbios,
+ 	.init_smc_tables = smu_v11_0_init_smc_tables,
+ 	.fini_smc_tables = smu_v11_0_fini_smc_tables,
++	.init_power = smu_v11_0_init_power,
++	.fini_power = smu_v11_0_fini_power,
+ };
+ 
+ void smu_v11_0_set_smu_funcs(struct smu_context *smu)
+-- 
+2.17.1
+

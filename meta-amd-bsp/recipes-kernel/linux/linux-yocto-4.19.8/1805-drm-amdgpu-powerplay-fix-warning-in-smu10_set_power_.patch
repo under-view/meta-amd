@@ -1,0 +1,29 @@
+From 7e199b24dea1848c2efc3e19ce3f3e104cc0d278 Mon Sep 17 00:00:00 2001
+From: Alex Deucher <alexander.deucher@amd.com>
+Date: Tue, 23 Apr 2019 10:48:52 -0500
+Subject: [PATCH 1805/2940] drm/amdgpu/powerplay: fix warning in
+ smu10_set_power_profile_mode
+
+Print statement was using the wrong size integer.  Trivial.
+
+Signed-off-by: Alex Deucher <alexander.deucher@amd.com>
+---
+ drivers/gpu/drm/amd/powerplay/hwmgr/smu10_hwmgr.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/drivers/gpu/drm/amd/powerplay/hwmgr/smu10_hwmgr.c b/drivers/gpu/drm/amd/powerplay/hwmgr/smu10_hwmgr.c
+index 3bca0e82c479..5f5dec9b97e2 100644
+--- a/drivers/gpu/drm/amd/powerplay/hwmgr/smu10_hwmgr.c
++++ b/drivers/gpu/drm/amd/powerplay/hwmgr/smu10_hwmgr.c
+@@ -1268,7 +1268,7 @@ static int smu10_set_power_profile_mode(struct pp_hwmgr *hwmgr, long *input, uin
+ 	int workload_type = 0;
+ 
+ 	if (input[size] > PP_SMC_POWER_PROFILE_COMPUTE) {
+-		pr_err("Invalid power profile mode %d\n", input[size]);
++		pr_err("Invalid power profile mode %ld\n", input[size]);
+ 		return -EINVAL;
+ 	}
+ 	hwmgr->power_profile_mode = input[size];
+-- 
+2.17.1
+

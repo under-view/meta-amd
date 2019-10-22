@@ -1,0 +1,28 @@
+From 2d286ebab78a9a47bc65742758dfad47870001a0 Mon Sep 17 00:00:00 2001
+From: Brajeswar Ghosh <brajeswar.linux@gmail.com>
+Date: Wed, 21 Nov 2018 19:21:52 +0530
+Subject: [PATCH 0832/2940] drm/amd/amdgpu: Remove duplicate header
+
+Remove gca/gfx_8_0_sh_mask.h which is included more than once
+
+Signed-off-by: Brajeswar Ghosh <brajeswar.linux@gmail.com>
+Signed-off-by: Alex Deucher <alexander.deucher@amd.com>
+---
+ drivers/gpu/drm/amd/amdgpu/mxgpu_vi.c | 1 -
+ 1 file changed, 1 deletion(-)
+
+diff --git a/drivers/gpu/drm/amd/amdgpu/mxgpu_vi.c b/drivers/gpu/drm/amd/amdgpu/mxgpu_vi.c
+index 64e875d528dd..6a0fcd67662a 100644
+--- a/drivers/gpu/drm/amd/amdgpu/mxgpu_vi.c
++++ b/drivers/gpu/drm/amd/amdgpu/mxgpu_vi.c
+@@ -37,7 +37,6 @@
+ #include "gmc/gmc_8_2_sh_mask.h"
+ #include "oss/oss_3_0_d.h"
+ #include "oss/oss_3_0_sh_mask.h"
+-#include "gca/gfx_8_0_sh_mask.h"
+ #include "dce/dce_10_0_d.h"
+ #include "dce/dce_10_0_sh_mask.h"
+ #include "smu/smu_7_1_3_d.h"
+-- 
+2.17.1
+

@@ -1,0 +1,65 @@
+From 541e8d409c49814fb6f9d768a0cd4a0f0a0ae986 Mon Sep 17 00:00:00 2001
+From: Oak Zeng <Oak.Zeng@amd.com>
+Date: Mon, 10 Jun 2019 14:44:07 -0500
+Subject: [PATCH 2790/2940] drm/amdkfd: Add device to topology after it is
+ completely inited
+
+We can't have devices that are not completely initialized in kfd topology.
+Otherwise it is a race condition when user access not completely
+initialized device. This also addresses a kfd_topology_add_device accessing
+NULL dqm pointer issue.
+
+Change-Id: I53a0fe498e6daaeb63aa8d78362df01955f14a2f
+Signed-off-by: Oak Zeng <Oak.Zeng@amd.com>
+Reviewed-by: Felix Kuehling <Felix.Kuehling@amd.com>
+---
+ drivers/gpu/drm/amd/amdkfd/kfd_device.c | 13 ++++++-------
+ 1 file changed, 6 insertions(+), 7 deletions(-)
+
+diff --git a/drivers/gpu/drm/amd/amdkfd/kfd_device.c b/drivers/gpu/drm/amd/amdkfd/kfd_device.c
+index 21ccaeea89d8..27467ac3be5f 100644
+--- a/drivers/gpu/drm/amd/amdkfd/kfd_device.c
++++ b/drivers/gpu/drm/amd/amdkfd/kfd_device.c
+@@ -605,11 +605,6 @@ bool kgd2kfd_device_init(struct kfd_dev *kfd,
+ 	if (kfd->kfd2kgd->get_hive_id)
+ 		kfd->hive_id = kfd->kfd2kgd->get_hive_id(kfd->kgd);
+ 
+-	if (kfd_topology_add_device(kfd)) {
+-		dev_err(kfd_device, "Error adding device to topology\n");
+-		goto kfd_topology_add_device_error;
+-	}
+-
+ 	if (kfd_interrupt_init(kfd)) {
+ 		dev_err(kfd_device, "Error initializing interrupts\n");
+ 		goto kfd_interrupt_error;
+@@ -633,6 +628,11 @@ bool kgd2kfd_device_init(struct kfd_dev *kfd,
+ 
+ 	kfd->dbgmgr = NULL;
+ 
++	if (kfd_topology_add_device(kfd)) {
++		dev_err(kfd_device, "Error adding device to topology\n");
++		goto kfd_topology_add_device_error;
++	}
++
+ 	kfd->init_complete = true;
+ 	dev_info(kfd_device, "added device %x:%x\n", kfd->pdev->vendor,
+ 		 kfd->pdev->device);
+@@ -642,14 +642,13 @@ bool kgd2kfd_device_init(struct kfd_dev *kfd,
+ 
+ 	goto out;
+ 
++kfd_topology_add_device_error:
+ kfd_resume_error:
+ device_iommu_error:
+ 	device_queue_manager_uninit(kfd->dqm);
+ device_queue_manager_error:
+ 	kfd_interrupt_exit(kfd);
+ kfd_interrupt_error:
+-	kfd_topology_remove_device(kfd);
+-kfd_topology_add_device_error:
+ 	kfd_doorbell_fini(kfd);
+ kfd_doorbell_error:
+ 	kfd_gtt_sa_fini(kfd);
+-- 
+2.17.1
+

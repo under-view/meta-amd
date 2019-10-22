@@ -1,9 +1,48 @@
 # meta-amd
 
-This is the location for AMD BSPs.
+This is the location for AMD BSP and AMD DISTRO layers.
 
-Please see the README files contained in the individual BSP layers for
-BSP-specific information like dependencies etc.
+Please see [AMD BSPs](meta-amd-bsp/README.md) for information about the
+supported BSPs and their dependencies, and see
+[AMD DISTRO](meta-amd-distro/README.md) for information about the
+distro features.
+
+## Getting started
+
+Follow these simple steps to get started with setting up the
+build system and start building images and recipes for the supported
+AMD BSPs, and to deploy the built images on the target:
+
+### 1. Setup 
+Please see [SETUP.md](SETUP.md) for instructions on how to setup the
+build system and the environment for it.
+
+### 2. Build
+
+Please see [BUILD.md](BUILD.md) for instructions on how to setup and
+start a build for any of the supported AMD BSPs.
+
+### 3. Deploy
+
+Please see [DEPLOY.md](DEPLOY.md) for instructions on how to write/burn
+a built image onto a USB/CD/DVD and boot the target machine with it.
+
+#### What's next
+
+* Please see [CUSTOMIZE.md](CUSTOMIZE.md) for instructions on how to
+customize the build and to enable/disable any of the supported features
+and software components to be included into the build.
+
+* Please see [FEATURES.md](FEATURES.md) for a list of currently
+supported features against each BSP.
+
+* Please see [DOCUMENTATION.md](DOCUMENTATION.md) for links to official
+documentation of various supported features and a general guide of the
+Yocto Project.
+
+* Please see [RELEASE.md](RELEASE.md) for release notes.
+
+## Troubleshoot
 
 If you have problems with or questions about a particular BSP, please
 contact the maintainer of the particular layer as listed in the
@@ -30,7 +69,7 @@ submit the bug against the most likely category for the problem - if
 you're wrong, it's not a big deal and the bug will be recategorized
 upon triage.
 
-## Contributing
+## Contribute
 
 Please submit any patches against meta-amd BSPs to the meta-amd
 mailing list (meta-amd@yoctoproject.org).  Also, if your patches are
@@ -85,10 +124,6 @@ may take longer.
 
 The per layer gatekeepers are the following.
 
-- amdfalconx86: Wade Farnsworth, wade_farnsworth@mentor.com
-- common: Wade Farnsworth, wade_farnsworth@mentor.com
-- steppeeagle: Wade Farnsworth, wade_farnsworth@mentor.com
-- snowyowl: Wade Farnsworth, wade_farnsworth@mentor.com
-- seattle: Adrian Calianu, adrian.calianu@enea.com
-- v1000: Wade Farnsworth, wade_farnsworth@mentor.com
-- r1000: Wade Farnsworth, wade_farnsworth@mentor.com
+- meta-amd-bsp: Wade Farnsworth, wade_farnsworth@mentor.com
+- meta-amd-distro: Wade Farnsworth, wade_farnsworth@mentor.com
+- meta-seattle: Adrian Calianu, adrian.calianu@enea.com

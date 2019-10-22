@@ -1,0 +1,85 @@
+From 2ec9e2f17c2c6b82ba4f3c02ceecdd52f5a6e2ce Mon Sep 17 00:00:00 2001
+From: Nicholas Kazlauskas <nicholas.kazlauskas@amd.com>
+Date: Thu, 10 Jan 2019 09:51:54 -0500
+Subject: [PATCH 1198/2940] drm/amd/display: Use the right surface for flip and
+ FreeSync
+
+[Why]
+We were always passing the first surface on the stream status for
+flip updates when we should be using the surface associated with
+the plane.
+
+[How]
+Use the dc_plane_state from the plane that's being updated.
+
+FreeSync should also only keep track of updates from the primary
+plane, so the check needed to be updated.
+
+The acrtc->stream state doesn't need to be checked for NULL before
+updating FreeSync either since there needs to be a stream to be
+inside this function as a prerequisite.
+
+Change-Id: Iac7f32358d6012d31a25e01053051f1f6623e821
+Signed-off-by: Nicholas Kazlauskas <nicholas.kazlauskas@amd.com>
+Reviewed-by: David Francis <David.Francis@amd.com>
+Acked-by: Bhawanpreet Lakha <Bhawanpreet.Lakha@amd.com>
+---
+ .../gpu/drm/amd/display/amdgpu_dm/amdgpu_dm.c   | 17 ++++-------------
+ 1 file changed, 4 insertions(+), 13 deletions(-)
+
+diff --git a/drivers/gpu/drm/amd/display/amdgpu_dm/amdgpu_dm.c b/drivers/gpu/drm/amd/display/amdgpu_dm/amdgpu_dm.c
+index 59c9ccad2743..2f8b9cbea81c 100644
+--- a/drivers/gpu/drm/amd/display/amdgpu_dm/amdgpu_dm.c
++++ b/drivers/gpu/drm/amd/display/amdgpu_dm/amdgpu_dm.c
+@@ -4773,7 +4773,6 @@ static void amdgpu_dm_commit_planes(struct drm_atomic_state *state,
+ 	unsigned long flags;
+ 	struct amdgpu_bo *abo;
+ 	uint64_t tiling_flags, dcc_address;
+-	struct dc_stream_status *stream_status;
+ 	uint32_t target, target_vblank;
+ 
+ 	struct {
+@@ -4804,7 +4803,7 @@ static void amdgpu_dm_commit_planes(struct drm_atomic_state *state,
+ 		struct drm_framebuffer *fb = new_plane_state->fb;
+ 		struct amdgpu_framebuffer *afb = to_amdgpu_framebuffer(fb);
+ 		bool pflip_needed;
+-		struct dc_plane_state *surface, *dc_plane;
++		struct dc_plane_state *dc_plane;
+ 		struct dm_plane_state *dm_new_plane_state = to_dm_plane_state(new_plane_state);
+ 
+ 		if (plane->type == DRM_PLANE_TYPE_CURSOR) {
+@@ -4867,28 +4866,20 @@ static void amdgpu_dm_commit_planes(struct drm_atomic_state *state,
+ 			timestamp_ns = ktime_get_ns();
+ 			flip->flip_addrs[flip_count].flip_timestamp_in_us = div_u64(timestamp_ns, 1000);
+ 			flip->surface_updates[flip_count].flip_addr = &flip->flip_addrs[flip_count];
++			flip->surface_updates[flip_count].surface = dc_plane;
+ 
+-			stream_status = dc_stream_get_status(acrtc_state->stream);
+-			if (!stream_status) {
+-				DRM_ERROR("No stream status for CRTC: id=%d\n",
+-						acrtc_attach->crtc_id);
+-				continue;
+-			}
+-
+-			surface = stream_status->plane_states[0];
+-			flip->surface_updates[flip_count].surface = surface;
+ 			if (!flip->surface_updates[flip_count].surface) {
+ 				DRM_ERROR("No surface for CRTC: id=%d\n",
+ 						acrtc_attach->crtc_id);
+ 				continue;
+ 			}
+ 
+-			if (acrtc_state->stream)
++			if (plane == pcrtc->primary)
+ 				update_freesync_state_on_stream(
+ 					dm,
+ 					acrtc_state,
+ 					acrtc_state->stream,
+-					surface,
++					dc_plane,
+ 					flip->flip_addrs[flip_count].flip_timestamp_in_us);
+ 
+ 			DRM_DEBUG_DRIVER("%s Flipping to hi: 0x%x, low: 0x%x\n",
+-- 
+2.17.1
+

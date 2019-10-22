@@ -1,0 +1,46 @@
+From a48a1ae8d466aaeabdec0fc436061b5964b12362 Mon Sep 17 00:00:00 2001
+From: Eric Yang <Eric.Yang2@amd.com>
+Date: Mon, 25 Mar 2019 16:11:43 -0400
+Subject: [PATCH 1757/2940] drm/amd/display: fix underflow on boot
+
+[Why]
+New seamless boot sequence introduced a bug where front end is disabled
+without blanking otg.
+
+[How]
+Adjust the condition of blanking otg to match seamless boot.
+
+Signed-off-by: Eric Yang <Eric.Yang2@amd.com>
+Reviewed-by: Anthony Koo <Anthony.Koo@amd.com>
+Acked-by: Leo Li <sunpeng.li@amd.com>
+Acked-by: Tony Cheng <Tony.Cheng@amd.com>
+---
+ drivers/gpu/drm/amd/display/dc/dcn10/dcn10_hw_sequencer.c | 6 ++----
+ 1 file changed, 2 insertions(+), 4 deletions(-)
+
+diff --git a/drivers/gpu/drm/amd/display/dc/dcn10/dcn10_hw_sequencer.c b/drivers/gpu/drm/amd/display/dc/dcn10/dcn10_hw_sequencer.c
+index d750f5c42423..6bebbcc8460a 100644
+--- a/drivers/gpu/drm/amd/display/dc/dcn10/dcn10_hw_sequencer.c
++++ b/drivers/gpu/drm/amd/display/dc/dcn10/dcn10_hw_sequencer.c
+@@ -979,16 +979,14 @@ static void dcn10_init_pipes(struct dc *dc, struct dc_state *context)
+ 		 * to non-preferred front end. If pipe_ctx->stream is not NULL,
+ 		 * we will use the pipe, so don't disable
+ 		 */
+-		if (pipe_ctx->stream != NULL)
++		if (pipe_ctx->stream != NULL && can_apply_seamless_boot)
+ 			continue;
+ 
+-		if (tg->funcs->is_tg_enabled(tg))
+-			tg->funcs->lock(tg);
+-
+ 		/* Blank controller using driver code instead of
+ 		 * command table.
+ 		 */
+ 		if (tg->funcs->is_tg_enabled(tg)) {
++			tg->funcs->lock(tg);
+ 			tg->funcs->set_blank(tg, true);
+ 			hwss_wait_for_blank_complete(tg);
+ 		}
+-- 
+2.17.1
+

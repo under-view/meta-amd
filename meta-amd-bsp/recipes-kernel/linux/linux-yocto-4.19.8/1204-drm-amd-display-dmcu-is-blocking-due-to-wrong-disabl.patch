@@ -1,0 +1,45 @@
+From b7678a39192a22b3c0a555af7c2c2adbfb1b2693 Mon Sep 17 00:00:00 2001
+From: Paul Hsieh <Paul.Hsieh@amd.com>
+Date: Thu, 17 Jan 2019 18:56:14 +0800
+Subject: [PATCH 1204/2940] drm/amd/display: dmcu is blocking due to wrong
+ disable ABM command
+
+[Why]
+Second screen to clone/extend mode, driver will send ABM pipe
+command to DMCU. Change mode from clone/extend to second
+screen only, driver send ABM level command to disable ABM but
+this command will not clear ABM pipe data. At this time, change
+second screen to PC screen only, driver will send first command
+"ABM_LEVEL", it will turn on ABM with incorrect ABM pile so that
+DMCU is blocking.
+
+[How]
+When driver try to disable ABM, change command from "ABM LEVEL"
+to "ABM PIPE" so that it will clear ABM pile data.
+
+Change-Id: Ib845fdde7a702b9f97f51367efe71e4b57e965fb
+Signed-off-by: Paul Hsieh <Paul.Hsieh@amd.com>
+Reviewed-by: Charlene Liu <Charlene.Liu@amd.com>
+Acked-by: Bhawanpreet Lakha <Bhawanpreet.Lakha@amd.com>
+---
+ drivers/gpu/drm/amd/display/dc/dce/dce_abm.c | 4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
+
+diff --git a/drivers/gpu/drm/amd/display/dc/dce/dce_abm.c b/drivers/gpu/drm/amd/display/dc/dce/dce_abm.c
+index 2a342eae80fd..01e56f1a9f34 100644
+--- a/drivers/gpu/drm/amd/display/dc/dce/dce_abm.c
++++ b/drivers/gpu/drm/amd/display/dc/dce/dce_abm.c
+@@ -314,8 +314,8 @@ static bool dce_abm_immediate_disable(struct abm *abm)
+ 
+ 	/* setDMCUParam_ABMLevel */
+ 	REG_UPDATE_2(MASTER_COMM_CMD_REG,
+-			MASTER_COMM_CMD_REG_BYTE0, MCP_ABM_LEVEL_SET,
+-			MASTER_COMM_CMD_REG_BYTE2, MCP_DISABLE_ABM_IMMEDIATELY);
++			MASTER_COMM_CMD_REG_BYTE0, MCP_ABM_PIPE_SET,
++			MASTER_COMM_CMD_REG_BYTE1, MCP_DISABLE_ABM_IMMEDIATELY);
+ 
+ 	/* notifyDMCUMsg */
+ 	REG_UPDATE(MASTER_COMM_CNTL_REG, MASTER_COMM_INTERRUPT, 1);
+-- 
+2.17.1
+

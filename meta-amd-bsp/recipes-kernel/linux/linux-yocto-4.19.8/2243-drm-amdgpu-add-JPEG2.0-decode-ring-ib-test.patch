@@ -1,0 +1,39 @@
+From dd5f1c8aa93fd791d6a9007cfb45db293348d503 Mon Sep 17 00:00:00 2001
+From: Leo Liu <leo.liu@amd.com>
+Date: Mon, 15 Oct 2018 16:17:27 -0400
+Subject: [PATCH 2243/2940] drm/amdgpu: add JPEG2.0 decode ring ib test
+
+Add internal register offset for registers involving in ib tests
+
+Signed-off-by: Leo Liu <leo.liu@amd.com>
+Reviewed-by: Alex Deucher <alexander.deucher@amd.com>
+Signed-off-by: Alex Deucher <alexander.deucher@amd.com>
+---
+ drivers/gpu/drm/amd/amdgpu/amdgpu_vcn.c | 4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
+
+diff --git a/drivers/gpu/drm/amd/amdgpu/amdgpu_vcn.c b/drivers/gpu/drm/amd/amdgpu/amdgpu_vcn.c
+index ef2b7a9356ef..6a74f5499ef7 100644
+--- a/drivers/gpu/drm/amd/amdgpu/amdgpu_vcn.c
++++ b/drivers/gpu/drm/amd/amdgpu/amdgpu_vcn.c
+@@ -669,7 +669,7 @@ static int amdgpu_vcn_jpeg_set_reg(struct amdgpu_ring *ring, uint32_t handle,
+ 
+ 	ib = &job->ibs[0];
+ 
+-	ib->ptr[0] = PACKETJ(SOC15_REG_OFFSET(UVD, 0, mmUVD_SCRATCH9), 0, 0, PACKETJ_TYPE0);
++	ib->ptr[0] = PACKETJ(adev->vcn.internal.jpeg_pitch, 0, 0, PACKETJ_TYPE0);
+ 	ib->ptr[1] = 0xDEADBEEF;
+ 	for (i = 2; i < 16; i += 2) {
+ 		ib->ptr[i] = PACKETJ(0, 0, 0, PACKETJ_TYPE6);
+@@ -715,7 +715,7 @@ int amdgpu_vcn_jpeg_ring_test_ib(struct amdgpu_ring *ring, long timeout)
+ 	}
+ 
+ 	for (i = 0; i < adev->usec_timeout; i++) {
+-		tmp = RREG32(SOC15_REG_OFFSET(UVD, 0, mmUVD_SCRATCH9));
++		tmp = RREG32(adev->vcn.external.jpeg_pitch);
+ 		if (tmp == 0xDEADBEEF)
+ 			break;
+ 		DRM_UDELAY(1);
+-- 
+2.17.1
+

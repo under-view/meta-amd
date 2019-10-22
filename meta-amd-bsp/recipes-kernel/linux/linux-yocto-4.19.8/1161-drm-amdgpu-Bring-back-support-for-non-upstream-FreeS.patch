@@ -1,0 +1,200 @@
+From aca5dae94a32e79af27b1a793e4037ee05f6ba3e Mon Sep 17 00:00:00 2001
+From: Nicholas Kazlauskas <nicholas.kazlauskas@amd.com>
+Date: Fri, 14 Dec 2018 13:21:51 -0500
+Subject: [PATCH 1161/2940] drm/amdgpu: Bring back support for non-upstream
+ FreeSync
+
+[Why]
+We still have userspace components that depend on the non-upstream
+interface consisting of the notify_freesync driver IOCTL and the
+freesync_capable and freesync_enable properties.
+
+In order to support the new upstream VRR interface these patches were
+reverted, but we would still like to maintain backwards compatibility.
+
+[How]
+The DRM_IOCTL_AMDGPU_FREESYNC is back. The notify_freesync callback is
+also back.
+
+Map freesync_capable to vrr_capable. While freesync_capable was
+technically mutable before the behavior wasn't well defined. It's now
+treated as being essentially immutable.
+
+The freesync_enable property acted as the user preference for whether
+to enable VRR or not - it's used to conditionally control whether the
+vrr_enable CRTC property is set in the driver IOCTL, emulating old
+behavior.
+
+Change-Id: Ib825a6fdc3a7d1d5e5f75972f932fc85731b2fa0
+Signed-off-by: Nicholas Kazlauskas <nicholas.kazlauskas@amd.com>
+Reviewed-by: Harry Wentland <harry.wentland@amd.com>
+Signed-off-by: Chaudhary Amit Kumar <Chaudharyamit.Kumar@amd.com>
+---
+ drivers/gpu/drm/amd/amdgpu/amdgpu.h           |  3 +
+ drivers/gpu/drm/amd/amdgpu/amdgpu_display.c   | 10 +++
+ .../gpu/drm/amd/display/amdgpu_dm/amdgpu_dm.c | 86 +++++++++++++++++++
+ 3 files changed, 99 insertions(+)
+
+diff --git a/drivers/gpu/drm/amd/amdgpu/amdgpu.h b/drivers/gpu/drm/amd/amdgpu/amdgpu.h
+index d81909f682ea..e1a4804fed84 100644
+--- a/drivers/gpu/drm/amd/amdgpu/amdgpu.h
++++ b/drivers/gpu/drm/amd/amdgpu/amdgpu.h
+@@ -575,6 +575,9 @@ int amdgpu_display_freesync_ioctl(struct drm_device *dev, void *data,
+ int amdgpu_gem_dgma_ioctl(struct drm_device *dev, void *data,
+ 			   struct drm_file *filp);
+ 
++int amdgpu_display_freesync_ioctl(struct drm_device *dev, void *data,
++				  struct drm_file *filp);
++
+ /* VRAM scratch page for HDP bug, default vram page */
+ struct amdgpu_vram_scratch {
+ 	struct amdgpu_bo		*robj;
+diff --git a/drivers/gpu/drm/amd/amdgpu/amdgpu_display.c b/drivers/gpu/drm/amd/amdgpu/amdgpu_display.c
+index 335568f192dd..36da6372607b 100644
+--- a/drivers/gpu/drm/amd/amdgpu/amdgpu_display.c
++++ b/drivers/gpu/drm/amd/amdgpu/amdgpu_display.c
+@@ -660,6 +660,16 @@ int amdgpu_display_modeset_create_props(struct amdgpu_device *adev)
+ 						"abm level", 0, 4);
+ 		if (!adev->mode_info.abm_level_property)
+ 			return -ENOMEM;
++		adev->mode_info.freesync_property =
++			drm_property_create_bool(adev->ddev, 0, "freesync");
++		if (!adev->mode_info.freesync_property)
++			return -ENOMEM;
++		adev->mode_info.freesync_capable_property =
++			drm_property_create_bool(adev->ddev,
++						 0,
++						 "freesync_capable");
++		if (!adev->mode_info.freesync_capable_property)
++			return -ENOMEM;
+ 	}
+ 
+ 	return 0;
+diff --git a/drivers/gpu/drm/amd/display/amdgpu_dm/amdgpu_dm.c b/drivers/gpu/drm/amd/display/amdgpu_dm/amdgpu_dm.c
+index 5a88fa132e61..f3ca446eb66d 100644
+--- a/drivers/gpu/drm/amd/display/amdgpu_dm/amdgpu_dm.c
++++ b/drivers/gpu/drm/amd/display/amdgpu_dm/amdgpu_dm.c
+@@ -2065,6 +2065,78 @@ static void dm_bandwidth_update(struct amdgpu_device *adev)
+ 	/* TODO: implement later */
+ }
+ 
++static int amdgpu_notify_freesync(struct drm_device *dev, void *data,
++				struct drm_file *filp)
++{
++	struct drm_amdgpu_freesync *args = data;
++	struct drm_atomic_state *state;
++	struct drm_modeset_acquire_ctx ctx;
++	struct drm_crtc *crtc;
++	struct drm_connector *connector;
++	struct drm_connector_state *old_con_state, *new_con_state;
++	int ret = 0;
++	uint8_t i;
++	bool enable = false;
++
++	if (args->op == AMDGPU_FREESYNC_FULLSCREEN_ENTER)
++		enable = true;
++
++	drm_modeset_acquire_init(&ctx, 0);
++
++	state = drm_atomic_state_alloc(dev);
++	if (!state) {
++		ret = -ENOMEM;
++		goto out;
++	}
++	state->acquire_ctx = &ctx;
++
++retry:
++	drm_for_each_crtc(crtc, dev) {
++		ret = drm_atomic_add_affected_connectors(state, crtc);
++		if (ret)
++			goto fail;
++
++		/* TODO rework amdgpu_dm_commit_planes so we don't need this */
++		ret = drm_atomic_add_affected_planes(state, crtc);
++		if (ret)
++			goto fail;
++	}
++
++	for_each_oldnew_connector_in_state(state, connector, old_con_state, new_con_state, i) {
++		struct dm_connector_state *dm_new_con_state = to_dm_connector_state(new_con_state);
++		struct drm_crtc_state *new_crtc_state;
++		struct amdgpu_crtc *acrtc = to_amdgpu_crtc(dm_new_con_state->base.crtc);
++		struct dm_crtc_state *dm_new_crtc_state;
++
++		if (!acrtc) {
++			ASSERT(0);
++			continue;
++		}
++
++		new_crtc_state = drm_atomic_get_new_crtc_state(state, &acrtc->base);
++		dm_new_crtc_state = to_dm_crtc_state(new_crtc_state);
++
++		dm_new_crtc_state->base.vrr_enabled =
++			dm_new_con_state->freesync_enable && enable;
++	}
++
++	ret = drm_atomic_commit(state);
++
++fail:
++	if (ret == -EDEADLK) {
++		drm_atomic_state_clear(state);
++		drm_modeset_backoff(&ctx);
++		goto retry;
++	}
++
++	drm_atomic_state_put(state);
++
++out:
++	drm_modeset_drop_locks(&ctx);
++	drm_modeset_acquire_fini(&ctx);
++	return ret;
++}
++
+ static const struct amdgpu_display_funcs dm_display_funcs = {
+ 	.bandwidth_update = dm_bandwidth_update, /* called unconditionally */
+ 	.vblank_get_counter = dm_vblank_get_counter,/* called unconditionally */
+@@ -2077,6 +2149,7 @@ static const struct amdgpu_display_funcs dm_display_funcs = {
+ 		dm_crtc_get_scanoutpos,/* called unconditionally */
+ 	.add_encoder = NULL, /* VBIOS parsing. DAL does it. */
+ 	.add_connector = NULL, /* VBIOS parsing. DAL does it. */
++	.notify_freesync = amdgpu_notify_freesync,
+ };
+ 
+ #if defined(CONFIG_DEBUG_KERNEL_DC)
+@@ -3255,6 +3328,12 @@ int amdgpu_dm_connector_atomic_set_property(struct drm_connector *connector,
+ 	} else if (property == adev->mode_info.abm_level_property) {
+ 		dm_new_state->abm_level = val;
+ 		ret = 0;
++	} else if (property == adev->mode_info.freesync_property) {
++		dm_new_state->freesync_enable = val;
++		ret = 0;
++	} else if (property == adev->mode_info.freesync_capable_property) {
++		dm_new_state->freesync_capable = val;
++		ret = 0;
+ 	}
+ 
+ 	return ret;
+@@ -3309,6 +3388,12 @@ int amdgpu_dm_connector_atomic_get_property(struct drm_connector *connector,
+ 	} else if (property == adev->mode_info.abm_level_property) {
+ 		*val = dm_state->abm_level;
+ 		ret = 0;
++	} else if (property == adev->mode_info.freesync_property) {
++		*val = dm_state->freesync_enable;
++		ret = 0;
++	} else if (property == adev->mode_info.freesync_capable_property) {
++		*val = dm_state->freesync_capable;
++		ret = 0;
+ 	}
+ 
+ 	return ret;
+@@ -3374,6 +3459,7 @@ amdgpu_dm_connector_atomic_duplicate_state(struct drm_connector *connector)
+ 
+ 	__drm_atomic_helper_connector_duplicate_state(connector, &new_state->base);
+ 
++	new_state->freesync_enable = state->freesync_enable;
+ 	new_state->freesync_capable = state->freesync_capable;
+ 	new_state->abm_level = state->abm_level;
+ 	new_state->scaling = state->scaling;
+-- 
+2.17.1
+

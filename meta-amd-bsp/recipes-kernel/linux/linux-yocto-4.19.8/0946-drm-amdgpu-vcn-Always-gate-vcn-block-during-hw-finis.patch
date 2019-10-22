@@ -1,0 +1,32 @@
+From 5e61237f884e6bac829c804749f1764d27751bc5 Mon Sep 17 00:00:00 2001
+From: James Zhu <James.Zhu@amd.com>
+Date: Wed, 12 Dec 2018 14:46:10 -0500
+Subject: [PATCH 0946/2940] drm/amdgpu/vcn:Always gate vcn block during hw
+ finishing
+
+Under Dynamic Power Gate mode, UVD_STATUS needn't be checked.
+
+Signed-off-by: James Zhu <James.Zhu@amd.com>
+Acked-by: Leo Liu <leo.liu@amd.com>
+Signed-off-by: Alex Deucher <alexander.deucher@amd.com>
+---
+ drivers/gpu/drm/amd/amdgpu/vcn_v1_0.c | 3 ++-
+ 1 file changed, 2 insertions(+), 1 deletion(-)
+
+diff --git a/drivers/gpu/drm/amd/amdgpu/vcn_v1_0.c b/drivers/gpu/drm/amd/amdgpu/vcn_v1_0.c
+index 4f8352044563..775204315888 100644
+--- a/drivers/gpu/drm/amd/amdgpu/vcn_v1_0.c
++++ b/drivers/gpu/drm/amd/amdgpu/vcn_v1_0.c
+@@ -214,7 +214,8 @@ static int vcn_v1_0_hw_fini(void *handle)
+ 	struct amdgpu_device *adev = (struct amdgpu_device *)handle;
+ 	struct amdgpu_ring *ring = &adev->vcn.ring_dec;
+ 
+-	if (RREG32_SOC15(VCN, 0, mmUVD_STATUS))
++	if ((adev->pg_flags & AMD_PG_SUPPORT_VCN_DPG) ||
++		RREG32_SOC15(VCN, 0, mmUVD_STATUS))
+ 		vcn_v1_0_set_powergating_state(adev, AMD_PG_STATE_GATE);
+ 
+ 	ring->sched.ready = false;
+-- 
+2.17.1
+

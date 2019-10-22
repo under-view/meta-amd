@@ -1,0 +1,39 @@
+From 8b127316983236aeba70e04870306545e2543338 Mon Sep 17 00:00:00 2001
+From: wentalou <Wentao.Lou@amd.com>
+Date: Wed, 13 Mar 2019 18:01:42 +0800
+Subject: [PATCH 2759/2940] drm/amdkfd/sriov:Put the pre and post reset in
+ exclusive mode v2
+
+add amdgpu_amdkfd_pre_reset and amdgpu_amdkfd_post_reset inside amdgpu_device_reset_sriov.
+
+Change-Id: Icf2839f0b620ce9d47d6414b6c32b9d06672f2ac
+Signed-off-by: Wentao Lou <Wentao.Lou@amd.com>
+Acked-by: Alex Deucher <alexander.deucher@amd.com>
+---
+ drivers/gpu/drm/amd/amdgpu/amdgpu_device.c | 3 +++
+ 1 file changed, 3 insertions(+)
+
+diff --git a/drivers/gpu/drm/amd/amdgpu/amdgpu_device.c b/drivers/gpu/drm/amd/amdgpu/amdgpu_device.c
+index 3e4b68ac45d2..015d5da983aa 100644
+--- a/drivers/gpu/drm/amd/amdgpu/amdgpu_device.c
++++ b/drivers/gpu/drm/amd/amdgpu/amdgpu_device.c
+@@ -3369,6 +3369,8 @@ static int amdgpu_device_reset_sriov(struct amdgpu_device *adev,
+ 	if (r)
+ 		return r;
+ 
++	amdgpu_amdkfd_pre_reset(adev);
++
+ 	/* Resume IP prior to SMC */
+ 	r = amdgpu_device_ip_reinit_early_sriov(adev);
+ 	if (r)
+@@ -3388,6 +3390,7 @@ static int amdgpu_device_reset_sriov(struct amdgpu_device *adev,
+ 
+ 	amdgpu_irq_gpu_reset_resume_helper(adev);
+ 	r = amdgpu_ib_ring_tests(adev);
++	amdgpu_amdkfd_post_reset(adev);
+ 
+ error:
+ 	amdgpu_virt_init_data_exchange(adev);
+-- 
+2.17.1
+

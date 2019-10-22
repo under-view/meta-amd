@@ -1,0 +1,56 @@
+From b67dde96b561dc51c6c4e78103af456761ae20a4 Mon Sep 17 00:00:00 2001
+From: Jack Xiao <Jack.Xiao@amd.com>
+Date: Tue, 14 May 2019 11:31:04 +0800
+Subject: [PATCH 2409/2940] drm/amdgpu/psp: add new psp interface for vcn
+ updating sram
+
+PSP leverages the existing fw loading function for vcn updating sram.
+
+Signed-off-by: Jack Xiao <Jack.Xiao@amd.com>
+Signed-off-by: Alex Deucher <alexander.deucher@amd.com>
+---
+ drivers/gpu/drm/amd/amdgpu/amdgpu_psp.c | 13 +++++++++++++
+ drivers/gpu/drm/amd/amdgpu/amdgpu_psp.h |  3 +++
+ 2 files changed, 16 insertions(+)
+
+diff --git a/drivers/gpu/drm/amd/amdgpu/amdgpu_psp.c b/drivers/gpu/drm/amd/amdgpu/amdgpu_psp.c
+index f73dfa9303d9..c476f03872e1 100644
+--- a/drivers/gpu/drm/amd/amdgpu/amdgpu_psp.c
++++ b/drivers/gpu/drm/amd/amdgpu/amdgpu_psp.c
+@@ -1217,6 +1217,19 @@ int psp_rlc_autoload_start(struct psp_context *psp)
+ 	return ret;
+ }
+ 
++int psp_update_vcn_sram(struct amdgpu_device *adev, int inst_idx,
++			uint64_t cmd_gpu_addr, int cmd_size)
++{
++	struct amdgpu_firmware_info ucode = {0};
++
++	ucode.ucode_id = inst_idx ? AMDGPU_UCODE_ID_VCN1_RAM :
++		AMDGPU_UCODE_ID_VCN0_RAM;
++	ucode.mc_addr = cmd_gpu_addr;
++	ucode.ucode_size = cmd_size;
++
++	return psp_execute_np_fw_load(&adev->psp, &ucode);
++}
++
+ static bool psp_check_fw_loading_status(struct amdgpu_device *adev,
+ 					enum AMDGPU_UCODE_ID ucode_type)
+ {
+diff --git a/drivers/gpu/drm/amd/amdgpu/amdgpu_psp.h b/drivers/gpu/drm/amd/amdgpu/amdgpu_psp.h
+index aa5668df03b6..6039acc84346 100644
+--- a/drivers/gpu/drm/amd/amdgpu/amdgpu_psp.h
++++ b/drivers/gpu/drm/amd/amdgpu/amdgpu_psp.h
+@@ -260,6 +260,9 @@ extern int psp_wait_for(struct psp_context *psp, uint32_t reg_index,
+ extern const struct amdgpu_ip_block_version psp_v10_0_ip_block;
+ 
+ int psp_gpu_reset(struct amdgpu_device *adev);
++int psp_update_vcn_sram(struct amdgpu_device *adev, int inst_idx,
++			uint64_t cmd_gpu_addr, int cmd_size);
++
+ int psp_xgmi_invoke(struct psp_context *psp, uint32_t ta_cmd_id);
+ 
+ int psp_ras_invoke(struct psp_context *psp, uint32_t ta_cmd_id);
+-- 
+2.17.1
+

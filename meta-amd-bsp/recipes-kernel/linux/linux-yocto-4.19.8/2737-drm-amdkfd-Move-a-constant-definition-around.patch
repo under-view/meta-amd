@@ -1,0 +1,46 @@
+From 82db2f5492b45414f0f7f5c1bd9400ddf17790ea Mon Sep 17 00:00:00 2001
+From: Yong Zhao <Yong.Zhao@amd.com>
+Date: Tue, 15 Jan 2019 18:51:27 -0500
+Subject: [PATCH 2737/2940] drm/amdkfd: Move a constant definition around
+
+The similar definitions should be consecutive.
+
+Change-Id: I936cf076363e641c60e0704d8405ae9493718e18
+Signed-off-by: Yong Zhao <Yong.Zhao@amd.com>
+Reviewed-by: Felix Kuehling <Felix.Kuehling@amd.com>
+---
+ drivers/gpu/drm/amd/amdkfd/kfd_priv.h | 11 ++++++-----
+ 1 file changed, 6 insertions(+), 5 deletions(-)
+
+diff --git a/drivers/gpu/drm/amd/amdkfd/kfd_priv.h b/drivers/gpu/drm/amd/amdkfd/kfd_priv.h
+index c56b877e59b5..8758175d1fd4 100644
+--- a/drivers/gpu/drm/amd/amdkfd/kfd_priv.h
++++ b/drivers/gpu/drm/amd/amdkfd/kfd_priv.h
+@@ -97,6 +97,12 @@
+ #define KFD_CWSR_TBA_TMA_SIZE (PAGE_SIZE * 2)
+ #define KFD_CWSR_TMA_OFFSET PAGE_SIZE
+ 
++#define KFD_MAX_NUM_OF_QUEUES_PER_DEVICE               \
++        (KFD_MAX_NUM_OF_PROCESSES *                     \
++                        KFD_MAX_NUM_OF_QUEUES_PER_PROCESS)
++
++#define KFD_KERNEL_QUEUE_SIZE 2048
++
+ /*
+  * Kernel module parameter to specify maximum number of supported queues per
+  * device
+@@ -104,11 +110,6 @@
+ extern int max_num_of_queues_per_device;
+ 
+ #define KFD_MAX_NUM_OF_QUEUES_PER_DEVICE_DEFAULT 4096
+-#define KFD_MAX_NUM_OF_QUEUES_PER_DEVICE		\
+-	(KFD_MAX_NUM_OF_PROCESSES *			\
+-			KFD_MAX_NUM_OF_QUEUES_PER_PROCESS)
+-
+-#define KFD_KERNEL_QUEUE_SIZE 2048
+ 
+ /* Kernel module parameter to specify the scheduling policy */
+ extern int sched_policy;
+-- 
+2.17.1
+

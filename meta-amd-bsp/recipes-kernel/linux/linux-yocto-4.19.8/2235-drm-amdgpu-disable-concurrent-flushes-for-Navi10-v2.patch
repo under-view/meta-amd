@@ -1,0 +1,42 @@
+From 3fc3f1dde33ff639d3303a12e32627074a168c6b Mon Sep 17 00:00:00 2001
+From: =?UTF-8?q?Christian=20K=C3=B6nig?= <christian.koenig@amd.com>
+Date: Thu, 7 Feb 2019 12:10:29 +0100
+Subject: [PATCH 2235/2940] drm/amdgpu: disable concurrent flushes for Navi10
+ v2
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+Navi10 have a bug in the SDMA which can theoretically cause memory
+corruption with concurrent VMID flushes
+
+v2: explicitely check Navi10
+
+Signed-off-by: Christian König <christian.koenig@amd.com>
+Reviewed-by: Alex Deucher <alexander.deucher@amd.com>
+Signed-off-by: Alex Deucher <alexander.deucher@amd.com>
+---
+ drivers/gpu/drm/amd/amdgpu/amdgpu_ids.c | 7 +++++--
+ 1 file changed, 5 insertions(+), 2 deletions(-)
+
+diff --git a/drivers/gpu/drm/amd/amdgpu/amdgpu_ids.c b/drivers/gpu/drm/amd/amdgpu/amdgpu_ids.c
+index df9b173c3d0b..5899d214187b 100644
+--- a/drivers/gpu/drm/amd/amdgpu/amdgpu_ids.c
++++ b/drivers/gpu/drm/amd/amdgpu/amdgpu_ids.c
+@@ -364,8 +364,11 @@ static int amdgpu_vmid_grab_used(struct amdgpu_vm *vm,
+ 		if (updates && (!flushed || dma_fence_is_later(updates, flushed)))
+ 			needs_flush = true;
+ 
+-		/* Concurrent flushes are only possible starting with Vega10 */
+-		if (adev->asic_type < CHIP_VEGA10 && needs_flush)
++		/* Concurrent flushes are only possible starting with Vega10 and
++		 * are broken on Navi10 and Navi14.
++		 */
++		if (needs_flush && (adev->asic_type < CHIP_VEGA10 ||
++				    adev->asic_type == CHIP_NAVI10))
+ 			continue;
+ 
+ 		/* Good, we can use this VMID. Remember this submission as
+-- 
+2.17.1
+

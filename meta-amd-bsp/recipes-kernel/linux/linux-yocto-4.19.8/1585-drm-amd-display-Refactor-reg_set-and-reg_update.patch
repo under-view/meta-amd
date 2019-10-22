@@ -1,0 +1,181 @@
+From 6a6e78d8c19b1e88124f6349ec4db690c9653c2e Mon Sep 17 00:00:00 2001
+From: Yongqiang Sun <yongqiang.sun@amd.com>
+Date: Wed, 13 Feb 2019 10:35:43 -0500
+Subject: [PATCH 1585/2940] drm/amd/display: Refactor reg_set and reg_update.
+
+[Why]
+Current reg update and reg set use same functions and
+only delta is update reads reg value and call update function.
+
+[How]
+Refactor reg update and reg set functions.
+1.Implement different functions for reg update and reg set.
+2.Wrap same process to a help function, both reg update and
+reg set will call it.
+
+Signed-off-by: Yongqiang Sun <yongqiang.sun@amd.com>
+Reviewed-by: Tony Cheng <Tony.Cheng@amd.com>
+Acked-by: Leo Li <sunpeng.li@amd.com>
+---
+ drivers/gpu/drm/amd/display/dc/dc_helper.c    | 52 +++++++++++++++----
+ .../amd/display/dc/dcn10/dcn10_link_encoder.c |  2 -
+ drivers/gpu/drm/amd/display/dc/dm_services.h  |  9 ++--
+ .../gpu/drm/amd/display/dc/inc/reg_helper.h   |  3 +-
+ 4 files changed, 50 insertions(+), 16 deletions(-)
+
+diff --git a/drivers/gpu/drm/amd/display/dc/dc_helper.c b/drivers/gpu/drm/amd/display/dc/dc_helper.c
+index 5ba53947ad17..0ac1b8364d14 100644
+--- a/drivers/gpu/drm/amd/display/dc/dc_helper.c
++++ b/drivers/gpu/drm/amd/display/dc/dc_helper.c
+@@ -70,20 +70,16 @@ static inline void set_reg_field_value_masks(
+ 	field_value_mask->mask = field_value_mask->mask | mask;
+ }
+ 
+-uint32_t generic_reg_update_ex(const struct dc_context *ctx,
+-		uint32_t addr, uint32_t reg_val, int n,
++static void set_reg_field_values(struct dc_reg_value_masks *field_value_mask,
++		uint32_t addr, int n,
+ 		uint8_t shift1, uint32_t mask1, uint32_t field_value1,
+-		...)
++		va_list ap)
+ {
+-	struct dc_reg_value_masks field_value_mask = {0};
+ 	uint32_t shift, mask, field_value;
+ 	int i = 1;
+ 
+-	va_list ap;
+-	va_start(ap, field_value1);
+-
+ 	/* gather all bits value/mask getting updated in this register */
+-	set_reg_field_value_masks(&field_value_mask,
++	set_reg_field_value_masks(field_value_mask,
+ 			field_value1, mask1, shift1);
+ 
+ 	while (i < n) {
+@@ -91,10 +87,48 @@ uint32_t generic_reg_update_ex(const struct dc_context *ctx,
+ 		mask = va_arg(ap, uint32_t);
+ 		field_value = va_arg(ap, uint32_t);
+ 
+-		set_reg_field_value_masks(&field_value_mask,
++		set_reg_field_value_masks(field_value_mask,
+ 				field_value, mask, shift);
+ 		i++;
+ 	}
++}
++
++uint32_t generic_reg_update_ex(const struct dc_context *ctx,
++		uint32_t addr, int n,
++		uint8_t shift1, uint32_t mask1, uint32_t field_value1,
++		...)
++{
++	struct dc_reg_value_masks field_value_mask = {0};
++	uint32_t reg_val;
++	va_list ap;
++
++	va_start(ap, field_value1);
++
++	set_reg_field_values(&field_value_mask, addr, n, shift1, mask1,
++			field_value1, ap);
++
++	va_end(ap);
++
++	/* mmio write directly */
++	reg_val = dm_read_reg(ctx, addr);
++	reg_val = (reg_val & ~field_value_mask.mask) | field_value_mask.value;
++	dm_write_reg(ctx, addr, reg_val);
++	return reg_val;
++}
++
++uint32_t generic_reg_set_ex(const struct dc_context *ctx,
++		uint32_t addr, uint32_t reg_val, int n,
++		uint8_t shift1, uint32_t mask1, uint32_t field_value1,
++		...)
++{
++	struct dc_reg_value_masks field_value_mask = {0};
++	va_list ap;
++
++	va_start(ap, field_value1);
++
++	set_reg_field_values(&field_value_mask, addr, n, shift1, mask1,
++			field_value1, ap);
++
+ 	va_end(ap);
+ 
+ #ifdef CONFIG_DRM_AMD_DC_DMUB
+diff --git a/drivers/gpu/drm/amd/display/dc/dcn10/dcn10_link_encoder.c b/drivers/gpu/drm/amd/display/dc/dcn10/dcn10_link_encoder.c
+index a9db372688ff..0126a44ba012 100644
+--- a/drivers/gpu/drm/amd/display/dc/dcn10/dcn10_link_encoder.c
++++ b/drivers/gpu/drm/amd/display/dc/dcn10/dcn10_link_encoder.c
+@@ -1304,7 +1304,6 @@ void dcn10_link_encoder_connect_dig_be_to_fe(
+ #define HPD_REG_UPDATE_N(reg_name, n, ...)	\
+ 		generic_reg_update_ex(CTX, \
+ 				HPD_REG(reg_name), \
+-				HPD_REG_READ(reg_name), \
+ 				n, __VA_ARGS__)
+ 
+ #define HPD_REG_UPDATE(reg_name, field, val)	\
+@@ -1337,7 +1336,6 @@ void dcn10_link_encoder_disable_hpd(struct link_encoder *enc)
+ #define AUX_REG_UPDATE_N(reg_name, n, ...)	\
+ 		generic_reg_update_ex(CTX, \
+ 				AUX_REG(reg_name), \
+-				AUX_REG_READ(reg_name), \
+ 				n, __VA_ARGS__)
+ 
+ #define AUX_REG_UPDATE(reg_name, field, val)	\
+diff --git a/drivers/gpu/drm/amd/display/dc/dm_services.h b/drivers/gpu/drm/amd/display/dc/dm_services.h
+index 56832425a4d5..a62d53a1df31 100644
+--- a/drivers/gpu/drm/amd/display/dc/dm_services.h
++++ b/drivers/gpu/drm/amd/display/dc/dm_services.h
+@@ -144,10 +144,14 @@ static inline uint32_t set_reg_field_value_ex(
+ 		reg_name ## __ ## reg_field ## _MASK,\
+ 		reg_name ## __ ## reg_field ## __SHIFT)
+ 
+-uint32_t generic_reg_update_ex(const struct dc_context *ctx,
++uint32_t generic_reg_set_ex(const struct dc_context *ctx,
+ 		uint32_t addr, uint32_t reg_val, int n,
+ 		uint8_t shift1, uint32_t mask1, uint32_t field_value1, ...);
+ 
++uint32_t generic_reg_update_ex(const struct dc_context *ctx,
++		uint32_t addr, int n,
++		uint8_t shift1, uint32_t mask1, uint32_t field_value1, ...);
++
+ #define FD(reg_field)	reg_field ## __SHIFT, \
+ 						reg_field ## _MASK
+ 
+@@ -172,11 +176,10 @@ unsigned int generic_reg_wait(const struct dc_context *ctx,
+ 
+ #define generic_reg_update_soc15(ctx, inst_offset, reg_name, n, ...)\
+ 		generic_reg_update_ex(ctx, DCE_BASE.instance[0].segment[mm##reg_name##_BASE_IDX] +  mm##reg_name + inst_offset, \
+-		dm_read_reg_func(ctx, mm##reg_name + DCE_BASE.instance[0].segment[mm##reg_name##_BASE_IDX] + inst_offset, __func__), \
+ 		n, __VA_ARGS__)
+ 
+ #define generic_reg_set_soc15(ctx, inst_offset, reg_name, n, ...)\
+-		generic_reg_update_ex(ctx, DCE_BASE.instance[0].segment[mm##reg_name##_BASE_IDX] + mm##reg_name + inst_offset, 0, \
++		generic_reg_set_ex(ctx, DCE_BASE.instance[0].segment[mm##reg_name##_BASE_IDX] + mm##reg_name + inst_offset, 0, \
+ 		n, __VA_ARGS__)
+ 
+ #define get_reg_field_value_soc15(reg_value, block, reg_num, reg_name, reg_field)\
+diff --git a/drivers/gpu/drm/amd/display/dc/inc/reg_helper.h b/drivers/gpu/drm/amd/display/dc/inc/reg_helper.h
+index 6b808cb1895c..50b221f77a75 100644
+--- a/drivers/gpu/drm/amd/display/dc/inc/reg_helper.h
++++ b/drivers/gpu/drm/amd/display/dc/inc/reg_helper.h
+@@ -52,7 +52,7 @@
+ 
+ /* macro to set register fields. */
+ #define REG_SET_N(reg_name, n, initial_val, ...)	\
+-		generic_reg_update_ex(CTX, \
++		generic_reg_set_ex(CTX, \
+ 				REG(reg_name), \
+ 				initial_val, \
+ 				n, __VA_ARGS__)
+@@ -225,7 +225,6 @@
+ #define REG_UPDATE_N(reg_name, n, ...)	\
+ 		generic_reg_update_ex(CTX, \
+ 				REG(reg_name), \
+-				REG_READ(reg_name), \
+ 				n, __VA_ARGS__)
+ 
+ #define REG_UPDATE(reg_name, field, val)	\
+-- 
+2.17.1
+

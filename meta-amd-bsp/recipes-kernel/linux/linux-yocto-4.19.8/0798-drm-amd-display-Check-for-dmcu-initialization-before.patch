@@ -1,0 +1,68 @@
+From 9cdb371940e8db116d3b6686e867c3afbbc28399 Mon Sep 17 00:00:00 2001
+From: David Francis <David.Francis@amd.com>
+Date: Tue, 23 Oct 2018 13:58:39 -0400
+Subject: [PATCH 0798/2940] drm/amd/display: Check for dmcu initialization
+ before calling dmcu
+
+[Why]
+DMCU firmware is not required - the system is expected to run
+fine without it.  Therefore, wherever dmcu functions could be
+called, dmcu initialization shoudl be checked
+
+[How]
+Use the helpful hook dmcu_funcs->is_dmcu_initialized
+
+Signed-off-by: David Francis <David.Francis@amd.com>
+Reviewed-by: Hersen Wu <hersenxs.wu@amd.com>
+Acked-by: Bhawanpreet Lakha <Bhawanpreet.Lakha@amd.com>
+Signed-off-by: Alex Deucher <alexander.deucher@amd.com>
+---
+ drivers/gpu/drm/amd/display/dc/core/dc_link.c    |  2 +-
+ drivers/gpu/drm/amd/display/dc/dce/dce_clk_mgr.c | 11 +++++++----
+ 2 files changed, 8 insertions(+), 5 deletions(-)
+
+diff --git a/drivers/gpu/drm/amd/display/dc/core/dc_link.c b/drivers/gpu/drm/amd/display/dc/core/dc_link.c
+index 92171362e755..6344613b82b3 100644
+--- a/drivers/gpu/drm/amd/display/dc/core/dc_link.c
++++ b/drivers/gpu/drm/amd/display/dc/core/dc_link.c
+@@ -2218,7 +2218,7 @@ bool dc_link_set_psr_enable(const struct dc_link *link, bool enable, bool wait)
+ 	struct dc  *core_dc = link->ctx->dc;
+ 	struct dmcu *dmcu = core_dc->res_pool->dmcu;
+ 
+-	if (dmcu != NULL && link->psr_enabled)
++	if ((dmcu != NULL && dmcu->funcs->is_dmcu_initialized(dmcu)) && link->psr_enabled)
+ 		dmcu->funcs->set_psr_enable(dmcu, enable, wait);
+ 
+ 	return true;
+diff --git a/drivers/gpu/drm/amd/display/dc/dce/dce_clk_mgr.c b/drivers/gpu/drm/amd/display/dc/dce/dce_clk_mgr.c
+index 4c2cb7a11c57..6da7b78ffd73 100644
+--- a/drivers/gpu/drm/amd/display/dc/dce/dce_clk_mgr.c
++++ b/drivers/gpu/drm/amd/display/dc/dce/dce_clk_mgr.c
+@@ -274,7 +274,8 @@ static int dce_set_clock(
+ 	if (requested_clk_khz == 0)
+ 		clk_mgr_dce->cur_min_clks_state = DM_PP_CLOCKS_STATE_NOMINAL;
+ 
+-	dmcu->funcs->set_psr_wait_loop(dmcu, actual_clock / 1000 / 7);
++	if (dmcu && dmcu->funcs->is_dmcu_initialized(dmcu))
++		dmcu->funcs->set_psr_wait_loop(dmcu, actual_clock / 1000 / 7);
+ 
+ 	return actual_clock;
+ }
+@@ -321,9 +322,11 @@ int dce112_set_clock(struct clk_mgr *clk_mgr, int requested_clk_khz)
+ 	bp->funcs->set_dce_clock(bp, &dce_clk_params);
+ 
+ 	if (!IS_FPGA_MAXIMUS_DC(core_dc->ctx->dce_environment)) {
+-		if (clk_mgr_dce->dfs_bypass_disp_clk != actual_clock)
+-			dmcu->funcs->set_psr_wait_loop(dmcu,
+-					actual_clock / 1000 / 7);
++		if (dmcu && dmcu->funcs->is_dmcu_initialized(dmcu)) {
++			if (clk_mgr_dce->dfs_bypass_disp_clk != actual_clock)
++				dmcu->funcs->set_psr_wait_loop(dmcu,
++						actual_clock / 1000 / 7);
++		}
+ 	}
+ 
+ 	clk_mgr_dce->dfs_bypass_disp_clk = actual_clock;
+-- 
+2.17.1
+

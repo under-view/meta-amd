@@ -1,0 +1,69 @@
+From 704a44a7f94c85f9550967ac28c15b6e106769b5 Mon Sep 17 00:00:00 2001
+From: Thomas Lim <Thomas.Lim@amd.com>
+Date: Wed, 10 Apr 2019 17:06:07 -0400
+Subject: [PATCH 1830/2940] drm/amd/display: Add power down display on boot
+ flag
+
+[Why]
+
+Due to the generic introduction of seamless boot, the display is no
+longer blanked upon boot. However, this causes corruption on some
+systems that does not lock the memory in the non-secure boot case,
+resulting in brief corruption on boot due to garbage being written into
+the frame buffer.
+
+[How]
+Add a flag, read during DC init, to determine whether display should be
+blanked on boot. Default to true.
+
+Signed-off-by: Thomas Lim <Thomas.Lim@amd.com>
+Reviewed-by: Aric Cyr <Aric.Cyr@amd.com>
+Acked-by: Anthony Koo <Anthony.Koo@amd.com>
+Acked-by: Leo Li <sunpeng.li@amd.com>
+---
+ drivers/gpu/drm/amd/display/amdgpu_dm/amdgpu_dm.c         | 2 ++
+ drivers/gpu/drm/amd/display/dc/dc.h                       | 1 +
+ drivers/gpu/drm/amd/display/dc/dcn10/dcn10_hw_sequencer.c | 2 +-
+ 3 files changed, 4 insertions(+), 1 deletion(-)
+
+diff --git a/drivers/gpu/drm/amd/display/amdgpu_dm/amdgpu_dm.c b/drivers/gpu/drm/amd/display/amdgpu_dm/amdgpu_dm.c
+index 2c420fddf088..b62e0ecefb40 100644
+--- a/drivers/gpu/drm/amd/display/amdgpu_dm/amdgpu_dm.c
++++ b/drivers/gpu/drm/amd/display/amdgpu_dm/amdgpu_dm.c
+@@ -534,6 +534,8 @@ static int amdgpu_dm_init(struct amdgpu_device *adev)
+ 	if (amdgpu_dc_feature_mask & DC_FBC_MASK)
+ 		init_data.flags.fbc_support = true;
+ 
++	init_data.flags.power_down_display_on_boot = true;
++
+ 	/* Display Core create. */
+ 	adev->dm.dc = dc_create(&init_data);
+ 
+diff --git a/drivers/gpu/drm/amd/display/dc/dc.h b/drivers/gpu/drm/amd/display/dc/dc.h
+index e84b06263fe9..7b040da89925 100644
+--- a/drivers/gpu/drm/amd/display/dc/dc.h
++++ b/drivers/gpu/drm/amd/display/dc/dc.h
+@@ -207,6 +207,7 @@ struct dc_config {
+ 	bool optimize_edp_link_rate;
+ 	bool disable_fractional_pwm;
+ 	bool allow_seamless_boot_optimization;
++	bool power_down_display_on_boot;
+ };
+ 
+ enum visual_confirm {
+diff --git a/drivers/gpu/drm/amd/display/dc/dcn10/dcn10_hw_sequencer.c b/drivers/gpu/drm/amd/display/dc/dcn10/dcn10_hw_sequencer.c
+index b577c95d420b..4f144ac42380 100644
+--- a/drivers/gpu/drm/amd/display/dc/dcn10/dcn10_hw_sequencer.c
++++ b/drivers/gpu/drm/amd/display/dc/dcn10/dcn10_hw_sequencer.c
+@@ -1118,7 +1118,7 @@ static void dcn10_init_hw(struct dc *dc)
+ 	 * Otherwise, if taking control is not possible, we need to power
+ 	 * everything down.
+ 	 */
+-	if (dcb->funcs->is_accelerated_mode(dcb)) {
++	if (dcb->funcs->is_accelerated_mode(dcb) || dc->config.power_down_display_on_boot) {
+ 		for (i = 0; i < dc->res_pool->pipe_count; i++) {
+ 			struct hubp *hubp = dc->res_pool->hubps[i];
+ 			struct dpp *dpp = dc->res_pool->dpps[i];
+-- 
+2.17.1
+

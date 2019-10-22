@@ -1,0 +1,80 @@
+From 7553b56125dbee2d6d11cf3814b8c000e8327ac3 Mon Sep 17 00:00:00 2001
+From: Hans Verkuil <hans.verkuil@cisco.com>
+Date: Mon, 27 Aug 2018 10:08:18 +0200
+Subject: [PATCH 0633/2940] drm/amdgpu: add DisplayPort CEC-Tunneling-over-AUX
+ support
+
+Add DisplayPort CEC-Tunneling-over-AUX support to amdgpu.
+
+Signed-off-by: Hans Verkuil <hans.verkuil@cisco.com>
+Acked-by: Alex Deucher <alexander.deucher@amd.com>
+Reviewed-by: Harry Wentland <harry.wentland@amd.com>
+Link: https://patchwork.freedesktop.org/patch/msgid/de9586bb-151e-bae9-b8e3-14db107a60df@xs4all.nl
+Signed-off-by: Chaudhary Amit Kumar <Chaudharyamit.Kumar@amd.com>
+---
+ drivers/gpu/drm/amd/display/amdgpu_dm/amdgpu_dm.c        | 9 ++++++++-
+ .../gpu/drm/amd/display/amdgpu_dm/amdgpu_dm_mst_types.c  | 2 ++
+ 2 files changed, 10 insertions(+), 1 deletion(-)
+
+diff --git a/drivers/gpu/drm/amd/display/amdgpu_dm/amdgpu_dm.c b/drivers/gpu/drm/amd/display/amdgpu_dm/amdgpu_dm.c
+index a7a3832ff848..129db8e99084 100644
+--- a/drivers/gpu/drm/amd/display/amdgpu_dm/amdgpu_dm.c
++++ b/drivers/gpu/drm/amd/display/amdgpu_dm/amdgpu_dm.c
+@@ -1068,6 +1068,7 @@ amdgpu_dm_update_connector_after_detect(struct amdgpu_dm_connector *aconnector)
+ 		aconnector->dc_sink = sink;
+ 		if (sink->dc_edid.length == 0) {
+ 			aconnector->edid = NULL;
++			drm_dp_cec_unset_edid(&aconnector->dm_dp_aux.aux);
+ 		} else {
+ 			aconnector->edid =
+ 				(struct edid *) sink->dc_edid.raw_edid;
+@@ -1075,10 +1076,13 @@ amdgpu_dm_update_connector_after_detect(struct amdgpu_dm_connector *aconnector)
+ 
+ 			drm_connector_update_edid_property(connector,
+ 					aconnector->edid);
++			drm_dp_cec_set_edid(&aconnector->dm_dp_aux.aux,
++					aconnector->edid);
+ 		}
+ 		amdgpu_dm_update_freesync_caps(connector, aconnector->edid);
+ 
+ 	} else {
++		drm_dp_cec_unset_edid(&aconnector->dm_dp_aux.aux);
+ 		amdgpu_dm_update_freesync_caps(connector, NULL);
+ 		drm_connector_update_edid_property(connector, NULL);
+ 		aconnector->num_modes = 0;
+@@ -1266,8 +1270,10 @@ static void handle_hpd_rx_irq(void *param)
+ 	    (dc_link->type == dc_connection_mst_branch))
+ 		dm_handle_hpd_rx_irq(aconnector);
+ 
+-	if (dc_link->type != dc_connection_mst_branch)
++	if (dc_link->type != dc_connection_mst_branch) {
++		drm_dp_cec_irq(&aconnector->dm_dp_aux.aux);
+ 		mutex_unlock(&aconnector->hpd_lock);
++	}
+ }
+ 
+ static void register_hpd_handlers(struct amdgpu_device *adev)
+@@ -3032,6 +3038,7 @@ static void amdgpu_dm_connector_destroy(struct drm_connector *connector)
+ 		dm->backlight_dev = NULL;
+ 	}
+ #endif
++	drm_dp_cec_unregister_connector(&aconnector->dm_dp_aux.aux);
+ 	drm_connector_unregister(connector);
+ 	drm_connector_cleanup(connector);
+ 	kfree(connector);
+diff --git a/drivers/gpu/drm/amd/display/amdgpu_dm/amdgpu_dm_mst_types.c b/drivers/gpu/drm/amd/display/amdgpu_dm/amdgpu_dm_mst_types.c
+index 58ac8a879d28..a4bc29f83c4b 100644
+--- a/drivers/gpu/drm/amd/display/amdgpu_dm/amdgpu_dm_mst_types.c
++++ b/drivers/gpu/drm/amd/display/amdgpu_dm/amdgpu_dm_mst_types.c
+@@ -469,6 +469,8 @@ void amdgpu_dm_initialize_dp_connector(struct amdgpu_display_manager *dm,
+ 	aconnector->dm_dp_aux.ddc_service = aconnector->dc_link->ddc;
+ 
+ 	drm_dp_aux_register(&aconnector->dm_dp_aux.aux);
++	drm_dp_cec_register_connector(&aconnector->dm_dp_aux.aux,
++				      aconnector->base.name, dm->adev->dev);
+ 	aconnector->mst_mgr.cbs = &dm_mst_cbs;
+ 	drm_dp_mst_topology_mgr_init(
+ 		&aconnector->mst_mgr,
+-- 
+2.17.1
+

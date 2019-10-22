@@ -1,0 +1,35 @@
+From 81dbc378fd010e3bd509e24ce7e8ad3aac2da439 Mon Sep 17 00:00:00 2001
+From: James Zhu <James.Zhu@amd.com>
+Date: Tue, 9 Jul 2019 10:01:35 -0500
+Subject: [PATCH 2937/2940] drm/amdgpu: Clear build undefined warning
+
+Add amdgpu_amdkfd_arcturus_get_functions stub when
+CONFIG_HSA_AMD is undefinded.
+
+Change-Id: Id50ca81ee2f80c928d7bd05deb738b35dc79e6cf
+Signed-off-by: James Zhu <James.Zhu@amd.com>
+Reviewed-by: Yong Zhao <Yong.Zhao@amd.com>
+Signed-off-by: Alex Deucher <alexander.deucher@amd.com>
+---
+ drivers/gpu/drm/amd/amdgpu/amdgpu_amdkfd.c | 5 +++++
+ 1 file changed, 5 insertions(+)
+
+diff --git a/drivers/gpu/drm/amd/amdgpu/amdgpu_amdkfd.c b/drivers/gpu/drm/amd/amdgpu/amdgpu_amdkfd.c
+index bb634e0985bd..78b78f898de1 100644
+--- a/drivers/gpu/drm/amd/amdgpu/amdgpu_amdkfd.c
++++ b/drivers/gpu/drm/amd/amdgpu/amdgpu_amdkfd.c
+@@ -734,6 +734,11 @@ struct kfd2kgd_calls *amdgpu_amdkfd_gfx_9_0_get_functions(void)
+ 	return NULL;
+ }
+ 
++struct kfd2kgd_calls *amdgpu_amdkfd_arcturus_get_functions(void)
++{
++	return NULL;
++}
++
+ struct kfd_dev *kgd2kfd_probe(struct kgd_dev *kgd, struct pci_dev *pdev,
+ 			      const struct kfd2kgd_calls *f2g)
+ {
+-- 
+2.17.1
+

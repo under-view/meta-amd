@@ -1,0 +1,75 @@
+From 363f04b5a75008fe13c9b0cffdb9cfc39a721f2c Mon Sep 17 00:00:00 2001
+From: Sudheesh Mavila <sudheesh.mavila@amd.com>
+Date: Mon, 4 Feb 2019 11:58:45 +0530
+Subject: [PATCH 0619/2940] Revert "amd-xgbe: Fix mdio access for non-zero
+ ports and clause 45 PHYs"
+
+This reverts commit cdd33097c350961d7eae3def702de4f7a60b9da8.
+---
+ drivers/net/ethernet/amd/xgbe/xgbe-common.h |  2 ++
+ drivers/net/ethernet/amd/xgbe/xgbe-dev.c    | 22 ++++++---------------
+ 2 files changed, 8 insertions(+), 16 deletions(-)
+
+diff --git a/drivers/net/ethernet/amd/xgbe/xgbe-common.h b/drivers/net/ethernet/amd/xgbe/xgbe-common.h
+index b40d4377cc71..d272dc6984ac 100644
+--- a/drivers/net/ethernet/amd/xgbe/xgbe-common.h
++++ b/drivers/net/ethernet/amd/xgbe/xgbe-common.h
+@@ -431,6 +431,8 @@
+ #define MAC_MDIOSCAR_PA_WIDTH		5
+ #define MAC_MDIOSCAR_RA_INDEX		0
+ #define MAC_MDIOSCAR_RA_WIDTH		16
++#define MAC_MDIOSCAR_REG_INDEX		0
++#define MAC_MDIOSCAR_REG_WIDTH		21
+ #define MAC_MDIOSCCDR_BUSY_INDEX	22
+ #define MAC_MDIOSCCDR_BUSY_WIDTH	1
+ #define MAC_MDIOSCCDR_CMD_INDEX		16
+diff --git a/drivers/net/ethernet/amd/xgbe/xgbe-dev.c b/drivers/net/ethernet/amd/xgbe/xgbe-dev.c
+index 4666084eda16..1e929a1e4ca7 100644
+--- a/drivers/net/ethernet/amd/xgbe/xgbe-dev.c
++++ b/drivers/net/ethernet/amd/xgbe/xgbe-dev.c
+@@ -1284,20 +1284,6 @@ static void xgbe_write_mmd_regs(struct xgbe_prv_data *pdata, int prtad,
+ 	}
+ }
+ 
+-static unsigned int xgbe_create_mdio_sca(int port, int reg)
+-{
+-	unsigned int mdio_sca, da;
+-
+-	da = (reg & MII_ADDR_C45) ? reg >> 16 : 0;
+-
+-	mdio_sca = 0;
+-	XGMAC_SET_BITS(mdio_sca, MAC_MDIOSCAR, RA, reg);
+-	XGMAC_SET_BITS(mdio_sca, MAC_MDIOSCAR, PA, port);
+-	XGMAC_SET_BITS(mdio_sca, MAC_MDIOSCAR, DA, da);
+-
+-	return mdio_sca;
+-}
+-
+ static int xgbe_write_ext_mii_regs(struct xgbe_prv_data *pdata, int addr,
+ 				   int reg, u16 val)
+ {
+@@ -1305,7 +1291,9 @@ static int xgbe_write_ext_mii_regs(struct xgbe_prv_data *pdata, int addr,
+ 
+ 	reinit_completion(&pdata->mdio_complete);
+ 
+-	mdio_sca = xgbe_create_mdio_sca(addr, reg);
++	mdio_sca = 0;
++	XGMAC_SET_BITS(mdio_sca, MAC_MDIOSCAR, REG, reg);
++	XGMAC_SET_BITS(mdio_sca, MAC_MDIOSCAR, DA, addr);
+ 	XGMAC_IOWRITE(pdata, MAC_MDIOSCAR, mdio_sca);
+ 
+ 	mdio_sccd = 0;
+@@ -1329,7 +1317,9 @@ static int xgbe_read_ext_mii_regs(struct xgbe_prv_data *pdata, int addr,
+ 
+ 	reinit_completion(&pdata->mdio_complete);
+ 
+-	mdio_sca = xgbe_create_mdio_sca(addr, reg);
++	mdio_sca = 0;
++	XGMAC_SET_BITS(mdio_sca, MAC_MDIOSCAR, REG, reg);
++	XGMAC_SET_BITS(mdio_sca, MAC_MDIOSCAR, DA, addr);
+ 	XGMAC_IOWRITE(pdata, MAC_MDIOSCAR, mdio_sca);
+ 
+ 	mdio_sccd = 0;
+-- 
+2.17.1
+

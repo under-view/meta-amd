@@ -1,0 +1,35 @@
+From a2805ca24489e855c747154591f172b25c7b20f5 Mon Sep 17 00:00:00 2001
+From: abdoulaye berthe <abdoulaye.berthe@amd.com>
+Date: Fri, 2 Nov 2018 12:07:46 -0400
+Subject: [PATCH 0881/2940] drm/amd/display: CTS 4.2.2.7
+
+[Why]
+Failure to read Detailed Capabilities Info.
+
+[How]
+Read Detailed Capbilities Info 80h-08Fh.
+
+Signed-off-by: abdoulaye berthe <abdoulaye.berthe@amd.com>
+Reviewed-by: Wenjing Liu <Wenjing.Liu@amd.com>
+Acked-by: Leo Li <sunpeng.li@amd.com>
+Signed-off-by: Alex Deucher <alexander.deucher@amd.com>
+---
+ drivers/gpu/drm/amd/display/dc/core/dc_link_dp.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/drivers/gpu/drm/amd/display/dc/core/dc_link_dp.c b/drivers/gpu/drm/amd/display/dc/core/dc_link_dp.c
+index 4d1f8ac069c1..849a3a3032f7 100644
+--- a/drivers/gpu/drm/amd/display/dc/core/dc_link_dp.c
++++ b/drivers/gpu/drm/amd/display/dc/core/dc_link_dp.c
+@@ -2196,7 +2196,7 @@ static void get_active_converter_info(
+ 	}
+ 
+ 	if (link->dpcd_caps.dpcd_rev.raw >= DPCD_REV_11) {
+-		uint8_t det_caps[4];
++		uint8_t det_caps[16]; /* CTS 4.2.2.7 expects source to read Detailed Capabilities Info : 00080h-0008F.*/
+ 		union dwnstream_port_caps_byte0 *port_caps =
+ 			(union dwnstream_port_caps_byte0 *)det_caps;
+ 		core_link_read_dpcd(link, DP_DOWNSTREAM_PORT_0,
+-- 
+2.17.1
+

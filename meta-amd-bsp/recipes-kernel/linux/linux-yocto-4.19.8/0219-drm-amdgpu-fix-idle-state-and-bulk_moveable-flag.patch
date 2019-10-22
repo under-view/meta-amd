@@ -1,0 +1,61 @@
+From 6708386de6aced0863e5a3db7cae7aff564048ca Mon Sep 17 00:00:00 2001
+From: =?UTF-8?q?Christian=20K=C3=B6nig?= <christian.koenig@amd.com>
+Date: Fri, 31 Aug 2018 11:08:06 +0200
+Subject: [PATCH 0219/2940] drm/amdgpu: fix idle state and bulk_moveable flag
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+Add BOs to the idle state again and correctly clear the flag when
+new BOs are added.
+
+Change-Id: I4522e09318de63bf73cf4e58370df2134c0817a1
+Signed-off-by: Christian König <christian.koenig@amd.com>
+Tested-by: Michel Dänzer <michel.daenzer@amd.com>
+---
+ drivers/gpu/drm/amd/amdgpu/amdgpu_vm.c | 12 +++++++-----
+ 1 file changed, 7 insertions(+), 5 deletions(-)
+
+diff --git a/drivers/gpu/drm/amd/amdgpu/amdgpu_vm.c b/drivers/gpu/drm/amd/amdgpu/amdgpu_vm.c
+index d60af21fb255..1a8a299f552e 100644
+--- a/drivers/gpu/drm/amd/amdgpu/amdgpu_vm.c
++++ b/drivers/gpu/drm/amd/amdgpu/amdgpu_vm.c
+@@ -156,12 +156,15 @@ static void amdgpu_vm_bo_base_init(struct amdgpu_vm_bo_base *base,
+ 		return;
+ 	list_add_tail(&base->bo_list, &bo->va);
+ 
+-	if (bo->tbo.type == ttm_bo_type_kernel)
+-		list_move(&base->vm_status, &vm->relocated);
+-
+ 	if (bo->tbo.resv != vm->root.base.bo->tbo.resv)
+ 		return;
+ 
++	vm->bulk_moveable = false;
++	if (bo->tbo.type == ttm_bo_type_kernel)
++		list_move(&base->vm_status, &vm->relocated);
++	else
++		list_move(&base->vm_status, &vm->idle);
++
+ 	if (bo->preferred_domains &
+ 	    amdgpu_mem_type_to_domain(bo->tbo.mem.mem_type))
+ 		return;
+@@ -1138,7 +1141,7 @@ int amdgpu_vm_update_directories(struct amdgpu_device *adev,
+ 					   struct amdgpu_vm_bo_base,
+ 					   vm_status);
+ 		bo_base->moved = false;
+-		list_del_init(&bo_base->vm_status);
++		list_move(&bo_base->vm_status, &vm->idle);
+ 
+ 		bo = bo_base->bo->parent;
+ 		if (!bo)
+@@ -2690,7 +2693,6 @@ int amdgpu_vm_init(struct amdgpu_device *adev, struct amdgpu_vm *vm,
+ 		return r;
+ 
+ 	vm->pte_support_ats = false;
+-	vm->bulk_moveable = true;
+ 
+ 	if (vm_context == AMDGPU_VM_CONTEXT_COMPUTE) {
+ 		vm->use_cpu_for_update = !!(adev->vm_manager.vm_update_mode &
+-- 
+2.17.1
+

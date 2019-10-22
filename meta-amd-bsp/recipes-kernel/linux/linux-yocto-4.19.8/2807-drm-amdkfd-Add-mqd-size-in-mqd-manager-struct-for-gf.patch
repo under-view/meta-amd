@@ -1,0 +1,44 @@
+From 5ae6a90fb220deab911931483f522dbc06cee321 Mon Sep 17 00:00:00 2001
+From: Alex Deucher <alexander.deucher@amd.com>
+Date: Wed, 8 May 2019 09:26:13 -0500
+Subject: [PATCH 2807/2940] drm/amdkfd: Add mqd size in mqd manager struct for
+ gfx10
+
+Also initialize mqd size on mqd manager initialization
+
+Signed-off-by: Alex Deucher <alexander.deucher@amd.com>
+---
+ drivers/gpu/drm/amd/amdkfd/kfd_mqd_manager_v10.c | 3 +++
+ 1 file changed, 3 insertions(+)
+
+diff --git a/drivers/gpu/drm/amd/amdkfd/kfd_mqd_manager_v10.c b/drivers/gpu/drm/amd/amdkfd/kfd_mqd_manager_v10.c
+index db3979520f54..5ecc6d3a1b09 100644
+--- a/drivers/gpu/drm/amd/amdkfd/kfd_mqd_manager_v10.c
++++ b/drivers/gpu/drm/amd/amdkfd/kfd_mqd_manager_v10.c
+@@ -478,6 +478,7 @@ struct mqd_manager *mqd_manager_init_v10(enum KFD_MQD_TYPE type,
+ 		mqd->update_mqd = update_mqd;
+ 		mqd->destroy_mqd = destroy_mqd;
+ 		mqd->is_occupied = is_occupied;
++		mqd->mqd_size = sizeof(struct v10_compute_mqd);
+ 		mqd->get_wave_state = get_wave_state;
+ #if defined(CONFIG_DEBUG_FS)
+ 		mqd->debugfs_show_mqd = debugfs_show_mqd;
+@@ -492,6 +493,7 @@ struct mqd_manager *mqd_manager_init_v10(enum KFD_MQD_TYPE type,
+ 		mqd->update_mqd = update_mqd_hiq;
+ 		mqd->destroy_mqd = destroy_mqd;
+ 		mqd->is_occupied = is_occupied;
++		mqd->mqd_size = sizeof(struct v10_compute_mqd);
+ #if defined(CONFIG_DEBUG_FS)
+ 		mqd->debugfs_show_mqd = debugfs_show_mqd;
+ #endif
+@@ -517,6 +519,7 @@ struct mqd_manager *mqd_manager_init_v10(enum KFD_MQD_TYPE type,
+ 		mqd->update_mqd = update_mqd_sdma;
+ 		mqd->destroy_mqd = destroy_mqd_sdma;
+ 		mqd->is_occupied = is_occupied_sdma;
++		mqd->mqd_size = sizeof(struct v10_sdma_mqd);
+ #if defined(CONFIG_DEBUG_FS)
+ 		mqd->debugfs_show_mqd = debugfs_show_mqd_sdma;
+ #endif
+-- 
+2.17.1
+

@@ -1,0 +1,55 @@
+From e3cbd43b413f36de51b307e643175c137d33de90 Mon Sep 17 00:00:00 2001
+From: Yong Zhao <Yong.Zhao@amd.com>
+Date: Mon, 25 Feb 2019 17:50:43 -0500
+Subject: [PATCH 1499/2940] drm/amdgpu: Set VM_L2_CNTL.PDE_FAULT_CLASSIFICATION
+ to 0
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+This is recommended by HW designers. Previously when it was set to 1,
+the PDE walk error in VM fault will be treated as
+PERMISSION_OR_INVALID_PAGE_FAULT rather than usually expected OTHER_FAULT.
+As a result, the retry control in VM_CONTEXT*_CNTL will change accordingly.
+
+The above behavior is kind of abnormal. Furthermore, the
+PDE_FAULT_CLASSIFICATION == 1 feature was targeted for very old ASICs
+and it never made it way to production. Therefore, we should set it to 0.
+
+Signed-off-by: Yong Zhao <Yong.Zhao@amd.com>
+Acked-by: Christian König <christian.koenig@amd.com>
+Acked-by: Alex Deucher <alexander.deucher@amd.com>
+---
+ drivers/gpu/drm/amd/amdgpu/gfxhub_v1_0.c | 2 +-
+ drivers/gpu/drm/amd/amdgpu/mmhub_v1_0.c  | 2 +-
+ 2 files changed, 2 insertions(+), 2 deletions(-)
+
+diff --git a/drivers/gpu/drm/amd/amdgpu/gfxhub_v1_0.c b/drivers/gpu/drm/amd/amdgpu/gfxhub_v1_0.c
+index 3d84ea045171..065f21d4bcba 100644
+--- a/drivers/gpu/drm/amd/amdgpu/gfxhub_v1_0.c
++++ b/drivers/gpu/drm/amd/amdgpu/gfxhub_v1_0.c
+@@ -138,7 +138,7 @@ static void gfxhub_v1_0_init_cache_regs(struct amdgpu_device *adev)
+ 	/* XXX for emulation, Refer to closed source code.*/
+ 	tmp = REG_SET_FIELD(tmp, VM_L2_CNTL, L2_PDE0_CACHE_TAG_GENERATION_MODE,
+ 			    0);
+-	tmp = REG_SET_FIELD(tmp, VM_L2_CNTL, PDE_FAULT_CLASSIFICATION, 1);
++	tmp = REG_SET_FIELD(tmp, VM_L2_CNTL, PDE_FAULT_CLASSIFICATION, 0);
+ 	tmp = REG_SET_FIELD(tmp, VM_L2_CNTL, CONTEXT1_IDENTITY_ACCESS_MODE, 1);
+ 	tmp = REG_SET_FIELD(tmp, VM_L2_CNTL, IDENTITY_MODE_FRAGMENT_SIZE, 0);
+ 	WREG32_SOC15(GC, 0, mmVM_L2_CNTL, tmp);
+diff --git a/drivers/gpu/drm/amd/amdgpu/mmhub_v1_0.c b/drivers/gpu/drm/amd/amdgpu/mmhub_v1_0.c
+index fd12e63fdec5..5a9d6787c00d 100644
+--- a/drivers/gpu/drm/amd/amdgpu/mmhub_v1_0.c
++++ b/drivers/gpu/drm/amd/amdgpu/mmhub_v1_0.c
+@@ -158,7 +158,7 @@ static void mmhub_v1_0_init_cache_regs(struct amdgpu_device *adev)
+ 	/* XXX for emulation, Refer to closed source code.*/
+ 	tmp = REG_SET_FIELD(tmp, VM_L2_CNTL, L2_PDE0_CACHE_TAG_GENERATION_MODE,
+ 			    0);
+-	tmp = REG_SET_FIELD(tmp, VM_L2_CNTL, PDE_FAULT_CLASSIFICATION, 1);
++	tmp = REG_SET_FIELD(tmp, VM_L2_CNTL, PDE_FAULT_CLASSIFICATION, 0);
+ 	tmp = REG_SET_FIELD(tmp, VM_L2_CNTL, CONTEXT1_IDENTITY_ACCESS_MODE, 1);
+ 	tmp = REG_SET_FIELD(tmp, VM_L2_CNTL, IDENTITY_MODE_FRAGMENT_SIZE, 0);
+ 	WREG32_SOC15(MMHUB, 0, mmVM_L2_CNTL, tmp);
+-- 
+2.17.1
+

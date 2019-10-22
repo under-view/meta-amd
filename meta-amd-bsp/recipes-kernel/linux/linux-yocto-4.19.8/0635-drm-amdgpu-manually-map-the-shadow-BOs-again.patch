@@ -1,0 +1,54 @@
+From f08bb0711a9a446c4a918e844f1f631940d2cf82 Mon Sep 17 00:00:00 2001
+From: =?UTF-8?q?Christian=20K=C3=B6nig?= <christian.koenig@amd.com>
+Date: Wed, 29 Aug 2018 14:52:50 +0200
+Subject: [PATCH 0635/2940] drm/amdgpu: manually map the shadow BOs again
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+Otherwise we won't be able to use the AGP aperture.
+
+Signed-off-by: Christian König <christian.koenig@amd.com>
+Reviewed-by: Junwei Zhang <Jerry.Zhang@amd.com>
+Signed-off-by: Alex Deucher <alexander.deucher@amd.com>
+Signed-off-by: Chaudhary Amit Kumar <Chaudharyamit.Kumar@amd.com>
+---
+ drivers/gpu/drm/amd/amdgpu/amdgpu_object.c | 5 +----
+ drivers/gpu/drm/amd/amdgpu/amdgpu_vm.c     | 5 +++++
+ 2 files changed, 6 insertions(+), 4 deletions(-)
+
+diff --git a/drivers/gpu/drm/amd/amdgpu/amdgpu_object.c b/drivers/gpu/drm/amd/amdgpu/amdgpu_object.c
+index 2106a8672923..4afea68fcd60 100644
+--- a/drivers/gpu/drm/amd/amdgpu/amdgpu_object.c
++++ b/drivers/gpu/drm/amd/amdgpu/amdgpu_object.c
+@@ -169,10 +169,7 @@ void amdgpu_bo_placement_from_domain(struct amdgpu_bo *abo, u32 domain)
+ 
+ 	if (domain & AMDGPU_GEM_DOMAIN_GTT) {
+ 		places[c].fpfn = 0;
+-		if (flags & AMDGPU_GEM_CREATE_SHADOW)
+-			places[c].lpfn = adev->gmc.gart_size >> PAGE_SHIFT;
+-		else
+-			places[c].lpfn = 0;
++		places[c].lpfn = 0;
+ 		places[c].flags = TTM_PL_FLAG_TT;
+ 		if (flags & AMDGPU_GEM_CREATE_CPU_GTT_USWC)
+ 			places[c].flags |= TTM_PL_FLAG_WC |
+diff --git a/drivers/gpu/drm/amd/amdgpu/amdgpu_vm.c b/drivers/gpu/drm/amd/amdgpu/amdgpu_vm.c
+index 5a4e26dad1df..9c3c549a916f 100644
+--- a/drivers/gpu/drm/amd/amdgpu/amdgpu_vm.c
++++ b/drivers/gpu/drm/amd/amdgpu/amdgpu_vm.c
+@@ -700,6 +700,11 @@ int amdgpu_vm_validate_pt_bos(struct amdgpu_device *adev, struct amdgpu_vm *vm,
+ 				r = amdgpu_ttm_alloc_gart(&bo->tbo);
+ 			if (r)
+ 				break;
++			if (bo->shadow) {
++				r = amdgpu_ttm_alloc_gart(&bo->shadow->tbo);
++				if (r)
++					break;
++			}
+ 			amdgpu_vm_bo_relocated(bo_base);
+ 		}
+ 	}
+-- 
+2.17.1
+

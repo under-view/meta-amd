@@ -1,0 +1,232 @@
+From e0f9bf14f8d78ede12f7a6df26539c2db3730857 Mon Sep 17 00:00:00 2001
+From: =?UTF-8?q?Christian=20K=C3=B6nig?= <christian.koenig@amd.com>
+Date: Thu, 12 Jul 2018 15:15:21 +0200
+Subject: [PATCH 0101/2940] drm/amdgpu: use new scheduler load balancing for
+ VMs
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+Instead of the fixed round robin use let the scheduler balance the load
+of page table updates.
+
+Signed-off-by: Christian König <christian.koenig@amd.com>
+Reviewed-by: Chunming Zhou <david1.zhou@amd.com>
+Signed-off-by: Alex Deucher <alexander.deucher@amd.com>
+---
+ drivers/gpu/drm/amd/amdgpu/amdgpu_device.c |  2 +-
+ drivers/gpu/drm/amd/amdgpu/amdgpu_vm.c     | 12 ++----------
+ drivers/gpu/drm/amd/amdgpu/amdgpu_vm.h     |  7 +++----
+ drivers/gpu/drm/amd/amdgpu/cik_sdma.c      | 12 +++++++-----
+ drivers/gpu/drm/amd/amdgpu/sdma_v2_4.c     | 12 +++++++-----
+ drivers/gpu/drm/amd/amdgpu/sdma_v3_0.c     | 12 +++++++-----
+ drivers/gpu/drm/amd/amdgpu/sdma_v4_0.c     | 12 +++++++-----
+ drivers/gpu/drm/amd/amdgpu/si_dma.c        | 12 +++++++-----
+ 8 files changed, 41 insertions(+), 40 deletions(-)
+
+diff --git a/drivers/gpu/drm/amd/amdgpu/amdgpu_device.c b/drivers/gpu/drm/amd/amdgpu/amdgpu_device.c
+index c78e25255f98..63668764bf5d 100644
+--- a/drivers/gpu/drm/amd/amdgpu/amdgpu_device.c
++++ b/drivers/gpu/drm/amd/amdgpu/amdgpu_device.c
+@@ -2348,7 +2348,7 @@ int amdgpu_device_init(struct amdgpu_device *adev,
+ 	adev->mman.buffer_funcs = NULL;
+ 	adev->mman.buffer_funcs_ring = NULL;
+ 	adev->vm_manager.vm_pte_funcs = NULL;
+-	adev->vm_manager.vm_pte_num_rings = 0;
++	adev->vm_manager.vm_pte_num_rqs = 0;
+ 	adev->gmc.gmc_funcs = NULL;
+ 	adev->fence_context = dma_fence_context_alloc(AMDGPU_MAX_RINGS);
+ 	bitmap_zero(adev->gfx.pipe_reserve_bitmap, AMDGPU_MAX_COMPUTE_QUEUES);
+diff --git a/drivers/gpu/drm/amd/amdgpu/amdgpu_vm.c b/drivers/gpu/drm/amd/amdgpu/amdgpu_vm.c
+index 6a84526e20e0..baeef7ca6f97 100644
+--- a/drivers/gpu/drm/amd/amdgpu/amdgpu_vm.c
++++ b/drivers/gpu/drm/amd/amdgpu/amdgpu_vm.c
+@@ -2595,9 +2595,6 @@ int amdgpu_vm_init(struct amdgpu_device *adev, struct amdgpu_vm *vm,
+ 	struct amdgpu_bo *root;
+ 	const unsigned align = min(AMDGPU_VM_PTB_ALIGN_SIZE,
+ 		AMDGPU_VM_PTE_COUNT(adev) * 8);
+-	unsigned ring_instance;
+-	struct amdgpu_ring *ring;
+-	struct drm_sched_rq *rq;
+ 	unsigned long size;
+ 	uint64_t flags;
+ 	int r, i;
+@@ -2613,12 +2610,8 @@ int amdgpu_vm_init(struct amdgpu_device *adev, struct amdgpu_vm *vm,
+ 	INIT_LIST_HEAD(&vm->freed);
+ 
+ 	/* create scheduler entity for page table updates */
+-
+-	ring_instance = atomic_inc_return(&adev->vm_manager.vm_pte_next_ring);
+-	ring_instance %= adev->vm_manager.vm_pte_num_rings;
+-	ring = adev->vm_manager.vm_pte_rings[ring_instance];
+-	rq = &ring->sched.sched_rq[DRM_SCHED_PRIORITY_KERNEL];
+-	r = drm_sched_entity_init(&vm->entity, &rq, 1, NULL);
++	r = drm_sched_entity_init(&vm->entity, adev->vm_manager.vm_pte_rqs,
++				  adev->vm_manager.vm_pte_num_rqs, NULL);
+ 	if (r)
+ 		return r;
+ 
+@@ -2927,7 +2920,6 @@ void amdgpu_vm_manager_init(struct amdgpu_device *adev)
+ 	for (i = 0; i < AMDGPU_MAX_RINGS; ++i)
+ 		adev->vm_manager.seqno[i] = 0;
+ 
+-	atomic_set(&adev->vm_manager.vm_pte_next_ring, 0);
+ 	spin_lock_init(&adev->vm_manager.prt_lock);
+ 	atomic_set(&adev->vm_manager.num_prt_users, 0);
+ 
+diff --git a/drivers/gpu/drm/amd/amdgpu/amdgpu_vm.h b/drivers/gpu/drm/amd/amdgpu/amdgpu_vm.h
+index 9b0eafd64363..ab1d23e4b8ad 100644
+--- a/drivers/gpu/drm/amd/amdgpu/amdgpu_vm.h
++++ b/drivers/gpu/drm/amd/amdgpu/amdgpu_vm.h
+@@ -265,10 +265,9 @@ struct amdgpu_vm_manager {
+ 	/* vram base address for page table entry  */
+ 	u64					vram_base_offset;
+ 	/* vm pte handling */
+-	const struct amdgpu_vm_pte_funcs        *vm_pte_funcs;
+-	struct amdgpu_ring                      *vm_pte_rings[AMDGPU_MAX_RINGS];
+-	unsigned				vm_pte_num_rings;
+-	atomic_t				vm_pte_next_ring;
++	const struct amdgpu_vm_pte_funcs	*vm_pte_funcs;
++	struct drm_sched_rq			*vm_pte_rqs[AMDGPU_MAX_RINGS];
++	unsigned				vm_pte_num_rqs;
+ 
+ 	/* partial resident texture handling */
+ 	spinlock_t				prt_lock;
+diff --git a/drivers/gpu/drm/amd/amdgpu/cik_sdma.c b/drivers/gpu/drm/amd/amdgpu/cik_sdma.c
+index d0fa2aac2388..154b1499b07e 100644
+--- a/drivers/gpu/drm/amd/amdgpu/cik_sdma.c
++++ b/drivers/gpu/drm/amd/amdgpu/cik_sdma.c
+@@ -1386,15 +1386,17 @@ static const struct amdgpu_vm_pte_funcs cik_sdma_vm_pte_funcs = {
+ 
+ static void cik_sdma_set_vm_pte_funcs(struct amdgpu_device *adev)
+ {
++	struct drm_gpu_scheduler *sched;
+ 	unsigned i;
+ 
+ 	if (adev->vm_manager.vm_pte_funcs == NULL) {
+ 		adev->vm_manager.vm_pte_funcs = &cik_sdma_vm_pte_funcs;
+-		for (i = 0; i < adev->sdma.num_instances; i++)
+-			adev->vm_manager.vm_pte_rings[i] =
+-				&adev->sdma.instance[i].ring;
+-
+-		adev->vm_manager.vm_pte_num_rings = adev->sdma.num_instances;
++		for (i = 0; i < adev->sdma.num_instances; i++) {
++			sched = &adev->sdma.instance[i].ring.sched;
++			adev->vm_manager.vm_pte_rqs[i] =
++				&sched->sched_rq[DRM_SCHED_PRIORITY_KERNEL];
++		}
++		adev->vm_manager.vm_pte_num_rqs = adev->sdma.num_instances;
+ 	}
+ }
+ 
+diff --git a/drivers/gpu/drm/amd/amdgpu/sdma_v2_4.c b/drivers/gpu/drm/amd/amdgpu/sdma_v2_4.c
+index 15ae4bc9c072..c403bdf8ad70 100644
+--- a/drivers/gpu/drm/amd/amdgpu/sdma_v2_4.c
++++ b/drivers/gpu/drm/amd/amdgpu/sdma_v2_4.c
+@@ -1312,15 +1312,17 @@ static const struct amdgpu_vm_pte_funcs sdma_v2_4_vm_pte_funcs = {
+ 
+ static void sdma_v2_4_set_vm_pte_funcs(struct amdgpu_device *adev)
+ {
++	struct drm_gpu_scheduler *sched;
+ 	unsigned i;
+ 
+ 	if (adev->vm_manager.vm_pte_funcs == NULL) {
+ 		adev->vm_manager.vm_pte_funcs = &sdma_v2_4_vm_pte_funcs;
+-		for (i = 0; i < adev->sdma.num_instances; i++)
+-			adev->vm_manager.vm_pte_rings[i] =
+-				&adev->sdma.instance[i].ring;
+-
+-		adev->vm_manager.vm_pte_num_rings = adev->sdma.num_instances;
++		for (i = 0; i < adev->sdma.num_instances; i++) {
++			sched = &adev->sdma.instance[i].ring.sched;
++			adev->vm_manager.vm_pte_rqs[i] =
++				&sched->sched_rq[DRM_SCHED_PRIORITY_KERNEL];
++		}
++		adev->vm_manager.vm_pte_num_rqs = adev->sdma.num_instances;
+ 	}
+ }
+ 
+diff --git a/drivers/gpu/drm/amd/amdgpu/sdma_v3_0.c b/drivers/gpu/drm/amd/amdgpu/sdma_v3_0.c
+index 1e07ff274d73..2677d6a1bf42 100644
+--- a/drivers/gpu/drm/amd/amdgpu/sdma_v3_0.c
++++ b/drivers/gpu/drm/amd/amdgpu/sdma_v3_0.c
+@@ -1752,15 +1752,17 @@ static const struct amdgpu_vm_pte_funcs sdma_v3_0_vm_pte_funcs = {
+ 
+ static void sdma_v3_0_set_vm_pte_funcs(struct amdgpu_device *adev)
+ {
++	struct drm_gpu_scheduler *sched;
+ 	unsigned i;
+ 
+ 	if (adev->vm_manager.vm_pte_funcs == NULL) {
+ 		adev->vm_manager.vm_pte_funcs = &sdma_v3_0_vm_pte_funcs;
+-		for (i = 0; i < adev->sdma.num_instances; i++)
+-			adev->vm_manager.vm_pte_rings[i] =
+-				&adev->sdma.instance[i].ring;
+-
+-		adev->vm_manager.vm_pte_num_rings = adev->sdma.num_instances;
++		for (i = 0; i < adev->sdma.num_instances; i++) {
++			sched = &adev->sdma.instance[i].ring.sched;
++			adev->vm_manager.vm_pte_rqs[i] =
++				&sched->sched_rq[DRM_SCHED_PRIORITY_KERNEL];
++		}
++		adev->vm_manager.vm_pte_num_rqs = adev->sdma.num_instances;
+ 	}
+ }
+ 
+diff --git a/drivers/gpu/drm/amd/amdgpu/sdma_v4_0.c b/drivers/gpu/drm/amd/amdgpu/sdma_v4_0.c
+index 2e61d3a63ed0..ee0213edca8e 100644
+--- a/drivers/gpu/drm/amd/amdgpu/sdma_v4_0.c
++++ b/drivers/gpu/drm/amd/amdgpu/sdma_v4_0.c
+@@ -1799,15 +1799,17 @@ static const struct amdgpu_vm_pte_funcs sdma_v4_0_vm_pte_funcs = {
+ 
+ static void sdma_v4_0_set_vm_pte_funcs(struct amdgpu_device *adev)
+ {
++	struct drm_gpu_scheduler *sched;
+ 	unsigned i;
+ 
+ 	if (adev->vm_manager.vm_pte_funcs == NULL) {
+ 		adev->vm_manager.vm_pte_funcs = &sdma_v4_0_vm_pte_funcs;
+-		for (i = 0; i < adev->sdma.num_instances; i++)
+-			adev->vm_manager.vm_pte_rings[i] =
+-				&adev->sdma.instance[i].ring;
+-
+-		adev->vm_manager.vm_pte_num_rings = adev->sdma.num_instances;
++		for (i = 0; i < adev->sdma.num_instances; i++) {
++			sched = &adev->sdma.instance[i].ring.sched;
++			adev->vm_manager.vm_pte_rqs[i] =
++				&sched->sched_rq[DRM_SCHED_PRIORITY_KERNEL];
++		}
++		adev->vm_manager.vm_pte_num_rqs = adev->sdma.num_instances;
+ 	}
+ }
+ 
+diff --git a/drivers/gpu/drm/amd/amdgpu/si_dma.c b/drivers/gpu/drm/amd/amdgpu/si_dma.c
+index b75d901ba3c4..fafaf259b17b 100644
+--- a/drivers/gpu/drm/amd/amdgpu/si_dma.c
++++ b/drivers/gpu/drm/amd/amdgpu/si_dma.c
+@@ -879,15 +879,17 @@ static const struct amdgpu_vm_pte_funcs si_dma_vm_pte_funcs = {
+ 
+ static void si_dma_set_vm_pte_funcs(struct amdgpu_device *adev)
+ {
++	struct drm_gpu_scheduler *sched;
+ 	unsigned i;
+ 
+ 	if (adev->vm_manager.vm_pte_funcs == NULL) {
+ 		adev->vm_manager.vm_pte_funcs = &si_dma_vm_pte_funcs;
+-		for (i = 0; i < adev->sdma.num_instances; i++)
+-			adev->vm_manager.vm_pte_rings[i] =
+-				&adev->sdma.instance[i].ring;
+-
+-		adev->vm_manager.vm_pte_num_rings = adev->sdma.num_instances;
++		for (i = 0; i < adev->sdma.num_instances; i++) {
++			sched = &adev->sdma.instance[i].ring.sched;
++			adev->vm_manager.vm_pte_rqs[i] =
++				&sched->sched_rq[DRM_SCHED_PRIORITY_KERNEL];
++		}
++		adev->vm_manager.vm_pte_num_rqs = adev->sdma.num_instances;
+ 	}
+ }
+ 
+-- 
+2.17.1
+

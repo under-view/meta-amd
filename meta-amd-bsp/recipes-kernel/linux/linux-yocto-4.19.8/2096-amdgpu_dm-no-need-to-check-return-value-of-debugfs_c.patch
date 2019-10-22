@@ -1,0 +1,141 @@
+From 84dcfd937abded155eaf9091386c15a69c253006 Mon Sep 17 00:00:00 2001
+From: Greg Kroah-Hartman <gregkh@linuxfoundation.org>
+Date: Thu, 13 Jun 2019 15:20:12 +0200
+Subject: [PATCH 2096/2940] amdgpu_dm: no need to check return value of
+ debugfs_create functions
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+When calling debugfs functions, there is no need to ever check the
+return value.  The function can work or not, but the code logic should
+never do something different based on this.
+
+Change-Id: Ib3563a5a49e60a03efe065ad5fbf670b3d55d521
+Cc: Harry Wentland <harry.wentland@amd.com>
+Cc: Leo Li <sunpeng.li@amd.com>
+Cc: Alex Deucher <alexander.deucher@amd.com>
+Cc: "Christian König" <christian.koenig@amd.com>
+Cc: "David (ChunMing) Zhou" <David1.Zhou@amd.com>
+Cc: David Airlie <airlied@linux.ie>
+Cc: Daniel Vetter <daniel@ffwll.ch>
+Cc: Nicholas Kazlauskas <nicholas.kazlauskas@amd.com>
+Cc: David Francis <David.Francis@amd.com>
+Cc: Mario Kleiner <mario.kleiner.de@gmail.com>
+Cc: Bhawanpreet Lakha <Bhawanpreet.Lakha@amd.com>
+Cc: Anthony Koo <Anthony.Koo@amd.com>
+Cc: hersen wu <hersenxs.wu@amd.com>
+Cc: "Leo (Hanghong) Ma" <hanghong.ma@amd.com>
+Cc: amd-gfx@lists.freedesktop.org
+Cc: dri-devel@lists.freedesktop.org
+Signed-off-by: Greg Kroah-Hartman <gregkh@linuxfoundation.org>
+Signed-off-by: Alex Deucher <alexander.deucher@amd.com>
+Signed-off-by: Chaudhary Amit Kumar <Chaudharyamit.Kumar@amd.com>
+---
+ .../gpu/drm/amd/display/amdgpu_dm/amdgpu_dm.c |  6 +---
+ .../amd/display/amdgpu_dm/amdgpu_dm_debugfs.c | 36 ++++++-------------
+ .../amd/display/amdgpu_dm/amdgpu_dm_debugfs.h |  2 +-
+ 3 files changed, 12 insertions(+), 32 deletions(-)
+
+diff --git a/drivers/gpu/drm/amd/display/amdgpu_dm/amdgpu_dm.c b/drivers/gpu/drm/amd/display/amdgpu_dm/amdgpu_dm.c
+index bf11441b012a..179c9478a670 100644
+--- a/drivers/gpu/drm/amd/display/amdgpu_dm/amdgpu_dm.c
++++ b/drivers/gpu/drm/amd/display/amdgpu_dm/amdgpu_dm.c
+@@ -4964,11 +4964,7 @@ static int amdgpu_dm_connector_init(struct amdgpu_display_manager *dm,
+ 
+ 	drm_connector_register(&aconnector->base);
+ #if defined(CONFIG_DEBUG_FS)
+-	res = connector_debugfs_init(aconnector);
+-	if (res) {
+-		DRM_ERROR("Failed to create debugfs for connector");
+-		goto out_free;
+-	}
++	connector_debugfs_init(aconnector);
+ 	aconnector->debugfs_dpcd_address = 0;
+ 	aconnector->debugfs_dpcd_size = 0;
+ #endif
+diff --git a/drivers/gpu/drm/amd/display/amdgpu_dm/amdgpu_dm_debugfs.c b/drivers/gpu/drm/amd/display/amdgpu_dm/amdgpu_dm_debugfs.c
+index e6a2b87703f5..e649280574c0 100644
+--- a/drivers/gpu/drm/amd/display/amdgpu_dm/amdgpu_dm_debugfs.c
++++ b/drivers/gpu/drm/amd/display/amdgpu_dm/amdgpu_dm_debugfs.c
+@@ -941,25 +941,19 @@ static const struct {
+ 		{"aux_dpcd_data", &dp_dpcd_data_debugfs_fops}
+ };
+ 
+-int connector_debugfs_init(struct amdgpu_dm_connector *connector)
++void connector_debugfs_init(struct amdgpu_dm_connector *connector)
+ {
+ 	int i;
+-	struct dentry *ent, *dir = connector->base.debugfs_entry;
++	struct dentry *dir = connector->base.debugfs_entry;
+ 
+ 	if (connector->base.connector_type == DRM_MODE_CONNECTOR_DisplayPort ||
+ 	    connector->base.connector_type == DRM_MODE_CONNECTOR_eDP) {
+ 		for (i = 0; i < ARRAY_SIZE(dp_debugfs_entries); i++) {
+-			ent = debugfs_create_file(dp_debugfs_entries[i].name,
+-						  0644,
+-						  dir,
+-						  connector,
+-						  dp_debugfs_entries[i].fops);
+-			if (IS_ERR(ent))
+-				return PTR_ERR(ent);
++			debugfs_create_file(dp_debugfs_entries[i].name,
++					    0644, dir, connector,
++					    dp_debugfs_entries[i].fops);
+ 		}
+ 	}
+-
+-	return 0;
+ }
+ 
+ /*
+@@ -1102,7 +1096,7 @@ int dtn_debugfs_init(struct amdgpu_device *adev)
+ 	};
+ 
+ 	struct drm_minor *minor = adev->ddev->primary;
+-	struct dentry *ent, *root = minor->debugfs_root;
++	struct dentry *root = minor->debugfs_root;
+ 	int ret;
+ 
+ 	ret = amdgpu_debugfs_add_files(adev, amdgpu_dm_debugfs_list,
+@@ -1110,20 +1104,10 @@ int dtn_debugfs_init(struct amdgpu_device *adev)
+ 	if (ret)
+ 		return ret;
+ 
+-	ent = debugfs_create_file(
+-		"amdgpu_dm_dtn_log",
+-		0644,
+-		root,
+-		adev,
+-		&dtn_log_fops);
+-
+-	if (IS_ERR(ent))
+-		return PTR_ERR(ent);
+-
+-	ent = debugfs_create_file_unsafe("amdgpu_dm_visual_confirm", 0644, root,
+-					 adev, &visual_confirm_fops);
+-	if (IS_ERR(ent))
+-		return PTR_ERR(ent);
++	debugfs_create_file("amdgpu_dm_dtn_log", 0644, root, adev,
++			&dtn_log_fops);
+ 
++	debugfs_create_file_unsafe("amdgpu_dm_visual_confirm", 0644, root, adev,
++					&visual_confirm_fops);
+ 	return 0;
+ }
+diff --git a/drivers/gpu/drm/amd/display/amdgpu_dm/amdgpu_dm_debugfs.h b/drivers/gpu/drm/amd/display/amdgpu_dm/amdgpu_dm_debugfs.h
+index bdef1587b0a0..5e5b2b2afa31 100644
+--- a/drivers/gpu/drm/amd/display/amdgpu_dm/amdgpu_dm_debugfs.h
++++ b/drivers/gpu/drm/amd/display/amdgpu_dm/amdgpu_dm_debugfs.h
+@@ -29,7 +29,7 @@
+ #include "amdgpu.h"
+ #include "amdgpu_dm.h"
+ 
+-int connector_debugfs_init(struct amdgpu_dm_connector *connector);
++void connector_debugfs_init(struct amdgpu_dm_connector *connector);
+ int dtn_debugfs_init(struct amdgpu_device *adev);
+ 
+ #endif
+-- 
+2.17.1
+

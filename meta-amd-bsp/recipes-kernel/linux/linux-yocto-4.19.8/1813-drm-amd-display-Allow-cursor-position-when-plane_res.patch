@@ -1,0 +1,38 @@
+From 0a173fb0be839c92ad355ce06cff8edb76e25b5b Mon Sep 17 00:00:00 2001
+From: Eric Bernstein <eric.bernstein@amd.com>
+Date: Mon, 8 Apr 2019 13:47:10 -0400
+Subject: [PATCH 1813/2940] drm/amd/display: Allow cursor position when
+ plane_res.ipp is NULL
+
+[Why]
+Starting with DCN1, the input_pixel_processor (ipp) struct has been
+replaced by dpp struct (part of DAL3.1 SW architecture change).
+Need to update logic to handle cases where ipp is never allocated.
+
+[How]
+Only skip cursor position programming if both ipp and dpp resources
+are NULL.
+
+Signed-off-by: Eric Bernstein <eric.bernstein@amd.com>
+Reviewed-by: Dmytro Laktyushkin <Dmytro.Laktyushkin@amd.com>
+Acked-by: Leo Li <sunpeng.li@amd.com>
+---
+ drivers/gpu/drm/amd/display/dc/core/dc_stream.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/drivers/gpu/drm/amd/display/dc/core/dc_stream.c b/drivers/gpu/drm/amd/display/dc/core/dc_stream.c
+index 09d765f359b0..6200df3edcd0 100644
+--- a/drivers/gpu/drm/amd/display/dc/core/dc_stream.c
++++ b/drivers/gpu/drm/amd/display/dc/core/dc_stream.c
+@@ -333,7 +333,7 @@ bool dc_stream_set_cursor_position(
+ 				(!pipe_ctx->plane_res.mi  && !pipe_ctx->plane_res.hubp) ||
+ 				!pipe_ctx->plane_state ||
+ 				(!pipe_ctx->plane_res.xfm && !pipe_ctx->plane_res.dpp) ||
+-				!pipe_ctx->plane_res.ipp)
++				(!pipe_ctx->plane_res.ipp && !pipe_ctx->plane_res.dpp))
+ 			continue;
+ 
+ 		if (!pipe_to_program) {
+-- 
+2.17.1
+

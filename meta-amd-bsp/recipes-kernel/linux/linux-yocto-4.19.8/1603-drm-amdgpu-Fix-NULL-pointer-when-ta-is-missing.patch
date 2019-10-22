@@ -1,0 +1,65 @@
+From b849590eae98d471ad7a660e853b8e37199f6884 Mon Sep 17 00:00:00 2001
+From: xinhui pan <xinhui.pan@amd.com>
+Date: Mon, 11 Mar 2019 12:17:14 +0800
+Subject: [PATCH 1603/2940] drm/amdgpu: Fix NULL pointer when ta is missing
+
+Ta is optional, so check if ta firmware is loaded or not.
+
+Signed-off-by: xinhui pan <xinhui.pan@amd.com>
+Reviewed-by: Evan Quan <evan.quan@amd.com>
+---
+ drivers/gpu/drm/amd/amdgpu/amdgpu_psp.c | 24 +++++++++++++++---------
+ 1 file changed, 15 insertions(+), 9 deletions(-)
+
+diff --git a/drivers/gpu/drm/amd/amdgpu/amdgpu_psp.c b/drivers/gpu/drm/amd/amdgpu/amdgpu_psp.c
+index 225ecf9fab86..9578de6e8b37 100644
+--- a/drivers/gpu/drm/amd/amdgpu/amdgpu_psp.c
++++ b/drivers/gpu/drm/amd/amdgpu/amdgpu_psp.c
+@@ -711,10 +711,13 @@ static int psp_hw_start(struct psp_context *psp)
+ 				"XGMI: Failed to initialize XGMI session\n");
+ 	}
+ 
+-	ret = psp_ras_initialize(psp);
+-	if (ret)
+-		dev_err(psp->adev->dev,
+-				"RAS: Failed to initialize RAS\n");
++
++	if (psp->adev->psp.ta_fw) {
++		ret = psp_ras_initialize(psp);
++		if (ret)
++			dev_err(psp->adev->dev,
++					"RAS: Failed to initialize RAS\n");
++	}
+ 
+ 	return 0;
+ }
+@@ -967,7 +970,8 @@ static int psp_hw_fini(void *handle)
+ 	    psp->xgmi_context.initialized == 1)
+                 psp_xgmi_terminate(psp);
+ 
+-	psp_ras_terminate(psp);
++	if (psp->adev->psp.ta_fw)
++		psp_ras_terminate(psp);
+ 
+ 	psp_ring_destroy(psp, PSP_RING_TYPE__KM);
+ 
+@@ -1002,10 +1006,12 @@ static int psp_suspend(void *handle)
+ 		}
+ 	}
+ 
+-	ret = psp_ras_terminate(psp);
+-	if (ret) {
+-		DRM_ERROR("Failed to terminate ras ta\n");
+-		return ret;
++	if (psp->adev->psp.ta_fw) {
++		ret = psp_ras_terminate(psp);
++		if (ret) {
++			DRM_ERROR("Failed to terminate ras ta\n");
++			return ret;
++		}
+ 	}
+ 
+ 	ret = psp_ring_stop(psp, PSP_RING_TYPE__KM);
+-- 
+2.17.1
+

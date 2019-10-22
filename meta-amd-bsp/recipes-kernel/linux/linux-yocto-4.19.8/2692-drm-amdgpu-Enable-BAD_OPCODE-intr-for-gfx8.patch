@@ -1,0 +1,33 @@
+From 4f3b644e17e945e155e20d1cd410552e43657bda Mon Sep 17 00:00:00 2001
+From: Harish Kasiviswanathan <Harish.Kasiviswanathan@amd.com>
+Date: Thu, 22 Jun 2017 16:40:28 -0400
+Subject: [PATCH 2692/2940] drm/amdgpu: Enable BAD_OPCODE intr for gfx8
+
+This enables KFD_EVENT_TYPE_HW_EXCEPTION notifications to user mode in
+response to bad opcodes in a CP queue.
+
+Signed-off-by: Harish Kasiviswanathan <Harish.Kasiviswanathan@amd.com>
+Signed-off-by: Felix Kuehling <Felix.Kuehling@amd.com>
+Acked-by: Alex Deucher <alexander.deucher@amd.com>
+Signed-off-by: Alex Deucher <alexander.deucher@amd.com>
+---
+ drivers/gpu/drm/amd/amdgpu/amdgpu_amdkfd_gfx_v8.c | 3 ++-
+ 1 file changed, 2 insertions(+), 1 deletion(-)
+
+diff --git a/drivers/gpu/drm/amd/amdgpu/amdgpu_amdkfd_gfx_v8.c b/drivers/gpu/drm/amd/amdgpu/amdgpu_amdkfd_gfx_v8.c
+index af81c7d921f3..d856c3a87f59 100644
+--- a/drivers/gpu/drm/amd/amdgpu/amdgpu_amdkfd_gfx_v8.c
++++ b/drivers/gpu/drm/amd/amdgpu/amdgpu_amdkfd_gfx_v8.c
+@@ -283,7 +283,8 @@ static int kgd_init_interrupts(struct kgd_dev *kgd, uint32_t pipe_id)
+ 
+ 	lock_srbm(kgd, mec, pipe, 0, 0);
+ 
+-	WREG32(mmCPC_INT_CNTL, CP_INT_CNTL_RING0__TIME_STAMP_INT_ENABLE_MASK);
++	WREG32(mmCPC_INT_CNTL, CP_INT_CNTL_RING0__TIME_STAMP_INT_ENABLE_MASK |
++			CP_INT_CNTL_RING0__OPCODE_ERROR_INT_ENABLE_MASK);
+ 
+ 	unlock_srbm(kgd);
+ 
+-- 
+2.17.1
+

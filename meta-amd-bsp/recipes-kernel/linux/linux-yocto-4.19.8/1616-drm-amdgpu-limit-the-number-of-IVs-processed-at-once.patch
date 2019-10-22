@@ -1,0 +1,57 @@
+From 9a719637a116b7040b6dc0c1889c558fa2a78a39 Mon Sep 17 00:00:00 2001
+From: =?UTF-8?q?Christian=20K=C3=B6nig?= <christian.koenig@amd.com>
+Date: Tue, 5 Mar 2019 15:13:52 +0100
+Subject: [PATCH 1616/2940] drm/amdgpu: limit the number of IVs processed at
+ once
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+Only process a maximum of 32 IVs before writing back the RPTR. This improves
+hw handling when we get close to an overflow in the ring buffer.
+
+Signed-off-by: Christian König <christian.koenig@amd.com>
+Reviewed-by: Michel Dänzer <michel.daenzer@amd.com>
+---
+ drivers/gpu/drm/amd/amdgpu/amdgpu_ih.c | 3 ++-
+ drivers/gpu/drm/amd/amdgpu/amdgpu_ih.h | 3 +++
+ 2 files changed, 5 insertions(+), 1 deletion(-)
+
+diff --git a/drivers/gpu/drm/amd/amdgpu/amdgpu_ih.c b/drivers/gpu/drm/amd/amdgpu/amdgpu_ih.c
+index 1c50be3ab8a9..934dfdcb4e73 100644
+--- a/drivers/gpu/drm/amd/amdgpu/amdgpu_ih.c
++++ b/drivers/gpu/drm/amd/amdgpu/amdgpu_ih.c
+@@ -142,6 +142,7 @@ void amdgpu_ih_ring_fini(struct amdgpu_device *adev, struct amdgpu_ih_ring *ih)
+  */
+ int amdgpu_ih_process(struct amdgpu_device *adev, struct amdgpu_ih_ring *ih)
+ {
++	unsigned int count = AMDGPU_IH_MAX_NUM_IVS;
+ 	u32 wptr;
+ 
+ 	if (!ih->enabled || adev->shutdown)
+@@ -159,7 +160,7 @@ int amdgpu_ih_process(struct amdgpu_device *adev, struct amdgpu_ih_ring *ih)
+ 	/* Order reading of wptr vs. reading of IH ring data */
+ 	rmb();
+ 
+-	while (ih->rptr != wptr) {
++	while (ih->rptr != wptr && --count) {
+ 		amdgpu_irq_dispatch(adev, ih);
+ 		ih->rptr &= ih->ptr_mask;
+ 	}
+diff --git a/drivers/gpu/drm/amd/amdgpu/amdgpu_ih.h b/drivers/gpu/drm/amd/amdgpu/amdgpu_ih.h
+index 113a1ba13d4a..4e0bb645176d 100644
+--- a/drivers/gpu/drm/amd/amdgpu/amdgpu_ih.h
++++ b/drivers/gpu/drm/amd/amdgpu/amdgpu_ih.h
+@@ -24,6 +24,9 @@
+ #ifndef __AMDGPU_IH_H__
+ #define __AMDGPU_IH_H__
+ 
++/* Maximum number of IVs processed at once */
++#define AMDGPU_IH_MAX_NUM_IVS	32
++
+ struct amdgpu_device;
+ struct amdgpu_iv_entry;
+ 
+-- 
+2.17.1
+

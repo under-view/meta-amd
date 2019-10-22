@@ -1,0 +1,66 @@
+From a238d746cea667a44eeaa067d3dd3482e6ca30bc Mon Sep 17 00:00:00 2001
+From: Trigger Huang <Trigger.Huang@amd.com>
+Date: Wed, 24 Apr 2019 15:23:41 +0800
+Subject: [PATCH 1918/2940] drm/amdgpu: initialize PSP before IH under SR-IOV
+
+In order to support new PSP feature that PSP may provide interface
+to program IH CNTL register, initialize PSP before IH under Vega10
+SR-IOV VF
+
+Signed-off-by: Trigger Huang <Trigger.Huang@amd.com>
+Reviewed-by: Alex Deucher <alexander.deucher@amd.com>
+---
+ drivers/gpu/drm/amd/amdgpu/amdgpu_device.c |  1 +
+ drivers/gpu/drm/amd/amdgpu/soc15.c         | 24 ++++++++++++++++------
+ 2 files changed, 19 insertions(+), 6 deletions(-)
+
+diff --git a/drivers/gpu/drm/amd/amdgpu/amdgpu_device.c b/drivers/gpu/drm/amd/amdgpu/amdgpu_device.c
+index 79dd96b93d50..17b245c5c546 100644
+--- a/drivers/gpu/drm/amd/amdgpu/amdgpu_device.c
++++ b/drivers/gpu/drm/amd/amdgpu/amdgpu_device.c
+@@ -1626,6 +1626,7 @@ static int amdgpu_device_ip_hw_init_phase1(struct amdgpu_device *adev)
+ 		if (adev->ip_blocks[i].status.hw)
+ 			continue;
+ 		if (adev->ip_blocks[i].version->type == AMD_IP_BLOCK_TYPE_COMMON ||
++		    (amdgpu_sriov_vf(adev) && (adev->ip_blocks[i].version->type == AMD_IP_BLOCK_TYPE_PSP)) ||
+ 		    adev->ip_blocks[i].version->type == AMD_IP_BLOCK_TYPE_IH) {
+ 			r = adev->ip_blocks[i].version->funcs->hw_init(adev);
+ 			if (r) {
+diff --git a/drivers/gpu/drm/amd/amdgpu/soc15.c b/drivers/gpu/drm/amd/amdgpu/soc15.c
+index 4ec1fdaec96e..43b64d2237cf 100644
+--- a/drivers/gpu/drm/amd/amdgpu/soc15.c
++++ b/drivers/gpu/drm/amd/amdgpu/soc15.c
+@@ -608,12 +608,24 @@ int soc15_set_ip_blocks(struct amdgpu_device *adev)
+ 	case CHIP_VEGA20:
+ 		amdgpu_device_ip_block_add(adev, &vega10_common_ip_block);
+ 		amdgpu_device_ip_block_add(adev, &gmc_v9_0_ip_block);
+-		amdgpu_device_ip_block_add(adev, &vega10_ih_ip_block);
+-		if (likely(adev->firmware.load_type == AMDGPU_FW_LOAD_PSP)) {
+-			if (adev->asic_type == CHIP_VEGA20)
+-				amdgpu_device_ip_block_add(adev, &psp_v11_0_ip_block);
+-			else
+-				amdgpu_device_ip_block_add(adev, &psp_v3_1_ip_block);
++
++		/* For Vega10 SR-IOV, PSP need to be initialized before IH */
++		if (amdgpu_sriov_vf(adev)) {
++			if (likely(adev->firmware.load_type == AMDGPU_FW_LOAD_PSP)) {
++				if (adev->asic_type == CHIP_VEGA20)
++					amdgpu_device_ip_block_add(adev, &psp_v11_0_ip_block);
++				else
++					amdgpu_device_ip_block_add(adev, &psp_v3_1_ip_block);
++			}
++			amdgpu_device_ip_block_add(adev, &vega10_ih_ip_block);
++		} else {
++			amdgpu_device_ip_block_add(adev, &vega10_ih_ip_block);
++			if (likely(adev->firmware.load_type == AMDGPU_FW_LOAD_PSP)) {
++				if (adev->asic_type == CHIP_VEGA20)
++					amdgpu_device_ip_block_add(adev, &psp_v11_0_ip_block);
++				else
++					amdgpu_device_ip_block_add(adev, &psp_v3_1_ip_block);
++			}
+ 		}
+ 		amdgpu_device_ip_block_add(adev, &gfx_v9_0_ip_block);
+ 		amdgpu_device_ip_block_add(adev, &sdma_v4_0_ip_block);
+-- 
+2.17.1
+

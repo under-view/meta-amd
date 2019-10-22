@@ -1,0 +1,83 @@
+From ed11c077e89647f57cd0230ec2e7c00c7f49f1fa Mon Sep 17 00:00:00 2001
+From: Jack Xiao <Jack.Xiao@amd.com>
+Date: Mon, 6 May 2019 18:55:23 +0800
+Subject: [PATCH 2340/2940] drm/amdgpu/gfx10: require to pin/unpin CSIB BO when
+ suspend/resume
+
+CSIB BO is required to be pinned down to guarantee
+bo is always valid when resume, and to be unpinned it
+so that its content can be saved during suspend.
+
+Signed-off-by: Jack Xiao <Jack.Xiao@amd.com>
+Reviewed-by: Hawking Zhang <Hawking.Zhang@amd.com>
+Signed-off-by: Alex Deucher <alexander.deucher@amd.com>
+---
+ drivers/gpu/drm/amd/amdgpu/gfx_v10_0.c | 38 ++++++++++++++++++++++++++
+ 1 file changed, 38 insertions(+)
+
+diff --git a/drivers/gpu/drm/amd/amdgpu/gfx_v10_0.c b/drivers/gpu/drm/amd/amdgpu/gfx_v10_0.c
+index fc6b95fe6879..f6ea69a42306 100644
+--- a/drivers/gpu/drm/amd/amdgpu/gfx_v10_0.c
++++ b/drivers/gpu/drm/amd/amdgpu/gfx_v10_0.c
+@@ -813,6 +813,39 @@ static int gfx_v10_0_rlc_init(struct amdgpu_device *adev)
+ 	return 0;
+ }
+ 
++static int gfx_v10_0_csb_vram_pin(struct amdgpu_device *adev)
++{
++	int r;
++
++	r = amdgpu_bo_reserve(adev->gfx.rlc.clear_state_obj, false);
++	if (unlikely(r != 0))
++		return r;
++
++	r = amdgpu_bo_pin(adev->gfx.rlc.clear_state_obj,
++			AMDGPU_GEM_DOMAIN_VRAM);
++	if (!r)
++		adev->gfx.rlc.clear_state_gpu_addr =
++			amdgpu_bo_gpu_offset(adev->gfx.rlc.clear_state_obj);
++
++	amdgpu_bo_unreserve(adev->gfx.rlc.clear_state_obj);
++
++	return r;
++}
++
++static void gfx_v10_0_csb_vram_unpin(struct amdgpu_device *adev)
++{
++	int r;
++
++	if (!adev->gfx.rlc.clear_state_obj)
++		return;
++
++	r = amdgpu_bo_reserve(adev->gfx.rlc.clear_state_obj, true);
++	if (likely(r == 0)) {
++		amdgpu_bo_unpin(adev->gfx.rlc.clear_state_obj);
++		amdgpu_bo_unreserve(adev->gfx.rlc.clear_state_obj);
++	}
++}
++
+ static void gfx_v10_0_mec_fini(struct amdgpu_device *adev)
+ {
+ 	amdgpu_bo_free_kernel(&adev->gfx.mec.hpd_eop_obj, NULL, NULL);
+@@ -3517,6 +3550,10 @@ static int gfx_v10_0_hw_init(void *handle)
+ 	int r;
+ 	struct amdgpu_device *adev = (struct amdgpu_device *)handle;
+ 
++	r = gfx_v10_0_csb_vram_pin(adev);
++	if (r)
++		return r;
++
+ 	if (!amdgpu_emu_mode)
+ 		gfx_v10_0_init_golden_registers(adev);
+ 
+@@ -3604,6 +3641,7 @@ static int gfx_v10_0_hw_fini(void *handle)
+ 	}
+ 	gfx_v10_0_cp_enable(adev, false);
+ 	gfx_v10_0_enable_gui_idle_interrupt(adev, false);
++	gfx_v10_0_csb_vram_unpin(adev);
+ 
+ 	return 0;
+ }
+-- 
+2.17.1
+

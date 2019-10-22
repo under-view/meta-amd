@@ -1,0 +1,51 @@
+From 6e7916955f9ee269325e867e793abefe322f8a86 Mon Sep 17 00:00:00 2001
+From: Huang Rui <ray.huang@amd.com>
+Date: Tue, 12 Feb 2019 15:39:44 +0800
+Subject: [PATCH 1495/2940] drm/amd/powerplay: fix byte alignment issue of
+ smu11 pptable
+
+The smu_11_0_powerplay_table, smu_11_0_power_saving_clock_table, and
+smu_11_0_overdrive_table need byte alignment. So we must add packed attribute
+in the definitions.
+
+Signed-off-by: Huang Rui <ray.huang@amd.com>
+Acked-by: Alex Deucher <alexander.deucher@amd.com>
+Reviewed-by: Kenneth Feng <kenneth.feng@amd.com>
+Reviewed-by: Alex Deucher <alexander.deucher@amd.com>
+---
+ drivers/gpu/drm/amd/powerplay/inc/smu_v11_0_pptable.h | 6 +++---
+ 1 file changed, 3 insertions(+), 3 deletions(-)
+
+diff --git a/drivers/gpu/drm/amd/powerplay/inc/smu_v11_0_pptable.h b/drivers/gpu/drm/amd/powerplay/inc/smu_v11_0_pptable.h
+index e8a654bfc6f7..92c65b80bde2 100644
+--- a/drivers/gpu/drm/amd/powerplay/inc/smu_v11_0_pptable.h
++++ b/drivers/gpu/drm/amd/powerplay/inc/smu_v11_0_pptable.h
+@@ -91,7 +91,7 @@ struct smu_11_0_overdrive_table
+     uint8_t  cap[SMU_11_0_MAX_ODFEATURE];                     //OD feature support flags
+     uint32_t max[SMU_11_0_MAX_ODSETTING];                     //default maximum settings
+     uint32_t min[SMU_11_0_MAX_ODSETTING];                     //default minimum settings
+-};
++} __attribute__((packed));
+ 
+ enum SMU_11_0_PPCLOCK_ID {
+     SMU_11_0_PPCLOCK_GFXCLK = 0,
+@@ -115,7 +115,7 @@ struct smu_11_0_power_saving_clock_table
+     uint32_t count;                                           //power_saving_clock_count = SMU_11_0_PPCLOCK_COUNT
+     uint32_t max[SMU_11_0_MAX_PPCLOCK];                       //PowerSavingClock Mode Clock Maximum array In MHz
+     uint32_t min[SMU_11_0_MAX_PPCLOCK];                       //PowerSavingClock Mode Clock Minimum array In MHz
+-};
++} __attribute__((packed));
+ 
+ struct smu_11_0_powerplay_table
+ {
+@@ -142,6 +142,6 @@ struct smu_11_0_powerplay_table
+       struct smu_11_0_overdrive_table               overdrive_table;
+ 
+       PPTable_t smc_pptable;                        //PPTable_t in smu11_driver_if.h
+-};
++} __attribute__((packed));
+ 
+ #endif
+-- 
+2.17.1
+

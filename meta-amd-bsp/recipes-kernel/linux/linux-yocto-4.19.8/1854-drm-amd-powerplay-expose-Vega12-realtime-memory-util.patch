@@ -1,0 +1,59 @@
+From 5499322b484350a8b31e7afe2254a76fa051259e Mon Sep 17 00:00:00 2001
+From: Evan Quan <evan.quan@amd.com>
+Date: Wed, 24 Apr 2019 15:19:36 +0800
+Subject: [PATCH 1854/2940] drm/amd/powerplay: expose Vega12 realtime memory
+ utilization
+
+Enable realtime memory utilization report on Vega12.
+
+Change-Id: I5175ebc5ffeae58989cc9cec6ddbd58bf9b1b5b0
+Signed-off-by: Evan Quan <evan.quan@amd.com>
+Reviewed-by: Alex Deucher <alexander.deucher@amd.com>
+---
+ .../gpu/drm/amd/powerplay/hwmgr/vega12_hwmgr.c   | 16 ++++++++++++++--
+ 1 file changed, 14 insertions(+), 2 deletions(-)
+
+diff --git a/drivers/gpu/drm/amd/powerplay/hwmgr/vega12_hwmgr.c b/drivers/gpu/drm/amd/powerplay/hwmgr/vega12_hwmgr.c
+index a9d29b4be72f..1a909dda37c7 100644
+--- a/drivers/gpu/drm/amd/powerplay/hwmgr/vega12_hwmgr.c
++++ b/drivers/gpu/drm/amd/powerplay/hwmgr/vega12_hwmgr.c
+@@ -1308,6 +1308,7 @@ static int vega12_get_current_mclk_freq(struct pp_hwmgr *hwmgr, uint32_t *mclk_f
+ 
+ static int vega12_get_current_activity_percent(
+ 		struct pp_hwmgr *hwmgr,
++		int idx,
+ 		uint32_t *activity_percent)
+ {
+ 	SmuMetrics_t metrics_table;
+@@ -1317,7 +1318,17 @@ static int vega12_get_current_activity_percent(
+ 	if (ret)
+ 		return ret;
+ 
+-	*activity_percent = metrics_table.AverageGfxActivity;
++	switch (idx) {
++	case AMDGPU_PP_SENSOR_GPU_LOAD:
++		*activity_percent = metrics_table.AverageGfxActivity;
++		break;
++	case AMDGPU_PP_SENSOR_MEM_LOAD:
++		*activity_percent = metrics_table.AverageUclkActivity;
++		break;
++	default:
++		pr_err("Invalid index for retrieving clock activity\n");
++		return -EINVAL;
++	}
+ 
+ 	return ret;
+ }
+@@ -1341,7 +1352,8 @@ static int vega12_read_sensor(struct pp_hwmgr *hwmgr, int idx,
+ 			*size = 4;
+ 		break;
+ 	case AMDGPU_PP_SENSOR_GPU_LOAD:
+-		ret = vega12_get_current_activity_percent(hwmgr, (uint32_t *)value);
++	case AMDGPU_PP_SENSOR_MEM_LOAD:
++		ret = vega12_get_current_activity_percent(hwmgr, idx, (uint32_t *)value);
+ 		if (!ret)
+ 			*size = 4;
+ 		break;
+-- 
+2.17.1
+

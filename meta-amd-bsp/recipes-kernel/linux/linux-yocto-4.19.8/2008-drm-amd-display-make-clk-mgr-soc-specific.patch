@@ -1,0 +1,3868 @@
+From d4b422b619d41dc316003bafced51bc1d67b35fd Mon Sep 17 00:00:00 2001
+From: Eric Yang <Eric.Yang2@amd.com>
+Date: Mon, 22 Apr 2019 19:39:35 -0400
+Subject: [PATCH 2008/2940] drm/amd/display: make clk mgr soc specific
+
+[Why]
+First step of refactoring clk mgr to better handle different
+ways of handling clock operations. Clock operation policies are
+soc specific and not just DCN vesion specific. It is not a hw resource,
+should not be in the resource pool.
+
+[How]
+Change clock manager creation to be based on HW internal ID, rename
+clock manager members to be more clear. Move clock manager out of
+resource.
+
+Signed-off-by: Eric Yang <Eric.Yang2@amd.com>
+Reviewed-by: Tony Cheng <Tony.Cheng@amd.com>
+Acked-by: Leo Li <sunpeng.li@amd.com>
+Signed-off-by: Chaudhary Amit Kumar <Chaudharyamit.Kumar@amd.com>
+---
+ .../drm/amd/display/dc/calcs/dcn_calc_auto.h  |   1 +
+ .../gpu/drm/amd/display/dc/calcs/dcn_calcs.c  |   3 +-
+ drivers/gpu/drm/amd/display/dc/core/dc.c      |  10 +
+ drivers/gpu/drm/amd/display/dc/core/dc_link.c |   1 +
+ .../gpu/drm/amd/display/dc/core/dc_resource.c |   2 +-
+ .../gpu/drm/amd/display/dc/core/dc_stream.c   |   2 +-
+ drivers/gpu/drm/amd/display/dc/dc.h           |   2 +
+ drivers/gpu/drm/amd/display/dc/dce/Makefile   |   2 +-
+ .../drm/amd/display/dc/dce/dce110_clk_mgr.c   | 276 +++++++
+ .../drm/amd/display/dc/dce/dce110_clk_mgr.h   |  44 ++
+ .../drm/amd/display/dc/dce/dce112_clk_mgr.c   | 239 ++++++
+ .../drm/amd/display/dc/dce/dce112_clk_mgr.h   |  39 +
+ .../drm/amd/display/dc/dce/dce120_clk_mgr.c   | 145 ++++
+ .../drm/amd/display/dc/dce/dce120_clk_mgr.h   |  34 +
+ .../gpu/drm/amd/display/dc/dce/dce_clk_mgr.c  | 718 ++----------------
+ .../gpu/drm/amd/display/dc/dce/dce_clk_mgr.h  | 173 +----
+ .../drm/amd/display/dc/dce/dce_clock_source.c |   1 +
+ .../display/dc/dce100/dce100_hw_sequencer.c   |   9 +-
+ .../amd/display/dc/dce100/dce100_resource.c   |  28 -
+ .../display/dc/dce110/dce110_hw_sequencer.c   |   5 +-
+ .../amd/display/dc/dce110/dce110_resource.c   |  27 -
+ .../amd/display/dc/dce112/dce112_resource.c   |  28 -
+ .../amd/display/dc/dce120/dce120_resource.c   |  20 +-
+ .../drm/amd/display/dc/dce80/dce80_resource.c |  47 --
+ drivers/gpu/drm/amd/display/dc/dcn10/Makefile |   3 +-
+ .../gpu/drm/amd/display/dc/dcn10/clk_mgr.c    | 112 +++
+ .../amd/display/dc/dcn10/dcn10_hw_sequencer.c |  20 +-
+ .../dc/dcn10/dcn10_hw_sequencer_debug.c       |   2 +-
+ .../drm/amd/display/dc/dcn10/dcn10_resource.c |  33 +-
+ .../dcn10/{dcn10_clk_mgr.c => rv1_clk_mgr.c}  | 216 ++----
+ .../drm/amd/display/dc/dcn10/rv1_clk_mgr.h    |  31 +
+ .../amd/display/dc/dcn10/rv1_clk_mgr_clk.c    |  75 ++
+ .../amd/display/dc/dcn10/rv1_clk_mgr_clk.h    |  29 +
+ .../display/dc/dcn10/rv1_clk_mgr_vbios_smu.c  | 124 +++
+ .../display/dc/dcn10/rv1_clk_mgr_vbios_smu.h  |  32 +
+ .../drm/amd/display/dc/dcn10/rv2_clk_mgr.c    |  43 ++
+ .../dcn10/{dcn10_clk_mgr.h => rv2_clk_mgr.h}  |  13 +-
+ .../gpu/drm/amd/display/dc/inc/core_types.h   |   2 -
+ .../gpu/drm/amd/display/dc/inc/dcn_calcs.h    |   2 +-
+ .../gpu/drm/amd/display/dc/inc/hw/clk_mgr.h   |  32 +-
+ .../amd/display/dc/inc/hw/clk_mgr_internal.h  | 208 +++++
+ drivers/gpu/drm/amd/display/dc/inc/resource.h |   2 +
+ .../gpu/drm/amd/display/include/dal_asic_id.h |   8 +-
+ 43 files changed, 1672 insertions(+), 1171 deletions(-)
+ create mode 100644 drivers/gpu/drm/amd/display/dc/dce/dce110_clk_mgr.c
+ create mode 100644 drivers/gpu/drm/amd/display/dc/dce/dce110_clk_mgr.h
+ create mode 100644 drivers/gpu/drm/amd/display/dc/dce/dce112_clk_mgr.c
+ create mode 100644 drivers/gpu/drm/amd/display/dc/dce/dce112_clk_mgr.h
+ create mode 100644 drivers/gpu/drm/amd/display/dc/dce/dce120_clk_mgr.c
+ create mode 100644 drivers/gpu/drm/amd/display/dc/dce/dce120_clk_mgr.h
+ create mode 100644 drivers/gpu/drm/amd/display/dc/dcn10/clk_mgr.c
+ rename drivers/gpu/drm/amd/display/dc/dcn10/{dcn10_clk_mgr.c => rv1_clk_mgr.c} (55%)
+ create mode 100644 drivers/gpu/drm/amd/display/dc/dcn10/rv1_clk_mgr.h
+ create mode 100644 drivers/gpu/drm/amd/display/dc/dcn10/rv1_clk_mgr_clk.c
+ create mode 100644 drivers/gpu/drm/amd/display/dc/dcn10/rv1_clk_mgr_clk.h
+ create mode 100644 drivers/gpu/drm/amd/display/dc/dcn10/rv1_clk_mgr_vbios_smu.c
+ create mode 100644 drivers/gpu/drm/amd/display/dc/dcn10/rv1_clk_mgr_vbios_smu.h
+ create mode 100644 drivers/gpu/drm/amd/display/dc/dcn10/rv2_clk_mgr.c
+ rename drivers/gpu/drm/amd/display/dc/dcn10/{dcn10_clk_mgr.h => rv2_clk_mgr.h} (82%)
+ create mode 100644 drivers/gpu/drm/amd/display/dc/inc/hw/clk_mgr_internal.h
+
+diff --git a/drivers/gpu/drm/amd/display/dc/calcs/dcn_calc_auto.h b/drivers/gpu/drm/amd/display/dc/calcs/dcn_calc_auto.h
+index 03f06f682ead..ce35de79a6c7 100644
+--- a/drivers/gpu/drm/amd/display/dc/calcs/dcn_calc_auto.h
++++ b/drivers/gpu/drm/amd/display/dc/calcs/dcn_calc_auto.h
+@@ -26,6 +26,7 @@
+ #ifndef _DCN_CALC_AUTO_H_
+ #define _DCN_CALC_AUTO_H_
+ 
++#include "dc.h"
+ #include "dcn_calcs.h"
+ 
+ void scaler_settings_calculation(struct dcn_bw_internal_vars *v);
+diff --git a/drivers/gpu/drm/amd/display/dc/calcs/dcn_calcs.c b/drivers/gpu/drm/amd/display/dc/calcs/dcn_calcs.c
+index 1b4b51657f5e..d53306de2e16 100644
+--- a/drivers/gpu/drm/amd/display/dc/calcs/dcn_calcs.c
++++ b/drivers/gpu/drm/amd/display/dc/calcs/dcn_calcs.c
+@@ -24,11 +24,10 @@
+  */
+ 
+ #include "dm_services.h"
++#include "dc.h"
+ #include "dcn_calcs.h"
+ #include "dcn_calc_auto.h"
+-#include "dc.h"
+ #include "dal_asic_id.h"
+-
+ #include "resource.h"
+ #include "dcn10/dcn10_resource.h"
+ #include "dcn10/dcn10_hubbub.h"
+diff --git a/drivers/gpu/drm/amd/display/dc/core/dc.c b/drivers/gpu/drm/amd/display/dc/core/dc.c
+index 3729ac4982db..0327d891c1d8 100644
+--- a/drivers/gpu/drm/amd/display/dc/core/dc.c
++++ b/drivers/gpu/drm/amd/display/dc/core/dc.c
+@@ -35,6 +35,7 @@
+ 
+ #include "resource.h"
+ 
++#include "clk_mgr.h"
+ #include "clock_source.h"
+ #include "dc_bios_types.h"
+ 
+@@ -624,6 +625,11 @@ static void destruct(struct dc *dc)
+ 
+ 	destroy_links(dc);
+ 
++	if (dc->clk_mgr) {
++		dc_destroy_clk_mgr(dc->clk_mgr);
++		dc->clk_mgr = NULL;
++	}
++
+ 	dc_destroy_resource_pool(dc);
+ 
+ 	if (dc->ctx->gpio_service)
+@@ -768,6 +774,10 @@ static bool construct(struct dc *dc,
+ 	if (!dc->res_pool)
+ 		goto fail;
+ 
++	dc->clk_mgr = dc_clk_mgr_create(dc->ctx, dc->res_pool->pp_smu, dc->res_pool->dccg);
++	if (!dc->clk_mgr)
++		goto fail;
++
+ 	/* Creation of current_state must occur after dc->dml
+ 	 * is initialized in dc_create_resource_pool because
+ 	 * on creation it copies the contents of dc->dml
+diff --git a/drivers/gpu/drm/amd/display/dc/core/dc_link.c b/drivers/gpu/drm/amd/display/dc/core/dc_link.c
+index 7a40fd541bee..a527969e2f69 100644
+--- a/drivers/gpu/drm/amd/display/dc/core/dc_link.c
++++ b/drivers/gpu/drm/amd/display/dc/core/dc_link.c
+@@ -42,6 +42,7 @@
+ #include "fixed31_32.h"
+ #include "dpcd_defs.h"
+ #include "dmcu.h"
++#include "hw/clk_mgr.h"
+ 
+ #define DC_LOGGER_INIT(logger)
+ 
+diff --git a/drivers/gpu/drm/amd/display/dc/core/dc_resource.c b/drivers/gpu/drm/amd/display/dc/core/dc_resource.c
+index 30c8d7306021..84dd559e0277 100644
+--- a/drivers/gpu/drm/amd/display/dc/core/dc_resource.c
++++ b/drivers/gpu/drm/amd/display/dc/core/dc_resource.c
+@@ -2022,7 +2022,7 @@ void dc_resource_state_construct(
+ 		const struct dc *dc,
+ 		struct dc_state *dst_ctx)
+ {
+-	dst_ctx->clk_mgr = dc->res_pool->clk_mgr;
++	dst_ctx->clk_mgr = dc->clk_mgr;
+ }
+ 
+ /**
+diff --git a/drivers/gpu/drm/amd/display/dc/core/dc_stream.c b/drivers/gpu/drm/amd/display/dc/core/dc_stream.c
+index b723ffc8ea25..59b247af5b81 100644
+--- a/drivers/gpu/drm/amd/display/dc/core/dc_stream.c
++++ b/drivers/gpu/drm/amd/display/dc/core/dc_stream.c
+@@ -229,7 +229,7 @@ static void delay_cursor_until_vupdate(struct pipe_ctx *pipe_ctx, struct dc *dc)
+ 	unsigned int us_per_line;
+ 
+ 	if (stream->ctx->asic_id.chip_family == FAMILY_RV &&
+-			ASIC_REV_IS_RAVEN(stream->ctx->asic_id.hw_internal_rev)) {
++			ASICREV_IS_RAVEN(stream->ctx->asic_id.hw_internal_rev)) {
+ 
+ 		vupdate_line = get_vupdate_offset_from_vsync(pipe_ctx);
+ 		if (!dc_stream_get_crtc_position(dc, &stream, 1, &vpos, &nvpos))
+diff --git a/drivers/gpu/drm/amd/display/dc/dc.h b/drivers/gpu/drm/amd/display/dc/dc.h
+index 28e1e29ed8be..3a1e059ae575 100644
+--- a/drivers/gpu/drm/amd/display/dc/dc.h
++++ b/drivers/gpu/drm/amd/display/dc/dc.h
+@@ -390,6 +390,8 @@ struct dc {
+ 	struct dc_state *current_state;
+ 	struct resource_pool *res_pool;
+ 
++	struct clk_mgr *clk_mgr;
++
+ 	/* Display Engine Clock levels */
+ 	struct dm_pp_clock_levels sclk_lvls;
+ 
+diff --git a/drivers/gpu/drm/amd/display/dc/dce/Makefile b/drivers/gpu/drm/amd/display/dc/dce/Makefile
+index 6d7b64a743ca..6e447ab8a34c 100644
+--- a/drivers/gpu/drm/amd/display/dc/dce/Makefile
++++ b/drivers/gpu/drm/amd/display/dc/dce/Makefile
+@@ -28,7 +28,7 @@
+ 
+ DCE = dce_audio.o dce_stream_encoder.o dce_link_encoder.o dce_hwseq.o \
+ dce_mem_input.o dce_clock_source.o dce_scl_filters.o dce_transform.o \
+-dce_clk_mgr.o dce_opp.o dce_dmcu.o dce_abm.o dce_ipp.o dce_aux.o \
++dce_clk_mgr.o dce110_clk_mgr.o dce112_clk_mgr.o dce120_clk_mgr.o dce_opp.o dce_dmcu.o dce_abm.o dce_ipp.o dce_aux.o \
+ dce_i2c.o dce_i2c_hw.o dce_i2c_sw.o
+ 
+ AMD_DAL_DCE = $(addprefix $(AMDDALPATH)/dc/dce/,$(DCE))
+diff --git a/drivers/gpu/drm/amd/display/dc/dce/dce110_clk_mgr.c b/drivers/gpu/drm/amd/display/dc/dce/dce110_clk_mgr.c
+new file mode 100644
+index 000000000000..dbc02dcf21a7
+--- /dev/null
++++ b/drivers/gpu/drm/amd/display/dc/dce/dce110_clk_mgr.c
+@@ -0,0 +1,276 @@
++/*
++ * Copyright 2012-16 Advanced Micro Devices, Inc.
++ *
++ * Permission is hereby granted, free of charge, to any person obtaining a
++ * copy of this software and associated documentation files (the "Software"),
++ * to deal in the Software without restriction, including without limitation
++ * the rights to use, copy, modify, merge, publish, distribute, sublicense,
++ * and/or sell copies of the Software, and to permit persons to whom the
++ * Software is furnished to do so, subject to the following conditions:
++ *
++ * The above copyright notice and this permission notice shall be included in
++ * all copies or substantial portions of the Software.
++ *
++ * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
++ * IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
++ * FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.  IN NO EVENT SHALL
++ * THE COPYRIGHT HOLDER(S) OR AUTHOR(S) BE LIABLE FOR ANY CLAIM, DAMAGES OR
++ * OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE,
++ * ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR
++ * OTHER DEALINGS IN THE SOFTWARE.
++ *
++ * Authors: AMD
++ *
++ */
++
++#include "core_types.h"
++#include "clk_mgr_internal.h"
++
++#include "dce/dce_11_0_d.h"
++#include "dce/dce_11_0_sh_mask.h"
++#include "dce_clk_mgr.h"
++#include "dce110_clk_mgr.h"
++
++/* set register offset */
++#define SR(reg_name)\
++	.reg_name = mm ## reg_name
++
++/* set register offset with instance */
++#define SRI(reg_name, block, id)\
++	.reg_name = mm ## block ## id ## _ ## reg_name
++
++static const struct clk_mgr_registers disp_clk_regs = {
++		CLK_COMMON_REG_LIST_DCE_BASE()
++};
++
++static const struct clk_mgr_shift disp_clk_shift = {
++		CLK_COMMON_MASK_SH_LIST_DCE_COMMON_BASE(__SHIFT)
++};
++
++static const struct clk_mgr_mask disp_clk_mask = {
++		CLK_COMMON_MASK_SH_LIST_DCE_COMMON_BASE(_MASK)
++};
++
++static const struct state_dependent_clocks dce110_max_clks_by_state[] = {
++/*ClocksStateInvalid - should not be used*/
++{ .display_clk_khz = 0, .pixel_clk_khz = 0 },
++/*ClocksStateUltraLow - currently by HW design team not supposed to be used*/
++{ .display_clk_khz = 352000, .pixel_clk_khz = 330000 },
++/*ClocksStateLow*/
++{ .display_clk_khz = 352000, .pixel_clk_khz = 330000 },
++/*ClocksStateNominal*/
++{ .display_clk_khz = 467000, .pixel_clk_khz = 400000 },
++/*ClocksStatePerformance*/
++{ .display_clk_khz = 643000, .pixel_clk_khz = 400000 } };
++
++static int determine_sclk_from_bounding_box(
++		const struct dc *dc,
++		int required_sclk)
++{
++	int i;
++
++	/*
++	 * Some asics do not give us sclk levels, so we just report the actual
++	 * required sclk
++	 */
++	if (dc->sclk_lvls.num_levels == 0)
++		return required_sclk;
++
++	for (i = 0; i < dc->sclk_lvls.num_levels; i++) {
++		if (dc->sclk_lvls.clocks_in_khz[i] >= required_sclk)
++			return dc->sclk_lvls.clocks_in_khz[i];
++	}
++	/*
++	 * even maximum level could not satisfy requirement, this
++	 * is unexpected at this stage, should have been caught at
++	 * validation time
++	 */
++	ASSERT(0);
++	return dc->sclk_lvls.clocks_in_khz[dc->sclk_lvls.num_levels - 1];
++}
++
++uint32_t dce110_get_min_vblank_time_us(const struct dc_state *context)
++{
++	uint8_t j;
++	uint32_t min_vertical_blank_time = -1;
++
++	for (j = 0; j < context->stream_count; j++) {
++		struct dc_stream_state *stream = context->streams[j];
++		uint32_t vertical_blank_in_pixels = 0;
++		uint32_t vertical_blank_time = 0;
++
++		vertical_blank_in_pixels = stream->timing.h_total *
++			(stream->timing.v_total
++			 - stream->timing.v_addressable);
++
++		vertical_blank_time = vertical_blank_in_pixels
++			* 10000 / stream->timing.pix_clk_100hz;
++
++		if (min_vertical_blank_time > vertical_blank_time)
++			min_vertical_blank_time = vertical_blank_time;
++	}
++
++	return min_vertical_blank_time;
++}
++
++void dce110_fill_display_configs(
++	const struct dc_state *context,
++	struct dm_pp_display_configuration *pp_display_cfg)
++{
++	int j;
++	int num_cfgs = 0;
++
++	for (j = 0; j < context->stream_count; j++) {
++		int k;
++
++		const struct dc_stream_state *stream = context->streams[j];
++		struct dm_pp_single_disp_config *cfg =
++			&pp_display_cfg->disp_configs[num_cfgs];
++		const struct pipe_ctx *pipe_ctx = NULL;
++
++		for (k = 0; k < MAX_PIPES; k++)
++			if (stream == context->res_ctx.pipe_ctx[k].stream) {
++				pipe_ctx = &context->res_ctx.pipe_ctx[k];
++				break;
++			}
++
++		ASSERT(pipe_ctx != NULL);
++
++		/* only notify active stream */
++		if (stream->dpms_off)
++			continue;
++
++		num_cfgs++;
++		cfg->signal = pipe_ctx->stream->signal;
++		cfg->pipe_idx = pipe_ctx->stream_res.tg->inst;
++		cfg->src_height = stream->src.height;
++		cfg->src_width = stream->src.width;
++		cfg->ddi_channel_mapping =
++			stream->link->ddi_channel_mapping.raw;
++		cfg->transmitter =
++			stream->link->link_enc->transmitter;
++		cfg->link_settings.lane_count =
++			stream->link->cur_link_settings.lane_count;
++		cfg->link_settings.link_rate =
++			stream->link->cur_link_settings.link_rate;
++		cfg->link_settings.link_spread =
++			stream->link->cur_link_settings.link_spread;
++		cfg->sym_clock = stream->phy_pix_clk;
++		/* Round v_refresh*/
++		cfg->v_refresh = stream->timing.pix_clk_100hz * 100;
++		cfg->v_refresh /= stream->timing.h_total;
++		cfg->v_refresh = (cfg->v_refresh + stream->timing.v_total / 2)
++							/ stream->timing.v_total;
++	}
++
++	pp_display_cfg->display_count = num_cfgs;
++}
++
++void dce11_pplib_apply_display_requirements(
++	struct dc *dc,
++	struct dc_state *context)
++{
++	struct dm_pp_display_configuration *pp_display_cfg = &context->pp_display_cfg;
++
++	pp_display_cfg->all_displays_in_sync =
++		context->bw_ctx.bw.dce.all_displays_in_sync;
++	pp_display_cfg->nb_pstate_switch_disable =
++			context->bw_ctx.bw.dce.nbp_state_change_enable == false;
++	pp_display_cfg->cpu_cc6_disable =
++			context->bw_ctx.bw.dce.cpuc_state_change_enable == false;
++	pp_display_cfg->cpu_pstate_disable =
++			context->bw_ctx.bw.dce.cpup_state_change_enable == false;
++	pp_display_cfg->cpu_pstate_separation_time =
++			context->bw_ctx.bw.dce.blackout_recovery_time_us;
++
++	pp_display_cfg->min_memory_clock_khz = context->bw_ctx.bw.dce.yclk_khz
++		/ MEMORY_TYPE_MULTIPLIER_CZ;
++
++	pp_display_cfg->min_engine_clock_khz = determine_sclk_from_bounding_box(
++			dc,
++			context->bw_ctx.bw.dce.sclk_khz);
++
++	/*
++	 * As workaround for >4x4K lightup set dcfclock to min_engine_clock value.
++	 * This is not required for less than 5 displays,
++	 * thus don't request decfclk in dc to avoid impact
++	 * on power saving.
++	 *
++	 */
++	pp_display_cfg->min_dcfclock_khz = (context->stream_count > 4) ?
++			pp_display_cfg->min_engine_clock_khz : 0;
++
++	pp_display_cfg->min_engine_clock_deep_sleep_khz
++			= context->bw_ctx.bw.dce.sclk_deep_sleep_khz;
++
++	pp_display_cfg->avail_mclk_switch_time_us =
++						dce110_get_min_vblank_time_us(context);
++	/* TODO: dce11.2*/
++	pp_display_cfg->avail_mclk_switch_time_in_disp_active_us = 0;
++
++	pp_display_cfg->disp_clk_khz = dc->clk_mgr->clks.dispclk_khz;
++
++	dce110_fill_display_configs(context, pp_display_cfg);
++
++	/* TODO: is this still applicable?*/
++	if (pp_display_cfg->display_count == 1) {
++		const struct dc_crtc_timing *timing =
++			&context->streams[0]->timing;
++
++		pp_display_cfg->crtc_index =
++			pp_display_cfg->disp_configs[0].pipe_idx;
++		pp_display_cfg->line_time_in_us = timing->h_total * 10000 / timing->pix_clk_100hz;
++	}
++
++	if (memcmp(&dc->current_state->pp_display_cfg, pp_display_cfg, sizeof(*pp_display_cfg)) !=  0)
++		dm_pp_apply_display_requirements(dc->ctx, pp_display_cfg);
++}
++
++static void dce11_update_clocks(struct clk_mgr *clk_mgr_base,
++			struct dc_state *context,
++			bool safe_to_lower)
++{
++	struct clk_mgr_internal *clk_mgr_dce = TO_CLK_MGR_INTERNAL(clk_mgr_base);
++	struct dm_pp_power_level_change_request level_change_req;
++	int patched_disp_clk = context->bw_ctx.bw.dce.dispclk_khz;
++
++	/*TODO: W/A for dal3 linux, investigate why this works */
++	if (!clk_mgr_dce->dfs_bypass_active)
++		patched_disp_clk = patched_disp_clk * 115 / 100;
++
++	level_change_req.power_level = dce_get_required_clocks_state(clk_mgr_base, context);
++	/* get max clock state from PPLIB */
++	if ((level_change_req.power_level < clk_mgr_dce->cur_min_clks_state && safe_to_lower)
++			|| level_change_req.power_level > clk_mgr_dce->cur_min_clks_state) {
++		if (dm_pp_apply_power_level_change_request(clk_mgr_base->ctx, &level_change_req))
++			clk_mgr_dce->cur_min_clks_state = level_change_req.power_level;
++	}
++
++	if (should_set_clock(safe_to_lower, patched_disp_clk, clk_mgr_base->clks.dispclk_khz)) {
++		context->bw_ctx.bw.dce.dispclk_khz = dce_set_clock(clk_mgr_base, patched_disp_clk);
++		clk_mgr_base->clks.dispclk_khz = patched_disp_clk;
++	}
++	dce11_pplib_apply_display_requirements(clk_mgr_base->ctx->dc, context);
++}
++
++static struct clk_mgr_funcs dce110_funcs = {
++	.get_dp_ref_clk_frequency = dce_get_dp_ref_freq_khz,
++	.update_clocks = dce11_update_clocks
++};
++
++void dce110_clk_mgr_construct(
++		struct dc_context *ctx,
++		struct clk_mgr_internal *clk_mgr)
++{
++	memcpy(clk_mgr->max_clks_by_state,
++		dce110_max_clks_by_state,
++		sizeof(dce110_max_clks_by_state));
++
++	dce_clk_mgr_construct(ctx, clk_mgr);
++
++	clk_mgr->regs = &disp_clk_regs;
++	clk_mgr->clk_mgr_shift = &disp_clk_shift;
++	clk_mgr->clk_mgr_mask = &disp_clk_mask;
++	clk_mgr->base.funcs = &dce110_funcs;
++
++}
+diff --git a/drivers/gpu/drm/amd/display/dc/dce/dce110_clk_mgr.h b/drivers/gpu/drm/amd/display/dc/dce/dce110_clk_mgr.h
+new file mode 100644
+index 000000000000..c0eb2ea6fb3a
+--- /dev/null
++++ b/drivers/gpu/drm/amd/display/dc/dce/dce110_clk_mgr.h
+@@ -0,0 +1,44 @@
++/*
++ * Copyright 2012-16 Advanced Micro Devices, Inc.
++ *
++ * Permission is hereby granted, free of charge, to any person obtaining a
++ * copy of this software and associated documentation files (the "Software"),
++ * to deal in the Software without restriction, including without limitation
++ * the rights to use, copy, modify, merge, publish, distribute, sublicense,
++ * and/or sell copies of the Software, and to permit persons to whom the
++ * Software is furnished to do so, subject to the following conditions:
++ *
++ * The above copyright notice and this permission notice shall be included in
++ * all copies or substantial portions of the Software.
++ *
++ * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
++ * IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
++ * FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.  IN NO EVENT SHALL
++ * THE COPYRIGHT HOLDER(S) OR AUTHOR(S) BE LIABLE FOR ANY CLAIM, DAMAGES OR
++ * OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE,
++ * ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR
++ * OTHER DEALINGS IN THE SOFTWARE.
++ *
++ * Authors: AMD
++ *
++ */
++
++#ifndef DAL_DC_DCE_DCE110_CLK_MGR_H_
++#define DAL_DC_DCE_DCE110_CLK_MGR_H_
++
++void dce110_clk_mgr_construct(
++		struct dc_context *ctx,
++		struct clk_mgr_internal *clk_mgr);
++
++void dce110_fill_display_configs(
++	const struct dc_state *context,
++	struct dm_pp_display_configuration *pp_display_cfg);
++
++/* functions shared with other clk mgr*/
++void dce11_pplib_apply_display_requirements(
++	struct dc *dc,
++	struct dc_state *context);
++
++uint32_t dce110_get_min_vblank_time_us(const struct dc_state *context);
++
++#endif /* DAL_DC_DCE_DCE110_CLK_MGR_H_ */
+diff --git a/drivers/gpu/drm/amd/display/dc/dce/dce112_clk_mgr.c b/drivers/gpu/drm/amd/display/dc/dce/dce112_clk_mgr.c
+new file mode 100644
+index 000000000000..695d969e3ef7
+--- /dev/null
++++ b/drivers/gpu/drm/amd/display/dc/dce/dce112_clk_mgr.c
+@@ -0,0 +1,239 @@
++/*
++ * Copyright 2012-16 Advanced Micro Devices, Inc.
++ *
++ * Permission is hereby granted, free of charge, to any person obtaining a
++ * copy of this software and associated documentation files (the "Software"),
++ * to deal in the Software without restriction, including without limitation
++ * the rights to use, copy, modify, merge, publish, distribute, sublicense,
++ * and/or sell copies of the Software, and to permit persons to whom the
++ * Software is furnished to do so, subject to the following conditions:
++ *
++ * The above copyright notice and this permission notice shall be included in
++ * all copies or substantial portions of the Software.
++ *
++ * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
++ * IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
++ * FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.  IN NO EVENT SHALL
++ * THE COPYRIGHT HOLDER(S) OR AUTHOR(S) BE LIABLE FOR ANY CLAIM, DAMAGES OR
++ * OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE,
++ * ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR
++ * OTHER DEALINGS IN THE SOFTWARE.
++ *
++ * Authors: AMD
++ *
++ */
++
++#include "core_types.h"
++#include "clk_mgr_internal.h"
++
++#include "dce/dce_11_2_d.h"
++#include "dce/dce_11_2_sh_mask.h"
++#include "dce_clk_mgr.h"
++#include "dce110_clk_mgr.h"
++#include "dce112_clk_mgr.h"
++#include "dal_asic_id.h"
++
++/* set register offset */
++#define SR(reg_name)\
++	.reg_name = mm ## reg_name
++
++/* set register offset with instance */
++#define SRI(reg_name, block, id)\
++	.reg_name = mm ## block ## id ## _ ## reg_name
++
++static const struct clk_mgr_registers disp_clk_regs = {
++		CLK_COMMON_REG_LIST_DCE_BASE()
++};
++
++static const struct clk_mgr_shift disp_clk_shift = {
++		CLK_COMMON_MASK_SH_LIST_DCE_COMMON_BASE(__SHIFT)
++};
++
++static const struct clk_mgr_mask disp_clk_mask = {
++		CLK_COMMON_MASK_SH_LIST_DCE_COMMON_BASE(_MASK)
++};
++
++static const struct state_dependent_clocks dce112_max_clks_by_state[] = {
++/*ClocksStateInvalid - should not be used*/
++{ .display_clk_khz = 0, .pixel_clk_khz = 0 },
++/*ClocksStateUltraLow - currently by HW design team not supposed to be used*/
++{ .display_clk_khz = 389189, .pixel_clk_khz = 346672 },
++/*ClocksStateLow*/
++{ .display_clk_khz = 459000, .pixel_clk_khz = 400000 },
++/*ClocksStateNominal*/
++{ .display_clk_khz = 667000, .pixel_clk_khz = 600000 },
++/*ClocksStatePerformance*/
++{ .display_clk_khz = 1132000, .pixel_clk_khz = 600000 } };
++
++
++//TODO: remove use the two broken down functions
++int dce112_set_clock(struct clk_mgr *clk_mgr_base, int requested_clk_khz)
++{
++	struct clk_mgr_internal *clk_mgr_dce = TO_CLK_MGR_INTERNAL(clk_mgr_base);
++	struct bp_set_dce_clock_parameters dce_clk_params;
++	struct dc_bios *bp = clk_mgr_base->ctx->dc_bios;
++	struct dc *core_dc = clk_mgr_base->ctx->dc;
++	struct dmcu *dmcu = core_dc->res_pool->dmcu;
++	int actual_clock = requested_clk_khz;
++	/* Prepare to program display clock*/
++	memset(&dce_clk_params, 0, sizeof(dce_clk_params));
++
++	/* Make sure requested clock isn't lower than minimum threshold*/
++	if (requested_clk_khz > 0)
++		requested_clk_khz = max(requested_clk_khz,
++				clk_mgr_dce->dentist_vco_freq_khz / 62);
++
++	dce_clk_params.target_clock_frequency = requested_clk_khz;
++	dce_clk_params.pll_id = CLOCK_SOURCE_ID_DFS;
++	dce_clk_params.clock_type = DCECLOCK_TYPE_DISPLAY_CLOCK;
++
++	bp->funcs->set_dce_clock(bp, &dce_clk_params);
++	actual_clock = dce_clk_params.target_clock_frequency;
++
++	/*
++	 * from power down, we need mark the clock state as ClocksStateNominal
++	 * from HWReset, so when resume we will call pplib voltage regulator.
++	 */
++	if (requested_clk_khz == 0)
++		clk_mgr_dce->cur_min_clks_state = DM_PP_CLOCKS_STATE_NOMINAL;
++
++	/*Program DP ref Clock*/
++	/*VBIOS will determine DPREFCLK frequency, so we don't set it*/
++	dce_clk_params.target_clock_frequency = 0;
++	dce_clk_params.clock_type = DCECLOCK_TYPE_DPREFCLK;
++	if (!ASICREV_IS_VEGA20_P(clk_mgr_base->ctx->asic_id.hw_internal_rev))
++		dce_clk_params.flags.USE_GENLOCK_AS_SOURCE_FOR_DPREFCLK =
++			(dce_clk_params.pll_id ==
++					CLOCK_SOURCE_COMBO_DISPLAY_PLL0);
++	else
++		dce_clk_params.flags.USE_GENLOCK_AS_SOURCE_FOR_DPREFCLK = false;
++
++	bp->funcs->set_dce_clock(bp, &dce_clk_params);
++
++	if (!IS_FPGA_MAXIMUS_DC(core_dc->ctx->dce_environment)) {
++		if (dmcu && dmcu->funcs->is_dmcu_initialized(dmcu)) {
++			if (clk_mgr_dce->dfs_bypass_disp_clk != actual_clock)
++				dmcu->funcs->set_psr_wait_loop(dmcu,
++						actual_clock / 1000 / 7);
++		}
++	}
++
++	clk_mgr_dce->dfs_bypass_disp_clk = actual_clock;
++	return actual_clock;
++}
++
++int dce112_set_dispclk(struct clk_mgr_internal *clk_mgr, int requested_clk_khz)
++{
++	struct bp_set_dce_clock_parameters dce_clk_params;
++	struct dc_bios *bp = clk_mgr->base.ctx->dc_bios;
++	struct dc *core_dc = clk_mgr->base.ctx->dc;
++	struct dmcu *dmcu = core_dc->res_pool->dmcu;
++	int actual_clock = requested_clk_khz;
++	/* Prepare to program display clock*/
++	memset(&dce_clk_params, 0, sizeof(dce_clk_params));
++
++	/* Make sure requested clock isn't lower than minimum threshold*/
++	if (requested_clk_khz > 0)
++		requested_clk_khz = max(requested_clk_khz,
++				clk_mgr->dentist_vco_freq_khz / 62);
++
++	dce_clk_params.target_clock_frequency = requested_clk_khz;
++	dce_clk_params.pll_id = CLOCK_SOURCE_ID_DFS;
++	dce_clk_params.clock_type = DCECLOCK_TYPE_DISPLAY_CLOCK;
++
++	bp->funcs->set_dce_clock(bp, &dce_clk_params);
++	actual_clock = dce_clk_params.target_clock_frequency;
++
++	/*
++	 * from power down, we need mark the clock state as ClocksStateNominal
++	 * from HWReset, so when resume we will call pplib voltage regulator.
++	 */
++	if (requested_clk_khz == 0)
++		clk_mgr->cur_min_clks_state = DM_PP_CLOCKS_STATE_NOMINAL;
++
++
++	if (!IS_FPGA_MAXIMUS_DC(core_dc->ctx->dce_environment)) {
++		if (dmcu && dmcu->funcs->is_dmcu_initialized(dmcu)) {
++			if (clk_mgr->dfs_bypass_disp_clk != actual_clock)
++				dmcu->funcs->set_psr_wait_loop(dmcu,
++						actual_clock / 1000 / 7);
++		}
++	}
++
++	clk_mgr->dfs_bypass_disp_clk = actual_clock;
++	return actual_clock;
++
++}
++
++int dce112_set_dprefclk(struct clk_mgr_internal *clk_mgr)
++{
++	struct bp_set_dce_clock_parameters dce_clk_params;
++	struct dc_bios *bp = clk_mgr->base.ctx->dc_bios;
++
++	memset(&dce_clk_params, 0, sizeof(dce_clk_params));
++
++	/*Program DP ref Clock*/
++	/*VBIOS will determine DPREFCLK frequency, so we don't set it*/
++	dce_clk_params.target_clock_frequency = 0;
++	dce_clk_params.pll_id = CLOCK_SOURCE_ID_DFS;
++	dce_clk_params.clock_type = DCECLOCK_TYPE_DPREFCLK;
++	if (!ASICREV_IS_VEGA20_P(clk_mgr->base.ctx->asic_id.hw_internal_rev))
++		dce_clk_params.flags.USE_GENLOCK_AS_SOURCE_FOR_DPREFCLK =
++			(dce_clk_params.pll_id ==
++					CLOCK_SOURCE_COMBO_DISPLAY_PLL0);
++	else
++		dce_clk_params.flags.USE_GENLOCK_AS_SOURCE_FOR_DPREFCLK = false;
++
++	bp->funcs->set_dce_clock(bp, &dce_clk_params);
++
++	/* Returns the dp_refclk that was set */
++	return dce_clk_params.target_clock_frequency;
++}
++
++static void dce112_update_clocks(struct clk_mgr *clk_mgr_base,
++			struct dc_state *context,
++			bool safe_to_lower)
++{
++	struct clk_mgr_internal *clk_mgr_dce = TO_CLK_MGR_INTERNAL(clk_mgr_base);
++	struct dm_pp_power_level_change_request level_change_req;
++	int patched_disp_clk = context->bw_ctx.bw.dce.dispclk_khz;
++
++	/*TODO: W/A for dal3 linux, investigate why this works */
++	if (!clk_mgr_dce->dfs_bypass_active)
++		patched_disp_clk = patched_disp_clk * 115 / 100;
++
++	level_change_req.power_level = dce_get_required_clocks_state(clk_mgr_base, context);
++	/* get max clock state from PPLIB */
++	if ((level_change_req.power_level < clk_mgr_dce->cur_min_clks_state && safe_to_lower)
++			|| level_change_req.power_level > clk_mgr_dce->cur_min_clks_state) {
++		if (dm_pp_apply_power_level_change_request(clk_mgr_base->ctx, &level_change_req))
++			clk_mgr_dce->cur_min_clks_state = level_change_req.power_level;
++	}
++
++	if (should_set_clock(safe_to_lower, patched_disp_clk, clk_mgr_base->clks.dispclk_khz)) {
++		patched_disp_clk = dce112_set_clock(clk_mgr_base, patched_disp_clk);
++		clk_mgr_base->clks.dispclk_khz = patched_disp_clk;
++	}
++	dce11_pplib_apply_display_requirements(clk_mgr_base->ctx->dc, context);
++}
++
++static struct clk_mgr_funcs dce112_funcs = {
++	.get_dp_ref_clk_frequency = dce_get_dp_ref_freq_khz,
++	.update_clocks = dce112_update_clocks
++};
++
++void dce112_clk_mgr_construct(
++		struct dc_context *ctx,
++		struct clk_mgr_internal *clk_mgr)
++{
++	memcpy(clk_mgr->max_clks_by_state,
++		dce112_max_clks_by_state,
++		sizeof(dce112_max_clks_by_state));
++
++	dce_clk_mgr_construct(ctx, clk_mgr);
++
++	clk_mgr->regs = &disp_clk_regs;
++	clk_mgr->clk_mgr_shift = &disp_clk_shift;
++	clk_mgr->clk_mgr_mask = &disp_clk_mask;
++	clk_mgr->base.funcs = &dce112_funcs;
++}
+diff --git a/drivers/gpu/drm/amd/display/dc/dce/dce112_clk_mgr.h b/drivers/gpu/drm/amd/display/dc/dce/dce112_clk_mgr.h
+new file mode 100644
+index 000000000000..dfb06db118e1
+--- /dev/null
++++ b/drivers/gpu/drm/amd/display/dc/dce/dce112_clk_mgr.h
+@@ -0,0 +1,39 @@
++/*
++ * Copyright 2012-16 Advanced Micro Devices, Inc.
++ *
++ * Permission is hereby granted, free of charge, to any person obtaining a
++ * copy of this software and associated documentation files (the "Software"),
++ * to deal in the Software without restriction, including without limitation
++ * the rights to use, copy, modify, merge, publish, distribute, sublicense,
++ * and/or sell copies of the Software, and to permit persons to whom the
++ * Software is furnished to do so, subject to the following conditions:
++ *
++ * The above copyright notice and this permission notice shall be included in
++ * all copies or substantial portions of the Software.
++ *
++ * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
++ * IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
++ * FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.  IN NO EVENT SHALL
++ * THE COPYRIGHT HOLDER(S) OR AUTHOR(S) BE LIABLE FOR ANY CLAIM, DAMAGES OR
++ * OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE,
++ * ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR
++ * OTHER DEALINGS IN THE SOFTWARE.
++ *
++ * Authors: AMD
++ *
++ */
++
++#ifndef DAL_DC_DCE_DCE112_CLK_MGR_H_
++#define DAL_DC_DCE_DCE112_CLK_MGR_H_
++
++
++void dce112_clk_mgr_construct(
++		struct dc_context *ctx,
++		struct clk_mgr_internal *clk_mgr);
++
++/* functions shared with other clk mgr */
++int dce112_set_clock(struct clk_mgr *clk_mgr_base, int requested_clk_khz);
++int dce112_set_dispclk(struct clk_mgr_internal *clk_mgr, int requested_clk_khz);
++int dce112_set_dprefclk(struct clk_mgr_internal *clk_mgr);
++
++#endif /* DAL_DC_DCE_DCE112_CLK_MGR_H_ */
+diff --git a/drivers/gpu/drm/amd/display/dc/dce/dce120_clk_mgr.c b/drivers/gpu/drm/amd/display/dc/dce/dce120_clk_mgr.c
+new file mode 100644
+index 000000000000..a093c4fc846e
+--- /dev/null
++++ b/drivers/gpu/drm/amd/display/dc/dce/dce120_clk_mgr.c
+@@ -0,0 +1,145 @@
++/*
++ * Copyright 2012-16 Advanced Micro Devices, Inc.
++ *
++ * Permission is hereby granted, free of charge, to any person obtaining a
++ * copy of this software and associated documentation files (the "Software"),
++ * to deal in the Software without restriction, including without limitation
++ * the rights to use, copy, modify, merge, publish, distribute, sublicense,
++ * and/or sell copies of the Software, and to permit persons to whom the
++ * Software is furnished to do so, subject to the following conditions:
++ *
++ * The above copyright notice and this permission notice shall be included in
++ * all copies or substantial portions of the Software.
++ *
++ * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
++ * IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
++ * FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.  IN NO EVENT SHALL
++ * THE COPYRIGHT HOLDER(S) OR AUTHOR(S) BE LIABLE FOR ANY CLAIM, DAMAGES OR
++ * OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE,
++ * ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR
++ * OTHER DEALINGS IN THE SOFTWARE.
++ *
++ * Authors: AMD
++ *
++ */
++
++#include "core_types.h"
++#include "clk_mgr_internal.h"
++
++#include "dce_clk_mgr.h"
++#include "dce112_clk_mgr.h"
++#include "dce110_clk_mgr.h"
++#include "dce120_clk_mgr.h"
++
++static const struct state_dependent_clocks dce120_max_clks_by_state[] = {
++/*ClocksStateInvalid - should not be used*/
++{ .display_clk_khz = 0, .pixel_clk_khz = 0 },
++/*ClocksStateUltraLow - currently by HW design team not supposed to be used*/
++{ .display_clk_khz = 0, .pixel_clk_khz = 0 },
++/*ClocksStateLow*/
++{ .display_clk_khz = 460000, .pixel_clk_khz = 400000 },
++/*ClocksStateNominal*/
++{ .display_clk_khz = 670000, .pixel_clk_khz = 600000 },
++/*ClocksStatePerformance*/
++{ .display_clk_khz = 1133000, .pixel_clk_khz = 600000 } };
++
++/**
++ * dce121_clock_patch_xgmi_ss_info() - Save XGMI spread spectrum info
++ * @clk_mgr: clock manager base structure
++ *
++ * Reads from VBIOS the XGMI spread spectrum info and saves it within
++ * the dce clock manager. This operation will overwrite the existing dprefclk
++ * SS values if the vBIOS query succeeds. Otherwise, it does nothing. It also
++ * sets the ->xgmi_enabled flag.
++ */
++void dce121_clock_patch_xgmi_ss_info(struct clk_mgr *clk_mgr_base)
++{
++	struct clk_mgr_internal *clk_mgr_dce = TO_CLK_MGR_INTERNAL(clk_mgr_base);
++	enum bp_result result;
++	struct spread_spectrum_info info = { { 0 } };
++	struct dc_bios *bp = clk_mgr_dce->base.ctx->dc_bios;
++
++	clk_mgr_dce->xgmi_enabled = false;
++
++	result = bp->funcs->get_spread_spectrum_info(bp, AS_SIGNAL_TYPE_XGMI,
++						     0, &info);
++	if (result == BP_RESULT_OK && info.spread_spectrum_percentage != 0) {
++		clk_mgr_dce->xgmi_enabled = true;
++		clk_mgr_dce->ss_on_dprefclk = true;
++		clk_mgr_dce->dprefclk_ss_divider =
++				info.spread_percentage_divider;
++
++		if (info.type.CENTER_MODE == 0) {
++			/*
++			 * Currently for DP Reference clock we
++			 * need only SS percentage for
++			 * downspread
++			 */
++			clk_mgr_dce->dprefclk_ss_percentage =
++					info.spread_spectrum_percentage;
++		}
++	}
++}
++
++static void dce12_update_clocks(struct clk_mgr *clk_mgr_base,
++			struct dc_state *context,
++			bool safe_to_lower)
++{
++	struct clk_mgr_internal *clk_mgr_dce = TO_CLK_MGR_INTERNAL(clk_mgr_base);
++	struct dm_pp_clock_for_voltage_req clock_voltage_req = {0};
++	int max_pix_clk = dce_get_max_pixel_clock_for_all_paths(context);
++	int patched_disp_clk = context->bw_ctx.bw.dce.dispclk_khz;
++
++	/*TODO: W/A for dal3 linux, investigate why this works */
++	if (!clk_mgr_dce->dfs_bypass_active)
++		patched_disp_clk = patched_disp_clk * 115 / 100;
++
++	if (should_set_clock(safe_to_lower, patched_disp_clk, clk_mgr_base->clks.dispclk_khz)) {
++		clock_voltage_req.clk_type = DM_PP_CLOCK_TYPE_DISPLAY_CLK;
++		/*
++		 * When xGMI is enabled, the display clk needs to be adjusted
++		 * with the WAFL link's SS percentage.
++		 */
++		if (clk_mgr_dce->xgmi_enabled)
++			patched_disp_clk = dce_adjust_dp_ref_freq_for_ss(
++					clk_mgr_dce, patched_disp_clk);
++		clock_voltage_req.clocks_in_khz = patched_disp_clk;
++		clk_mgr_base->clks.dispclk_khz = dce112_set_clock(clk_mgr_base, patched_disp_clk);
++
++		dm_pp_apply_clock_for_voltage_request(clk_mgr_base->ctx, &clock_voltage_req);
++	}
++
++	if (should_set_clock(safe_to_lower, max_pix_clk, clk_mgr_base->clks.phyclk_khz)) {
++		clock_voltage_req.clk_type = DM_PP_CLOCK_TYPE_DISPLAYPHYCLK;
++		clock_voltage_req.clocks_in_khz = max_pix_clk;
++		clk_mgr_base->clks.phyclk_khz = max_pix_clk;
++
++		dm_pp_apply_clock_for_voltage_request(clk_mgr_base->ctx, &clock_voltage_req);
++	}
++	dce11_pplib_apply_display_requirements(clk_mgr_base->ctx->dc, context);
++}
++
++
++static struct clk_mgr_funcs dce120_funcs = {
++	.get_dp_ref_clk_frequency = dce12_get_dp_ref_freq_khz,
++	.update_clocks = dce12_update_clocks
++};
++
++void dce120_clk_mgr_construct(struct dc_context *ctx, struct clk_mgr_internal *clk_mgr)
++{
++	memcpy(clk_mgr->max_clks_by_state,
++		dce120_max_clks_by_state,
++		sizeof(dce120_max_clks_by_state));
++
++	dce_clk_mgr_construct(ctx, clk_mgr);
++
++	clk_mgr->base.dprefclk_khz = 600000;
++	clk_mgr->base.funcs = &dce120_funcs;
++}
++
++void dce121_clk_mgr_construct(struct dc_context *ctx, struct clk_mgr_internal *clk_mgr)
++{
++	dce120_clk_mgr_construct(ctx, clk_mgr);
++	clk_mgr->base.dprefclk_khz = 625000;
++}
++
+diff --git a/drivers/gpu/drm/amd/display/dc/dce/dce120_clk_mgr.h b/drivers/gpu/drm/amd/display/dc/dce/dce120_clk_mgr.h
+new file mode 100644
+index 000000000000..d12d6fcb167d
+--- /dev/null
++++ b/drivers/gpu/drm/amd/display/dc/dce/dce120_clk_mgr.h
+@@ -0,0 +1,34 @@
++/*
++ * Copyright 2012-16 Advanced Micro Devices, Inc.
++ *
++ * Permission is hereby granted, free of charge, to any person obtaining a
++ * copy of this software and associated documentation files (the "Software"),
++ * to deal in the Software without restriction, including without limitation
++ * the rights to use, copy, modify, merge, publish, distribute, sublicense,
++ * and/or sell copies of the Software, and to permit persons to whom the
++ * Software is furnished to do so, subject to the following conditions:
++ *
++ * The above copyright notice and this permission notice shall be included in
++ * all copies or substantial portions of the Software.
++ *
++ * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
++ * IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
++ * FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.  IN NO EVENT SHALL
++ * THE COPYRIGHT HOLDER(S) OR AUTHOR(S) BE LIABLE FOR ANY CLAIM, DAMAGES OR
++ * OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE,
++ * ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR
++ * OTHER DEALINGS IN THE SOFTWARE.
++ *
++ * Authors: AMD
++ *
++ */
++
++#ifndef DAL_DC_DCE_DCE120_CLK_MGR_H_
++#define DAL_DC_DCE_DCE120_CLK_MGR_H_
++
++void dce120_clk_mgr_construct(struct dc_context *ctx, struct clk_mgr_internal *clk_mgr);
++void dce121_clk_mgr_construct(struct dc_context *ctx, struct clk_mgr_internal *clk_mgr);
++
++
++
++#endif /* DAL_DC_DCE_DCE120_CLK_MGR_H_ */
+diff --git a/drivers/gpu/drm/amd/display/dc/dce/dce_clk_mgr.c b/drivers/gpu/drm/amd/display/dc/dce/dce_clk_mgr.c
+index a3b6b97796b7..c39be5c75f9d 100644
+--- a/drivers/gpu/drm/amd/display/dc/dce/dce_clk_mgr.c
++++ b/drivers/gpu/drm/amd/display/dc/dce/dce_clk_mgr.c
+@@ -22,28 +22,44 @@
+  * Authors: AMD
+  *
+  */
+-
++#include "dccg.h"
++#include "clk_mgr_internal.h"
+ #include "dce_clk_mgr.h"
+-
++#include "dce110_clk_mgr.h"
++#include "dce112_clk_mgr.h"
+ #include "reg_helper.h"
+ #include "dmcu.h"
+ #include "core_types.h"
+ #include "dal_asic_id.h"
+ 
+-#define TO_DCE_CLK_MGR(clocks)\
+-	container_of(clocks, struct dce_clk_mgr, base)
++/*
++ * Currently the register shifts and masks in this file are used for dce100 and dce80
++ * which has identical definitions.
++ * TODO: remove this when DPREFCLK_CNTL and dpref DENTIST_DISPCLK_CNTL
++ * is moved to dccg, where it belongs
++ */
++#include "dce/dce_8_0_d.h"
++#include "dce/dce_8_0_sh_mask.h"
+ 
+ #define REG(reg) \
+-	(clk_mgr_dce->regs->reg)
++	(clk_mgr->regs->reg)
+ 
+ #undef FN
+ #define FN(reg_name, field_name) \
+-	clk_mgr_dce->clk_mgr_shift->field_name, clk_mgr_dce->clk_mgr_mask->field_name
++	clk_mgr->clk_mgr_shift->field_name, clk_mgr->clk_mgr_mask->field_name
++
++static const struct clk_mgr_registers disp_clk_regs = {
++		CLK_COMMON_REG_LIST_DCE_BASE()
++};
++
++static const struct clk_mgr_shift disp_clk_shift = {
++		CLK_COMMON_MASK_SH_LIST_DCE_COMMON_BASE(__SHIFT)
++};
++
++static const struct clk_mgr_mask disp_clk_mask = {
++		CLK_COMMON_MASK_SH_LIST_DCE_COMMON_BASE(_MASK)
++};
+ 
+-#define CTX \
+-	clk_mgr_dce->base.ctx
+-#define DC_LOGGER \
+-	clk_mgr->ctx->logger
+ 
+ /* Max clock values for each state indexed by "enum clocks_state": */
+ static const struct state_dependent_clocks dce80_max_clks_by_state[] = {
+@@ -58,42 +74,6 @@ static const struct state_dependent_clocks dce80_max_clks_by_state[] = {
+ /* ClocksStatePerformance */
+ { .display_clk_khz = 600000, .pixel_clk_khz = 400000 } };
+ 
+-static const struct state_dependent_clocks dce110_max_clks_by_state[] = {
+-/*ClocksStateInvalid - should not be used*/
+-{ .display_clk_khz = 0, .pixel_clk_khz = 0 },
+-/*ClocksStateUltraLow - currently by HW design team not supposed to be used*/
+-{ .display_clk_khz = 352000, .pixel_clk_khz = 330000 },
+-/*ClocksStateLow*/
+-{ .display_clk_khz = 352000, .pixel_clk_khz = 330000 },
+-/*ClocksStateNominal*/
+-{ .display_clk_khz = 467000, .pixel_clk_khz = 400000 },
+-/*ClocksStatePerformance*/
+-{ .display_clk_khz = 643000, .pixel_clk_khz = 400000 } };
+-
+-static const struct state_dependent_clocks dce112_max_clks_by_state[] = {
+-/*ClocksStateInvalid - should not be used*/
+-{ .display_clk_khz = 0, .pixel_clk_khz = 0 },
+-/*ClocksStateUltraLow - currently by HW design team not supposed to be used*/
+-{ .display_clk_khz = 389189, .pixel_clk_khz = 346672 },
+-/*ClocksStateLow*/
+-{ .display_clk_khz = 459000, .pixel_clk_khz = 400000 },
+-/*ClocksStateNominal*/
+-{ .display_clk_khz = 667000, .pixel_clk_khz = 600000 },
+-/*ClocksStatePerformance*/
+-{ .display_clk_khz = 1132000, .pixel_clk_khz = 600000 } };
+-
+-static const struct state_dependent_clocks dce120_max_clks_by_state[] = {
+-/*ClocksStateInvalid - should not be used*/
+-{ .display_clk_khz = 0, .pixel_clk_khz = 0 },
+-/*ClocksStateUltraLow - currently by HW design team not supposed to be used*/
+-{ .display_clk_khz = 0, .pixel_clk_khz = 0 },
+-/*ClocksStateLow*/
+-{ .display_clk_khz = 460000, .pixel_clk_khz = 400000 },
+-/*ClocksStateNominal*/
+-{ .display_clk_khz = 670000, .pixel_clk_khz = 600000 },
+-/*ClocksStatePerformance*/
+-{ .display_clk_khz = 1133000, .pixel_clk_khz = 600000 } };
+-
+ int dentist_get_divider_from_did(int did)
+ {
+ 	if (did < DENTIST_BASE_DID_1)
+@@ -125,7 +105,8 @@ int dentist_get_divider_from_did(int did)
+  (should not be case with CIK) then SW should program all rates
+  generated according to average value (case as with previous ASICs)
+   */
+-static int clk_mgr_adjust_dp_ref_freq_for_ss(struct dce_clk_mgr *clk_mgr_dce, int dp_ref_clk_khz)
++
++int dce_adjust_dp_ref_freq_for_ss(struct clk_mgr_internal *clk_mgr_dce, int dp_ref_clk_khz)
+ {
+ 	if (clk_mgr_dce->ss_on_dprefclk && clk_mgr_dce->dprefclk_ss_divider != 0) {
+ 		struct fixed31_32 ss_percentage = dc_fixpt_div_int(
+@@ -140,9 +121,9 @@ static int clk_mgr_adjust_dp_ref_freq_for_ss(struct dce_clk_mgr *clk_mgr_dce, in
+ 	return dp_ref_clk_khz;
+ }
+ 
+-static int dce_get_dp_ref_freq_khz(struct clk_mgr *clk_mgr)
++int dce_get_dp_ref_freq_khz(struct clk_mgr *clk_mgr_base)
+ {
+-	struct dce_clk_mgr *clk_mgr_dce = TO_DCE_CLK_MGR(clk_mgr);
++	struct clk_mgr_internal *clk_mgr = TO_CLK_MGR_INTERNAL(clk_mgr_base);
+ 	int dprefclk_wdivider;
+ 	int dprefclk_src_sel;
+ 	int dp_ref_clk_khz = 600000;
+@@ -161,22 +142,22 @@ static int dce_get_dp_ref_freq_khz(struct clk_mgr *clk_mgr)
+ 
+ 	/* Calculate the current DFS clock, in kHz.*/
+ 	dp_ref_clk_khz = (DENTIST_DIVIDER_RANGE_SCALE_FACTOR
+-		* clk_mgr_dce->dentist_vco_freq_khz) / target_div;
++		* clk_mgr->dentist_vco_freq_khz) / target_div;
+ 
+-	return clk_mgr_adjust_dp_ref_freq_for_ss(clk_mgr_dce, dp_ref_clk_khz);
++	return dce_adjust_dp_ref_freq_for_ss(clk_mgr, dp_ref_clk_khz);
+ }
+ 
+-int dce12_get_dp_ref_freq_khz(struct clk_mgr *clk_mgr)
++int dce12_get_dp_ref_freq_khz(struct clk_mgr *clk_mgr_base)
+ {
+-	struct dce_clk_mgr *clk_mgr_dce = TO_DCE_CLK_MGR(clk_mgr);
++	struct clk_mgr_internal *clk_mgr_dce = TO_CLK_MGR_INTERNAL(clk_mgr_base);
+ 
+-	return clk_mgr_adjust_dp_ref_freq_for_ss(clk_mgr_dce, clk_mgr_dce->dprefclk_khz);
++	return dce_adjust_dp_ref_freq_for_ss(clk_mgr_dce, clk_mgr_base->dprefclk_khz);
+ }
+ 
+ /* unit: in_khz before mode set, get pixel clock from context. ASIC register
+  * may not be programmed yet
+  */
+-static uint32_t get_max_pixel_clock_for_all_paths(struct dc_state *context)
++uint32_t dce_get_max_pixel_clock_for_all_paths(struct dc_state *context)
+ {
+ 	uint32_t max_pix_clk = 0;
+ 	int i;
+@@ -205,14 +186,14 @@ static uint32_t get_max_pixel_clock_for_all_paths(struct dc_state *context)
+ 	return max_pix_clk;
+ }
+ 
+-static enum dm_pp_clocks_state dce_get_required_clocks_state(
+-	struct clk_mgr *clk_mgr,
++enum dm_pp_clocks_state dce_get_required_clocks_state(
++	struct clk_mgr *clk_mgr_base,
+ 	struct dc_state *context)
+ {
+-	struct dce_clk_mgr *clk_mgr_dce = TO_DCE_CLK_MGR(clk_mgr);
++	struct clk_mgr_internal *clk_mgr_dce = TO_CLK_MGR_INTERNAL(clk_mgr_base);
+ 	int i;
+ 	enum dm_pp_clocks_state low_req_clk;
+-	int max_pix_clk = get_max_pixel_clock_for_all_paths(context);
++	int max_pix_clk = dce_get_max_pixel_clock_for_all_paths(context);
+ 
+ 	/* Iterate from highest supported to lowest valid state, and update
+ 	 * lowest RequiredState with the lowest state that satisfies
+@@ -238,14 +219,15 @@ static enum dm_pp_clocks_state dce_get_required_clocks_state(
+ 	return low_req_clk;
+ }
+ 
++
+ /* TODO: remove use the two broken down functions */
+-static int dce_set_clock(
+-	struct clk_mgr *clk_mgr,
++int dce_set_clock(
++	struct clk_mgr *clk_mgr_base,
+ 	int requested_clk_khz)
+ {
+-	struct dce_clk_mgr *clk_mgr_dce = TO_DCE_CLK_MGR(clk_mgr);
++	struct clk_mgr_internal *clk_mgr_dce = TO_CLK_MGR_INTERNAL(clk_mgr_base);
+ 	struct bp_pixel_clock_parameters pxl_clk_params = { 0 };
+-	struct dc_bios *bp = clk_mgr->ctx->dc_bios;
++	struct dc_bios *bp = clk_mgr_base->ctx->dc_bios;
+ 	int actual_clock = requested_clk_khz;
+ 	struct dmcu *dmcu = clk_mgr_dce->base.ctx->dc->res_pool->dmcu;
+ 
+@@ -281,129 +263,8 @@ static int dce_set_clock(
+ 	return actual_clock;
+ }
+ 
+-int dce112_set_clock(struct clk_mgr *clk_mgr, int requested_clk_khz)
+-{
+-	struct dce_clk_mgr *clk_mgr_dce = TO_DCE_CLK_MGR(clk_mgr);
+-	struct bp_set_dce_clock_parameters dce_clk_params;
+-	struct dc_bios *bp = clk_mgr->ctx->dc_bios;
+-	struct dc *core_dc = clk_mgr->ctx->dc;
+-	struct dmcu *dmcu = core_dc->res_pool->dmcu;
+-	int actual_clock = requested_clk_khz;
+-	/* Prepare to program display clock*/
+-	memset(&dce_clk_params, 0, sizeof(dce_clk_params));
+-
+-	/* Make sure requested clock isn't lower than minimum threshold*/
+-	if (requested_clk_khz > 0)
+-		requested_clk_khz = max(requested_clk_khz,
+-				clk_mgr_dce->dentist_vco_freq_khz / 62);
+-
+-	dce_clk_params.target_clock_frequency = requested_clk_khz;
+-	dce_clk_params.pll_id = CLOCK_SOURCE_ID_DFS;
+-	dce_clk_params.clock_type = DCECLOCK_TYPE_DISPLAY_CLOCK;
+-
+-	bp->funcs->set_dce_clock(bp, &dce_clk_params);
+-	actual_clock = dce_clk_params.target_clock_frequency;
+-
+-	/* from power down, we need mark the clock state as ClocksStateNominal
+-	 * from HWReset, so when resume we will call pplib voltage regulator.*/
+-	if (requested_clk_khz == 0)
+-		clk_mgr_dce->cur_min_clks_state = DM_PP_CLOCKS_STATE_NOMINAL;
+-
+-	/*Program DP ref Clock*/
+-	/*VBIOS will determine DPREFCLK frequency, so we don't set it*/
+-	dce_clk_params.target_clock_frequency = 0;
+-	dce_clk_params.clock_type = DCECLOCK_TYPE_DPREFCLK;
+-	if (!ASICREV_IS_VEGA20_P(clk_mgr->ctx->asic_id.hw_internal_rev))
+-		dce_clk_params.flags.USE_GENLOCK_AS_SOURCE_FOR_DPREFCLK =
+-			(dce_clk_params.pll_id ==
+-					CLOCK_SOURCE_COMBO_DISPLAY_PLL0);
+-	else
+-		dce_clk_params.flags.USE_GENLOCK_AS_SOURCE_FOR_DPREFCLK = false;
+-
+-	bp->funcs->set_dce_clock(bp, &dce_clk_params);
+-
+-	if (!IS_FPGA_MAXIMUS_DC(core_dc->ctx->dce_environment)) {
+-		if (dmcu && dmcu->funcs->is_dmcu_initialized(dmcu)) {
+-			if (clk_mgr_dce->dfs_bypass_disp_clk != actual_clock)
+-				dmcu->funcs->set_psr_wait_loop(dmcu,
+-						actual_clock / 1000 / 7);
+-		}
+-	}
+-
+-	clk_mgr_dce->dfs_bypass_disp_clk = actual_clock;
+-	return actual_clock;
+-}
+-
+-int dce112_set_dispclk(struct clk_mgr *clk_mgr, int requested_clk_khz)
+-{
+-	struct dce_clk_mgr *clk_mgr_dce = TO_DCE_CLK_MGR(clk_mgr);
+-	struct bp_set_dce_clock_parameters dce_clk_params;
+-	struct dc_bios *bp = clk_mgr->ctx->dc_bios;
+-	struct dc *core_dc = clk_mgr->ctx->dc;
+-	struct dmcu *dmcu = core_dc->res_pool->dmcu;
+-	int actual_clock = requested_clk_khz;
+-	/* Prepare to program display clock*/
+-	memset(&dce_clk_params, 0, sizeof(dce_clk_params));
+-
+-	/* Make sure requested clock isn't lower than minimum threshold*/
+-	if (requested_clk_khz > 0)
+-		requested_clk_khz = max(requested_clk_khz,
+-				clk_mgr_dce->dentist_vco_freq_khz / 62);
+-
+-	dce_clk_params.target_clock_frequency = requested_clk_khz;
+-	dce_clk_params.pll_id = CLOCK_SOURCE_ID_DFS;
+-	dce_clk_params.clock_type = DCECLOCK_TYPE_DISPLAY_CLOCK;
+-
+-	bp->funcs->set_dce_clock(bp, &dce_clk_params);
+-	actual_clock = dce_clk_params.target_clock_frequency;
+-
+-	/*
+-	 * from power down, we need mark the clock state as ClocksStateNominal
+-	 * from HWReset, so when resume we will call pplib voltage regulator.
+-	 */
+-	if (requested_clk_khz == 0)
+-		clk_mgr_dce->cur_min_clks_state = DM_PP_CLOCKS_STATE_NOMINAL;
+-
+-
+-	if (!IS_FPGA_MAXIMUS_DC(core_dc->ctx->dce_environment)) {
+-		if (dmcu && dmcu->funcs->is_dmcu_initialized(dmcu)) {
+-			if (clk_mgr_dce->dfs_bypass_disp_clk != actual_clock)
+-				dmcu->funcs->set_psr_wait_loop(dmcu,
+-						actual_clock / 1000 / 7);
+-		}
+-	}
+-
+-	clk_mgr_dce->dfs_bypass_disp_clk = actual_clock;
+-	return actual_clock;
+-
+-}
+-
+-int dce112_set_dprefclk(struct clk_mgr *clk_mgr)
+-{
+-	struct bp_set_dce_clock_parameters dce_clk_params;
+-	struct dc_bios *bp = clk_mgr->ctx->dc_bios;
+-
+-	memset(&dce_clk_params, 0, sizeof(dce_clk_params));
+-
+-	/*Program DP ref Clock*/
+-	/*VBIOS will determine DPREFCLK frequency, so we don't set it*/
+-	dce_clk_params.target_clock_frequency = 0;
+-	dce_clk_params.pll_id = CLOCK_SOURCE_ID_DFS;
+-	dce_clk_params.clock_type = DCECLOCK_TYPE_DPREFCLK;
+-	if (!ASICREV_IS_VEGA20_P(clk_mgr->ctx->asic_id.hw_internal_rev))
+-		dce_clk_params.flags.USE_GENLOCK_AS_SOURCE_FOR_DPREFCLK =
+-			(dce_clk_params.pll_id ==
+-					CLOCK_SOURCE_COMBO_DISPLAY_PLL0);
+-	else
+-		dce_clk_params.flags.USE_GENLOCK_AS_SOURCE_FOR_DPREFCLK = false;
+ 
+-	bp->funcs->set_dce_clock(bp, &dce_clk_params);
+-
+-	/* Returns the dp_refclk that was set */
+-	return dce_clk_params.target_clock_frequency;
+-}
+-
+-static void dce_clock_read_integrated_info(struct dce_clk_mgr *clk_mgr_dce)
++static void dce_clock_read_integrated_info(struct clk_mgr_internal *clk_mgr_dce)
+ {
+ 	struct dc_debug_options *debug = &clk_mgr_dce->base.ctx->dc->debug;
+ 	struct dc_bios *bp = clk_mgr_dce->base.ctx->dc_bios;
+@@ -461,7 +322,7 @@ static void dce_clock_read_integrated_info(struct dce_clk_mgr *clk_mgr_dce)
+ 			clk_mgr_dce->dfs_bypass_enabled = true;
+ }
+ 
+-void dce_clock_read_ss_info(struct dce_clk_mgr *clk_mgr_dce)
++void dce_clock_read_ss_info(struct clk_mgr_internal *clk_mgr_dce)
+ {
+ 	struct dc_bios *bp = clk_mgr_dce->base.ctx->dc_bios;
+ 	int ss_info_num = bp->funcs->get_ss_entry_number(
+@@ -517,145 +378,6 @@ void dce_clock_read_ss_info(struct dce_clk_mgr *clk_mgr_dce)
+ 	}
+ }
+ 
+-/**
+- * dce121_clock_patch_xgmi_ss_info() - Save XGMI spread spectrum info
+- * @clk_mgr: clock manager base structure
+- *
+- * Reads from VBIOS the XGMI spread spectrum info and saves it within
+- * the dce clock manager. This operation will overwrite the existing dprefclk
+- * SS values if the vBIOS query succeeds. Otherwise, it does nothing. It also
+- * sets the ->xgmi_enabled flag.
+- */
+-void dce121_clock_patch_xgmi_ss_info(struct clk_mgr *clk_mgr)
+-{
+-	struct dce_clk_mgr *clk_mgr_dce = TO_DCE_CLK_MGR(clk_mgr);
+-	enum bp_result result;
+-	struct spread_spectrum_info info = { { 0 } };
+-	struct dc_bios *bp = clk_mgr_dce->base.ctx->dc_bios;
+-
+-	clk_mgr_dce->xgmi_enabled = false;
+-
+-	result = bp->funcs->get_spread_spectrum_info(bp, AS_SIGNAL_TYPE_XGMI,
+-						     0, &info);
+-	if (result == BP_RESULT_OK && info.spread_spectrum_percentage != 0) {
+-		clk_mgr_dce->xgmi_enabled = true;
+-		clk_mgr_dce->ss_on_dprefclk = true;
+-		clk_mgr_dce->dprefclk_ss_divider =
+-				info.spread_percentage_divider;
+-
+-		if (info.type.CENTER_MODE == 0) {
+-			/* Currently for DP Reference clock we
+-			 * need only SS percentage for
+-			 * downspread */
+-			clk_mgr_dce->dprefclk_ss_percentage =
+-					info.spread_spectrum_percentage;
+-		}
+-	}
+-}
+-
+-void dce110_fill_display_configs(
+-	const struct dc_state *context,
+-	struct dm_pp_display_configuration *pp_display_cfg)
+-{
+-	int j;
+-	int num_cfgs = 0;
+-
+-	for (j = 0; j < context->stream_count; j++) {
+-		int k;
+-
+-		const struct dc_stream_state *stream = context->streams[j];
+-		struct dm_pp_single_disp_config *cfg =
+-			&pp_display_cfg->disp_configs[num_cfgs];
+-		const struct pipe_ctx *pipe_ctx = NULL;
+-
+-		for (k = 0; k < MAX_PIPES; k++)
+-			if (stream == context->res_ctx.pipe_ctx[k].stream) {
+-				pipe_ctx = &context->res_ctx.pipe_ctx[k];
+-				break;
+-			}
+-
+-		ASSERT(pipe_ctx != NULL);
+-
+-		/* only notify active stream */
+-		if (stream->dpms_off)
+-			continue;
+-
+-		num_cfgs++;
+-		cfg->signal = pipe_ctx->stream->signal;
+-		cfg->pipe_idx = pipe_ctx->stream_res.tg->inst;
+-		cfg->src_height = stream->src.height;
+-		cfg->src_width = stream->src.width;
+-		cfg->ddi_channel_mapping =
+-			stream->link->ddi_channel_mapping.raw;
+-		cfg->transmitter =
+-			stream->link->link_enc->transmitter;
+-		cfg->link_settings.lane_count =
+-			stream->link->cur_link_settings.lane_count;
+-		cfg->link_settings.link_rate =
+-			stream->link->cur_link_settings.link_rate;
+-		cfg->link_settings.link_spread =
+-			stream->link->cur_link_settings.link_spread;
+-		cfg->sym_clock = stream->phy_pix_clk;
+-		/* Round v_refresh*/
+-		cfg->v_refresh = stream->timing.pix_clk_100hz * 100;
+-		cfg->v_refresh /= stream->timing.h_total;
+-		cfg->v_refresh = (cfg->v_refresh + stream->timing.v_total / 2)
+-							/ stream->timing.v_total;
+-	}
+-
+-	pp_display_cfg->display_count = num_cfgs;
+-}
+-
+-static uint32_t dce110_get_min_vblank_time_us(const struct dc_state *context)
+-{
+-	uint8_t j;
+-	uint32_t min_vertical_blank_time = -1;
+-
+-	for (j = 0; j < context->stream_count; j++) {
+-		struct dc_stream_state *stream = context->streams[j];
+-		uint32_t vertical_blank_in_pixels = 0;
+-		uint32_t vertical_blank_time = 0;
+-
+-		vertical_blank_in_pixels = stream->timing.h_total *
+-			(stream->timing.v_total
+-			 - stream->timing.v_addressable);
+-
+-		vertical_blank_time = vertical_blank_in_pixels
+-			* 10000 / stream->timing.pix_clk_100hz;
+-
+-		if (min_vertical_blank_time > vertical_blank_time)
+-			min_vertical_blank_time = vertical_blank_time;
+-	}
+-
+-	return min_vertical_blank_time;
+-}
+-
+-static int determine_sclk_from_bounding_box(
+-		const struct dc *dc,
+-		int required_sclk)
+-{
+-	int i;
+-
+-	/*
+-	 * Some asics do not give us sclk levels, so we just report the actual
+-	 * required sclk
+-	 */
+-	if (dc->sclk_lvls.num_levels == 0)
+-		return required_sclk;
+-
+-	for (i = 0; i < dc->sclk_lvls.num_levels; i++) {
+-		if (dc->sclk_lvls.clocks_in_khz[i] >= required_sclk)
+-			return dc->sclk_lvls.clocks_in_khz[i];
+-	}
+-	/*
+-	 * even maximum level could not satisfy requirement, this
+-	 * is unexpected at this stage, should have been caught at
+-	 * validation time
+-	 */
+-	ASSERT(0);
+-	return dc->sclk_lvls.clocks_in_khz[dc->sclk_lvls.num_levels - 1];
+-}
+-
+ static void dce_pplib_apply_display_requirements(
+ 	struct dc *dc,
+ 	struct dc_state *context)
+@@ -670,71 +392,11 @@ static void dce_pplib_apply_display_requirements(
+ 		dm_pp_apply_display_requirements(dc->ctx, pp_display_cfg);
+ }
+ 
+-static void dce11_pplib_apply_display_requirements(
+-	struct dc *dc,
+-	struct dc_state *context)
+-{
+-	struct dm_pp_display_configuration *pp_display_cfg = &context->pp_display_cfg;
+-
+-	pp_display_cfg->all_displays_in_sync =
+-		context->bw_ctx.bw.dce.all_displays_in_sync;
+-	pp_display_cfg->nb_pstate_switch_disable =
+-			context->bw_ctx.bw.dce.nbp_state_change_enable == false;
+-	pp_display_cfg->cpu_cc6_disable =
+-			context->bw_ctx.bw.dce.cpuc_state_change_enable == false;
+-	pp_display_cfg->cpu_pstate_disable =
+-			context->bw_ctx.bw.dce.cpup_state_change_enable == false;
+-	pp_display_cfg->cpu_pstate_separation_time =
+-			context->bw_ctx.bw.dce.blackout_recovery_time_us;
+-
+-	pp_display_cfg->min_memory_clock_khz = context->bw_ctx.bw.dce.yclk_khz
+-		/ MEMORY_TYPE_MULTIPLIER_CZ;
+-
+-	pp_display_cfg->min_engine_clock_khz = determine_sclk_from_bounding_box(
+-			dc,
+-			context->bw_ctx.bw.dce.sclk_khz);
+-
+-	/*
+-	 * As workaround for >4x4K lightup set dcfclock to min_engine_clock value.
+-	 * This is not required for less than 5 displays,
+-	 * thus don't request decfclk in dc to avoid impact
+-	 * on power saving.
+-	 *
+-	 */
+-	pp_display_cfg->min_dcfclock_khz = (context->stream_count > 4)?
+-			pp_display_cfg->min_engine_clock_khz : 0;
+-
+-	pp_display_cfg->min_engine_clock_deep_sleep_khz
+-			= context->bw_ctx.bw.dce.sclk_deep_sleep_khz;
+-
+-	pp_display_cfg->avail_mclk_switch_time_us =
+-						dce110_get_min_vblank_time_us(context);
+-	/* TODO: dce11.2*/
+-	pp_display_cfg->avail_mclk_switch_time_in_disp_active_us = 0;
+-
+-	pp_display_cfg->disp_clk_khz = dc->res_pool->clk_mgr->clks.dispclk_khz;
+-
+-	dce110_fill_display_configs(context, pp_display_cfg);
+-
+-	/* TODO: is this still applicable?*/
+-	if (pp_display_cfg->display_count == 1) {
+-		const struct dc_crtc_timing *timing =
+-			&context->streams[0]->timing;
+-
+-		pp_display_cfg->crtc_index =
+-			pp_display_cfg->disp_configs[0].pipe_idx;
+-		pp_display_cfg->line_time_in_us = timing->h_total * 10000 / timing->pix_clk_100hz;
+-	}
+-
+-	if (memcmp(&dc->current_state->pp_display_cfg, pp_display_cfg, sizeof(*pp_display_cfg)) !=  0)
+-		dm_pp_apply_display_requirements(dc->ctx, pp_display_cfg);
+-}
+-
+-static void dce_update_clocks(struct clk_mgr *clk_mgr,
++static void dce_update_clocks(struct clk_mgr *clk_mgr_base,
+ 			struct dc_state *context,
+ 			bool safe_to_lower)
+ {
+-	struct dce_clk_mgr *clk_mgr_dce = TO_DCE_CLK_MGR(clk_mgr);
++	struct clk_mgr_internal *clk_mgr_dce = TO_CLK_MGR_INTERNAL(clk_mgr_base);
+ 	struct dm_pp_power_level_change_request level_change_req;
+ 	int patched_disp_clk = context->bw_ctx.bw.dce.dispclk_khz;
+ 
+@@ -742,286 +404,56 @@ static void dce_update_clocks(struct clk_mgr *clk_mgr,
+ 	if (!clk_mgr_dce->dfs_bypass_active)
+ 		patched_disp_clk = patched_disp_clk * 115 / 100;
+ 
+-	level_change_req.power_level = dce_get_required_clocks_state(clk_mgr, context);
+-	/* get max clock state from PPLIB */
+-	if ((level_change_req.power_level < clk_mgr_dce->cur_min_clks_state && safe_to_lower)
+-			|| level_change_req.power_level > clk_mgr_dce->cur_min_clks_state) {
+-		if (dm_pp_apply_power_level_change_request(clk_mgr->ctx, &level_change_req))
+-			clk_mgr_dce->cur_min_clks_state = level_change_req.power_level;
+-	}
+-
+-	if (should_set_clock(safe_to_lower, patched_disp_clk, clk_mgr->clks.dispclk_khz)) {
+-		patched_disp_clk = dce_set_clock(clk_mgr, patched_disp_clk);
+-		clk_mgr->clks.dispclk_khz = patched_disp_clk;
+-	}
+-	dce_pplib_apply_display_requirements(clk_mgr->ctx->dc, context);
+-}
+-
+-static void dce11_update_clocks(struct clk_mgr *clk_mgr,
+-			struct dc_state *context,
+-			bool safe_to_lower)
+-{
+-	struct dce_clk_mgr *clk_mgr_dce = TO_DCE_CLK_MGR(clk_mgr);
+-	struct dm_pp_power_level_change_request level_change_req;
+-	int patched_disp_clk = context->bw_ctx.bw.dce.dispclk_khz;
+-
+-        /*TODO: W/A for dal3 linux, investigate why this works */
+-        if (!clk_mgr_dce->dfs_bypass_active)
+-                patched_disp_clk = patched_disp_clk * 115 / 100;
+-
+-	level_change_req.power_level = dce_get_required_clocks_state(clk_mgr, context);
++	level_change_req.power_level = dce_get_required_clocks_state(clk_mgr_base, context);
+ 	/* get max clock state from PPLIB */
+ 	if ((level_change_req.power_level < clk_mgr_dce->cur_min_clks_state && safe_to_lower)
+ 			|| level_change_req.power_level > clk_mgr_dce->cur_min_clks_state) {
+-		if (dm_pp_apply_power_level_change_request(clk_mgr->ctx, &level_change_req))
++		if (dm_pp_apply_power_level_change_request(clk_mgr_base->ctx, &level_change_req))
+ 			clk_mgr_dce->cur_min_clks_state = level_change_req.power_level;
+ 	}
+ 
+-       if (should_set_clock(safe_to_lower, patched_disp_clk, clk_mgr->clks.dispclk_khz)) {
+-	       context->bw_ctx.bw.dce.dispclk_khz = dce_set_clock(clk_mgr, patched_disp_clk);
+-               clk_mgr->clks.dispclk_khz = patched_disp_clk;
+-	}
+-	dce11_pplib_apply_display_requirements(clk_mgr->ctx->dc, context);
+-}
+-
+-static void dce112_update_clocks(struct clk_mgr *clk_mgr,
+-			struct dc_state *context,
+-			bool safe_to_lower)
+-{
+-	struct dce_clk_mgr *clk_mgr_dce = TO_DCE_CLK_MGR(clk_mgr);
+-	struct dm_pp_power_level_change_request level_change_req;
+-	int patched_disp_clk = context->bw_ctx.bw.dce.dispclk_khz;
+-
+-	if (!clk_mgr_dce->dfs_bypass_active)
+-		patched_disp_clk = patched_disp_clk * 115 / 100;
+-
+-	level_change_req.power_level = dce_get_required_clocks_state(clk_mgr, context);
+-	/* get max clock state from PPLIB */
+-	if ((level_change_req.power_level < clk_mgr_dce->cur_min_clks_state && safe_to_lower)
+-			|| level_change_req.power_level > clk_mgr_dce->cur_min_clks_state) {
+-		if (dm_pp_apply_power_level_change_request(clk_mgr->ctx, &level_change_req))
+-			clk_mgr_dce->cur_min_clks_state = level_change_req.power_level;
+-	}
+-
+-	if (should_set_clock(safe_to_lower, patched_disp_clk, clk_mgr->clks.dispclk_khz)) {
+-		patched_disp_clk = dce112_set_clock(clk_mgr, patched_disp_clk);
+-		clk_mgr->clks.dispclk_khz = patched_disp_clk;
+-	}
+-	dce11_pplib_apply_display_requirements(clk_mgr->ctx->dc, context);
+-}
+-
+-static void dce12_update_clocks(struct clk_mgr *clk_mgr,
+-			struct dc_state *context,
+-			bool safe_to_lower)
+-{
+-	struct dce_clk_mgr *clk_mgr_dce = TO_DCE_CLK_MGR(clk_mgr);
+-	struct dm_pp_clock_for_voltage_req clock_voltage_req = {0};
+-	int max_pix_clk = get_max_pixel_clock_for_all_paths(context);
+-	int patched_disp_clk = context->bw_ctx.bw.dce.dispclk_khz;
+-
+-	/*TODO: W/A for dal3 linux, investigate why this works */
+-	if (!clk_mgr_dce->dfs_bypass_active)
+-		patched_disp_clk = patched_disp_clk * 115 / 100;
+-
+-	if (should_set_clock(safe_to_lower, patched_disp_clk, clk_mgr->clks.dispclk_khz)) {
+-		clock_voltage_req.clk_type = DM_PP_CLOCK_TYPE_DISPLAY_CLK;
+-		/*
+-		 * When xGMI is enabled, the display clk needs to be adjusted
+-		 * with the WAFL link's SS percentage.
+-		 */
+-		if (clk_mgr_dce->xgmi_enabled)
+-			patched_disp_clk = clk_mgr_adjust_dp_ref_freq_for_ss(
+-					clk_mgr_dce, patched_disp_clk);
+-		clock_voltage_req.clocks_in_khz = patched_disp_clk;
+-		clk_mgr->clks.dispclk_khz = dce112_set_clock(clk_mgr, patched_disp_clk);
+-
+-		dm_pp_apply_clock_for_voltage_request(clk_mgr->ctx, &clock_voltage_req);
+-	}
+-
+-	if (should_set_clock(safe_to_lower, max_pix_clk, clk_mgr->clks.phyclk_khz)) {
+-		clock_voltage_req.clk_type = DM_PP_CLOCK_TYPE_DISPLAYPHYCLK;
+-		clock_voltage_req.clocks_in_khz = max_pix_clk;
+-		clk_mgr->clks.phyclk_khz = max_pix_clk;
+-
+-		dm_pp_apply_clock_for_voltage_request(clk_mgr->ctx, &clock_voltage_req);
++	if (should_set_clock(safe_to_lower, patched_disp_clk, clk_mgr_base->clks.dispclk_khz)) {
++		patched_disp_clk = dce_set_clock(clk_mgr_base, patched_disp_clk);
++		clk_mgr_base->clks.dispclk_khz = patched_disp_clk;
+ 	}
+-	dce11_pplib_apply_display_requirements(clk_mgr->ctx->dc, context);
++	dce_pplib_apply_display_requirements(clk_mgr_base->ctx->dc, context);
+ }
+ 
+-static struct clk_mgr_funcs dce120_funcs = {
+-	.get_dp_ref_clk_frequency = dce12_get_dp_ref_freq_khz,
+-	.update_clocks = dce12_update_clocks
+-};
+-
+-static struct clk_mgr_funcs dce112_funcs = {
+-	.get_dp_ref_clk_frequency = dce_get_dp_ref_freq_khz,
+-	.update_clocks = dce112_update_clocks
+-};
+-
+-static struct clk_mgr_funcs dce110_funcs = {
+-	.get_dp_ref_clk_frequency = dce_get_dp_ref_freq_khz,
+-	.update_clocks = dce11_update_clocks,
+-};
+-
+ static struct clk_mgr_funcs dce_funcs = {
+ 	.get_dp_ref_clk_frequency = dce_get_dp_ref_freq_khz,
+ 	.update_clocks = dce_update_clocks
+ };
+ 
+-static void dce_clk_mgr_construct(
+-	struct dce_clk_mgr *clk_mgr_dce,
+-	struct dc_context *ctx,
+-	const struct clk_mgr_registers *regs,
+-	const struct clk_mgr_shift *clk_shift,
+-	const struct clk_mgr_mask *clk_mask)
++void dce_clk_mgr_construct(
++		struct dc_context *ctx,
++		struct clk_mgr_internal *clk_mgr)
+ {
+-	struct clk_mgr *base = &clk_mgr_dce->base;
++	struct clk_mgr *base = &clk_mgr->base;
+ 	struct dm_pp_static_clock_info static_clk_info = {0};
+ 
++        memcpy(clk_mgr->max_clks_by_state,
++                dce80_max_clks_by_state,
++                sizeof(dce80_max_clks_by_state));
++
+ 	base->ctx = ctx;
+ 	base->funcs = &dce_funcs;
+ 
+-	clk_mgr_dce->regs = regs;
+-	clk_mgr_dce->clk_mgr_shift = clk_shift;
+-	clk_mgr_dce->clk_mgr_mask = clk_mask;
++        clk_mgr->regs = &disp_clk_regs;
++        clk_mgr->clk_mgr_shift = &disp_clk_shift;
++        clk_mgr->clk_mgr_mask = &disp_clk_mask;
++        clk_mgr->dfs_bypass_disp_clk = 0;
+ 
+-	clk_mgr_dce->dfs_bypass_disp_clk = 0;
+-
+-	clk_mgr_dce->dprefclk_ss_percentage = 0;
+-	clk_mgr_dce->dprefclk_ss_divider = 1000;
+-	clk_mgr_dce->ss_on_dprefclk = false;
++	clk_mgr->dprefclk_ss_percentage = 0;
++        clk_mgr->dprefclk_ss_divider = 1000;
++        clk_mgr->ss_on_dprefclk = false;
+ 
+ 
+ 	if (dm_pp_get_static_clocks(ctx, &static_clk_info))
+-		clk_mgr_dce->max_clks_state = static_clk_info.max_clocks_state;
++		clk_mgr->max_clks_state = static_clk_info.max_clocks_state;
+ 	else
+-		clk_mgr_dce->max_clks_state = DM_PP_CLOCKS_STATE_NOMINAL;
+-	clk_mgr_dce->cur_min_clks_state = DM_PP_CLOCKS_STATE_INVALID;
+-
+-	dce_clock_read_integrated_info(clk_mgr_dce);
+-	dce_clock_read_ss_info(clk_mgr_dce);
+-}
+-
+-struct clk_mgr *dce_clk_mgr_create(
+-	struct dc_context *ctx,
+-	const struct clk_mgr_registers *regs,
+-	const struct clk_mgr_shift *clk_shift,
+-	const struct clk_mgr_mask *clk_mask)
+-{
+-	struct dce_clk_mgr *clk_mgr_dce = kzalloc(sizeof(*clk_mgr_dce), GFP_KERNEL);
+-
+-	if (clk_mgr_dce == NULL) {
+-		BREAK_TO_DEBUGGER();
+-		return NULL;
+-	}
+-
+-	memcpy(clk_mgr_dce->max_clks_by_state,
+-		dce80_max_clks_by_state,
+-		sizeof(dce80_max_clks_by_state));
+-
+-	dce_clk_mgr_construct(
+-		clk_mgr_dce, ctx, regs, clk_shift, clk_mask);
+-
+-	return &clk_mgr_dce->base;
+-}
+-
+-struct clk_mgr *dce110_clk_mgr_create(
+-	struct dc_context *ctx,
+-	const struct clk_mgr_registers *regs,
+-	const struct clk_mgr_shift *clk_shift,
+-	const struct clk_mgr_mask *clk_mask)
+-{
+-	struct dce_clk_mgr *clk_mgr_dce = kzalloc(sizeof(*clk_mgr_dce), GFP_KERNEL);
+-
+-	if (clk_mgr_dce == NULL) {
+-		BREAK_TO_DEBUGGER();
+-		return NULL;
+-	}
+-
+-	memcpy(clk_mgr_dce->max_clks_by_state,
+-		dce110_max_clks_by_state,
+-		sizeof(dce110_max_clks_by_state));
+-
+-	dce_clk_mgr_construct(
+-		clk_mgr_dce, ctx, regs, clk_shift, clk_mask);
+-
+-	clk_mgr_dce->base.funcs = &dce110_funcs;
+-
+-	return &clk_mgr_dce->base;
+-}
+-
+-struct clk_mgr *dce112_clk_mgr_create(
+-	struct dc_context *ctx,
+-	const struct clk_mgr_registers *regs,
+-	const struct clk_mgr_shift *clk_shift,
+-	const struct clk_mgr_mask *clk_mask)
+-{
+-	struct dce_clk_mgr *clk_mgr_dce = kzalloc(sizeof(*clk_mgr_dce), GFP_KERNEL);
+-
+-	if (clk_mgr_dce == NULL) {
+-		BREAK_TO_DEBUGGER();
+-		return NULL;
+-	}
+-
+-	memcpy(clk_mgr_dce->max_clks_by_state,
+-		dce112_max_clks_by_state,
+-		sizeof(dce112_max_clks_by_state));
+-
+-	dce_clk_mgr_construct(
+-		clk_mgr_dce, ctx, regs, clk_shift, clk_mask);
+-
+-	clk_mgr_dce->base.funcs = &dce112_funcs;
+-
+-	return &clk_mgr_dce->base;
+-}
+-
+-struct clk_mgr *dce120_clk_mgr_create(struct dc_context *ctx)
+-{
+-	struct dce_clk_mgr *clk_mgr_dce = kzalloc(sizeof(*clk_mgr_dce), GFP_KERNEL);
+-
+-	if (clk_mgr_dce == NULL) {
+-		BREAK_TO_DEBUGGER();
+-		return NULL;
+-	}
+-
+-	memcpy(clk_mgr_dce->max_clks_by_state,
+-		dce120_max_clks_by_state,
+-		sizeof(dce120_max_clks_by_state));
+-
+-	dce_clk_mgr_construct(
+-		clk_mgr_dce, ctx, NULL, NULL, NULL);
+-
+-	clk_mgr_dce->dprefclk_khz = 600000;
+-	clk_mgr_dce->base.funcs = &dce120_funcs;
+-
+-	return &clk_mgr_dce->base;
+-}
+-
+-struct clk_mgr *dce121_clk_mgr_create(struct dc_context *ctx)
+-{
+-	struct dce_clk_mgr *clk_mgr_dce = kzalloc(sizeof(*clk_mgr_dce),
+-						  GFP_KERNEL);
+-
+-	if (clk_mgr_dce == NULL) {
+-		BREAK_TO_DEBUGGER();
+-		return NULL;
+-	}
+-
+-	memcpy(clk_mgr_dce->max_clks_by_state, dce120_max_clks_by_state,
+-	       sizeof(dce120_max_clks_by_state));
+-
+-	dce_clk_mgr_construct(clk_mgr_dce, ctx, NULL, NULL, NULL);
+-
+-	clk_mgr_dce->dprefclk_khz = 625000;
+-	clk_mgr_dce->base.funcs = &dce120_funcs;
+-
+-	return &clk_mgr_dce->base;
+-}
+-
+-void dce_clk_mgr_destroy(struct clk_mgr **clk_mgr)
+-{
+-	struct dce_clk_mgr *clk_mgr_dce = TO_DCE_CLK_MGR(*clk_mgr);
++		clk_mgr->max_clks_state = DM_PP_CLOCKS_STATE_NOMINAL;
++	clk_mgr->cur_min_clks_state = DM_PP_CLOCKS_STATE_INVALID;
+ 
+-	kfree(clk_mgr_dce);
+-	*clk_mgr = NULL;
++	dce_clock_read_integrated_info(clk_mgr);
++	dce_clock_read_ss_info(clk_mgr);
+ }
+diff --git a/drivers/gpu/drm/amd/display/dc/dce/dce_clk_mgr.h b/drivers/gpu/drm/amd/display/dc/dce/dce_clk_mgr.h
+index cca0c95d8cc8..f3bc7ab68aab 100644
+--- a/drivers/gpu/drm/amd/display/dc/dce/dce_clk_mgr.h
++++ b/drivers/gpu/drm/amd/display/dc/dce/dce_clk_mgr.h
+@@ -27,131 +27,7 @@
+ #ifndef _DCE_CLK_MGR_H_
+ #define _DCE_CLK_MGR_H_
+ 
+-#include "clk_mgr.h"
+-#include "dccg.h"
+-
+-#define MEMORY_TYPE_MULTIPLIER_CZ 4
+-
+-#define CLK_COMMON_REG_LIST_DCE_BASE() \
+-	.DPREFCLK_CNTL = mmDPREFCLK_CNTL, \
+-	.DENTIST_DISPCLK_CNTL = mmDENTIST_DISPCLK_CNTL
+-
+-#define CLK_COMMON_REG_LIST_DCN_BASE() \
+-	SR(DENTIST_DISPCLK_CNTL)
+-
+-#define VBIOS_SMU_MSG_BOX_REG_LIST_RV() \
+-	.MP1_SMN_C2PMSG_91 = mmMP1_SMN_C2PMSG_91, \
+-	.MP1_SMN_C2PMSG_83 = mmMP1_SMN_C2PMSG_83, \
+-	.MP1_SMN_C2PMSG_67 = mmMP1_SMN_C2PMSG_67
+-
+-#define CLK_SF(reg_name, field_name, post_fix)\
+-	.field_name = reg_name ## __ ## field_name ## post_fix
+-
+-#define CLK_COMMON_MASK_SH_LIST_DCE_COMMON_BASE(mask_sh) \
+-	CLK_SF(DPREFCLK_CNTL, DPREFCLK_SRC_SEL, mask_sh), \
+-	CLK_SF(DENTIST_DISPCLK_CNTL, DENTIST_DPREFCLK_WDIVIDER, mask_sh)
+-
+-#define CLK_COMMON_MASK_SH_LIST_DCN_COMMON_BASE(mask_sh) \
+-	CLK_SF(DENTIST_DISPCLK_CNTL, DENTIST_DISPCLK_WDIVIDER, mask_sh),\
+-	CLK_SF(DENTIST_DISPCLK_CNTL, DENTIST_DISPCLK_CHG_DONE, mask_sh)
+-
+-#define CLK_MASK_SH_LIST_RV1(mask_sh) \
+-	CLK_COMMON_MASK_SH_LIST_DCN_COMMON_BASE(mask_sh),\
+-	CLK_SF(MP1_SMN_C2PMSG_67, CONTENT, mask_sh),\
+-	CLK_SF(MP1_SMN_C2PMSG_83, CONTENT, mask_sh),\
+-	CLK_SF(MP1_SMN_C2PMSG_91, CONTENT, mask_sh),
+-
+-
+-#define CLK_REG_FIELD_LIST(type) \
+-	type DPREFCLK_SRC_SEL; \
+-	type DENTIST_DPREFCLK_WDIVIDER; \
+-	type DENTIST_DISPCLK_WDIVIDER; \
+-	type DENTIST_DISPCLK_CHG_DONE;
+-
+-#define VBIOS_SMU_REG_FIELD_LIST(type) \
+-	type CONTENT;
+-
+-struct clk_mgr_shift {
+-	CLK_REG_FIELD_LIST(uint8_t)
+-	VBIOS_SMU_REG_FIELD_LIST(uint32_t)
+-};
+-
+-struct clk_mgr_mask {
+-	CLK_REG_FIELD_LIST(uint32_t)
+-	VBIOS_SMU_REG_FIELD_LIST(uint32_t)
+-};
+-
+-struct clk_mgr_registers {
+-	uint32_t DPREFCLK_CNTL;
+-	uint32_t DENTIST_DISPCLK_CNTL;
+-
+-	uint32_t MP1_SMN_C2PMSG_67;
+-	uint32_t MP1_SMN_C2PMSG_83;
+-	uint32_t MP1_SMN_C2PMSG_91;
+-};
+-
+-struct state_dependent_clocks {
+-	int display_clk_khz;
+-	int pixel_clk_khz;
+-};
+-
+-struct dce_clk_mgr {
+-	struct clk_mgr base;
+-	const struct clk_mgr_registers *regs;
+-	const struct clk_mgr_shift *clk_mgr_shift;
+-	const struct clk_mgr_mask *clk_mgr_mask;
+-
+-	struct dccg *dccg;
+-
+-	struct state_dependent_clocks max_clks_by_state[DM_PP_CLOCKS_MAX_STATES];
+-
+-	int dentist_vco_freq_khz;
+-
+-	/* Cache the status of DFS-bypass feature*/
+-	bool dfs_bypass_enabled;
+-	/* True if the DFS-bypass feature is enabled and active. */
+-	bool dfs_bypass_active;
+-	/* Cache the display clock returned by VBIOS if DFS-bypass is enabled.
+-	 * This is basically "Crystal Frequency In KHz" (XTALIN) frequency */
+-	int dfs_bypass_disp_clk;
+-
+-	/**
+-	 * @ss_on_dprefclk:
+-	 *
+-	 * True if spread spectrum is enabled on the DP ref clock.
+-	 */
+-	bool ss_on_dprefclk;
+-
+-	/**
+-	 * @xgmi_enabled:
+-	 *
+-	 * True if xGMI is enabled. On VG20, both audio and display clocks need
+-	 * to be adjusted with the WAFL link's SS info if xGMI is enabled.
+-	 */
+-	bool xgmi_enabled;
+-
+-	/**
+-	 * @dprefclk_ss_percentage:
+-	 *
+-	 * DPREFCLK SS percentage (if down-spread enabled).
+-	 *
+-	 * Note that if XGMI is enabled, the SS info (percentage and divider)
+-	 * from the WAFL link is used instead. This is decided during
+-	 * dce_clk_mgr initialization.
+-	 */
+-	int dprefclk_ss_percentage;
+-
+-	/**
+-	 * @dprefclk_ss_divider:
+-	 *
+-	 * DPREFCLK SS percentage Divider (100 or 1000).
+-	 */
+-	int dprefclk_ss_divider;
+-	int dprefclk_khz;
+-
+-	enum dm_pp_clocks_state max_clks_state;
+-	enum dm_pp_clocks_state cur_min_clks_state;
+-};
++#include "dc.h"
+ 
+ /* Starting DID for each range */
+ enum dentist_base_divider_id {
+@@ -175,45 +51,28 @@ enum dentist_divider_range {
+ 	DENTIST_DIVIDER_RANGE_SCALE_FACTOR = 4
+ };
+ 
+-static inline bool should_set_clock(bool safe_to_lower, int calc_clk, int cur_clk)
+-{
+-	return ((safe_to_lower && calc_clk < cur_clk) || calc_clk > cur_clk);
+-}
+-
+-void dce_clock_read_ss_info(struct dce_clk_mgr *dccg_dce);
++/* functions shared by other dce clk mgrs */
++int dce_adjust_dp_ref_freq_for_ss(struct clk_mgr_internal *clk_mgr_dce, int dp_ref_clk_khz);
++int dce_get_dp_ref_freq_khz(struct clk_mgr *clk_mgr_base);
++enum dm_pp_clocks_state dce_get_required_clocks_state(
++	struct clk_mgr *clk_mgr_base,
++	struct dc_state *context);
+ 
+-int dce12_get_dp_ref_freq_khz(struct clk_mgr *dccg);
+-
+-void dce110_fill_display_configs(
+-	const struct dc_state *context,
+-	struct dm_pp_display_configuration *pp_display_cfg);
++uint32_t dce_get_max_pixel_clock_for_all_paths(struct dc_state *context);
+ 
+-int dce112_set_clock(struct clk_mgr *dccg, int requested_clk_khz);
+-int dce112_set_dispclk(struct clk_mgr *clk_mgr, int requested_clk_khz);
+-int dce112_set_dprefclk(struct clk_mgr *clk_mgr);
+ 
+-struct clk_mgr *dce_clk_mgr_create(
+-	struct dc_context *ctx,
+-	const struct clk_mgr_registers *regs,
+-	const struct clk_mgr_shift *clk_shift,
+-	const struct clk_mgr_mask *clk_mask);
++void dce_clk_mgr_construct(
++		struct dc_context *ctx,
++		struct clk_mgr_internal *clk_mgr_dce);
+ 
+-struct clk_mgr *dce110_clk_mgr_create(
+-	struct dc_context *ctx,
+-	const struct clk_mgr_registers *regs,
+-	const struct clk_mgr_shift *clk_shift,
+-	const struct clk_mgr_mask *clk_mask);
++void dce_clock_read_ss_info(struct clk_mgr_internal *dccg_dce);
+ 
+-struct clk_mgr *dce112_clk_mgr_create(
+-	struct dc_context *ctx,
+-	const struct clk_mgr_registers *regs,
+-	const struct clk_mgr_shift *clk_shift,
+-	const struct clk_mgr_mask *clk_mask);
++int dce12_get_dp_ref_freq_khz(struct clk_mgr *dccg);
+ 
+-struct clk_mgr *dce120_clk_mgr_create(struct dc_context *ctx);
++int dce_set_clock(
++	struct clk_mgr *clk_mgr_base,
++	int requested_clk_khz);
+ 
+-struct clk_mgr *dce121_clk_mgr_create(struct dc_context *ctx);
+-void dce121_clock_patch_xgmi_ss_info(struct clk_mgr *clk_mgr);
+ 
+ void dce_clk_mgr_destroy(struct clk_mgr **clk_mgr);
+ 
+diff --git a/drivers/gpu/drm/amd/display/dc/dce/dce_clock_source.c b/drivers/gpu/drm/amd/display/dc/dce/dce_clock_source.c
+index df422440845b..01efcddea359 100644
+--- a/drivers/gpu/drm/amd/display/dc/dce/dce_clock_source.c
++++ b/drivers/gpu/drm/amd/display/dc/dce/dce_clock_source.c
+@@ -33,6 +33,7 @@
+ #include "include/logger_interface.h"
+ 
+ #include "dce_clock_source.h"
++#include "clk_mgr.h"
+ 
+ #include "reg_helper.h"
+ 
+diff --git a/drivers/gpu/drm/amd/display/dc/dce100/dce100_hw_sequencer.c b/drivers/gpu/drm/amd/display/dc/dce100/dce100_hw_sequencer.c
+index 87771676acac..799d36299c9b 100644
+--- a/drivers/gpu/drm/amd/display/dc/dce100/dce100_hw_sequencer.c
++++ b/drivers/gpu/drm/amd/display/dc/dce100/dce100_hw_sequencer.c
+@@ -25,6 +25,7 @@
+ #include "dm_services.h"
+ #include "dc.h"
+ #include "core_types.h"
++#include "clk_mgr.h"
+ #include "hw_sequencer.h"
+ #include "dce100_hw_sequencer.h"
+ #include "resource.h"
+@@ -111,8 +112,8 @@ void dce100_prepare_bandwidth(
+ {
+ 	dce110_set_safe_displaymarks(&context->res_ctx, dc->res_pool);
+ 
+-	dc->res_pool->clk_mgr->funcs->update_clocks(
+-			dc->res_pool->clk_mgr,
++	dc->clk_mgr->funcs->update_clocks(
++			dc->clk_mgr,
+ 			context,
+ 			false);
+ }
+@@ -123,8 +124,8 @@ void dce100_optimize_bandwidth(
+ {
+ 	dce110_set_safe_displaymarks(&context->res_ctx, dc->res_pool);
+ 
+-	dc->res_pool->clk_mgr->funcs->update_clocks(
+-			dc->res_pool->clk_mgr,
++	dc->clk_mgr->funcs->update_clocks(
++			dc->clk_mgr,
+ 			context,
+ 			true);
+ }
+diff --git a/drivers/gpu/drm/amd/display/dc/dce100/dce100_resource.c b/drivers/gpu/drm/amd/display/dc/dce100/dce100_resource.c
+index d7a531e9700f..ae87c5017756 100644
+--- a/drivers/gpu/drm/amd/display/dc/dce100/dce100_resource.c
++++ b/drivers/gpu/drm/amd/display/dc/dce100/dce100_resource.c
+@@ -35,8 +35,6 @@
+ #include "irq/dce110/irq_service_dce110.h"
+ #include "dce/dce_link_encoder.h"
+ #include "dce/dce_stream_encoder.h"
+-
+-#include "dce/dce_clk_mgr.h"
+ #include "dce/dce_mem_input.h"
+ #include "dce/dce_ipp.h"
+ #include "dce/dce_transform.h"
+@@ -137,19 +135,6 @@ static const struct dce110_timing_generator_offsets dce100_tg_offsets[] = {
+ #define SRI(reg_name, block, id)\
+ 	.reg_name = mm ## block ## id ## _ ## reg_name
+ 
+-
+-static const struct clk_mgr_registers disp_clk_regs = {
+-		CLK_COMMON_REG_LIST_DCE_BASE()
+-};
+-
+-static const struct clk_mgr_shift disp_clk_shift = {
+-		CLK_COMMON_MASK_SH_LIST_DCE_COMMON_BASE(__SHIFT)
+-};
+-
+-static const struct clk_mgr_mask disp_clk_mask = {
+-		CLK_COMMON_MASK_SH_LIST_DCE_COMMON_BASE(_MASK)
+-};
+-
+ #define ipp_regs(id)\
+ [id] = {\
+ 		IPP_DCE100_REG_LIST_DCE_BASE(id)\
+@@ -746,9 +731,6 @@ static void destruct(struct dce110_resource_pool *pool)
+ 			dce_aud_destroy(&pool->base.audios[i]);
+ 	}
+ 
+-	if (pool->base.clk_mgr != NULL)
+-		dce_clk_mgr_destroy(&pool->base.clk_mgr);
+-
+ 	if (pool->base.abm != NULL)
+ 				dce_abm_destroy(&pool->base.abm);
+ 
+@@ -974,16 +956,6 @@ static bool construct(
+ 		}
+ 	}
+ 
+-	pool->base.clk_mgr = dce_clk_mgr_create(ctx,
+-			&disp_clk_regs,
+-			&disp_clk_shift,
+-			&disp_clk_mask);
+-	if (pool->base.clk_mgr == NULL) {
+-		dm_error("DC: failed to create display clock!\n");
+-		BREAK_TO_DEBUGGER();
+-		goto res_create_fail;
+-	}
+-
+ 	pool->base.dmcu = dce_dmcu_create(ctx,
+ 			&dmcu_regs,
+ 			&dmcu_shift,
+diff --git a/drivers/gpu/drm/amd/display/dc/dce110/dce110_hw_sequencer.c b/drivers/gpu/drm/amd/display/dc/dce110/dce110_hw_sequencer.c
+index 69f215967af3..bb28b057a4c8 100644
+--- a/drivers/gpu/drm/amd/display/dc/dce110/dce110_hw_sequencer.c
++++ b/drivers/gpu/drm/amd/display/dc/dce110/dce110_hw_sequencer.c
+@@ -46,6 +46,7 @@
+ #include "link_encoder.h"
+ #include "link_hwss.h"
+ #include "clock_source.h"
++#include "clk_mgr.h"
+ #include "abm.h"
+ #include "audio.h"
+ #include "reg_helper.h"
+@@ -2378,7 +2379,7 @@ void dce110_prepare_bandwidth(
+ 		struct dc *dc,
+ 		struct dc_state *context)
+ {
+-	struct clk_mgr *dccg = dc->res_pool->clk_mgr;
++	struct clk_mgr *dccg = dc->clk_mgr;
+ 
+ 	dce110_set_safe_displaymarks(&context->res_ctx, dc->res_pool);
+ 
+@@ -2392,7 +2393,7 @@ void dce110_optimize_bandwidth(
+ 		struct dc *dc,
+ 		struct dc_state *context)
+ {
+-	struct clk_mgr *dccg = dc->res_pool->clk_mgr;
++	struct clk_mgr *dccg = dc->clk_mgr;
+ 
+ 	dce110_set_displaymarks(dc, context);
+ 
+diff --git a/drivers/gpu/drm/amd/display/dc/dce110/dce110_resource.c b/drivers/gpu/drm/amd/display/dc/dce110/dce110_resource.c
+index f982c8b196cf..113cfb3d972c 100644
+--- a/drivers/gpu/drm/amd/display/dc/dce110/dce110_resource.c
++++ b/drivers/gpu/drm/amd/display/dc/dce110/dce110_resource.c
+@@ -30,8 +30,6 @@
+ 
+ #include "resource.h"
+ #include "dce110/dce110_resource.h"
+-
+-#include "dce/dce_clk_mgr.h"
+ #include "include/irq_service_interface.h"
+ #include "dce/dce_audio.h"
+ #include "dce110/dce110_timing_generator.h"
+@@ -149,18 +147,6 @@ static const struct dce110_timing_generator_offsets dce110_tg_offsets[] = {
+ #define SRI(reg_name, block, id)\
+ 	.reg_name = mm ## block ## id ## _ ## reg_name
+ 
+-static const struct clk_mgr_registers disp_clk_regs = {
+-		CLK_COMMON_REG_LIST_DCE_BASE()
+-};
+-
+-static const struct clk_mgr_shift disp_clk_shift = {
+-		CLK_COMMON_MASK_SH_LIST_DCE_COMMON_BASE(__SHIFT)
+-};
+-
+-static const struct clk_mgr_mask disp_clk_mask = {
+-		CLK_COMMON_MASK_SH_LIST_DCE_COMMON_BASE(_MASK)
+-};
+-
+ static const struct dce_dmcu_registers dmcu_regs = {
+ 		DMCU_DCE110_COMMON_REG_LIST()
+ };
+@@ -811,9 +797,6 @@ static void destruct(struct dce110_resource_pool *pool)
+ 	if (pool->base.dmcu != NULL)
+ 		dce_dmcu_destroy(&pool->base.dmcu);
+ 
+-	if (pool->base.clk_mgr != NULL)
+-		dce_clk_mgr_destroy(&pool->base.clk_mgr);
+-
+ 	if (pool->base.irqs != NULL) {
+ 		dal_irq_service_destroy(&pool->base.irqs);
+ 	}
+@@ -1346,16 +1329,6 @@ static bool construct(
+ 		}
+ 	}
+ 
+-	pool->base.clk_mgr = dce110_clk_mgr_create(ctx,
+-			&disp_clk_regs,
+-			&disp_clk_shift,
+-			&disp_clk_mask);
+-	if (pool->base.clk_mgr == NULL) {
+-		dm_error("DC: failed to create display clock!\n");
+-		BREAK_TO_DEBUGGER();
+-		goto res_create_fail;
+-	}
+-
+ 	pool->base.dmcu = dce_dmcu_create(ctx,
+ 			&dmcu_regs,
+ 			&dmcu_shift,
+diff --git a/drivers/gpu/drm/amd/display/dc/dce112/dce112_resource.c b/drivers/gpu/drm/amd/display/dc/dce112/dce112_resource.c
+index cdf759b0f5f9..1c3e8939696a 100644
+--- a/drivers/gpu/drm/amd/display/dc/dce112/dce112_resource.c
++++ b/drivers/gpu/drm/amd/display/dc/dce112/dce112_resource.c
+@@ -34,8 +34,6 @@
+ #include "dce110/dce110_timing_generator.h"
+ 
+ #include "irq/dce110/irq_service_dce110.h"
+-
+-#include "dce/dce_clk_mgr.h"
+ #include "dce/dce_mem_input.h"
+ #include "dce/dce_transform.h"
+ #include "dce/dce_link_encoder.h"
+@@ -148,19 +146,6 @@ static const struct dce110_timing_generator_offsets dce112_tg_offsets[] = {
+ #define SRI(reg_name, block, id)\
+ 	.reg_name = mm ## block ## id ## _ ## reg_name
+ 
+-
+-static const struct clk_mgr_registers disp_clk_regs = {
+-		CLK_COMMON_REG_LIST_DCE_BASE()
+-};
+-
+-static const struct clk_mgr_shift disp_clk_shift = {
+-		CLK_COMMON_MASK_SH_LIST_DCE_COMMON_BASE(__SHIFT)
+-};
+-
+-static const struct clk_mgr_mask disp_clk_mask = {
+-		CLK_COMMON_MASK_SH_LIST_DCE_COMMON_BASE(_MASK)
+-};
+-
+ static const struct dce_dmcu_registers dmcu_regs = {
+ 		DMCU_DCE110_COMMON_REG_LIST()
+ };
+@@ -774,9 +759,6 @@ static void destruct(struct dce110_resource_pool *pool)
+ 	if (pool->base.dmcu != NULL)
+ 		dce_dmcu_destroy(&pool->base.dmcu);
+ 
+-	if (pool->base.clk_mgr != NULL)
+-		dce_clk_mgr_destroy(&pool->base.clk_mgr);
+-
+ 	if (pool->base.irqs != NULL) {
+ 		dal_irq_service_destroy(&pool->base.irqs);
+ 	}
+@@ -1225,16 +1207,6 @@ static bool construct(
+ 		}
+ 	}
+ 
+-	pool->base.clk_mgr = dce112_clk_mgr_create(ctx,
+-			&disp_clk_regs,
+-			&disp_clk_shift,
+-			&disp_clk_mask);
+-	if (pool->base.clk_mgr == NULL) {
+-		dm_error("DC: failed to create display clock!\n");
+-		BREAK_TO_DEBUGGER();
+-		goto res_create_fail;
+-	}
+-
+ 	pool->base.dmcu = dce_dmcu_create(ctx,
+ 			&dmcu_regs,
+ 			&dmcu_shift,
+diff --git a/drivers/gpu/drm/amd/display/dc/dce120/dce120_resource.c b/drivers/gpu/drm/amd/display/dc/dce120/dce120_resource.c
+index 9e6a5d84b0a1..afa1c6029835 100644
+--- a/drivers/gpu/drm/amd/display/dc/dce120/dce120_resource.c
++++ b/drivers/gpu/drm/amd/display/dc/dce120/dce120_resource.c
+@@ -46,8 +46,7 @@
+ #include "dce110/dce110_hw_sequencer.h"
+ #include "dce120/dce120_hw_sequencer.h"
+ #include "dce/dce_transform.h"
+-
+-#include "dce/dce_clk_mgr.h"
++#include "clk_mgr.h"
+ #include "dce/dce_audio.h"
+ #include "dce/dce_link_encoder.h"
+ #include "dce/dce_stream_encoder.h"
+@@ -609,9 +608,6 @@ static void destruct(struct dce110_resource_pool *pool)
+ 
+ 	if (pool->base.dmcu != NULL)
+ 		dce_dmcu_destroy(&pool->base.dmcu);
+-
+-	if (pool->base.clk_mgr != NULL)
+-		dce_clk_mgr_destroy(&pool->base.clk_mgr);
+ }
+ 
+ static void read_dce_straps(
+@@ -1048,17 +1044,6 @@ static bool construct(
+ 		}
+ 	}
+ 
+-	if (is_vg20)
+-		pool->base.clk_mgr = dce121_clk_mgr_create(ctx);
+-	else
+-		pool->base.clk_mgr = dce120_clk_mgr_create(ctx);
+-
+-	if (pool->base.clk_mgr == NULL) {
+-		dm_error("DC: failed to create display clock!\n");
+-		BREAK_TO_DEBUGGER();
+-		goto dccg_create_fail;
+-	}
+-
+ 	pool->base.dmcu = dce_dmcu_create(ctx,
+ 			&dmcu_regs,
+ 			&dmcu_shift,
+@@ -1186,7 +1171,7 @@ static bool construct(
+ 	 * here.
+ 	 */
+ 	if (is_vg20 && dce121_xgmi_enabled(dc->hwseq))
+-		dce121_clock_patch_xgmi_ss_info(pool->base.clk_mgr);
++		dce121_clock_patch_xgmi_ss_info(dc->clk_mgr);
+ 
+ 	/* Create hardware sequencer */
+ 	if (!dce120_hw_sequencer_create(dc))
+@@ -1205,7 +1190,6 @@ static bool construct(
+ 
+ irqs_create_fail:
+ controller_create_fail:
+-dccg_create_fail:
+ clk_src_create_fail:
+ res_create_fail:
+ 
+diff --git a/drivers/gpu/drm/amd/display/dc/dce80/dce80_resource.c b/drivers/gpu/drm/amd/display/dc/dce80/dce80_resource.c
+index 2c21135a8510..1dccd59c59c5 100644
+--- a/drivers/gpu/drm/amd/display/dc/dce80/dce80_resource.c
++++ b/drivers/gpu/drm/amd/display/dc/dce80/dce80_resource.c
+@@ -37,7 +37,6 @@
+ #include "dce110/dce110_timing_generator.h"
+ #include "dce110/dce110_resource.h"
+ #include "dce80/dce80_timing_generator.h"
+-#include "dce/dce_clk_mgr.h"
+ #include "dce/dce_mem_input.h"
+ #include "dce/dce_link_encoder.h"
+ #include "dce/dce_stream_encoder.h"
+@@ -154,19 +153,6 @@ static const struct dce110_timing_generator_offsets dce80_tg_offsets[] = {
+ #define SRI(reg_name, block, id)\
+ 	.reg_name = mm ## block ## id ## _ ## reg_name
+ 
+-
+-static const struct clk_mgr_registers disp_clk_regs = {
+-		CLK_COMMON_REG_LIST_DCE_BASE()
+-};
+-
+-static const struct clk_mgr_shift disp_clk_shift = {
+-		CLK_COMMON_MASK_SH_LIST_DCE_COMMON_BASE(__SHIFT)
+-};
+-
+-static const struct clk_mgr_mask disp_clk_mask = {
+-		CLK_COMMON_MASK_SH_LIST_DCE_COMMON_BASE(_MASK)
+-};
+-
+ #define ipp_regs(id)\
+ [id] = {\
+ 		IPP_COMMON_REG_LIST_DCE_BASE(id)\
+@@ -802,9 +788,6 @@ static void destruct(struct dce110_resource_pool *pool)
+ 		}
+ 	}
+ 
+-	if (pool->base.clk_mgr != NULL)
+-		dce_clk_mgr_destroy(&pool->base.clk_mgr);
+-
+ 	if (pool->base.irqs != NULL) {
+ 		dal_irq_service_destroy(&pool->base.irqs);
+ 	}
+@@ -955,16 +938,6 @@ static bool dce80_construct(
+ 		}
+ 	}
+ 
+-	pool->base.clk_mgr = dce_clk_mgr_create(ctx,
+-			&disp_clk_regs,
+-			&disp_clk_shift,
+-			&disp_clk_mask);
+-	if (pool->base.clk_mgr == NULL) {
+-		dm_error("DC: failed to create display clock!\n");
+-		BREAK_TO_DEBUGGER();
+-		goto res_create_fail;
+-	}
+-
+ 	pool->base.dmcu = dce_dmcu_create(ctx,
+ 			&dmcu_regs,
+ 			&dmcu_shift,
+@@ -1164,16 +1137,6 @@ static bool dce81_construct(
+ 		}
+ 	}
+ 
+-	pool->base.clk_mgr = dce_clk_mgr_create(ctx,
+-			&disp_clk_regs,
+-			&disp_clk_shift,
+-			&disp_clk_mask);
+-	if (pool->base.clk_mgr == NULL) {
+-		dm_error("DC: failed to create display clock!\n");
+-		BREAK_TO_DEBUGGER();
+-		goto res_create_fail;
+-	}
+-
+ 	pool->base.dmcu = dce_dmcu_create(ctx,
+ 			&dmcu_regs,
+ 			&dmcu_shift,
+@@ -1369,16 +1332,6 @@ static bool dce83_construct(
+ 		}
+ 	}
+ 
+-	pool->base.clk_mgr = dce_clk_mgr_create(ctx,
+-			&disp_clk_regs,
+-			&disp_clk_shift,
+-			&disp_clk_mask);
+-	if (pool->base.clk_mgr == NULL) {
+-		dm_error("DC: failed to create display clock!\n");
+-		BREAK_TO_DEBUGGER();
+-		goto res_create_fail;
+-	}
+-
+ 	pool->base.dmcu = dce_dmcu_create(ctx,
+ 			&dmcu_regs,
+ 			&dmcu_shift,
+diff --git a/drivers/gpu/drm/amd/display/dc/dcn10/Makefile b/drivers/gpu/drm/amd/display/dc/dcn10/Makefile
+index 55f293c8a3c0..3c121ce6f177 100644
+--- a/drivers/gpu/drm/amd/display/dc/dcn10/Makefile
++++ b/drivers/gpu/drm/amd/display/dc/dcn10/Makefile
+@@ -24,7 +24,8 @@
+ 
+ DCN10 = dcn10_resource.o dcn10_ipp.o dcn10_hw_sequencer.o dcn10_hw_sequencer_debug.o \
+ 		dcn10_dpp.o dcn10_opp.o dcn10_optc.o \
+-		dcn10_hubp.o dcn10_mpc.o dcn10_clk_mgr.o \
++		dcn10_hubp.o dcn10_mpc.o \
++		clk_mgr.o rv1_clk_mgr.o rv1_clk_mgr_vbios_smu.o rv2_clk_mgr.o\
+ 		dcn10_dpp_dscl.o dcn10_dpp_cm.o dcn10_cm_common.o \
+ 		dcn10_hubbub.o dcn10_stream_encoder.o dcn10_link_encoder.o
+ 
+diff --git a/drivers/gpu/drm/amd/display/dc/dcn10/clk_mgr.c b/drivers/gpu/drm/amd/display/dc/dcn10/clk_mgr.c
+new file mode 100644
+index 000000000000..d16bd711cfe5
+--- /dev/null
++++ b/drivers/gpu/drm/amd/display/dc/dcn10/clk_mgr.c
+@@ -0,0 +1,112 @@
++/*
++ * Copyright 2012-16 Advanced Micro Devices, Inc.
++ *
++ * Permission is hereby granted, free of charge, to any person obtaining a
++ * copy of this software and associated documentation files (the "Software"),
++ * to deal in the Software without restriction, including without limitation
++ * the rights to use, copy, modify, merge, publish, distribute, sublicense,
++ * and/or sell copies of the Software, and to permit persons to whom the
++ * Software is furnished to do so, subject to the following conditions:
++ *
++ * The above copyright notice and this permission notice shall be included in
++ * all copies or substantial portions of the Software.
++ *
++ * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
++ * IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
++ * FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.  IN NO EVENT SHALL
++ * THE COPYRIGHT HOLDER(S) OR AUTHOR(S) BE LIABLE FOR ANY CLAIM, DAMAGES OR
++ * OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE,
++ * ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR
++ * OTHER DEALINGS IN THE SOFTWARE.
++ *
++ * Authors: AMD
++ *
++ */
++
++#include "dal_asic_id.h"
++#include "dc_types.h"
++#include "dccg.h"
++#include "clk_mgr_internal.h"
++
++#include "dce/dce_clk_mgr.h"
++#include "dce/dce110_clk_mgr.h"
++#include "dce/dce112_clk_mgr.h"
++#include "dce/dce120_clk_mgr.h"
++#include "rv1_clk_mgr.h"
++#include "rv2_clk_mgr.h"
++
++struct clk_mgr *dc_clk_mgr_create(struct dc_context *ctx, struct pp_smu_funcs *pp_smu, struct dccg *dccg)
++{
++	struct hw_asic_id asic_id = ctx->asic_id;
++
++	struct clk_mgr_internal *clk_mgr = kzalloc(sizeof(*clk_mgr), GFP_KERNEL);
++
++	if (clk_mgr == NULL) {
++		BREAK_TO_DEBUGGER();
++		return NULL;
++	}
++
++	switch (asic_id.chip_family) {
++	case FAMILY_CI:
++	case FAMILY_KV:
++		dce_clk_mgr_construct(ctx, clk_mgr);
++		break;
++	case FAMILY_CZ:
++		dce110_clk_mgr_construct(ctx, clk_mgr);
++		break;
++	case FAMILY_VI:
++		if (ASIC_REV_IS_TONGA_P(asic_id.hw_internal_rev) ||
++				ASIC_REV_IS_FIJI_P(asic_id.hw_internal_rev)) {
++			dce_clk_mgr_construct(ctx, clk_mgr);
++			break;
++		}
++		if (ASIC_REV_IS_POLARIS10_P(asic_id.hw_internal_rev) ||
++				ASIC_REV_IS_POLARIS11_M(asic_id.hw_internal_rev) ||
++				ASIC_REV_IS_POLARIS12_V(asic_id.hw_internal_rev)) {
++			dce112_clk_mgr_construct(ctx, clk_mgr);
++			break;
++		}
++		if (ASIC_REV_IS_VEGAM(asic_id.hw_internal_rev)) {
++			dce112_clk_mgr_construct(ctx, clk_mgr);
++			break;
++		}
++		break;
++	case FAMILY_AI:
++		if (ASICREV_IS_VEGA20_P(asic_id.hw_internal_rev))
++			dce121_clk_mgr_construct(ctx, clk_mgr);
++		else
++			dce120_clk_mgr_construct(ctx, clk_mgr);
++		break;
++
++#if defined(CONFIG_DRM_AMD_DC_DCN1_0)
++	case FAMILY_RV:
++
++#if defined(CONFIG_DRM_AMD_DC_DCN1_01)
++		if (ASICREV_IS_RAVEN2(asic_id.hw_internal_rev)) {
++			rv2_clk_mgr_construct(ctx, clk_mgr, pp_smu);
++			break;
++		}
++#endif	/* DCN1_01 */
++
++		if (ASICREV_IS_RAVEN(asic_id.hw_internal_rev) ||
++				ASICREV_IS_PICASSO(asic_id.hw_internal_rev)) {
++			rv1_clk_mgr_construct(ctx, clk_mgr, pp_smu);
++			break;
++		}
++		break;
++#endif	/* Family RV */
++
++	default:
++		ASSERT(0); /* Unknown Asic */
++		break;
++	}
++
++	return &clk_mgr->base;
++}
++
++void dc_destroy_clk_mgr(struct clk_mgr *clk_mgr_base)
++{
++	struct clk_mgr_internal *clk_mgr = TO_CLK_MGR_INTERNAL(clk_mgr_base);
++
++	kfree(clk_mgr);
++}
+diff --git a/drivers/gpu/drm/amd/display/dc/dcn10/dcn10_hw_sequencer.c b/drivers/gpu/drm/amd/display/dc/dcn10/dcn10_hw_sequencer.c
+index faded9fb15b4..fd0c7999d489 100644
+--- a/drivers/gpu/drm/amd/display/dc/dcn10/dcn10_hw_sequencer.c
++++ b/drivers/gpu/drm/amd/display/dc/dcn10/dcn10_hw_sequencer.c
+@@ -45,6 +45,8 @@
+ #include "dcn10_cm_common.h"
+ #include "dc_link_dp.h"
+ #include "dccg.h"
++#include "clk_mgr.h"
++
+ 
+ #define DC_LOGGER_INIT(logger)
+ 
+@@ -1158,7 +1160,7 @@ static void dcn10_init_hw(struct dc *dc)
+ 
+ 	enable_power_gating_plane(dc->hwseq, true);
+ 
+-	memset(&dc->res_pool->clk_mgr->clks, 0, sizeof(dc->res_pool->clk_mgr->clks));
++	memset(&dc->clk_mgr->clks, 0, sizeof(dc->clk_mgr->clks));
+ }
+ 
+ static void dcn10_reset_hw_ctx_wrap(
+@@ -2069,7 +2071,7 @@ void update_dchubp_dpp(
+ 	 */
+ 	if (plane_state->update_flags.bits.full_update) {
+ 		bool should_divided_by_2 = context->bw_ctx.bw.dcn.clk.dppclk_khz <=
+-				dc->res_pool->clk_mgr->clks.dispclk_khz / 2;
++				dc->clk_mgr->clks.dispclk_khz / 2;
+ 
+ 		dpp->funcs->dpp_dppclk_control(
+ 				dpp,
+@@ -2082,9 +2084,9 @@ void update_dchubp_dpp(
+ 					dpp->inst,
+ 					pipe_ctx->plane_res.bw.dppclk_khz);
+ 		else
+-			dc->res_pool->clk_mgr->clks.dppclk_khz = should_divided_by_2 ?
+-						dc->res_pool->clk_mgr->clks.dispclk_khz / 2 :
+-							dc->res_pool->clk_mgr->clks.dispclk_khz;
++			dc->clk_mgr->clks.dppclk_khz = should_divided_by_2 ?
++						dc->clk_mgr->clks.dispclk_khz / 2 :
++							dc->clk_mgr->clks.dispclk_khz;
+ 	}
+ 
+ 	/* TODO: Need input parameter to tell current DCHUB pipe tie to which OTG
+@@ -2447,8 +2449,8 @@ static void dcn10_prepare_bandwidth(
+ 		if (context->stream_count == 0)
+ 			context->bw_ctx.bw.dcn.clk.phyclk_khz = 0;
+ 
+-		dc->res_pool->clk_mgr->funcs->update_clocks(
+-				dc->res_pool->clk_mgr,
++		dc->clk_mgr->funcs->update_clocks(
++				dc->clk_mgr,
+ 				context,
+ 				false);
+ 	}
+@@ -2479,8 +2481,8 @@ static void dcn10_optimize_bandwidth(
+ 		if (context->stream_count == 0)
+ 			context->bw_ctx.bw.dcn.clk.phyclk_khz = 0;
+ 
+-		dc->res_pool->clk_mgr->funcs->update_clocks(
+-				dc->res_pool->clk_mgr,
++		dc->clk_mgr->funcs->update_clocks(
++				dc->clk_mgr,
+ 				context,
+ 				true);
+ 	}
+diff --git a/drivers/gpu/drm/amd/display/dc/dcn10/dcn10_hw_sequencer_debug.c b/drivers/gpu/drm/amd/display/dc/dcn10/dcn10_hw_sequencer_debug.c
+index 991622da9ed5..6e47444109d7 100644
+--- a/drivers/gpu/drm/amd/display/dc/dcn10/dcn10_hw_sequencer_debug.c
++++ b/drivers/gpu/drm/amd/display/dc/dcn10/dcn10_hw_sequencer_debug.c
+@@ -43,7 +43,7 @@
+ #include "dcn10_hubp.h"
+ #include "dcn10_hubbub.h"
+ #include "dcn10_cm_common.h"
+-#include "dcn10_clk_mgr.h"
++#include "clk_mgr.h"
+ 
+ static unsigned int snprintf_count(char *pBuf, unsigned int bufSize, char *fmt, ...)
+ {
+diff --git a/drivers/gpu/drm/amd/display/dc/dcn10/dcn10_resource.c b/drivers/gpu/drm/amd/display/dc/dcn10/dcn10_resource.c
+index df30d9169c2c..36d7f4a1398c 100644
+--- a/drivers/gpu/drm/amd/display/dc/dcn10/dcn10_resource.c
++++ b/drivers/gpu/drm/amd/display/dc/dcn10/dcn10_resource.c
+@@ -39,7 +39,6 @@
+ #include "dcn10_opp.h"
+ #include "dcn10_link_encoder.h"
+ #include "dcn10_stream_encoder.h"
+-#include "dcn10_clk_mgr.h"
+ #include "dce/dce_clock_source.h"
+ #include "dce/dce_audio.h"
+ #include "dce/dce_hwseq.h"
+@@ -201,6 +200,7 @@ enum dcn10_clk_src_array_id {
+ #define MMHUB_SR(reg_name)\
+ 		.reg_name = MMHUB_BASE(mm ## reg_name ## _BASE_IDX) +  \
+ 					mm ## reg_name
++
+ /* macros to expend register list macro defined in HW object header file
+  * end *********************/
+ 
+@@ -491,27 +491,6 @@ static const struct dce110_clk_src_mask cs_mask = {
+ 		CS_COMMON_MASK_SH_LIST_DCN1_0(_MASK)
+ };
+ 
+-
+-#define mmMP1_SMN_C2PMSG_91            0x1629B
+-#define mmMP1_SMN_C2PMSG_83            0x16293
+-#define mmMP1_SMN_C2PMSG_67            0x16283
+-
+-#define MP1_SMN_C2PMSG_91__CONTENT_MASK                    0xffffffffL
+-#define MP1_SMN_C2PMSG_83__CONTENT_MASK                    0xffffffffL
+-#define MP1_SMN_C2PMSG_67__CONTENT_MASK                    0xffffffffL
+-#define	MP1_SMN_C2PMSG_91__CONTENT__SHIFT                  0x00000000
+-#define	MP1_SMN_C2PMSG_83__CONTENT__SHIFT                  0x00000000
+-#define	MP1_SMN_C2PMSG_67__CONTENT__SHIFT                  0x00000000
+-
+-
+-static const struct clk_mgr_shift clk_mgr_shift = {
+-		CLK_MASK_SH_LIST_RV1(__SHIFT)
+-};
+-
+-static const struct clk_mgr_mask clk_mgr_mask = {
+-		CLK_MASK_SH_LIST_RV1(_MASK)
+-};
+-
+ static const struct resource_caps res_cap = {
+ 		.num_timing_generator = 4,
+ 		.num_opp = 4,
+@@ -984,9 +963,6 @@ static void destruct(struct dcn10_resource_pool *pool)
+ 	if (pool->base.dmcu != NULL)
+ 		dce_dmcu_destroy(&pool->base.dmcu);
+ 
+-	if (pool->base.clk_mgr != NULL)
+-		dce_clk_mgr_destroy(&pool->base.clk_mgr);
+-
+ 	kfree(pool->base.pp_smu);
+ }
+ 
+@@ -1455,13 +1431,6 @@ static bool construct(
+ 
+ 	pool->base.pp_smu = dcn10_pp_smu_create(ctx);
+ 
+-	pool->base.clk_mgr = dcn1_clk_mgr_create(ctx);
+-	if (pool->base.clk_mgr == NULL) {
+-		dm_error("DC: failed to create display clock!\n");
+-		BREAK_TO_DEBUGGER();
+-		goto fail;
+-	}
+-
+ 	if (!dc->debug.disable_pplib_clock_request)
+ 		dcn_bw_update_from_pplib(dc);
+ 	dcn_bw_sync_calcs_and_dml(dc);
+diff --git a/drivers/gpu/drm/amd/display/dc/dcn10/dcn10_clk_mgr.c b/drivers/gpu/drm/amd/display/dc/dcn10/rv1_clk_mgr.c
+similarity index 55%
+rename from drivers/gpu/drm/amd/display/dc/dcn10/dcn10_clk_mgr.c
+rename to drivers/gpu/drm/amd/display/dc/dcn10/rv1_clk_mgr.c
+index 920714e001df..9210e18dbcdc 100644
+--- a/drivers/gpu/drm/amd/display/dc/dcn10/dcn10_clk_mgr.c
++++ b/drivers/gpu/drm/amd/display/dc/dcn10/rv1_clk_mgr.c
+@@ -23,33 +23,20 @@
+  *
+  */
+ 
+-#include "dcn10_clk_mgr.h"
+-
+-#include "reg_helper.h"
+ #include "core_types.h"
+-#include "dal_asic_id.h"
+-
+-#define TO_DCE_CLK_MGR(clocks)\
+-	container_of(clocks, struct dce_clk_mgr, base)
+-
+-#define REG(reg) \
+-	(clk_mgr_dce->regs->reg)
+-
+-#undef FN
+-#define FN(reg_name, field_name) \
+-	clk_mgr_dce->clk_mgr_shift->field_name, clk_mgr_dce->clk_mgr_mask->field_name
+-
+-#define CTX \
+-	clk_mgr_dce->base.ctx
+-#define DC_LOGGER \
+-	clk_mgr->ctx->logger
+-
+-static int dcn1_determine_dppclk_threshold(struct clk_mgr *clk_mgr, struct dc_clocks *new_clocks)
++#include "clk_mgr_internal.h"
++#include "rv1_clk_mgr.h"
++#include "dce/dce_clk_mgr.h"
++#include "dce/dce112_clk_mgr.h"
++#include "rv1_clk_mgr_vbios_smu.h"
++#include "rv1_clk_mgr_clk.h"
++
++static int rv1_determine_dppclk_threshold(struct clk_mgr_internal *clk_mgr, struct dc_clocks *new_clocks)
+ {
+ 	bool request_dpp_div = new_clocks->dispclk_khz > new_clocks->dppclk_khz;
+-	bool dispclk_increase = new_clocks->dispclk_khz > clk_mgr->clks.dispclk_khz;
++	bool dispclk_increase = new_clocks->dispclk_khz > clk_mgr->base.clks.dispclk_khz;
+ 	int disp_clk_threshold = new_clocks->max_supported_dppclk_khz;
+-	bool cur_dpp_div = clk_mgr->clks.dispclk_khz > clk_mgr->clks.dppclk_khz;
++	bool cur_dpp_div = clk_mgr->base.clks.dispclk_khz > clk_mgr->base.clks.dppclk_khz;
+ 
+ 	/* increase clock, looking for div is 0 for current, request div is 1*/
+ 	if (dispclk_increase) {
+@@ -79,7 +66,7 @@ static int dcn1_determine_dppclk_threshold(struct clk_mgr *clk_mgr, struct dc_cl
+ 		/* current disp clk is lower than current maximum dpp clk,
+ 		 * no need to ramp
+ 		 */
+-		if (clk_mgr->clks.dispclk_khz <= disp_clk_threshold)
++		if (clk_mgr->base.clks.dispclk_khz <= disp_clk_threshold)
+ 			return new_clocks->dispclk_khz;
+ 
+ 		/* request dpp clk need to be divided by 2 */
+@@ -90,20 +77,17 @@ static int dcn1_determine_dppclk_threshold(struct clk_mgr *clk_mgr, struct dc_cl
+ 	return disp_clk_threshold;
+ }
+ 
+-static void dcn1_ramp_up_dispclk_with_dpp(struct clk_mgr *clk_mgr, struct dc_clocks *new_clocks)
++static void ramp_up_dispclk_with_dpp(struct clk_mgr_internal *clk_mgr, struct dc *dc, struct dc_clocks *new_clocks)
+ {
+ 	int i;
+-	struct dc *dc = clk_mgr->ctx->dc;
+-	int dispclk_to_dpp_threshold = dcn1_determine_dppclk_threshold(clk_mgr, new_clocks);
++	int dispclk_to_dpp_threshold = rv1_determine_dppclk_threshold(clk_mgr, new_clocks);
+ 	bool request_dpp_div = new_clocks->dispclk_khz > new_clocks->dppclk_khz;
+ 
+ 	/* set disp clk to dpp clk threshold */
+ 
+-	if (clk_mgr->funcs->set_dispclk && clk_mgr->funcs->set_dprefclk) {
+-		clk_mgr->funcs->set_dispclk(clk_mgr, dispclk_to_dpp_threshold);
+-		clk_mgr->funcs->set_dprefclk(clk_mgr);
+-	} else
+-		dce112_set_clock(clk_mgr, dispclk_to_dpp_threshold);
++	clk_mgr->funcs->set_dispclk(clk_mgr, dispclk_to_dpp_threshold);
++	clk_mgr->funcs->set_dprefclk(clk_mgr);
++
+ 
+ 	/* update request dpp clk division option */
+ 	for (i = 0; i < dc->res_pool->pipe_count; i++) {
+@@ -120,16 +104,14 @@ static void dcn1_ramp_up_dispclk_with_dpp(struct clk_mgr *clk_mgr, struct dc_clo
+ 
+ 	/* If target clk not same as dppclk threshold, set to target clock */
+ 	if (dispclk_to_dpp_threshold != new_clocks->dispclk_khz) {
+-		if (clk_mgr->funcs->set_dispclk && clk_mgr->funcs->set_dprefclk) {
+-			clk_mgr->funcs->set_dispclk(clk_mgr, new_clocks->dispclk_khz);
+-			clk_mgr->funcs->set_dprefclk(clk_mgr);
+-		} else
+-			dce112_set_clock(clk_mgr, dispclk_to_dpp_threshold);
++		clk_mgr->funcs->set_dispclk(clk_mgr, new_clocks->dispclk_khz);
++		clk_mgr->funcs->set_dprefclk(clk_mgr);
+ 	}
+ 
+-	clk_mgr->clks.dispclk_khz = new_clocks->dispclk_khz;
+-	clk_mgr->clks.dppclk_khz = new_clocks->dppclk_khz;
+-	clk_mgr->clks.max_supported_dppclk_khz = new_clocks->max_supported_dppclk_khz;
++
++	clk_mgr->base.clks.dispclk_khz = new_clocks->dispclk_khz;
++	clk_mgr->base.clks.dppclk_khz = new_clocks->dppclk_khz;
++	clk_mgr->base.clks.max_supported_dppclk_khz = new_clocks->max_supported_dppclk_khz;
+ }
+ 
+ static int get_active_display_cnt(
+@@ -155,11 +137,12 @@ static int get_active_display_cnt(
+ 	return display_count;
+ }
+ 
+-static void dcn1_update_clocks(struct clk_mgr *clk_mgr,
++static void rv1_update_clocks(struct clk_mgr *clk_mgr_base,
+ 			struct dc_state *context,
+ 			bool safe_to_lower)
+ {
+-	struct dc *dc = clk_mgr->ctx->dc;
++	struct clk_mgr_internal *clk_mgr = TO_CLK_MGR_INTERNAL(clk_mgr_base);
++	struct dc *dc = clk_mgr_base->ctx->dc;
+ 	struct dc_debug_options *debug = &dc->debug;
+ 	struct dc_clocks *new_clocks = &context->bw_ctx.bw.dcn.clk;
+ 	struct pp_smu_funcs_rv *pp_smu = NULL;
+@@ -169,9 +152,12 @@ static void dcn1_update_clocks(struct clk_mgr *clk_mgr,
+ 
+ 	bool enter_display_off = false;
+ 
++	ASSERT(clk_mgr->pp_smu);
++
++	pp_smu = &clk_mgr->pp_smu->rv_funcs;
++
+ 	display_count = get_active_display_cnt(dc, context);
+-	if (dc->res_pool->pp_smu)
+-		pp_smu = &dc->res_pool->pp_smu->rv_funcs;
++
+ 	if (display_count == 0)
+ 		enter_display_off = true;
+ 
+@@ -181,18 +167,18 @@ static void dcn1_update_clocks(struct clk_mgr *clk_mgr,
+ 		 * if function pointer not set up, this message is
+ 		 * sent as part of pplib_apply_display_requirements.
+ 		 */
+-		if (pp_smu && pp_smu->set_display_count)
++		if (pp_smu->set_display_count)
+ 			pp_smu->set_display_count(&pp_smu->pp_smu, display_count);
+ 	}
+ 
+-	if (new_clocks->dispclk_khz > clk_mgr->clks.dispclk_khz
+-			|| new_clocks->phyclk_khz > clk_mgr->clks.phyclk_khz
+-			|| new_clocks->fclk_khz > clk_mgr->clks.fclk_khz
+-			|| new_clocks->dcfclk_khz > clk_mgr->clks.dcfclk_khz)
++	if (new_clocks->dispclk_khz > clk_mgr_base->clks.dispclk_khz
++			|| new_clocks->phyclk_khz > clk_mgr_base->clks.phyclk_khz
++			|| new_clocks->fclk_khz > clk_mgr_base->clks.fclk_khz
++			|| new_clocks->dcfclk_khz > clk_mgr_base->clks.dcfclk_khz)
+ 		send_request_to_increase = true;
+ 
+-	if (should_set_clock(safe_to_lower, new_clocks->phyclk_khz, clk_mgr->clks.phyclk_khz)) {
+-		clk_mgr->clks.phyclk_khz = new_clocks->phyclk_khz;
++	if (should_set_clock(safe_to_lower, new_clocks->phyclk_khz, clk_mgr_base->clks.phyclk_khz)) {
++		clk_mgr_base->clks.phyclk_khz = new_clocks->phyclk_khz;
+ 		send_request_to_lower = true;
+ 	}
+ 
+@@ -200,22 +186,22 @@ static void dcn1_update_clocks(struct clk_mgr *clk_mgr,
+ 	if (debug->force_fclk_khz != 0)
+ 		new_clocks->fclk_khz = debug->force_fclk_khz;
+ 
+-	if (should_set_clock(safe_to_lower, new_clocks->fclk_khz, clk_mgr->clks.fclk_khz)) {
+-		clk_mgr->clks.fclk_khz = new_clocks->fclk_khz;
++	if (should_set_clock(safe_to_lower, new_clocks->fclk_khz, clk_mgr_base->clks.fclk_khz)) {
++		clk_mgr_base->clks.fclk_khz = new_clocks->fclk_khz;
+ 
+ 		send_request_to_lower = true;
+ 	}
+ 
+ 	//DCF Clock
+-	if (should_set_clock(safe_to_lower, new_clocks->dcfclk_khz, clk_mgr->clks.dcfclk_khz)) {
+-		clk_mgr->clks.dcfclk_khz = new_clocks->dcfclk_khz;
++	if (should_set_clock(safe_to_lower, new_clocks->dcfclk_khz, clk_mgr_base->clks.dcfclk_khz)) {
++		clk_mgr_base->clks.dcfclk_khz = new_clocks->dcfclk_khz;
+ 
+ 		send_request_to_lower = true;
+ 	}
+ 
+ 	if (should_set_clock(safe_to_lower,
+-			new_clocks->dcfclk_deep_sleep_khz, clk_mgr->clks.dcfclk_deep_sleep_khz)) {
+-		clk_mgr->clks.dcfclk_deep_sleep_khz = new_clocks->dcfclk_deep_sleep_khz;
++			new_clocks->dcfclk_deep_sleep_khz, clk_mgr_base->clks.dcfclk_deep_sleep_khz)) {
++		clk_mgr_base->clks.dcfclk_deep_sleep_khz = new_clocks->dcfclk_deep_sleep_khz;
+ 
+ 		send_request_to_lower = true;
+ 	}
+@@ -225,7 +211,7 @@ static void dcn1_update_clocks(struct clk_mgr *clk_mgr,
+ 	 */
+ 	if (send_request_to_increase) {
+ 		/*use dcfclk to request voltage*/
+-		if (pp_smu && pp_smu->set_hard_min_fclk_by_freq &&
++		if (pp_smu->set_hard_min_fclk_by_freq &&
+                                 pp_smu->set_hard_min_dcfclk_by_freq &&
+                                 pp_smu->set_min_deep_sleep_dcfclk) {
+                         pp_smu->set_hard_min_fclk_by_freq(&pp_smu->pp_smu, new_clocks->fclk_khz / 1000);
+@@ -237,16 +223,16 @@ static void dcn1_update_clocks(struct clk_mgr *clk_mgr,
+ 
+ 	/* dcn1 dppclk is tied to dispclk */
+ 	/* program dispclk on = as a w/a for sleep resume clock ramping issues */
+-	if (should_set_clock(safe_to_lower, new_clocks->dispclk_khz, clk_mgr->clks.dispclk_khz)
+-			|| new_clocks->dispclk_khz == clk_mgr->clks.dispclk_khz) {
+-		dcn1_ramp_up_dispclk_with_dpp(clk_mgr, new_clocks);
+-		clk_mgr->clks.dispclk_khz = new_clocks->dispclk_khz;
++	if (should_set_clock(safe_to_lower, new_clocks->dispclk_khz, clk_mgr_base->clks.dispclk_khz)
++			|| new_clocks->dispclk_khz == clk_mgr_base->clks.dispclk_khz) {
++		ramp_up_dispclk_with_dpp(clk_mgr, dc,  new_clocks);
++		clk_mgr_base->clks.dispclk_khz = new_clocks->dispclk_khz;
+ 		send_request_to_lower = true;
+ 	}
+ 
+ 	if (!send_request_to_increase && send_request_to_lower) {
+ 		/*use dcfclk to request voltage*/
+-		if (pp_smu && pp_smu->set_hard_min_fclk_by_freq &&
++		if (pp_smu->set_hard_min_fclk_by_freq &&
+                                 pp_smu->set_hard_min_dcfclk_by_freq &&
+                                 pp_smu->set_min_deep_sleep_dcfclk) {
+                         pp_smu->set_hard_min_fclk_by_freq(&pp_smu->pp_smu, new_clocks->fclk_khz / 1000);
+@@ -257,102 +243,48 @@ static void dcn1_update_clocks(struct clk_mgr *clk_mgr,
+ 	}
+ }
+ 
+-#define VBIOSSMC_MSG_SetDispclkFreq           0x4
+-#define VBIOSSMC_MSG_SetDprefclkFreq          0x5
+-
+-int dcn10_set_dispclk(struct clk_mgr *clk_mgr_base, int requested_dispclk_khz)
+-{
+-	int actual_dispclk_set_khz = -1;
+-	struct dce_clk_mgr *clk_mgr_dce = TO_DCE_CLK_MGR(clk_mgr_base);
+-
+-	/* First clear response register */
+-	//dm_write_reg(ctx, mmMP1_SMN_C2PMSG_91, 0);
+-	REG_WRITE(MP1_SMN_C2PMSG_91, 0);
+-
+-	/* Set the parameter register for the SMU message, unit is Mhz */
+-	//dm_write_reg(ctx, mmMP1_SMN_C2PMSG_83, requested_dispclk_khz / 1000);
+-	REG_WRITE(MP1_SMN_C2PMSG_83, requested_dispclk_khz / 1000);
+-
+-	/* Trigger the message transaction by writing the message ID */
+-	//dm_write_reg(ctx, mmMP1_SMN_C2PMSG_67, VBIOSSMC_MSG_SetDispclkFreq);
+-	REG_WRITE(MP1_SMN_C2PMSG_67, VBIOSSMC_MSG_SetDispclkFreq);
+-
+-	REG_WAIT(MP1_SMN_C2PMSG_91, CONTENT, 1, 10, 200000);
+-
+-	/* Actual dispclk set is returned in the parameter register */
+-	actual_dispclk_set_khz = REG_READ(MP1_SMN_C2PMSG_83) * 1000;
+-
+-	return actual_dispclk_set_khz;
+-
+-}
+-
+-int dcn10_set_dprefclk(struct clk_mgr *clk_mgr_base)
+-{
+-	int actual_dprefclk_set_khz = -1;
+-	struct dce_clk_mgr *clk_mgr_dce = TO_DCE_CLK_MGR(clk_mgr_base);
+-
+-	REG_WRITE(MP1_SMN_C2PMSG_91, 0);
+-
+-	/* Set the parameter register for the SMU message */
+-	REG_WRITE(MP1_SMN_C2PMSG_83, clk_mgr_dce->dprefclk_khz / 1000);
+-
+-	/* Trigger the message transaction by writing the message ID */
+-	REG_WRITE(MP1_SMN_C2PMSG_67, VBIOSSMC_MSG_SetDprefclkFreq);
+-
+-	/* Wait for SMU response */
+-	REG_WAIT(MP1_SMN_C2PMSG_91, CONTENT, 1, 10, 200000);
+-
+-	actual_dprefclk_set_khz = REG_READ(MP1_SMN_C2PMSG_83) * 1000;
+-
+-	return actual_dprefclk_set_khz;
+-}
+-
+-int (*set_dispclk)(struct pp_smu *pp_smu, int dispclk);
+-
+-int (*set_dprefclk)(struct pp_smu *pp_smu);
+-
+-static struct clk_mgr_funcs dcn1_funcs = {
++static struct clk_mgr_funcs rv1_clk_funcs = {
+ 	.get_dp_ref_clk_frequency = dce12_get_dp_ref_freq_khz,
+-	.update_clocks = dcn1_update_clocks
++	.update_clocks = rv1_update_clocks,
++};
++
++static struct clk_mgr_internal_funcs rv1_clk_internal_funcs = {
++	.set_dispclk = rv1_vbios_smu_set_dispclk,
++	.set_dprefclk = dce112_set_dprefclk
+ };
+-struct clk_mgr *dcn1_clk_mgr_create(struct dc_context *ctx)
++
++void rv1_clk_mgr_construct(struct dc_context *ctx, struct clk_mgr_internal *clk_mgr, struct pp_smu_funcs *pp_smu)
+ {
+ 	struct dc_debug_options *debug = &ctx->dc->debug;
+ 	struct dc_bios *bp = ctx->dc_bios;
+ 	struct dc_firmware_info fw_info = { { 0 } };
+-	struct dce_clk_mgr *clk_mgr_dce = kzalloc(sizeof(*clk_mgr_dce), GFP_KERNEL);
+ 
+-	if (clk_mgr_dce == NULL) {
+-		BREAK_TO_DEBUGGER();
+-		return NULL;
+-	}
++	clk_mgr->base.ctx = ctx;
++	clk_mgr->pp_smu = pp_smu;
++	clk_mgr->base.funcs = &rv1_clk_funcs;
++	clk_mgr->funcs = &rv1_clk_internal_funcs;
+ 
+-	clk_mgr_dce->base.ctx = ctx;
+-	clk_mgr_dce->base.funcs = &dcn1_funcs;
++	clk_mgr->dfs_bypass_disp_clk = 0;
+ 
+-	clk_mgr_dce->dfs_bypass_disp_clk = 0;
+-
+-	clk_mgr_dce->dprefclk_ss_percentage = 0;
+-	clk_mgr_dce->dprefclk_ss_divider = 1000;
+-	clk_mgr_dce->ss_on_dprefclk = false;
+-	clk_mgr_dce->dprefclk_khz = 600000;
++	clk_mgr->dprefclk_ss_percentage = 0;
++	clk_mgr->dprefclk_ss_divider = 1000;
++	clk_mgr->ss_on_dprefclk = false;
++	clk_mgr->base.dprefclk_khz = 600000;
+ 
+ 	if (bp->integrated_info)
+-		clk_mgr_dce->dentist_vco_freq_khz = bp->integrated_info->dentist_vco_freq;
+-	if (clk_mgr_dce->dentist_vco_freq_khz == 0) {
++		clk_mgr->dentist_vco_freq_khz = bp->integrated_info->dentist_vco_freq;
++	if (clk_mgr->dentist_vco_freq_khz == 0) {
+ 		bp->funcs->get_firmware_info(bp, &fw_info);
+-		clk_mgr_dce->dentist_vco_freq_khz = fw_info.smu_gpu_pll_output_freq;
+-		if (clk_mgr_dce->dentist_vco_freq_khz == 0)
+-			clk_mgr_dce->dentist_vco_freq_khz = 3600000;
++		clk_mgr->dentist_vco_freq_khz = fw_info.smu_gpu_pll_output_freq;
++		if (clk_mgr->dentist_vco_freq_khz == 0)
++			clk_mgr->dentist_vco_freq_khz = 3600000;
+ 	}
+ 
+ 	if (!debug->disable_dfs_bypass && bp->integrated_info)
+ 		if (bp->integrated_info->gpu_cap_info & DFS_BYPASS_ENABLE)
+-			clk_mgr_dce->dfs_bypass_enabled = true;
+-
+-	dce_clock_read_ss_info(clk_mgr_dce);
++			clk_mgr->dfs_bypass_enabled = true;
+ 
+-	return &clk_mgr_dce->base;
++	dce_clock_read_ss_info(clk_mgr);
+ }
+ 
+ 
+diff --git a/drivers/gpu/drm/amd/display/dc/dcn10/rv1_clk_mgr.h b/drivers/gpu/drm/amd/display/dc/dcn10/rv1_clk_mgr.h
+new file mode 100644
+index 000000000000..0807478c8212
+--- /dev/null
++++ b/drivers/gpu/drm/amd/display/dc/dcn10/rv1_clk_mgr.h
+@@ -0,0 +1,31 @@
++/*
++ * Copyright 2018 Advanced Micro Devices, Inc.
++ *
++ * Permission is hereby granted, free of charge, to any person obtaining a
++ * copy of this software and associated documentation files (the "Software"),
++ * to deal in the Software without restriction, including without limitation
++ * the rights to use, copy, modify, merge, publish, distribute, sublicense,
++ * and/or sell copies of the Software, and to permit persons to whom the
++ * Software is furnished to do so, subject to the following conditions:
++ *
++ * The above copyright notice and this permission notice shall be included in
++ * all copies or substantial portions of the Software.
++ *
++ * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
++ * IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
++ * FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.  IN NO EVENT SHALL
++ * THE COPYRIGHT HOLDER(S) OR AUTHOR(S) BE LIABLE FOR ANY CLAIM, DAMAGES OR
++ * OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE,
++ * ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR
++ * OTHER DEALINGS IN THE SOFTWARE.
++ *
++ * Authors: AMD
++ *
++ */
++
++#ifndef __RV1_CLK_MGR_H__
++#define __RV1_CLK_MGR_H__
++
++void rv1_clk_mgr_construct(struct dc_context *ctx, struct clk_mgr_internal *clk_mgr, struct pp_smu_funcs *pp_smu);
++
++#endif //__DCN10_CLK_MGR_H__
+diff --git a/drivers/gpu/drm/amd/display/dc/dcn10/rv1_clk_mgr_clk.c b/drivers/gpu/drm/amd/display/dc/dcn10/rv1_clk_mgr_clk.c
+new file mode 100644
+index 000000000000..887814c65bac
+--- /dev/null
++++ b/drivers/gpu/drm/amd/display/dc/dcn10/rv1_clk_mgr_clk.c
+@@ -0,0 +1,75 @@
++/*
++ * Copyright 2012-16 Advanced Micro Devices, Inc.
++ *
++ * Permission is hereby granted, free of charge, to any person obtaining a
++ * copy of this software and associated documentation files (the "Software"),
++ * to deal in the Software without restriction, including without limitation
++ * the rights to use, copy, modify, merge, publish, distribute, sublicense,
++ * and/or sell copies of the Software, and to permit persons to whom the
++ * Software is furnished to do so, subject to the following conditions:
++ *
++ * The above copyright notice and this permission notice shall be included in
++ * all copies or substantial portions of the Software.
++ *
++ * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
++ * IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
++ * FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.  IN NO EVENT SHALL
++ * THE COPYRIGHT HOLDER(S) OR AUTHOR(S) BE LIABLE FOR ANY CLAIM, DAMAGES OR
++ * OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE,
++ * ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR
++ * OTHER DEALINGS IN THE SOFTWARE.
++ *
++ * Authors: AMD
++ *
++ */
++
++#include "reg_helper.h"
++#include "clk_mgr_internal.h"
++#include "rv1_clk_mgr_clk.h"
++
++#include "ip/Discovery/hwid.h"
++#include "ip/Discovery/v1/ip_offset_1.h"
++#include "ip/CLK/clk_10_0_default.h"
++#include "ip/CLK/clk_10_0_offset.h"
++#include "ip/CLK/clk_10_0_reg.h"
++#include "ip/CLK/clk_10_0_sh_mask.h"
++
++#include "dce/dce_clk_mgr.h"
++
++#define CLK_REG(reg_name, block, inst)\
++	CLK_BASE(mm ## block ## _ ## inst ## _ ## reg_name ## _BASE_IDX) + \
++					mm ## block ## _ ## inst ## _ ## reg_name
++
++#define REG(reg_name) \
++	CLK_REG(reg_name, CLK0, 0)
++
++
++/* Only used by testing framework*/
++void rv1_dump_clk_registers(struct clk_state_registers *regs, struct clk_bypass *bypass, struct clk_mgr *clk_mgr_base)
++{
++	struct clk_mgr_internal *clk_mgr = TO_CLK_MGR_INTERNAL(clk_mgr_base);
++
++		regs->CLK0_CLK8_CURRENT_CNT = REG_READ(CLK0_CLK8_CURRENT_CNT) / 10; //dcf clk
++
++		bypass->dcfclk_bypass = REG_READ(CLK0_CLK8_BYPASS_CNTL) & 0x0007;
++		if (bypass->dcfclk_bypass < 0 || bypass->dcfclk_bypass > 4)
++			bypass->dcfclk_bypass = 0;
++
++
++		regs->CLK0_CLK8_DS_CNTL = REG_READ(CLK0_CLK8_DS_CNTL) / 10;	//dcf deep sleep divider
++
++		regs->CLK0_CLK8_ALLOW_DS = REG_READ(CLK0_CLK8_ALLOW_DS); //dcf deep sleep allow
++
++		regs->CLK0_CLK10_CURRENT_CNT = REG_READ(CLK0_CLK10_CURRENT_CNT) / 10; //dpref clk
++
++		bypass->dispclk_pypass = REG_READ(CLK0_CLK10_BYPASS_CNTL) & 0x0007;
++		if (bypass->dispclk_pypass < 0 || bypass->dispclk_pypass > 4)
++			bypass->dispclk_pypass = 0;
++
++		regs->CLK0_CLK11_CURRENT_CNT = REG_READ(CLK0_CLK11_CURRENT_CNT) / 10; //disp clk
++
++		bypass->dprefclk_bypass = REG_READ(CLK0_CLK11_BYPASS_CNTL) & 0x0007;
++		if (bypass->dprefclk_bypass < 0 || bypass->dprefclk_bypass > 4)
++			bypass->dprefclk_bypass = 0;
++
++}
+diff --git a/drivers/gpu/drm/amd/display/dc/dcn10/rv1_clk_mgr_clk.h b/drivers/gpu/drm/amd/display/dc/dcn10/rv1_clk_mgr_clk.h
+new file mode 100644
+index 000000000000..b68e3452efb9
+--- /dev/null
++++ b/drivers/gpu/drm/amd/display/dc/dcn10/rv1_clk_mgr_clk.h
+@@ -0,0 +1,29 @@
++/*
++ * Copyright 2018 Advanced Micro Devices, Inc.
++ *
++ * Permission is hereby granted, free of charge, to any person obtaining a
++ * copy of this software and associated documentation files (the "Software"),
++ * to deal in the Software without restriction, including without limitation
++ * the rights to use, copy, modify, merge, publish, distribute, sublicense,
++ * and/or sell copies of the Software, and to permit persons to whom the
++ * Software is furnished to do so, subject to the following conditions:
++ *
++ * The above copyright notice and this permission notice shall be included in
++ * all copies or substantial portions of the Software.
++ *
++ * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
++ * IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
++ * FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.  IN NO EVENT SHALL
++ * THE COPYRIGHT HOLDER(S) OR AUTHOR(S) BE LIABLE FOR ANY CLAIM, DAMAGES OR
++ * OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE,
++ * ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR
++ * OTHER DEALINGS IN THE SOFTWARE.
++ *
++ * Authors: AMD
++ *
++ */
++
++#ifndef DAL_DC_DCN10_RV1_CLK_MGR_CLK_H_
++#define DAL_DC_DCN10_RV1_CLK_MGR_CLK_H_
++
++#endif /* DAL_DC_DCN10_RV1_CLK_MGR_CLK_H_ */
+diff --git a/drivers/gpu/drm/amd/display/dc/dcn10/rv1_clk_mgr_vbios_smu.c b/drivers/gpu/drm/amd/display/dc/dcn10/rv1_clk_mgr_vbios_smu.c
+new file mode 100644
+index 000000000000..196087072063
+--- /dev/null
++++ b/drivers/gpu/drm/amd/display/dc/dcn10/rv1_clk_mgr_vbios_smu.c
+@@ -0,0 +1,124 @@
++/*
++ * Copyright 2012-16 Advanced Micro Devices, Inc.
++ *
++ * Permission is hereby granted, free of charge, to any person obtaining a
++ * copy of this software and associated documentation files (the "Software"),
++ * to deal in the Software without restriction, including without limitation
++ * the rights to use, copy, modify, merge, publish, distribute, sublicense,
++ * and/or sell copies of the Software, and to permit persons to whom the
++ * Software is furnished to do so, subject to the following conditions:
++ *
++ * The above copyright notice and this permission notice shall be included in
++ * all copies or substantial portions of the Software.
++ *
++ * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
++ * IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
++ * FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.  IN NO EVENT SHALL
++ * THE COPYRIGHT HOLDER(S) OR AUTHOR(S) BE LIABLE FOR ANY CLAIM, DAMAGES OR
++ * OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE,
++ * ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR
++ * OTHER DEALINGS IN THE SOFTWARE.
++ *
++ * Authors: AMD
++ *
++ */
++
++#include "core_types.h"
++#include "clk_mgr_internal.h"
++#include "reg_helper.h"
++
++#define MAX_INSTANCE	5
++#define MAX_SEGMENT		5
++
++struct IP_BASE_INSTANCE {
++	unsigned int segment[MAX_SEGMENT];
++};
++
++struct IP_BASE {
++	struct IP_BASE_INSTANCE instance[MAX_INSTANCE];
++};
++
++
++static const struct IP_BASE MP1_BASE  = { { { { 0x00016000, 0, 0, 0, 0 } },
++											 { { 0, 0, 0, 0, 0 } },
++											 { { 0, 0, 0, 0, 0 } },
++											 { { 0, 0, 0, 0, 0 } },
++											 { { 0, 0, 0, 0, 0 } } } };
++
++#define mmMP1_SMN_C2PMSG_91            0x29B
++#define mmMP1_SMN_C2PMSG_83            0x293
++#define mmMP1_SMN_C2PMSG_67            0x283
++#define mmMP1_SMN_C2PMSG_91_BASE_IDX   0
++#define mmMP1_SMN_C2PMSG_83_BASE_IDX   0
++#define mmMP1_SMN_C2PMSG_67_BASE_IDX   0
++
++#define MP1_SMN_C2PMSG_91__CONTENT_MASK                    0xffffffffL
++#define MP1_SMN_C2PMSG_83__CONTENT_MASK                    0xffffffffL
++#define MP1_SMN_C2PMSG_67__CONTENT_MASK                    0xffffffffL
++#define MP1_SMN_C2PMSG_91__CONTENT__SHIFT                  0x00000000
++#define MP1_SMN_C2PMSG_83__CONTENT__SHIFT                  0x00000000
++#define MP1_SMN_C2PMSG_67__CONTENT__SHIFT                  0x00000000
++
++#define REG(reg_name) \
++	(MP1_BASE.instance[0].segment[mm ## reg_name ## _BASE_IDX] + mm ## reg_name)
++
++#define FN(reg_name, field) \
++	FD(reg_name##__##field)
++
++#define VBIOSSMC_MSG_SetDispclkFreq           0x4
++#define VBIOSSMC_MSG_SetDprefclkFreq          0x5
++
++int rv1_vbios_smu_set_dispclk(struct clk_mgr_internal *clk_mgr, int requested_dispclk_khz)
++{
++
++	int actual_dispclk_set_khz = -1;
++	struct dc *core_dc = clk_mgr->base.ctx->dc;
++	struct dmcu *dmcu = core_dc->res_pool->dmcu;
++
++	/* First clear response register */
++	//dm_write_reg(ctx, mmMP1_SMN_C2PMSG_91, 0);
++	REG_WRITE(MP1_SMN_C2PMSG_91, 0);
++
++	/* Set the parameter register for the SMU message, unit is Mhz */
++	//dm_write_reg(ctx, mmMP1_SMN_C2PMSG_83, requested_dispclk_khz / 1000);
++	REG_WRITE(MP1_SMN_C2PMSG_83, requested_dispclk_khz / 1000);
++
++	/* Trigger the message transaction by writing the message ID */
++	//dm_write_reg(ctx, mmMP1_SMN_C2PMSG_67, VBIOSSMC_MSG_SetDispclkFreq);
++	REG_WRITE(MP1_SMN_C2PMSG_67, VBIOSSMC_MSG_SetDispclkFreq);
++
++	REG_WAIT(MP1_SMN_C2PMSG_91, CONTENT, 1, 10, 200000);
++
++	/* Actual dispclk set is returned in the parameter register */
++	actual_dispclk_set_khz = REG_READ(MP1_SMN_C2PMSG_83) * 1000;
++
++	if (!IS_FPGA_MAXIMUS_DC(core_dc->ctx->dce_environment)) {
++		if (dmcu && dmcu->funcs->is_dmcu_initialized(dmcu)) {
++			if (clk_mgr->dfs_bypass_disp_clk != actual_dispclk_set_khz)
++				dmcu->funcs->set_psr_wait_loop(dmcu,
++						actual_dispclk_set_khz / 1000 / 7);
++		}
++	}
++
++	return actual_dispclk_set_khz;
++}
++
++int rv1_vbios_smu_set_dprefclk(struct clk_mgr_internal *clk_mgr)
++{
++	int actual_dprefclk_set_khz = -1;
++
++	REG_WRITE(MP1_SMN_C2PMSG_91, 0);
++
++	/* Set the parameter register for the SMU message */
++	REG_WRITE(MP1_SMN_C2PMSG_83, clk_mgr->base.dprefclk_khz / 1000);
++
++	/* Trigger the message transaction by writing the message ID */
++	REG_WRITE(MP1_SMN_C2PMSG_67, VBIOSSMC_MSG_SetDprefclkFreq);
++
++	/* Wait for SMU response */
++	REG_WAIT(MP1_SMN_C2PMSG_91, CONTENT, 1, 10, 200000);
++
++	actual_dprefclk_set_khz = REG_READ(MP1_SMN_C2PMSG_83) * 1000;
++
++	return actual_dprefclk_set_khz;
++}
+diff --git a/drivers/gpu/drm/amd/display/dc/dcn10/rv1_clk_mgr_vbios_smu.h b/drivers/gpu/drm/amd/display/dc/dcn10/rv1_clk_mgr_vbios_smu.h
+new file mode 100644
+index 000000000000..083cb3158859
+--- /dev/null
++++ b/drivers/gpu/drm/amd/display/dc/dcn10/rv1_clk_mgr_vbios_smu.h
+@@ -0,0 +1,32 @@
++/*
++ * Copyright 2018 Advanced Micro Devices, Inc.
++ *
++ * Permission is hereby granted, free of charge, to any person obtaining a
++ * copy of this software and associated documentation files (the "Software"),
++ * to deal in the Software without restriction, including without limitation
++ * the rights to use, copy, modify, merge, publish, distribute, sublicense,
++ * and/or sell copies of the Software, and to permit persons to whom the
++ * Software is furnished to do so, subject to the following conditions:
++ *
++ * The above copyright notice and this permission notice shall be included in
++ * all copies or substantial portions of the Software.
++ *
++ * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
++ * IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
++ * FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.  IN NO EVENT SHALL
++ * THE COPYRIGHT HOLDER(S) OR AUTHOR(S) BE LIABLE FOR ANY CLAIM, DAMAGES OR
++ * OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE,
++ * ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR
++ * OTHER DEALINGS IN THE SOFTWARE.
++ *
++ * Authors: AMD
++ *
++ */
++
++#ifndef DAL_DC_DCN10_RV1_CLK_MGR_VBIOS_SMU_H_
++#define DAL_DC_DCN10_RV1_CLK_MGR_VBIOS_SMU_H_
++
++int rv1_vbios_smu_set_dispclk(struct clk_mgr_internal *clk_mgr, int requested_dispclk_khz);
++int rv1_vbios_smu_set_dprefclk(struct clk_mgr_internal *clk_mgr);
++
++#endif /* DAL_DC_DCN10_RV1_CLK_MGR_VBIOS_SMU_H_ */
+diff --git a/drivers/gpu/drm/amd/display/dc/dcn10/rv2_clk_mgr.c b/drivers/gpu/drm/amd/display/dc/dcn10/rv2_clk_mgr.c
+new file mode 100644
+index 000000000000..f2eb2f7c55e5
+--- /dev/null
++++ b/drivers/gpu/drm/amd/display/dc/dcn10/rv2_clk_mgr.c
+@@ -0,0 +1,43 @@
++/*
++ * Copyright 2018 Advanced Micro Devices, Inc.
++ *
++ * Permission is hereby granted, free of charge, to any person obtaining a
++ * copy of this software and associated documentation files (the "Software"),
++ * to deal in the Software without restriction, including without limitation
++ * the rights to use, copy, modify, merge, publish, distribute, sublicense,
++ * and/or sell copies of the Software, and to permit persons to whom the
++ * Software is furnished to do so, subject to the following conditions:
++ *
++ * The above copyright notice and this permission notice shall be included in
++ * all copies or substantial portions of the Software.
++ *
++ * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
++ * IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
++ * FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.  IN NO EVENT SHALL
++ * THE COPYRIGHT HOLDER(S) OR AUTHOR(S) BE LIABLE FOR ANY CLAIM, DAMAGES OR
++ * OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE,
++ * ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR
++ * OTHER DEALINGS IN THE SOFTWARE.
++ *
++ * Authors: AMD
++ *
++ */
++
++#include "core_types.h"
++#include "clk_mgr_internal.h"
++#include "rv1_clk_mgr.h"
++#include "rv2_clk_mgr.h"
++#include "dce/dce112_clk_mgr.h"
++
++static struct clk_mgr_internal_funcs rv2_clk_internal_funcs = {
++	.set_dispclk = dce112_set_dispclk,
++	.set_dprefclk = dce112_set_dprefclk
++};
++
++void rv2_clk_mgr_construct(struct dc_context *ctx, struct clk_mgr_internal *clk_mgr, struct pp_smu_funcs *pp_smu)
++
++{
++	rv1_clk_mgr_construct(ctx, clk_mgr, pp_smu);
++
++	clk_mgr->funcs = &rv2_clk_internal_funcs;
++}
+diff --git a/drivers/gpu/drm/amd/display/dc/dcn10/dcn10_clk_mgr.h b/drivers/gpu/drm/amd/display/dc/dcn10/rv2_clk_mgr.h
+similarity index 82%
+rename from drivers/gpu/drm/amd/display/dc/dcn10/dcn10_clk_mgr.h
+rename to drivers/gpu/drm/amd/display/dc/dcn10/rv2_clk_mgr.h
+index 97007cf33665..0c1f26ca563b 100644
+--- a/drivers/gpu/drm/amd/display/dc/dcn10/dcn10_clk_mgr.h
++++ b/drivers/gpu/drm/amd/display/dc/dcn10/rv2_clk_mgr.h
+@@ -23,17 +23,10 @@
+  *
+  */
+ 
+-#ifndef __DCN10_CLK_MGR_H__
+-#define __DCN10_CLK_MGR_H__
++#ifndef __RV2_CLK_MGR_H__
++#define __RV2_CLK_MGR_H__
+ 
+-#include "../dce/dce_clk_mgr.h"
++void rv2_clk_mgr_construct(struct dc_context *ctx, struct clk_mgr_internal *clk_mgr, struct pp_smu_funcs *pp_smu);
+ 
+-struct clk_bypass {
+-	uint32_t dcfclk_bypass;
+-	uint32_t dispclk_pypass;
+-	uint32_t dprefclk_bypass;
+-};
+-
+-struct clk_mgr *dcn1_clk_mgr_create(struct dc_context *ctx);
+ 
+ #endif //__DCN10_CLK_MGR_H__
+diff --git a/drivers/gpu/drm/amd/display/dc/inc/core_types.h b/drivers/gpu/drm/amd/display/dc/inc/core_types.h
+index 539d34d3439c..80709c9343c1 100644
+--- a/drivers/gpu/drm/amd/display/dc/inc/core_types.h
++++ b/drivers/gpu/drm/amd/display/dc/inc/core_types.h
+@@ -82,7 +82,6 @@ void core_link_disable_stream(struct pipe_ctx *pipe_ctx, int option);
+ 
+ void core_link_set_avmute(struct pipe_ctx *pipe_ctx, bool enable);
+ /********** DAL Core*********************/
+-#include "hw/clk_mgr.h"
+ #include "transform.h"
+ #include "dpp.h"
+ 
+@@ -178,7 +177,6 @@ struct resource_pool {
+ 	unsigned int audio_count;
+ 	struct audio_support audio_support;
+ 
+-	struct clk_mgr *clk_mgr;
+ 	struct dccg *dccg;
+ 	struct irq_service *irqs;
+ 
+diff --git a/drivers/gpu/drm/amd/display/dc/inc/dcn_calcs.h b/drivers/gpu/drm/amd/display/dc/inc/dcn_calcs.h
+index 263c09630c06..806f3041db14 100644
+--- a/drivers/gpu/drm/amd/display/dc/inc/dcn_calcs.h
++++ b/drivers/gpu/drm/amd/display/dc/inc/dcn_calcs.h
+@@ -32,7 +32,7 @@
+ 
+ #include "bw_fixed.h"
+ #include "../dml/display_mode_lib.h"
+-#include "hw/clk_mgr.h"
++
+ 
+ struct dc;
+ struct dc_state;
+diff --git a/drivers/gpu/drm/amd/display/dc/inc/hw/clk_mgr.h b/drivers/gpu/drm/amd/display/dc/inc/hw/clk_mgr.h
+index f3fd3f8cac26..0a2346a009ad 100644
+--- a/drivers/gpu/drm/amd/display/dc/inc/hw/clk_mgr.h
++++ b/drivers/gpu/drm/amd/display/dc/inc/hw/clk_mgr.h
+@@ -26,17 +26,18 @@
+ #ifndef __DAL_CLK_MGR_H__
+ #define __DAL_CLK_MGR_H__
+ 
+-#include "dm_services_types.h"
+ #include "dc.h"
+ 
+-struct clk_mgr {
+-	struct dc_context *ctx;
+-	struct clk_mgr_funcs *funcs;
+-
+-	struct dc_clocks clks;
+-};
++/* Public interfaces */
+ 
+ struct clk_mgr_funcs {
++	/*
++	 * This function should set new clocks based on the input "safe_to_lower".
++	 * If safe_to_lower == false, then only clocks which are to be increased
++	 * should changed.
++	 * If safe_to_lower == true, then only clocks which are to be decreased
++	 * should be changed.
++	 */
+ 	void (*update_clocks)(struct clk_mgr *clk_mgr,
+ 			struct dc_state *context,
+ 			bool safe_to_lower);
+@@ -45,11 +46,22 @@ struct clk_mgr_funcs {
+ 
+ 	void (*init_clocks)(struct clk_mgr *clk_mgr);
+ 
+-	/* Returns actual clk that's set */
+-	int (*set_dispclk)(struct clk_mgr *clk_mgr, int requested_dispclk_khz);
+-	int (*set_dprefclk)(struct clk_mgr *clk_mgr);
+ };
+ 
++void dce121_clock_patch_xgmi_ss_info(struct clk_mgr *clk_mgr_base);
++
++struct clk_mgr {
++	struct dc_context *ctx;
++	struct clk_mgr_funcs *funcs;
++	struct dc_clocks clks;
++	int dprefclk_khz; // Used by program pixel clock in clock source funcs, need to figureout where this goes
++};
++
++/* forward declarations */
++struct dccg;
++
++struct clk_mgr *dc_clk_mgr_create(struct dc_context *ctx, struct pp_smu_funcs *pp_smu, struct dccg *dccg);
+ 
++void dc_destroy_clk_mgr(struct clk_mgr *clk_mgr);
+ 
+ #endif /* __DAL_CLK_MGR_H__ */
+diff --git a/drivers/gpu/drm/amd/display/dc/inc/hw/clk_mgr_internal.h b/drivers/gpu/drm/amd/display/dc/inc/hw/clk_mgr_internal.h
+new file mode 100644
+index 000000000000..42f72c44e6f9
+--- /dev/null
++++ b/drivers/gpu/drm/amd/display/dc/inc/hw/clk_mgr_internal.h
+@@ -0,0 +1,208 @@
++/*
++ * Copyright 2018 Advanced Micro Devices, Inc.
++ *
++ * Permission is hereby granted, free of charge, to any person obtaining a
++ * copy of this software and associated documentation files (the "Software"),
++ * to deal in the Software without restriction, including without limitation
++ * the rights to use, copy, modify, merge, publish, distribute, sublicense,
++ * and/or sell copies of the Software, and to permit persons to whom the
++ * Software is furnished to do so, subject to the following conditions:
++ *
++ * The above copyright notice and this permission notice shall be included in
++ * all copies or substantial portions of the Software.
++ *
++ * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
++ * IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
++ * FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.  IN NO EVENT SHALL
++ * THE COPYRIGHT HOLDER(S) OR AUTHOR(S) BE LIABLE FOR ANY CLAIM, DAMAGES OR
++ * OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE,
++ * ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR
++ * OTHER DEALINGS IN THE SOFTWARE.
++ *
++ * Authors: AMD
++ *
++ */
++
++#ifndef __DAL_CLK_MGR_INTERNAL_H__
++#define __DAL_CLK_MGR_INTERNAL_H__
++
++#include "clk_mgr.h"
++
++/*
++ * only thing needed from here is MEMORY_TYPE_MULTIPLIER_CZ, which is also
++ * used in resource, perhaps this should be defined somewhere more common.
++ */
++#include "resource.h"
++
++/*
++ ***************************************************************************************
++ ****************** Clock Manager Private Macros and Defines ***************************
++ ***************************************************************************************
++ */
++
++#define TO_CLK_MGR_INTERNAL(clk_mgr)\
++	container_of(clk_mgr, struct clk_mgr_internal, base)
++
++#define CTX \
++	clk_mgr->base.ctx
++#define DC_LOGGER \
++	clk_mgr->ctx->logger
++
++
++#define CLK_BASE_INNER(inst) \
++	CLK_BASE__INST ## inst ## _SEG0
++
++#define CLK_BASE(inst) \
++	CLK_BASE_INNER(inst)
++
++#define CLK_SRI(reg_name, block, inst)\
++	.reg_name = CLK_BASE(mm ## block ## _ ## inst ## _ ## reg_name ## _BASE_IDX) + \
++					mm ## block ## _ ## inst ## _ ## reg_name
++
++#define CLK_COMMON_REG_LIST_DCE_BASE() \
++	.DPREFCLK_CNTL = mmDPREFCLK_CNTL, \
++	.DENTIST_DISPCLK_CNTL = mmDENTIST_DISPCLK_CNTL
++
++#define CLK_COMMON_REG_LIST_DCN_BASE() \
++	SR(DENTIST_DISPCLK_CNTL)
++
++#define CLK_SF(reg_name, field_name, post_fix)\
++	.field_name = reg_name ## __ ## field_name ## post_fix
++
++#define CLK_COMMON_MASK_SH_LIST_DCE_COMMON_BASE(mask_sh) \
++	CLK_SF(DPREFCLK_CNTL, DPREFCLK_SRC_SEL, mask_sh), \
++	CLK_SF(DENTIST_DISPCLK_CNTL, DENTIST_DPREFCLK_WDIVIDER, mask_sh)
++
++#define CLK_COMMON_MASK_SH_LIST_DCN_COMMON_BASE(mask_sh) \
++	CLK_SF(DENTIST_DISPCLK_CNTL, DENTIST_DISPCLK_WDIVIDER, mask_sh),\
++	CLK_SF(DENTIST_DISPCLK_CNTL, DENTIST_DISPCLK_CHG_DONE, mask_sh)
++
++#define CLK_MASK_SH_LIST_RV1(mask_sh) \
++	CLK_COMMON_MASK_SH_LIST_DCN_COMMON_BASE(mask_sh),\
++	CLK_SF(MP1_SMN_C2PMSG_67, CONTENT, mask_sh),\
++	CLK_SF(MP1_SMN_C2PMSG_83, CONTENT, mask_sh),\
++	CLK_SF(MP1_SMN_C2PMSG_91, CONTENT, mask_sh),
++
++
++#define CLK_REG_FIELD_LIST(type) \
++	type DPREFCLK_SRC_SEL; \
++	type DENTIST_DPREFCLK_WDIVIDER; \
++	type DENTIST_DISPCLK_WDIVIDER; \
++	type DENTIST_DISPCLK_CHG_DONE;
++
++/*
++ ***************************************************************************************
++ ****************** Clock Manager Private Structures ***********************************
++ ***************************************************************************************
++ */
++
++struct clk_mgr_registers {
++	uint32_t DPREFCLK_CNTL;
++	uint32_t DENTIST_DISPCLK_CNTL;
++
++};
++
++struct clk_mgr_shift {
++	CLK_REG_FIELD_LIST(uint8_t)
++};
++
++struct clk_mgr_mask {
++	CLK_REG_FIELD_LIST(uint32_t)
++};
++
++
++struct state_dependent_clocks {
++	int display_clk_khz;
++	int pixel_clk_khz;
++};
++
++struct clk_mgr_internal {
++	struct clk_mgr base;
++	struct pp_smu_funcs *pp_smu;
++	struct clk_mgr_internal_funcs *funcs;
++
++	struct dccg *dccg;
++
++	/*
++	 * For backwards compatbility with previous implementation
++	 * TODO: remove these after everything transitions to new pattern
++	 * Rationale is that clk registers change a lot across DCE versions
++	 * and a shared data structure doesn't really make sense.
++	 */
++	const struct clk_mgr_registers *regs;
++	const struct clk_mgr_shift *clk_mgr_shift;
++	const struct clk_mgr_mask *clk_mgr_mask;
++
++	struct state_dependent_clocks max_clks_by_state[DM_PP_CLOCKS_MAX_STATES];
++
++	/*TODO: figure out which of the below fields should be here vs in asic specific portion */
++	int dentist_vco_freq_khz;
++
++	/* Cache the status of DFS-bypass feature*/
++	bool dfs_bypass_enabled;
++	/* True if the DFS-bypass feature is enabled and active. */
++	bool dfs_bypass_active;
++	/*
++	 * Cache the display clock returned by VBIOS if DFS-bypass is enabled.
++	 * This is basically "Crystal Frequency In KHz" (XTALIN) frequency
++	 */
++	int dfs_bypass_disp_clk;
++
++	/**
++	 * @ss_on_dprefclk:
++	 *
++	 * True if spread spectrum is enabled on the DP ref clock.
++	 */
++	bool ss_on_dprefclk;
++
++	/**
++	 * @xgmi_enabled:
++	 *
++	 * True if xGMI is enabled. On VG20, both audio and display clocks need
++	 * to be adjusted with the WAFL link's SS info if xGMI is enabled.
++	 */
++	bool xgmi_enabled;
++
++	/**
++	 * @dprefclk_ss_percentage:
++	 *
++	 * DPREFCLK SS percentage (if down-spread enabled).
++	 *
++	 * Note that if XGMI is enabled, the SS info (percentage and divider)
++	 * from the WAFL link is used instead. This is decided during
++	 * dce_clk_mgr initialization.
++	 */
++	int dprefclk_ss_percentage;
++
++	/**
++	 * @dprefclk_ss_divider:
++	 *
++	 * DPREFCLK SS percentage Divider (100 or 1000).
++	 */
++	int dprefclk_ss_divider;
++
++	enum dm_pp_clocks_state max_clks_state;
++	enum dm_pp_clocks_state cur_min_clks_state;
++};
++
++struct clk_mgr_internal_funcs {
++	int (*set_dispclk)(struct clk_mgr_internal *clk_mgr, int requested_dispclk_khz);
++	int (*set_dprefclk)(struct clk_mgr_internal *clk_mgr);
++};
++
++
++/*
++ ***************************************************************************************
++ ****************** Clock Manager Level Helper functions *******************************
++ ***************************************************************************************
++ */
++
++
++static inline bool should_set_clock(bool safe_to_lower, int calc_clk, int cur_clk)
++{
++	return ((safe_to_lower && calc_clk < cur_clk) || calc_clk > cur_clk);
++}
++
++
++
++#endif //__DAL_CLK_MGR_INTERNAL_H__
+diff --git a/drivers/gpu/drm/amd/display/dc/inc/resource.h b/drivers/gpu/drm/amd/display/dc/inc/resource.h
+index 3ce0a4fc5822..08915b737799 100644
+--- a/drivers/gpu/drm/amd/display/dc/inc/resource.h
++++ b/drivers/gpu/drm/amd/display/dc/inc/resource.h
+@@ -30,6 +30,8 @@
+ #include "dal_asic_id.h"
+ #include "dm_pp_smu.h"
+ 
++#define MEMORY_TYPE_MULTIPLIER_CZ 4
++
+ enum dce_version resource_parse_asic_id(
+ 		struct hw_asic_id asic_id);
+ 
+diff --git a/drivers/gpu/drm/amd/display/include/dal_asic_id.h b/drivers/gpu/drm/amd/display/include/dal_asic_id.h
+index 072d8d7debf5..78861564c7d4 100644
+--- a/drivers/gpu/drm/amd/display/include/dal_asic_id.h
++++ b/drivers/gpu/drm/amd/display/include/dal_asic_id.h
+@@ -139,13 +139,13 @@
+ #define RAVEN1_F0 0xF0
+ #define RAVEN_UNKNOWN 0xFF
+ 
+-#define ASIC_REV_IS_RAVEN(eChipRev) ((eChipRev >= RAVEN_A0) && eChipRev < RAVEN_UNKNOWN)
+-#define RAVEN1_F0 0xF0
+-#define ASICREV_IS_RV1_F0(eChipRev) ((eChipRev >= RAVEN1_F0) && (eChipRev < RAVEN_UNKNOWN))
+-
+ #if defined(CONFIG_DRM_AMD_DC_DCN1_01)
++#define ASICREV_IS_RAVEN(eChipRev) ((eChipRev >= RAVEN_A0) && eChipRev < RAVEN_UNKNOWN)
+ #define ASICREV_IS_PICASSO(eChipRev) ((eChipRev >= PICASSO_A0) && (eChipRev < RAVEN2_A0))
+ #define ASICREV_IS_RAVEN2(eChipRev) ((eChipRev >= RAVEN2_A0) && (eChipRev < 0xF0))
++
++#define ASICREV_IS_RV1_F0(eChipRev) ((eChipRev >= RAVEN1_F0) && (eChipRev < RAVEN_UNKNOWN))
++
+ #endif /* DCN1_01 */
+ 
+ #define FAMILY_RV 142 /* DCN 1*/
+-- 
+2.17.1
+

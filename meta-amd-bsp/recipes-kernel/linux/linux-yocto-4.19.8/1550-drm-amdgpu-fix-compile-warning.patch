@@ -1,0 +1,83 @@
+From 3715ec90cec95bfd584429785eeb4974db2f11e6 Mon Sep 17 00:00:00 2001
+From: xinhui pan <xinhui.pan@amd.com>
+Date: Fri, 1 Mar 2019 13:35:44 +0800
+Subject: [PATCH 1550/2940] drm/amdgpu: fix compile warning
+
+Signed-off-by: xinhui pan <xinhui.pan@amd.com>
+Reviewed-by: Alex Deucher <alexander.deucher@amd.com>
+---
+ drivers/gpu/drm/amd/amdgpu/amdgpu_kms.c | 3 ++-
+ drivers/gpu/drm/amd/amdgpu/amdgpu_psp.c | 1 -
+ drivers/gpu/drm/amd/amdgpu/amdgpu_ras.c | 5 +++--
+ drivers/gpu/drm/amd/amdgpu/gfx_v9_0.c   | 2 +-
+ 4 files changed, 6 insertions(+), 5 deletions(-)
+
+diff --git a/drivers/gpu/drm/amd/amdgpu/amdgpu_kms.c b/drivers/gpu/drm/amd/amdgpu/amdgpu_kms.c
+index f3e063704960..93759bcb099c 100644
+--- a/drivers/gpu/drm/amd/amdgpu/amdgpu_kms.c
++++ b/drivers/gpu/drm/amd/amdgpu/amdgpu_kms.c
+@@ -956,7 +956,8 @@ static int amdgpu_info_ioctl(struct drm_device *dev, void *data, struct drm_file
+ 		if (!ras)
+ 			return -EINVAL;
+ 		return copy_to_user(out, &ras->features,
+-				min(size, sizeof(ras->features))) ? -EFAULT : 0;
++				min_t(u32, size, sizeof(ras->features))) ?
++			-EFAULT : 0;
+ 	}
+ 	default:
+ 		DRM_DEBUG_KMS("Invalid request %d\n", info->query);
+diff --git a/drivers/gpu/drm/amd/amdgpu/amdgpu_psp.c b/drivers/gpu/drm/amd/amdgpu/amdgpu_psp.c
+index e91e2118e5e3..225ecf9fab86 100644
+--- a/drivers/gpu/drm/amd/amdgpu/amdgpu_psp.c
++++ b/drivers/gpu/drm/amd/amdgpu/amdgpu_psp.c
+@@ -658,7 +658,6 @@ static int psp_ras_terminate(struct psp_context *psp)
+ 
+ static int psp_ras_initialize(struct psp_context *psp)
+ {
+-	struct ta_ras_shared_memory *ras_cmd;
+ 	int ret;
+ 
+ 	if (!psp->ras.ras_initialized) {
+diff --git a/drivers/gpu/drm/amd/amdgpu/amdgpu_ras.c b/drivers/gpu/drm/amd/amdgpu/amdgpu_ras.c
+index 604762263221..ca9c7d1ede2f 100644
+--- a/drivers/gpu/drm/amd/amdgpu/amdgpu_ras.c
++++ b/drivers/gpu/drm/amd/amdgpu/amdgpu_ras.c
+@@ -142,7 +142,8 @@ static ssize_t amdgpu_ras_debugfs_read(struct file *f, char __user *buf,
+ 		return 0;
+ 
+ 	s -= *pos;
+-	s = min(s, size);
++	s = min_t(u64, s, size);
++
+ 
+ 	if (copy_to_user(buf, &val[*pos], s))
+ 		return -EINVAL;
+@@ -159,7 +160,7 @@ static ssize_t amdgpu_ras_debugfs_write(struct file *f, const char __user *buf,
+ 	struct ras_inject_if info = {
+ 		.head = obj->head,
+ 	};
+-	ssize_t s = min(64ULL, size);
++	ssize_t s = min_t(u64, 64, size);
+ 	char val[64];
+ 	char *str = val;
+ 	memset(val, 0, sizeof(val));
+diff --git a/drivers/gpu/drm/amd/amdgpu/gfx_v9_0.c b/drivers/gpu/drm/amd/amdgpu/gfx_v9_0.c
+index 3a86d9d515b5..fc3399bb9cac 100644
+--- a/drivers/gpu/drm/amd/amdgpu/gfx_v9_0.c
++++ b/drivers/gpu/drm/amd/amdgpu/gfx_v9_0.c
+@@ -4817,11 +4817,11 @@ static int gfx_v9_0_cp_ecc_error_irq(struct amdgpu_device *adev,
+ 				  struct amdgpu_irq_src *source,
+ 				  struct amdgpu_iv_entry *entry)
+ {
+-	DRM_ERROR("CP ECC ERROR IRQ\n");
+ 	struct ras_dispatch_if ih_data = {
+ 		.head = *adev->gfx.ras_if,
+ 		.entry = entry,
+ 	};
++	DRM_ERROR("CP ECC ERROR IRQ\n");
+ 	amdgpu_ras_interrupt_dispatch(adev, &ih_data);
+ 	return 0;
+ }
+-- 
+2.17.1
+

@@ -1,0 +1,33 @@
+From f84d89c5a3265917d548df805832d02d528375f3 Mon Sep 17 00:00:00 2001
+From: =?UTF-8?q?Christian=20K=C3=B6nig?= <christian.koenig@amd.com>
+Date: Wed, 6 Mar 2019 16:10:45 +0100
+Subject: [PATCH 1631/2940] drm/amdgpu: use more entries for the first paging
+ queue
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+To aid recoverable page faults.
+
+Signed-off-by: Christian König <christian.koenig@amd.com>
+Reviewed-by: Felix Kuehling <Felix.Kuehling@amd.com>
+---
+ drivers/gpu/drm/amd/amdgpu/amdgpu_ring.c | 2 ++
+ 1 file changed, 2 insertions(+)
+
+diff --git a/drivers/gpu/drm/amd/amdgpu/amdgpu_ring.c b/drivers/gpu/drm/amd/amdgpu/amdgpu_ring.c
+index 335a0edf114b..8f5026c123ef 100644
+--- a/drivers/gpu/drm/amd/amdgpu/amdgpu_ring.c
++++ b/drivers/gpu/drm/amd/amdgpu/amdgpu_ring.c
+@@ -248,6 +248,8 @@ int amdgpu_ring_init(struct amdgpu_device *adev, struct amdgpu_ring *ring,
+ 	 */
+ 	if (ring->funcs->type == AMDGPU_RING_TYPE_KIQ)
+ 		sched_hw_submission = max(sched_hw_submission, 256);
++	else if (ring == &adev->sdma.instance[0].page)
++		sched_hw_submission = 256;
+ 
+ 	if (ring->adev == NULL) {
+ 		if (adev->num_rings >= AMDGPU_MAX_RINGS)
+-- 
+2.17.1
+

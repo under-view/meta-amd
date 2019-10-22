@@ -1,0 +1,71 @@
+From c5cc12cf2d2a4e0303beca687976a8941b258463 Mon Sep 17 00:00:00 2001
+From: Nicholas Kazlauskas <nicholas.kazlauskas@amd.com>
+Date: Thu, 6 Jun 2019 08:44:37 -0400
+Subject: [PATCH 2062/2940] drm/amdgpu: Add module parameter for specifying
+ default ABM level
+
+[Why]
+It's non trivial to configure or specify an ABM reduction level for
+userspace outside of X. There is also no method to specify the default
+ABM value at boot time.
+
+A parameter should be added to configure this.
+
+[How]
+Expose a module parameter that can specify the default ABM level to
+use for eDP connectors on DC enabled hardware that loads the DMCU
+firmware.
+
+The default is still disabled (0), but levels can range from 1-4. Levels
+control how much the backlight can be reduced, with being the least
+amount of reduction and four being the most reduction.
+
+Signed-off-by: Nicholas Kazlauskas <nicholas.kazlauskas@amd.com>
+Reviewed-by: David Francis <david.francis@amd.com>
+---
+ drivers/gpu/drm/amd/amdgpu/amdgpu.h     |  1 +
+ drivers/gpu/drm/amd/amdgpu/amdgpu_drv.c | 16 ++++++++++++++++
+ 2 files changed, 17 insertions(+)
+
+diff --git a/drivers/gpu/drm/amd/amdgpu/amdgpu.h b/drivers/gpu/drm/amd/amdgpu/amdgpu.h
+index 7cda01df7f70..92c0f91e262a 100644
+--- a/drivers/gpu/drm/amd/amdgpu/amdgpu.h
++++ b/drivers/gpu/drm/amd/amdgpu/amdgpu.h
+@@ -157,6 +157,7 @@ extern int amdgpu_gpu_recovery;
+ extern int amdgpu_emu_mode;
+ extern uint amdgpu_smu_memory_pool_size;
+ extern uint amdgpu_dc_feature_mask;
++extern uint amdgpu_dm_abm_level;
+ extern struct amdgpu_mgpu_info mgpu_info;
+ extern int amdgpu_ras_enable;
+ extern uint amdgpu_ras_mask;
+diff --git a/drivers/gpu/drm/amd/amdgpu/amdgpu_drv.c b/drivers/gpu/drm/amd/amdgpu/amdgpu_drv.c
+index dfa64c5acf16..3fae55da7e1e 100644
+--- a/drivers/gpu/drm/amd/amdgpu/amdgpu_drv.c
++++ b/drivers/gpu/drm/amd/amdgpu/amdgpu_drv.c
+@@ -584,6 +584,22 @@ module_param_named(smu_memory_pool_size, amdgpu_smu_memory_pool_size, uint, 0444
+ MODULE_PARM_DESC(dcfeaturemask, "all stable DC features enabled (default))");
+ module_param_named(dcfeaturemask, amdgpu_dc_feature_mask, uint, 0444);
+ 
++/**
++ * DOC: abmlevel (uint)
++ * Override the default ABM (Adaptive Backlight Management) level used for DC
++ * enabled hardware. Requires DMCU to be supported and loaded.
++ * Valid levels are 0-4. A value of 0 indicates that ABM should be disabled by
++ * default. Values 1-4 control the maximum allowable brightness reduction via
++ * the ABM algorithm, with 1 being the least reduction and 4 being the most
++ * reduction.
++ *
++ * Defaults to 0, or disabled. Userspace can still override this level later
++ * after boot.
++ */
++uint amdgpu_dm_abm_level = 0;
++MODULE_PARM_DESC(abmlevel, "ABM level (0 = off (default), 1-4 = backlight reduction level) ");
++module_param_named(abmlevel, amdgpu_dm_abm_level, uint, 0444);
++
+ static const struct pci_device_id pciidlist[] = {
+ #ifdef  CONFIG_DRM_AMDGPU_SI
+ 	{0x1002, 0x6780, PCI_ANY_ID, PCI_ANY_ID, 0, 0, CHIP_TAHITI},
+-- 
+2.17.1
+

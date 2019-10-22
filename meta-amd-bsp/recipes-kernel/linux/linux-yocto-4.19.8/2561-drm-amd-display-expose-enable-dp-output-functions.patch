@@ -1,0 +1,51 @@
+From ebb3ac9a48e1e1dd2bbef4dd057a5fc5cdca9c01 Mon Sep 17 00:00:00 2001
+From: Eric Bernstein <eric.bernstein@amd.com>
+Date: Thu, 16 May 2019 18:00:05 -0400
+Subject: [PATCH 2561/2940] drm/amd/display: expose enable dp output functions
+
+expose this function for future use
+
+Implementation of DCN3 DIO Link Encoder including
+dpcs register headers.
+
+Signed-off-by: Eric Bernstein <eric.bernstein@amd.com>
+Reviewed-by: Charlene Liu <Charlene.Liu@amd.com>
+Acked-by: Bhawanpreet Lakha <Bhawanpreet.Lakha@amd.com>
+Signed-off-by: Alex Deucher <alexander.deucher@amd.com>
+---
+ drivers/gpu/drm/amd/display/dc/dcn20/dcn20_link_encoder.c | 2 +-
+ drivers/gpu/drm/amd/display/dc/dcn20/dcn20_link_encoder.h | 5 +++++
+ 2 files changed, 6 insertions(+), 1 deletion(-)
+
+diff --git a/drivers/gpu/drm/amd/display/dc/dcn20/dcn20_link_encoder.c b/drivers/gpu/drm/amd/display/dc/dcn20/dcn20_link_encoder.c
+index b04ef576ec5a..f495582e9e87 100644
+--- a/drivers/gpu/drm/amd/display/dc/dcn20/dcn20_link_encoder.c
++++ b/drivers/gpu/drm/amd/display/dc/dcn20/dcn20_link_encoder.c
+@@ -240,7 +240,7 @@ static bool update_cfg_data(
+ 	return true;
+ }
+ 
+-static void dcn20_link_encoder_enable_dp_output(
++void dcn20_link_encoder_enable_dp_output(
+ 	struct link_encoder *enc,
+ 	const struct dc_link_settings *link_settings,
+ 	enum clock_source_id clock_source)
+diff --git a/drivers/gpu/drm/amd/display/dc/dcn20/dcn20_link_encoder.h b/drivers/gpu/drm/amd/display/dc/dcn20/dcn20_link_encoder.h
+index 401fdea77262..3736b5548a25 100644
+--- a/drivers/gpu/drm/amd/display/dc/dcn20/dcn20_link_encoder.h
++++ b/drivers/gpu/drm/amd/display/dc/dcn20/dcn20_link_encoder.h
+@@ -155,6 +155,11 @@ void enc2_hw_init(struct link_encoder *enc);
+ void link_enc2_read_state(struct link_encoder *enc, struct link_enc_state *s);
+ #endif
+ 
++void dcn20_link_encoder_enable_dp_output(
++	struct link_encoder *enc,
++	const struct dc_link_settings *link_settings,
++	enum clock_source_id clock_source);
++
+ void dcn20_link_encoder_construct(
+ 	struct dcn20_link_encoder *enc20,
+ 	const struct encoder_init_data *init_data,
+-- 
+2.17.1
+

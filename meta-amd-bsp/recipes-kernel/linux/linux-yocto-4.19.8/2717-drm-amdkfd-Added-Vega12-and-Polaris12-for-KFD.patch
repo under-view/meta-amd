@@ -1,0 +1,263 @@
+From f37b11a97542fccaf071c1f10df1373af1fbd25f Mon Sep 17 00:00:00 2001
+From: Gang Ba <gaba@amd.com>
+Date: Wed, 5 Sep 2018 11:27:14 -0400
+Subject: [PATCH 2717/2940] drm/amdkfd: Added Vega12 and Polaris12 for KFD.
+
+Add Vega12 and Polaris12 device info and device IDs to KFD.
+
+Signed-off-by: Gang Ba <gaba@amd.com>
+Reviewed-by: Felix Kuehling <Felix.Kuehling@amd.com>
+Signed-off-by: Felix Kuehling <Felix.Kuehling@amd.com>
+Reviewed-by: Alex Deucher <alexander.deucher@amd.com>
+Signed-off-by: Alex Deucher <alexander.deucher@amd.com>
+---
+ drivers/gpu/drm/amd/amdgpu/amdgpu_amdkfd.c    |  2 +
+ .../gpu/drm/amd/amdgpu/amdgpu_amdkfd_gpuvm.c  |  3 +-
+ drivers/gpu/drm/amd/amdkfd/kfd_crat.c         |  6 +++
+ drivers/gpu/drm/amd/amdkfd/kfd_device.c       | 45 +++++++++++++++++++
+ .../drm/amd/amdkfd/kfd_device_queue_manager.c |  2 +
+ drivers/gpu/drm/amd/amdkfd/kfd_flat_memory.c  |  2 +
+ drivers/gpu/drm/amd/amdkfd/kfd_kernel_queue.c |  2 +
+ drivers/gpu/drm/amd/amdkfd/kfd_mqd_manager.c  |  2 +
+ .../gpu/drm/amd/amdkfd/kfd_packet_manager.c   |  2 +
+ drivers/gpu/drm/amd/amdkfd/kfd_topology.c     |  2 +
+ 10 files changed, 67 insertions(+), 1 deletion(-)
+
+diff --git a/drivers/gpu/drm/amd/amdgpu/amdgpu_amdkfd.c b/drivers/gpu/drm/amd/amdgpu/amdgpu_amdkfd.c
+index 99883c2856ac..77bccdb27c7a 100644
+--- a/drivers/gpu/drm/amd/amdgpu/amdgpu_amdkfd.c
++++ b/drivers/gpu/drm/amd/amdgpu/amdgpu_amdkfd.c
+@@ -76,9 +76,11 @@ void amdgpu_amdkfd_device_probe(struct amdgpu_device *adev)
+ 	case CHIP_FIJI:
+ 	case CHIP_POLARIS10:
+ 	case CHIP_POLARIS11:
++	case CHIP_POLARIS12:
+ 		kfd2kgd = amdgpu_amdkfd_gfx_8_0_get_functions();
+ 		break;
+ 	case CHIP_VEGA10:
++	case CHIP_VEGA12:
+ 	case CHIP_VEGA20:
+ 	case CHIP_RAVEN:
+ 		kfd2kgd = amdgpu_amdkfd_gfx_9_0_get_functions();
+diff --git a/drivers/gpu/drm/amd/amdgpu/amdgpu_amdkfd_gpuvm.c b/drivers/gpu/drm/amd/amdgpu/amdgpu_amdkfd_gpuvm.c
+index b46b79742c4e..bc185511ee89 100644
+--- a/drivers/gpu/drm/amd/amdgpu/amdgpu_amdkfd_gpuvm.c
++++ b/drivers/gpu/drm/amd/amdgpu/amdgpu_amdkfd_gpuvm.c
+@@ -1210,7 +1210,8 @@ int amdgpu_amdkfd_gpuvm_alloc_memory_of_gpu(
+ 	byte_align = (adev->family == AMDGPU_FAMILY_VI &&
+ 			adev->asic_type != CHIP_FIJI &&
+ 			adev->asic_type != CHIP_POLARIS10 &&
+-			adev->asic_type != CHIP_POLARIS11) ?
++			adev->asic_type != CHIP_POLARIS11 &&
++			adev->asic_type != CHIP_POLARIS12) ?
+ 			VI_BO_SIZE_ALIGN : 1;
+ 
+ 	mapping_flags = AMDGPU_VM_PAGE_READABLE;
+diff --git a/drivers/gpu/drm/amd/amdkfd/kfd_crat.c b/drivers/gpu/drm/amd/amdkfd/kfd_crat.c
+index 3783d122f283..c02adbbeef2a 100644
+--- a/drivers/gpu/drm/amd/amdkfd/kfd_crat.c
++++ b/drivers/gpu/drm/amd/amdkfd/kfd_crat.c
+@@ -133,6 +133,7 @@ static struct kfd_gpu_cache_info carrizo_cache_info[] = {
+ #define fiji_cache_info  carrizo_cache_info
+ #define polaris10_cache_info carrizo_cache_info
+ #define polaris11_cache_info carrizo_cache_info
++#define polaris12_cache_info carrizo_cache_info
+ /* TODO - check & update Vega10 cache details */
+ #define vega10_cache_info carrizo_cache_info
+ #define raven_cache_info carrizo_cache_info
+@@ -647,7 +648,12 @@ static int kfd_fill_gpu_cache_info(struct kfd_dev *kdev,
+ 		pcache_info = polaris11_cache_info;
+ 		num_of_cache_types = ARRAY_SIZE(polaris11_cache_info);
+ 		break;
++	case CHIP_POLARIS12:
++		pcache_info = polaris12_cache_info;
++		num_of_cache_types = ARRAY_SIZE(polaris12_cache_info);
++		break;
+ 	case CHIP_VEGA10:
++	case CHIP_VEGA12:
+ 	case CHIP_VEGA20:
+ 		pcache_info = vega10_cache_info;
+ 		num_of_cache_types = ARRAY_SIZE(vega10_cache_info);
+diff --git a/drivers/gpu/drm/amd/amdkfd/kfd_device.c b/drivers/gpu/drm/amd/amdkfd/kfd_device.c
+index c004647c8cb4..9ed14a11afa2 100644
+--- a/drivers/gpu/drm/amd/amdkfd/kfd_device.c
++++ b/drivers/gpu/drm/amd/amdkfd/kfd_device.c
+@@ -205,6 +205,22 @@ static const struct kfd_device_info polaris11_device_info = {
+ 	.num_sdma_queues_per_engine = 2,
+ };
+ 
++static const struct kfd_device_info polaris12_device_info = {
++	.asic_family = CHIP_POLARIS12,
++	.max_pasid_bits = 16,
++	.max_no_of_hqd  = 24,
++	.doorbell_size  = 4,
++	.ih_ring_entry_size = 4 * sizeof(uint32_t),
++	.event_interrupt_class = &event_interrupt_class_cik,
++	.num_of_watch_points = 4,
++	.mqd_size_aligned = MQD_SIZE_ALIGNED,
++	.supports_cwsr = true,
++	.needs_iommu_device = false,
++	.needs_pci_atomics = true,
++	.num_sdma_engines = 2,
++	.num_sdma_queues_per_engine = 2,
++};
++
+ static const struct kfd_device_info vega10_device_info = {
+ 	.asic_family = CHIP_VEGA10,
+ 	.max_pasid_bits = 16,
+@@ -237,6 +253,22 @@ static const struct kfd_device_info vega10_vf_device_info = {
+ 	.num_sdma_queues_per_engine = 2,
+ };
+ 
++static const struct kfd_device_info vega12_device_info = {
++	.asic_family = CHIP_VEGA12,
++	.max_pasid_bits = 16,
++	.max_no_of_hqd  = 24,
++	.doorbell_size  = 8,
++	.ih_ring_entry_size = 8 * sizeof(uint32_t),
++	.event_interrupt_class = &event_interrupt_class_v9,
++	.num_of_watch_points = 4,
++	.mqd_size_aligned = MQD_SIZE_ALIGNED,
++	.supports_cwsr = true,
++	.needs_iommu_device = false,
++	.needs_pci_atomics = false,
++	.num_sdma_engines = 2,
++	.num_sdma_queues_per_engine = 2,
++};
++
+ static const struct kfd_device_info vega20_device_info = {
+ 	.asic_family = CHIP_VEGA20,
+ 	.max_pasid_bits = 16,
+@@ -331,6 +363,14 @@ static const struct kfd_deviceid supported_devices[] = {
+ 	{ 0x67EB, &polaris11_device_info },	/* Polaris11 */
+ 	{ 0x67EF, &polaris11_device_info },	/* Polaris11 */
+ 	{ 0x67FF, &polaris11_device_info },	/* Polaris11 */
++	{ 0x6980, &polaris12_device_info },	/* Polaris12 */
++	{ 0x6981, &polaris12_device_info },	/* Polaris12 */
++	{ 0x6985, &polaris12_device_info },	/* Polaris12 */
++	{ 0x6986, &polaris12_device_info },	/* Polaris12 */
++	{ 0x6987, &polaris12_device_info },	/* Polaris12 */
++	{ 0x6995, &polaris12_device_info },	/* Polaris12 */
++	{ 0x6997, &polaris12_device_info },	/* Polaris12 */
++	{ 0x699F, &polaris12_device_info },	/* Polaris12 */
+ 	{ 0x6860, &vega10_device_info },	/* Vega10 */
+ 	{ 0x6861, &vega10_device_info },	/* Vega10 */
+ 	{ 0x6862, &vega10_device_info },	/* Vega10 */
+@@ -340,6 +380,11 @@ static const struct kfd_deviceid supported_devices[] = {
+ 	{ 0x6868, &vega10_device_info },	/* Vega10 */
+ 	{ 0x686C, &vega10_vf_device_info },	/* Vega10  vf*/
+ 	{ 0x687F, &vega10_device_info },	/* Vega10 */
++	{ 0x69A0, &vega12_device_info },	/* Vega12 */
++	{ 0x69A1, &vega12_device_info },	/* Vega12 */
++	{ 0x69A2, &vega12_device_info },	/* Vega12 */
++	{ 0x69A3, &vega12_device_info },	/* Vega12 */
++	{ 0x69AF, &vega12_device_info },	/* Vega12 */
+ 	{ 0x66a0, &vega20_device_info },	/* Vega20 */
+ 	{ 0x66a1, &vega20_device_info },	/* Vega20 */
+ 	{ 0x66a2, &vega20_device_info },	/* Vega20 */
+diff --git a/drivers/gpu/drm/amd/amdkfd/kfd_device_queue_manager.c b/drivers/gpu/drm/amd/amdkfd/kfd_device_queue_manager.c
+index d38efbbcd671..8372556b52eb 100644
+--- a/drivers/gpu/drm/amd/amdkfd/kfd_device_queue_manager.c
++++ b/drivers/gpu/drm/amd/amdkfd/kfd_device_queue_manager.c
+@@ -1741,10 +1741,12 @@ struct device_queue_manager *device_queue_manager_init(struct kfd_dev *dev)
+ 	case CHIP_FIJI:
+ 	case CHIP_POLARIS10:
+ 	case CHIP_POLARIS11:
++	case CHIP_POLARIS12:
+ 		device_queue_manager_init_vi_tonga(&dqm->asic_ops);
+ 		break;
+ 
+ 	case CHIP_VEGA10:
++	case CHIP_VEGA12:
+ 	case CHIP_VEGA20:
+ 	case CHIP_RAVEN:
+ 		device_queue_manager_init_v9(&dqm->asic_ops);
+diff --git a/drivers/gpu/drm/amd/amdkfd/kfd_flat_memory.c b/drivers/gpu/drm/amd/amdkfd/kfd_flat_memory.c
+index 3d66cec414af..213ea5454d11 100644
+--- a/drivers/gpu/drm/amd/amdkfd/kfd_flat_memory.c
++++ b/drivers/gpu/drm/amd/amdkfd/kfd_flat_memory.c
+@@ -397,9 +397,11 @@ int kfd_init_apertures(struct kfd_process *process)
+ 			case CHIP_FIJI:
+ 			case CHIP_POLARIS10:
+ 			case CHIP_POLARIS11:
++			case CHIP_POLARIS12:
+ 				kfd_init_apertures_vi(pdd, id);
+ 				break;
+ 			case CHIP_VEGA10:
++			case CHIP_VEGA12:
+ 			case CHIP_VEGA20:
+ 			case CHIP_RAVEN:
+ 				kfd_init_apertures_v9(pdd, id);
+diff --git a/drivers/gpu/drm/amd/amdkfd/kfd_kernel_queue.c b/drivers/gpu/drm/amd/amdkfd/kfd_kernel_queue.c
+index 6c31f7370193..f1596881f20a 100644
+--- a/drivers/gpu/drm/amd/amdkfd/kfd_kernel_queue.c
++++ b/drivers/gpu/drm/amd/amdkfd/kfd_kernel_queue.c
+@@ -313,6 +313,7 @@ struct kernel_queue *kernel_queue_init(struct kfd_dev *dev,
+ 	case CHIP_FIJI:
+ 	case CHIP_POLARIS10:
+ 	case CHIP_POLARIS11:
++	case CHIP_POLARIS12:
+ 		kernel_queue_init_vi(&kq->ops_asic_specific);
+ 		break;
+ 
+@@ -322,6 +323,7 @@ struct kernel_queue *kernel_queue_init(struct kfd_dev *dev,
+ 		break;
+ 
+ 	case CHIP_VEGA10:
++	case CHIP_VEGA12:
+ 	case CHIP_VEGA20:
+ 	case CHIP_RAVEN:
+ 		kernel_queue_init_v9(&kq->ops_asic_specific);
+diff --git a/drivers/gpu/drm/amd/amdkfd/kfd_mqd_manager.c b/drivers/gpu/drm/amd/amdkfd/kfd_mqd_manager.c
+index 6910028010d6..aed9b9b82213 100644
+--- a/drivers/gpu/drm/amd/amdkfd/kfd_mqd_manager.c
++++ b/drivers/gpu/drm/amd/amdkfd/kfd_mqd_manager.c
+@@ -38,8 +38,10 @@ struct mqd_manager *mqd_manager_init(enum KFD_MQD_TYPE type,
+ 	case CHIP_FIJI:
+ 	case CHIP_POLARIS10:
+ 	case CHIP_POLARIS11:
++	case CHIP_POLARIS12:
+ 		return mqd_manager_init_vi_tonga(type, dev);
+ 	case CHIP_VEGA10:
++	case CHIP_VEGA12:
+ 	case CHIP_VEGA20:
+ 	case CHIP_RAVEN:
+ 		return mqd_manager_init_v9(type, dev);
+diff --git a/drivers/gpu/drm/amd/amdkfd/kfd_packet_manager.c b/drivers/gpu/drm/amd/amdkfd/kfd_packet_manager.c
+index c6080ed3b6a7..045a229436a0 100644
+--- a/drivers/gpu/drm/amd/amdkfd/kfd_packet_manager.c
++++ b/drivers/gpu/drm/amd/amdkfd/kfd_packet_manager.c
+@@ -226,9 +226,11 @@ int pm_init(struct packet_manager *pm, struct device_queue_manager *dqm)
+ 	case CHIP_FIJI:
+ 	case CHIP_POLARIS10:
+ 	case CHIP_POLARIS11:
++	case CHIP_POLARIS12:
+ 		pm->pmf = &kfd_vi_pm_funcs;
+ 		break;
+ 	case CHIP_VEGA10:
++	case CHIP_VEGA12:
+ 	case CHIP_VEGA20:
+ 	case CHIP_RAVEN:
+ 		pm->pmf = &kfd_v9_pm_funcs;
+diff --git a/drivers/gpu/drm/amd/amdkfd/kfd_topology.c b/drivers/gpu/drm/amd/amdkfd/kfd_topology.c
+index c73b4ff61f99..aa793fcbbdcc 100644
+--- a/drivers/gpu/drm/amd/amdkfd/kfd_topology.c
++++ b/drivers/gpu/drm/amd/amdkfd/kfd_topology.c
+@@ -1272,12 +1272,14 @@ int kfd_topology_add_device(struct kfd_dev *gpu)
+ 	case CHIP_FIJI:
+ 	case CHIP_POLARIS10:
+ 	case CHIP_POLARIS11:
++	case CHIP_POLARIS12:
+ 		pr_debug("Adding doorbell packet type capability\n");
+ 		dev->node_props.capability |= ((HSA_CAP_DOORBELL_TYPE_1_0 <<
+ 			HSA_CAP_DOORBELL_TYPE_TOTALBITS_SHIFT) &
+ 			HSA_CAP_DOORBELL_TYPE_TOTALBITS_MASK);
+ 		break;
+ 	case CHIP_VEGA10:
++	case CHIP_VEGA12:
+ 	case CHIP_VEGA20:
+ 	case CHIP_RAVEN:
+ 		dev->node_props.capability |= ((HSA_CAP_DOORBELL_TYPE_2_0 <<
+-- 
+2.17.1
+

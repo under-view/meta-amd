@@ -1,0 +1,69 @@
+From cba4597bd215b5e496885157f5b11366913712d4 Mon Sep 17 00:00:00 2001
+From: Leo Liu <leo.liu@amd.com>
+Date: Fri, 24 May 2019 14:07:41 -0400
+Subject: [PATCH 2412/2940] drm/amdgpu/VCN: add buffer for indirect SRAM usage
+
+This will be used later for indirect SRAM mode
+
+Signed-off-by: Leo Liu <leo.liu@amd.com>
+Reviewed-by: James Zhu <James.Zhu@amd.com>
+Signed-off-by: Alex Deucher <alexander.deucher@amd.com>
+---
+ drivers/gpu/drm/amd/amdgpu/amdgpu_vcn.c | 16 ++++++++++++++++
+ drivers/gpu/drm/amd/amdgpu/amdgpu_vcn.h |  6 ++++++
+ 2 files changed, 22 insertions(+)
+
+diff --git a/drivers/gpu/drm/amd/amdgpu/amdgpu_vcn.c b/drivers/gpu/drm/amd/amdgpu/amdgpu_vcn.c
+index d0b95e58959a..7621077378dd 100644
+--- a/drivers/gpu/drm/amd/amdgpu/amdgpu_vcn.c
++++ b/drivers/gpu/drm/amd/amdgpu/amdgpu_vcn.c
+@@ -137,6 +137,16 @@ int amdgpu_vcn_sw_init(struct amdgpu_device *adev)
+ 		return r;
+ 	}
+ 
++	if (adev->vcn.indirect_sram) {
++		r = amdgpu_bo_create_kernel(adev, 64 * 2 * 4, PAGE_SIZE,
++			    AMDGPU_GEM_DOMAIN_VRAM, &adev->vcn.dpg_sram_bo,
++			    &adev->vcn.dpg_sram_gpu_addr, &adev->vcn.dpg_sram_cpu_addr);
++		if (r) {
++			dev_err(adev->dev, "(%d) failed to allocate DPG bo\n", r);
++			return r;
++		}
++	}
++
+ 	return 0;
+ }
+ 
+@@ -146,6 +156,12 @@ int amdgpu_vcn_sw_fini(struct amdgpu_device *adev)
+ 
+ 	kvfree(adev->vcn.saved_bo);
+ 
++	if (adev->vcn.indirect_sram) {
++		amdgpu_bo_free_kernel(&adev->vcn.dpg_sram_bo,
++			      &adev->vcn.dpg_sram_gpu_addr,
++			      (void **)&adev->vcn.dpg_sram_cpu_addr);
++	}
++
+ 	amdgpu_bo_free_kernel(&adev->vcn.vcpu_bo,
+ 			      &adev->vcn.gpu_addr,
+ 			      (void **)&adev->vcn.cpu_addr);
+diff --git a/drivers/gpu/drm/amd/amdgpu/amdgpu_vcn.h b/drivers/gpu/drm/amd/amdgpu/amdgpu_vcn.h
+index 5b38798f8bc3..762cffeaf301 100644
+--- a/drivers/gpu/drm/amd/amdgpu/amdgpu_vcn.h
++++ b/drivers/gpu/drm/amd/amdgpu/amdgpu_vcn.h
+@@ -164,6 +164,12 @@ struct amdgpu_vcn {
+ 	struct amdgpu_vcn_reg	internal, external;
+ 	int (*pause_dpg_mode)(struct amdgpu_device *adev,
+ 		struct dpg_pause_state *new_state);
++
++	bool			indirect_sram;
++	struct amdgpu_bo	*dpg_sram_bo;
++	void			*dpg_sram_cpu_addr;
++	uint64_t		dpg_sram_gpu_addr;
++	uint32_t		*dpg_sram_curr_addr;
+ };
+ 
+ int amdgpu_vcn_sw_init(struct amdgpu_device *adev);
+-- 
+2.17.1
+

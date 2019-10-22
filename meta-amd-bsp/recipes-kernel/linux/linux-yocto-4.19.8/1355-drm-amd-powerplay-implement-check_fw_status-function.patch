@@ -1,0 +1,65 @@
+From afe7c2089278510f7125b04b3353025efe782650 Mon Sep 17 00:00:00 2001
+From: Kevin Wang <Kevin1.Wang@amd.com>
+Date: Mon, 10 Dec 2018 13:31:56 +0800
+Subject: [PATCH 1355/2940] drm/amd/powerplay: implement check_fw_status
+ function for smu11
+
+Add function of check firmware status funtions for smu11
+
+Signed-off-by: Kevin Wang <Kevin1.Wang@amd.com>
+Reviewed-by: Huang Rui <ray.huang@amd.com>
+Acked-by: Alex Deucher <alexander.deucher@amd.com>
+---
+ drivers/gpu/drm/amd/powerplay/inc/smu_v11_0.h | 11 +++++++++++
+ drivers/gpu/drm/amd/powerplay/smu_v11_0.c     | 13 ++++++++++++-
+ 2 files changed, 23 insertions(+), 1 deletion(-)
+
+diff --git a/drivers/gpu/drm/amd/powerplay/inc/smu_v11_0.h b/drivers/gpu/drm/amd/powerplay/inc/smu_v11_0.h
+index b5c5bca59d30..6ba5bde134a0 100644
+--- a/drivers/gpu/drm/amd/powerplay/inc/smu_v11_0.h
++++ b/drivers/gpu/drm/amd/powerplay/inc/smu_v11_0.h
+@@ -25,6 +25,17 @@
+ 
+ #include "amdgpu_smu.h"
+ 
++/* MP Apertures */
++#define MP0_Public			0x03800000
++#define MP0_SRAM			0x03900000
++#define MP1_Public			0x03b00000
++#define MP1_SRAM			0x03c00004
++
++/* address block */
++#define smnMP1_FIRMWARE_FLAGS		0x3010024
++#define smnMP0_FW_INTF			0x30101c0
++#define smnMP1_PUB_CTRL			0x3010b14
++
+ void smu_v11_0_set_smu_funcs(struct smu_context *smu);
+ 
+ #endif
+diff --git a/drivers/gpu/drm/amd/powerplay/smu_v11_0.c b/drivers/gpu/drm/amd/powerplay/smu_v11_0.c
+index feee3e8329fc..142ad1da5690 100644
+--- a/drivers/gpu/drm/amd/powerplay/smu_v11_0.c
++++ b/drivers/gpu/drm/amd/powerplay/smu_v11_0.c
+@@ -168,7 +168,18 @@ static int smu_v11_0_load_microcode(struct smu_context *smu)
+ 
+ static int smu_v11_0_check_fw_status(struct smu_context *smu)
+ {
+-	return 0;
++	struct amdgpu_device *adev = smu->adev;
++	uint32_t mp1_fw_flags;
++
++	WREG32_SOC15(NBIF, 0, mmPCIE_INDEX2,
++		     (MP1_Public | (smnMP1_FIRMWARE_FLAGS & 0xffffffff)));
++
++	mp1_fw_flags = RREG32_SOC15(NBIF, 0, mmPCIE_DATA2);
++
++	if ((mp1_fw_flags & MP1_FIRMWARE_FLAGS__INTERRUPTS_ENABLED_MASK) >>
++	    MP1_FIRMWARE_FLAGS__INTERRUPTS_ENABLED__SHIFT)
++		return 0;
++	return -EIO;
+ }
+ 
+ static const struct smu_funcs smu_v11_0_funcs = {
+-- 
+2.17.1
+

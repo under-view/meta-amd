@@ -1,0 +1,523 @@
+From 2676f34937fa2101961e17e9673a3c13544cffda Mon Sep 17 00:00:00 2001
+From: Rex Zhu <Rex.Zhu@amd.com>
+Date: Wed, 24 Oct 2018 13:37:37 +0800
+Subject: [PATCH 0745/2940] drm/amdgpu: Modify the argument of emit_ib
+ interface
+
+use the point of struct amdgpu_job as the function
+argument instand of vmid, so the other members of
+struct amdgpu_job can be visit in emit_ib function.
+
+v2: add a wrapper for getting the VMID
+    add the job before the ib on the parameter list.
+v3: refine the wrapper name
+
+Reviewed-by: Alex Deucher <alexander.deucher@amd.com>
+Signed-off-by: Rex Zhu <Rex.Zhu@amd.com>
+Signed-off-by: Alex Deucher <alexander.deucher@amd.com>
+---
+ drivers/gpu/drm/amd/amdgpu/amdgpu_ib.c   |  3 +--
+ drivers/gpu/drm/amd/amdgpu/amdgpu_job.h  |  2 ++
+ drivers/gpu/drm/amd/amdgpu/amdgpu_ring.h |  5 +++--
+ drivers/gpu/drm/amd/amdgpu/amdgpu_vce.c  |  6 ++++--
+ drivers/gpu/drm/amd/amdgpu/amdgpu_vce.h  |  4 ++--
+ drivers/gpu/drm/amd/amdgpu/cik_sdma.c    |  4 +++-
+ drivers/gpu/drm/amd/amdgpu/gfx_v6_0.c    |  4 +++-
+ drivers/gpu/drm/amd/amdgpu/gfx_v7_0.c    | 10 ++++++---
+ drivers/gpu/drm/amd/amdgpu/gfx_v8_0.c    | 10 ++++++---
+ drivers/gpu/drm/amd/amdgpu/gfx_v9_0.c    | 26 ++++++++++++++----------
+ drivers/gpu/drm/amd/amdgpu/sdma_v2_4.c   |  5 ++++-
+ drivers/gpu/drm/amd/amdgpu/sdma_v3_0.c   |  5 ++++-
+ drivers/gpu/drm/amd/amdgpu/sdma_v4_0.c   |  7 +++++--
+ drivers/gpu/drm/amd/amdgpu/si_dma.c      |  4 +++-
+ drivers/gpu/drm/amd/amdgpu/uvd_v4_2.c    |  3 ++-
+ drivers/gpu/drm/amd/amdgpu/uvd_v5_0.c    |  3 ++-
+ drivers/gpu/drm/amd/amdgpu/uvd_v6_0.c    | 11 ++++++++--
+ drivers/gpu/drm/amd/amdgpu/uvd_v7_0.c    | 10 +++++++--
+ drivers/gpu/drm/amd/amdgpu/vce_v3_0.c    |  6 +++++-
+ drivers/gpu/drm/amd/amdgpu/vce_v4_0.c    |  6 ++++--
+ drivers/gpu/drm/amd/amdgpu/vcn_v1_0.c    | 18 +++++++++++-----
+ 21 files changed, 106 insertions(+), 46 deletions(-)
+
+diff --git a/drivers/gpu/drm/amd/amdgpu/amdgpu_ib.c b/drivers/gpu/drm/amd/amdgpu/amdgpu_ib.c
+index cee624a79448..a7ab72723c61 100644
+--- a/drivers/gpu/drm/amd/amdgpu/amdgpu_ib.c
++++ b/drivers/gpu/drm/amd/amdgpu/amdgpu_ib.c
+@@ -229,8 +229,7 @@ int amdgpu_ib_schedule(struct amdgpu_ring *ring, unsigned num_ibs,
+ 			!amdgpu_sriov_vf(adev)) /* for SRIOV preemption, Preamble CE ib must be inserted anyway */
+ 			continue;
+ 
+-		amdgpu_ring_emit_ib(ring, ib, job ? job->vmid : 0,
+-				    need_ctx_switch);
++		amdgpu_ring_emit_ib(ring, job, ib, need_ctx_switch);
+ 		need_ctx_switch = false;
+ 	}
+ 
+diff --git a/drivers/gpu/drm/amd/amdgpu/amdgpu_job.h b/drivers/gpu/drm/amd/amdgpu/amdgpu_job.h
+index 57cfe78a262b..e1b46a6703de 100644
+--- a/drivers/gpu/drm/amd/amdgpu/amdgpu_job.h
++++ b/drivers/gpu/drm/amd/amdgpu/amdgpu_job.h
+@@ -33,6 +33,8 @@
+ #define to_amdgpu_job(sched_job)		\
+ 		container_of((sched_job), struct amdgpu_job, base)
+ 
++#define AMDGPU_JOB_GET_VMID(job) ((job) ? (job)->vmid : 0)
++
+ struct amdgpu_fence;
+ 
+ struct amdgpu_job {
+diff --git a/drivers/gpu/drm/amd/amdgpu/amdgpu_ring.h b/drivers/gpu/drm/amd/amdgpu/amdgpu_ring.h
+index 4cdddbc4491b..0beb01fef83f 100644
+--- a/drivers/gpu/drm/amd/amdgpu/amdgpu_ring.h
++++ b/drivers/gpu/drm/amd/amdgpu/amdgpu_ring.h
+@@ -129,8 +129,9 @@ struct amdgpu_ring_funcs {
+ 	unsigned emit_ib_size;
+ 	/* command emit functions */
+ 	void (*emit_ib)(struct amdgpu_ring *ring,
++			struct amdgpu_job *job,
+ 			struct amdgpu_ib *ib,
+-			unsigned vmid, bool ctx_switch);
++			bool ctx_switch);
+ 	void (*emit_fence)(struct amdgpu_ring *ring, uint64_t addr,
+ 			   uint64_t seq, unsigned flags);
+ 	void (*emit_pipeline_sync)(struct amdgpu_ring *ring);
+@@ -228,7 +229,7 @@ struct amdgpu_ring {
+ #define amdgpu_ring_get_rptr(r) (r)->funcs->get_rptr((r))
+ #define amdgpu_ring_get_wptr(r) (r)->funcs->get_wptr((r))
+ #define amdgpu_ring_set_wptr(r) (r)->funcs->set_wptr((r))
+-#define amdgpu_ring_emit_ib(r, ib, vmid, c) (r)->funcs->emit_ib((r), (ib), (vmid), (c))
++#define amdgpu_ring_emit_ib(r, job, ib, c) ((r)->funcs->emit_ib((r), (job), (ib), (c)))
+ #define amdgpu_ring_emit_pipeline_sync(r) (r)->funcs->emit_pipeline_sync((r))
+ #define amdgpu_ring_emit_vm_flush(r, vmid, addr) (r)->funcs->emit_vm_flush((r), (vmid), (addr))
+ #define amdgpu_ring_emit_fence(r, addr, seq, flags) (r)->funcs->emit_fence((r), (addr), (seq), (flags))
+diff --git a/drivers/gpu/drm/amd/amdgpu/amdgpu_vce.c b/drivers/gpu/drm/amd/amdgpu/amdgpu_vce.c
+index 379e1ae7a8fb..98a1b2ce2b9d 100644
+--- a/drivers/gpu/drm/amd/amdgpu/amdgpu_vce.c
++++ b/drivers/gpu/drm/amd/amdgpu/amdgpu_vce.c
+@@ -1032,8 +1032,10 @@ int amdgpu_vce_ring_parse_cs_vm(struct amdgpu_cs_parser *p, uint32_t ib_idx)
+  * @ib: the IB to execute
+  *
+  */
+-void amdgpu_vce_ring_emit_ib(struct amdgpu_ring *ring, struct amdgpu_ib *ib,
+-			     unsigned vmid, bool ctx_switch)
++void amdgpu_vce_ring_emit_ib(struct amdgpu_ring *ring,
++				struct amdgpu_job *job,
++				struct amdgpu_ib *ib,
++				bool ctx_switch)
+ {
+ 	amdgpu_ring_write(ring, VCE_CMD_IB);
+ 	amdgpu_ring_write(ring, lower_32_bits(ib->gpu_addr));
+diff --git a/drivers/gpu/drm/amd/amdgpu/amdgpu_vce.h b/drivers/gpu/drm/amd/amdgpu/amdgpu_vce.h
+index a1f209eed4c4..50293652af14 100644
+--- a/drivers/gpu/drm/amd/amdgpu/amdgpu_vce.h
++++ b/drivers/gpu/drm/amd/amdgpu/amdgpu_vce.h
+@@ -65,8 +65,8 @@ int amdgpu_vce_get_destroy_msg(struct amdgpu_ring *ring, uint32_t handle,
+ void amdgpu_vce_free_handles(struct amdgpu_device *adev, struct drm_file *filp);
+ int amdgpu_vce_ring_parse_cs(struct amdgpu_cs_parser *p, uint32_t ib_idx);
+ int amdgpu_vce_ring_parse_cs_vm(struct amdgpu_cs_parser *p, uint32_t ib_idx);
+-void amdgpu_vce_ring_emit_ib(struct amdgpu_ring *ring, struct amdgpu_ib *ib,
+-			     unsigned vmid, bool ctx_switch);
++void amdgpu_vce_ring_emit_ib(struct amdgpu_ring *ring, struct amdgpu_job *job,
++				struct amdgpu_ib *ib, bool ctx_switch);
+ void amdgpu_vce_ring_emit_fence(struct amdgpu_ring *ring, u64 addr, u64 seq,
+ 				unsigned flags);
+ int amdgpu_vce_ring_test_ring(struct amdgpu_ring *ring);
+diff --git a/drivers/gpu/drm/amd/amdgpu/cik_sdma.c b/drivers/gpu/drm/amd/amdgpu/cik_sdma.c
+index 49275f358f7a..ad58dcec223e 100644
+--- a/drivers/gpu/drm/amd/amdgpu/cik_sdma.c
++++ b/drivers/gpu/drm/amd/amdgpu/cik_sdma.c
+@@ -218,9 +218,11 @@ static void cik_sdma_ring_insert_nop(struct amdgpu_ring *ring, uint32_t count)
+  * Schedule an IB in the DMA ring (CIK).
+  */
+ static void cik_sdma_ring_emit_ib(struct amdgpu_ring *ring,
++				  struct amdgpu_job *job,
+ 				  struct amdgpu_ib *ib,
+-				  unsigned vmid, bool ctx_switch)
++				  bool ctx_switch)
+ {
++	unsigned vmid = AMDGPU_JOB_GET_VMID(job);
+ 	u32 extra_bits = vmid & 0xf;
+ 
+ 	/* IB packet must end on a 8 DW boundary */
+diff --git a/drivers/gpu/drm/amd/amdgpu/gfx_v6_0.c b/drivers/gpu/drm/amd/amdgpu/gfx_v6_0.c
+index 25cf905965fb..5b25c26fa30e 100644
+--- a/drivers/gpu/drm/amd/amdgpu/gfx_v6_0.c
++++ b/drivers/gpu/drm/amd/amdgpu/gfx_v6_0.c
+@@ -1840,9 +1840,11 @@ static void gfx_v6_0_ring_emit_fence(struct amdgpu_ring *ring, u64 addr,
+ }
+ 
+ static void gfx_v6_0_ring_emit_ib(struct amdgpu_ring *ring,
++				  struct amdgpu_job *job,
+ 				  struct amdgpu_ib *ib,
+-				  unsigned vmid, bool ctx_switch)
++				  bool ctx_switch)
+ {
++	unsigned vmid = AMDGPU_JOB_GET_VMID(job);
+ 	u32 header, control = 0;
+ 
+ 	/* insert SWITCH_BUFFER packet before first IB in the ring frame */
+diff --git a/drivers/gpu/drm/amd/amdgpu/gfx_v7_0.c b/drivers/gpu/drm/amd/amdgpu/gfx_v7_0.c
+index ff8d316d0533..243b8c502ca6 100644
+--- a/drivers/gpu/drm/amd/amdgpu/gfx_v7_0.c
++++ b/drivers/gpu/drm/amd/amdgpu/gfx_v7_0.c
+@@ -2227,9 +2227,11 @@ static void gfx_v7_0_ring_emit_fence_compute(struct amdgpu_ring *ring,
+  * on the gfx ring for execution by the GPU.
+  */
+ static void gfx_v7_0_ring_emit_ib_gfx(struct amdgpu_ring *ring,
+-				      struct amdgpu_ib *ib,
+-				      unsigned vmid, bool ctx_switch)
++					struct amdgpu_job *job,
++					struct amdgpu_ib *ib,
++					bool ctx_switch)
+ {
++	unsigned vmid = AMDGPU_JOB_GET_VMID(job);
+ 	u32 header, control = 0;
+ 
+ 	/* insert SWITCH_BUFFER packet before first IB in the ring frame */
+@@ -2256,9 +2258,11 @@ static void gfx_v7_0_ring_emit_ib_gfx(struct amdgpu_ring *ring,
+ }
+ 
+ static void gfx_v7_0_ring_emit_ib_compute(struct amdgpu_ring *ring,
++					  struct amdgpu_job *job,
+ 					  struct amdgpu_ib *ib,
+-					  unsigned vmid, bool ctx_switch)
++					  bool ctx_switch)
+ {
++	unsigned vmid = AMDGPU_JOB_GET_VMID(job);
+ 	u32 control = INDIRECT_BUFFER_VALID | ib->length_dw | (vmid << 24);
+ 
+ 	amdgpu_ring_write(ring, PACKET3(PACKET3_INDIRECT_BUFFER, 2));
+diff --git a/drivers/gpu/drm/amd/amdgpu/gfx_v8_0.c b/drivers/gpu/drm/amd/amdgpu/gfx_v8_0.c
+index fa88c985e0e3..d6861ccccf4a 100644
+--- a/drivers/gpu/drm/amd/amdgpu/gfx_v8_0.c
++++ b/drivers/gpu/drm/amd/amdgpu/gfx_v8_0.c
+@@ -6107,9 +6107,11 @@ static void gfx_v8_0_ring_emit_vgt_flush(struct amdgpu_ring *ring)
+ }
+ 
+ static void gfx_v8_0_ring_emit_ib_gfx(struct amdgpu_ring *ring,
+-				      struct amdgpu_ib *ib,
+-				      unsigned vmid, bool ctx_switch)
++					struct amdgpu_job *job,
++					struct amdgpu_ib *ib,
++					bool ctx_switch)
+ {
++	unsigned vmid = AMDGPU_JOB_GET_VMID(job);
+ 	u32 header, control = 0;
+ 
+ 	if (ib->flags & AMDGPU_IB_FLAG_CE)
+@@ -6137,9 +6139,11 @@ static void gfx_v8_0_ring_emit_ib_gfx(struct amdgpu_ring *ring,
+ }
+ 
+ static void gfx_v8_0_ring_emit_ib_compute(struct amdgpu_ring *ring,
++					  struct amdgpu_job *job,
+ 					  struct amdgpu_ib *ib,
+-					  unsigned vmid, bool ctx_switch)
++					  bool ctx_switch)
+ {
++	unsigned vmid = AMDGPU_JOB_GET_VMID(job);
+ 	u32 control = INDIRECT_BUFFER_VALID | ib->length_dw | (vmid << 24);
+ 
+ 	amdgpu_ring_write(ring, PACKET3(PACKET3_INDIRECT_BUFFER, 2));
+diff --git a/drivers/gpu/drm/amd/amdgpu/gfx_v9_0.c b/drivers/gpu/drm/amd/amdgpu/gfx_v9_0.c
+index 7db2ec9eee15..54d5e2335991 100644
+--- a/drivers/gpu/drm/amd/amdgpu/gfx_v9_0.c
++++ b/drivers/gpu/drm/amd/amdgpu/gfx_v9_0.c
+@@ -4071,9 +4071,11 @@ static void gfx_v9_0_ring_emit_hdp_flush(struct amdgpu_ring *ring)
+ }
+ 
+ static void gfx_v9_0_ring_emit_ib_gfx(struct amdgpu_ring *ring,
+-                                      struct amdgpu_ib *ib,
+-                                      unsigned vmid, bool ctx_switch)
++					struct amdgpu_job *job,
++					struct amdgpu_ib *ib,
++					bool ctx_switch)
+ {
++	unsigned vmid = AMDGPU_JOB_GET_VMID(job);
+ 	u32 header, control = 0;
+ 
+ 	if (ib->flags & AMDGPU_IB_FLAG_CE)
+@@ -4102,20 +4104,22 @@ static void gfx_v9_0_ring_emit_ib_gfx(struct amdgpu_ring *ring,
+ }
+ 
+ static void gfx_v9_0_ring_emit_ib_compute(struct amdgpu_ring *ring,
+-                                          struct amdgpu_ib *ib,
+-                                          unsigned vmid, bool ctx_switch)
++					  struct amdgpu_job *job,
++					  struct amdgpu_ib *ib,
++					  bool ctx_switch)
+ {
+-        u32 control = INDIRECT_BUFFER_VALID | ib->length_dw | (vmid << 24);
++	unsigned vmid = AMDGPU_JOB_GET_VMID(job);
++	u32 control = INDIRECT_BUFFER_VALID | ib->length_dw | (vmid << 24);
+ 
+-        amdgpu_ring_write(ring, PACKET3(PACKET3_INDIRECT_BUFFER, 2));
++	amdgpu_ring_write(ring, PACKET3(PACKET3_INDIRECT_BUFFER, 2));
+ 	BUG_ON(ib->gpu_addr & 0x3); /* Dword align */
+-        amdgpu_ring_write(ring,
++	amdgpu_ring_write(ring,
+ #ifdef __BIG_ENDIAN
+-                                (2 << 0) |
++				(2 << 0) |
+ #endif
+-                                lower_32_bits(ib->gpu_addr));
+-        amdgpu_ring_write(ring, upper_32_bits(ib->gpu_addr));
+-        amdgpu_ring_write(ring, control);
++				lower_32_bits(ib->gpu_addr));
++	amdgpu_ring_write(ring, upper_32_bits(ib->gpu_addr));
++	amdgpu_ring_write(ring, control);
+ }
+ 
+ static void gfx_v9_0_ring_emit_fence(struct amdgpu_ring *ring, u64 addr,
+diff --git a/drivers/gpu/drm/amd/amdgpu/sdma_v2_4.c b/drivers/gpu/drm/amd/amdgpu/sdma_v2_4.c
+index c4ab54a59fc9..fb2a066c0ac9 100644
+--- a/drivers/gpu/drm/amd/amdgpu/sdma_v2_4.c
++++ b/drivers/gpu/drm/amd/amdgpu/sdma_v2_4.c
+@@ -245,9 +245,12 @@ static void sdma_v2_4_ring_insert_nop(struct amdgpu_ring *ring, uint32_t count)
+  * Schedule an IB in the DMA ring (VI).
+  */
+ static void sdma_v2_4_ring_emit_ib(struct amdgpu_ring *ring,
++				   struct amdgpu_job *job,
+ 				   struct amdgpu_ib *ib,
+-				   unsigned vmid, bool ctx_switch)
++				   bool ctx_switch)
+ {
++	unsigned vmid = AMDGPU_JOB_GET_VMID(job);
++
+ 	/* IB packet must end on a 8 DW boundary */
+ 	sdma_v2_4_ring_insert_nop(ring, (10 - (lower_32_bits(ring->wptr) & 7)) % 8);
+ 
+diff --git a/drivers/gpu/drm/amd/amdgpu/sdma_v3_0.c b/drivers/gpu/drm/amd/amdgpu/sdma_v3_0.c
+index e3adddbcb593..a9848d28707d 100644
+--- a/drivers/gpu/drm/amd/amdgpu/sdma_v3_0.c
++++ b/drivers/gpu/drm/amd/amdgpu/sdma_v3_0.c
+@@ -419,9 +419,12 @@ static void sdma_v3_0_ring_insert_nop(struct amdgpu_ring *ring, uint32_t count)
+  * Schedule an IB in the DMA ring (VI).
+  */
+ static void sdma_v3_0_ring_emit_ib(struct amdgpu_ring *ring,
++				   struct amdgpu_job *job,
+ 				   struct amdgpu_ib *ib,
+-				   unsigned vmid, bool ctx_switch)
++				   bool ctx_switch)
+ {
++	unsigned vmid = AMDGPU_JOB_GET_VMID(job);
++
+ 	/* IB packet must end on a 8 DW boundary */
+ 	sdma_v3_0_ring_insert_nop(ring, (10 - (lower_32_bits(ring->wptr) & 7)) % 8);
+ 
+diff --git a/drivers/gpu/drm/amd/amdgpu/sdma_v4_0.c b/drivers/gpu/drm/amd/amdgpu/sdma_v4_0.c
+index 7f9a501c919d..e740953110d8 100644
+--- a/drivers/gpu/drm/amd/amdgpu/sdma_v4_0.c
++++ b/drivers/gpu/drm/amd/amdgpu/sdma_v4_0.c
+@@ -497,9 +497,12 @@ static void sdma_v4_0_ring_insert_nop(struct amdgpu_ring *ring, uint32_t count)
+  * Schedule an IB in the DMA ring (VEGA10).
+  */
+ static void sdma_v4_0_ring_emit_ib(struct amdgpu_ring *ring,
+-					struct amdgpu_ib *ib,
+-					unsigned vmid, bool ctx_switch)
++				   struct amdgpu_job *job,
++				   struct amdgpu_ib *ib,
++				   bool ctx_switch)
+ {
++	unsigned vmid = AMDGPU_JOB_GET_VMID(job);
++
+ 	/* IB packet must end on a 8 DW boundary */
+ 	sdma_v4_0_ring_insert_nop(ring, (10 - (lower_32_bits(ring->wptr) & 7)) % 8);
+ 
+diff --git a/drivers/gpu/drm/amd/amdgpu/si_dma.c b/drivers/gpu/drm/amd/amdgpu/si_dma.c
+index bff6954c2150..b6e473134e19 100644
+--- a/drivers/gpu/drm/amd/amdgpu/si_dma.c
++++ b/drivers/gpu/drm/amd/amdgpu/si_dma.c
+@@ -61,9 +61,11 @@ static void si_dma_ring_set_wptr(struct amdgpu_ring *ring)
+ }
+ 
+ static void si_dma_ring_emit_ib(struct amdgpu_ring *ring,
++				struct amdgpu_job *job,
+ 				struct amdgpu_ib *ib,
+-				unsigned vmid, bool ctx_switch)
++				bool ctx_switch)
+ {
++	unsigned vmid = AMDGPU_JOB_GET_VMID(job);
+ 	/* The indirect buffer packet must end on an 8 DW boundary in the DMA ring.
+ 	 * Pad as necessary with NOPs.
+ 	 */
+diff --git a/drivers/gpu/drm/amd/amdgpu/uvd_v4_2.c b/drivers/gpu/drm/amd/amdgpu/uvd_v4_2.c
+index 51681eb0dd58..90bbcee00f28 100644
+--- a/drivers/gpu/drm/amd/amdgpu/uvd_v4_2.c
++++ b/drivers/gpu/drm/amd/amdgpu/uvd_v4_2.c
+@@ -509,8 +509,9 @@ static int uvd_v4_2_ring_test_ring(struct amdgpu_ring *ring)
+  * Write ring commands to execute the indirect buffer
+  */
+ static void uvd_v4_2_ring_emit_ib(struct amdgpu_ring *ring,
++				  struct amdgpu_job *job,
+ 				  struct amdgpu_ib *ib,
+-				  unsigned vmid, bool ctx_switch)
++				  bool ctx_switch)
+ {
+ 	amdgpu_ring_write(ring, PACKET0(mmUVD_RBC_IB_BASE, 0));
+ 	amdgpu_ring_write(ring, ib->gpu_addr);
+diff --git a/drivers/gpu/drm/amd/amdgpu/uvd_v5_0.c b/drivers/gpu/drm/amd/amdgpu/uvd_v5_0.c
+index 907afcf8d867..1c5e12703103 100644
+--- a/drivers/gpu/drm/amd/amdgpu/uvd_v5_0.c
++++ b/drivers/gpu/drm/amd/amdgpu/uvd_v5_0.c
+@@ -524,8 +524,9 @@ static int uvd_v5_0_ring_test_ring(struct amdgpu_ring *ring)
+  * Write ring commands to execute the indirect buffer
+  */
+ static void uvd_v5_0_ring_emit_ib(struct amdgpu_ring *ring,
++				  struct amdgpu_job *job,
+ 				  struct amdgpu_ib *ib,
+-				  unsigned vmid, bool ctx_switch)
++				  bool ctx_switch)
+ {
+ 	amdgpu_ring_write(ring, PACKET0(mmUVD_LMI_RBC_IB_64BIT_BAR_LOW, 0));
+ 	amdgpu_ring_write(ring, lower_32_bits(ib->gpu_addr));
+diff --git a/drivers/gpu/drm/amd/amdgpu/uvd_v6_0.c b/drivers/gpu/drm/amd/amdgpu/uvd_v6_0.c
+index 7df41d1c818b..f184842ef2a2 100644
+--- a/drivers/gpu/drm/amd/amdgpu/uvd_v6_0.c
++++ b/drivers/gpu/drm/amd/amdgpu/uvd_v6_0.c
+@@ -975,9 +975,12 @@ static int uvd_v6_0_ring_test_ring(struct amdgpu_ring *ring)
+  * Write ring commands to execute the indirect buffer
+  */
+ static void uvd_v6_0_ring_emit_ib(struct amdgpu_ring *ring,
++				  struct amdgpu_job *job,
+ 				  struct amdgpu_ib *ib,
+-				  unsigned vmid, bool ctx_switch)
++				  bool ctx_switch)
+ {
++	unsigned vmid = AMDGPU_JOB_GET_VMID(job);
++
+ 	amdgpu_ring_write(ring, PACKET0(mmUVD_LMI_RBC_IB_VMID, 0));
+ 	amdgpu_ring_write(ring, vmid);
+ 
+@@ -998,8 +1001,12 @@ static void uvd_v6_0_ring_emit_ib(struct amdgpu_ring *ring,
+  * Write enc ring commands to execute the indirect buffer
+  */
+ static void uvd_v6_0_enc_ring_emit_ib(struct amdgpu_ring *ring,
+-		struct amdgpu_ib *ib, unsigned int vmid, bool ctx_switch)
++					struct amdgpu_job *job,
++					struct amdgpu_ib *ib,
++					bool ctx_switch)
+ {
++	unsigned vmid = AMDGPU_JOB_GET_VMID(job);
++
+ 	amdgpu_ring_write(ring, HEVC_ENC_CMD_IB_VM);
+ 	amdgpu_ring_write(ring, vmid);
+ 	amdgpu_ring_write(ring, lower_32_bits(ib->gpu_addr));
+diff --git a/drivers/gpu/drm/amd/amdgpu/uvd_v7_0.c b/drivers/gpu/drm/amd/amdgpu/uvd_v7_0.c
+index 3985530a882f..8a4595968d98 100644
+--- a/drivers/gpu/drm/amd/amdgpu/uvd_v7_0.c
++++ b/drivers/gpu/drm/amd/amdgpu/uvd_v7_0.c
+@@ -1270,10 +1270,12 @@ static int uvd_v7_0_ring_patch_cs_in_place(struct amdgpu_cs_parser *p,
+  * Write ring commands to execute the indirect buffer
+  */
+ static void uvd_v7_0_ring_emit_ib(struct amdgpu_ring *ring,
++				  struct amdgpu_job *job,
+ 				  struct amdgpu_ib *ib,
+-				  unsigned vmid, bool ctx_switch)
++				  bool ctx_switch)
+ {
+ 	struct amdgpu_device *adev = ring->adev;
++	unsigned vmid = AMDGPU_JOB_GET_VMID(job);
+ 
+ 	amdgpu_ring_write(ring,
+ 		PACKET0(SOC15_REG_OFFSET(UVD, ring->me, mmUVD_LMI_RBC_IB_VMID), 0));
+@@ -1299,8 +1301,12 @@ static void uvd_v7_0_ring_emit_ib(struct amdgpu_ring *ring,
+  * Write enc ring commands to execute the indirect buffer
+  */
+ static void uvd_v7_0_enc_ring_emit_ib(struct amdgpu_ring *ring,
+-		struct amdgpu_ib *ib, unsigned int vmid, bool ctx_switch)
++					struct amdgpu_job *job,
++					struct amdgpu_ib *ib,
++					bool ctx_switch)
+ {
++	unsigned vmid = AMDGPU_JOB_GET_VMID(job);
++
+ 	amdgpu_ring_write(ring, HEVC_ENC_CMD_IB_VM);
+ 	amdgpu_ring_write(ring, vmid);
+ 	amdgpu_ring_write(ring, lower_32_bits(ib->gpu_addr));
+diff --git a/drivers/gpu/drm/amd/amdgpu/vce_v3_0.c b/drivers/gpu/drm/amd/amdgpu/vce_v3_0.c
+index 2b1a5a793942..3e84840859a7 100644
+--- a/drivers/gpu/drm/amd/amdgpu/vce_v3_0.c
++++ b/drivers/gpu/drm/amd/amdgpu/vce_v3_0.c
+@@ -833,8 +833,12 @@ static void vce_v3_0_get_clockgating_state(void *handle, u32 *flags)
+ }
+ 
+ static void vce_v3_0_ring_emit_ib(struct amdgpu_ring *ring,
+-		struct amdgpu_ib *ib, unsigned int vmid, bool ctx_switch)
++				  struct amdgpu_job *job,
++				  struct amdgpu_ib *ib,
++				  bool ctx_switch)
+ {
++	unsigned vmid = AMDGPU_JOB_GET_VMID(job);
++
+ 	amdgpu_ring_write(ring, VCE_CMD_IB_VM);
+ 	amdgpu_ring_write(ring, vmid);
+ 	amdgpu_ring_write(ring, lower_32_bits(ib->gpu_addr));
+diff --git a/drivers/gpu/drm/amd/amdgpu/vce_v4_0.c b/drivers/gpu/drm/amd/amdgpu/vce_v4_0.c
+index 65b71fc2f7b9..0054ba1b9a68 100644
+--- a/drivers/gpu/drm/amd/amdgpu/vce_v4_0.c
++++ b/drivers/gpu/drm/amd/amdgpu/vce_v4_0.c
+@@ -946,9 +946,11 @@ static int vce_v4_0_set_powergating_state(void *handle,
+ }
+ #endif
+ 
+-static void vce_v4_0_ring_emit_ib(struct amdgpu_ring *ring,
+-		struct amdgpu_ib *ib, unsigned int vmid, bool ctx_switch)
++static void vce_v4_0_ring_emit_ib(struct amdgpu_ring *ring, struct amdgpu_job *job,
++					struct amdgpu_ib *ib, bool ctx_switch)
+ {
++	unsigned vmid = AMDGPU_JOB_GET_VMID(job);
++
+ 	amdgpu_ring_write(ring, VCE_CMD_IB_VM);
+ 	amdgpu_ring_write(ring, vmid);
+ 	amdgpu_ring_write(ring, lower_32_bits(ib->gpu_addr));
+diff --git a/drivers/gpu/drm/amd/amdgpu/vcn_v1_0.c b/drivers/gpu/drm/amd/amdgpu/vcn_v1_0.c
+index 29628f60d50c..c1a03505f956 100644
+--- a/drivers/gpu/drm/amd/amdgpu/vcn_v1_0.c
++++ b/drivers/gpu/drm/amd/amdgpu/vcn_v1_0.c
+@@ -1358,10 +1358,12 @@ static void vcn_v1_0_dec_ring_emit_fence(struct amdgpu_ring *ring, u64 addr, u64
+  * Write ring commands to execute the indirect buffer
+  */
+ static void vcn_v1_0_dec_ring_emit_ib(struct amdgpu_ring *ring,
+-				  struct amdgpu_ib *ib,
+-				  unsigned vmid, bool ctx_switch)
++					struct amdgpu_job *job,
++					struct amdgpu_ib *ib,
++					bool ctx_switch)
+ {
+ 	struct amdgpu_device *adev = ring->adev;
++	unsigned vmid = AMDGPU_JOB_GET_VMID(job);
+ 
+ 	amdgpu_ring_write(ring,
+ 		PACKET0(SOC15_REG_OFFSET(UVD, 0, mmUVD_LMI_RBC_IB_VMID), 0));
+@@ -1516,8 +1518,12 @@ static void vcn_v1_0_enc_ring_insert_end(struct amdgpu_ring *ring)
+  * Write enc ring commands to execute the indirect buffer
+  */
+ static void vcn_v1_0_enc_ring_emit_ib(struct amdgpu_ring *ring,
+-		struct amdgpu_ib *ib, unsigned int vmid, bool ctx_switch)
++					struct amdgpu_job *job,
++					struct amdgpu_ib *ib,
++					bool ctx_switch)
+ {
++	unsigned vmid = AMDGPU_JOB_GET_VMID(job);
++
+ 	amdgpu_ring_write(ring, VCN_ENC_CMD_IB);
+ 	amdgpu_ring_write(ring, vmid);
+ 	amdgpu_ring_write(ring, lower_32_bits(ib->gpu_addr));
+@@ -1717,10 +1723,12 @@ static void vcn_v1_0_jpeg_ring_emit_fence(struct amdgpu_ring *ring, u64 addr, u6
+  * Write ring commands to execute the indirect buffer.
+  */
+ static void vcn_v1_0_jpeg_ring_emit_ib(struct amdgpu_ring *ring,
+-				  struct amdgpu_ib *ib,
+-				  unsigned vmid, bool ctx_switch)
++					struct amdgpu_job *job,
++					struct amdgpu_ib *ib,
++					bool ctx_switch)
+ {
+ 	struct amdgpu_device *adev = ring->adev;
++	unsigned vmid = AMDGPU_JOB_GET_VMID(job);
+ 
+ 	amdgpu_ring_write(ring,
+ 		PACKETJ(SOC15_REG_OFFSET(UVD, 0, mmUVD_LMI_JRBC_IB_VMID), 0, 0, PACKETJ_TYPE0));
+-- 
+2.17.1
+

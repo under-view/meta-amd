@@ -1,0 +1,88 @@
+From 25e4fb2880f1b21937d9fecda751fabce7509199 Mon Sep 17 00:00:00 2001
+From: Evan Quan <evan.quan@amd.com>
+Date: Sat, 23 Mar 2019 01:02:44 +0800
+Subject: [PATCH 1687/2940] drm/amd/powerplay: add ECC feature bit
+
+It's OK to have this feature bit with old SMU firmwares.
+But the feature should be disabled on them.
+
+Change-Id: I6fb4869ef454ea7b6d01cf368b457be01eeb5058
+Signed-off-by: Evan Quan <evan.quan@amd.com>
+Reviewed-by: Alex Deucher <alexander.deucher@amd.com>
+---
+ drivers/gpu/drm/amd/powerplay/hwmgr/vega20_hwmgr.c  | 10 +++++++++-
+ drivers/gpu/drm/amd/powerplay/hwmgr/vega20_hwmgr.h  |  1 +
+ drivers/gpu/drm/amd/powerplay/inc/smu11_driver_if.h |  3 ++-
+ 3 files changed, 12 insertions(+), 2 deletions(-)
+
+diff --git a/drivers/gpu/drm/amd/powerplay/hwmgr/vega20_hwmgr.c b/drivers/gpu/drm/amd/powerplay/hwmgr/vega20_hwmgr.c
+index 664544e7fcdc..9f72bc49d885 100644
+--- a/drivers/gpu/drm/amd/powerplay/hwmgr/vega20_hwmgr.c
++++ b/drivers/gpu/drm/amd/powerplay/hwmgr/vega20_hwmgr.c
+@@ -91,6 +91,12 @@ static void vega20_set_default_registry_data(struct pp_hwmgr *hwmgr)
+ 	 *   MP0CLK DS
+ 	 */
+ 	data->registry_data.disallowed_features = 0xE0041C00;
++	/* ECC feature should be disabled on old SMUs */
++	smum_send_msg_to_smc(hwmgr, PPSMC_MSG_GetSmuVersion);
++	hwmgr->smu_version = smum_get_argument(hwmgr);
++	if (hwmgr->smu_version < 0x282100)
++		data->registry_data.disallowed_features |= FEATURE_ECC_MASK;
++
+ 	data->registry_data.od_state_in_dc_support = 0;
+ 	data->registry_data.thermal_support = 1;
+ 	data->registry_data.skip_baco_hardware = 0;
+@@ -357,6 +363,7 @@ static void vega20_init_dpm_defaults(struct pp_hwmgr *hwmgr)
+ 	data->smu_features[GNLD_DS_MP1CLK].smu_feature_id = FEATURE_DS_MP1CLK_BIT;
+ 	data->smu_features[GNLD_DS_MP0CLK].smu_feature_id = FEATURE_DS_MP0CLK_BIT;
+ 	data->smu_features[GNLD_XGMI].smu_feature_id = FEATURE_XGMI_BIT;
++	data->smu_features[GNLD_ECC].smu_feature_id = FEATURE_ECC_BIT;
+ 
+ 	for (i = 0; i < GNLD_FEATURES_MAX; i++) {
+ 		data->smu_features[i].smu_feature_bitmap =
+@@ -3029,7 +3036,8 @@ static int vega20_get_ppfeature_status(struct pp_hwmgr *hwmgr, char *buf)
+ 				"FCLK_DS",
+ 				"MP1CLK_DS",
+ 				"MP0CLK_DS",
+-				"XGMI"};
++				"XGMI",
++				"ECC"};
+ 	static const char *output_title[] = {
+ 				"FEATURES",
+ 				"BITMASK",
+diff --git a/drivers/gpu/drm/amd/powerplay/hwmgr/vega20_hwmgr.h b/drivers/gpu/drm/amd/powerplay/hwmgr/vega20_hwmgr.h
+index a5bc758ae097..ac2a3118a0ae 100644
+--- a/drivers/gpu/drm/amd/powerplay/hwmgr/vega20_hwmgr.h
++++ b/drivers/gpu/drm/amd/powerplay/hwmgr/vega20_hwmgr.h
+@@ -80,6 +80,7 @@ enum {
+ 	GNLD_DS_MP1CLK,
+ 	GNLD_DS_MP0CLK,
+ 	GNLD_XGMI,
++	GNLD_ECC,
+ 
+ 	GNLD_FEATURES_MAX
+ };
+diff --git a/drivers/gpu/drm/amd/powerplay/inc/smu11_driver_if.h b/drivers/gpu/drm/amd/powerplay/inc/smu11_driver_if.h
+index 63d5cf691549..b90089a4fb6a 100644
+--- a/drivers/gpu/drm/amd/powerplay/inc/smu11_driver_if.h
++++ b/drivers/gpu/drm/amd/powerplay/inc/smu11_driver_if.h
+@@ -99,7 +99,7 @@
+ #define FEATURE_DS_MP1CLK_BIT           30
+ #define FEATURE_DS_MP0CLK_BIT           31
+ #define FEATURE_XGMI_BIT                32
+-#define FEATURE_SPARE_33_BIT            33
++#define FEATURE_ECC_BIT                 33
+ #define FEATURE_SPARE_34_BIT            34
+ #define FEATURE_SPARE_35_BIT            35
+ #define FEATURE_SPARE_36_BIT            36
+@@ -166,6 +166,7 @@
+ #define FEATURE_DS_MP1CLK_MASK          (1 << FEATURE_DS_MP1CLK_BIT          )
+ #define FEATURE_DS_MP0CLK_MASK          (1 << FEATURE_DS_MP0CLK_BIT          )
+ #define FEATURE_XGMI_MASK               (1 << FEATURE_XGMI_BIT               )
++#define FEATURE_ECC_MASK                (1ULL << FEATURE_ECC_BIT                )
+ 
+ #define DPM_OVERRIDE_DISABLE_SOCCLK_PID             0x00000001
+ #define DPM_OVERRIDE_DISABLE_UCLK_PID               0x00000002
+-- 
+2.17.1
+

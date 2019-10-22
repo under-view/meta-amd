@@ -1,0 +1,29 @@
+From f59e0860aa99c7eadcb9cb40fcf6cd971569f475 Mon Sep 17 00:00:00 2001
+From: Ayyappa Chandolu <Ayyappa.Chandolu@amd.com>
+Date: Fri, 2 Mar 2018 11:25:17 +0530
+Subject: [PATCH 0584/2940] pinctrl: eMMC and PinCtrl is sharing the interrupt
+ no 7 for Dibber. So PinCtrl must register the interrupt hadler with SHARED
+ flags. BUGID : EMBSWDEV-4739
+
+Signed-off-by: Ayyappa Chandolu <Ayyappa.Chandolu@amd.com>
+Signed-off-by: Sudheesh Mavila <sudheesh.mavila@amd.com>
+---
+ drivers/pinctrl/pinctrl-amd.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/drivers/pinctrl/pinctrl-amd.c b/drivers/pinctrl/pinctrl-amd.c
+index 1425c2874d40..53b221c05f97 100644
+--- a/drivers/pinctrl/pinctrl-amd.c
++++ b/drivers/pinctrl/pinctrl-amd.c
+@@ -932,7 +932,7 @@ static int amd_gpio_probe(struct platform_device *pdev)
+ 		goto out2;
+ 	}
+ 
+-	ret = devm_request_irq(&pdev->dev, irq_base, amd_gpio_irq_handler, 0,
++	ret = devm_request_irq(&pdev->dev, irq_base, amd_gpio_irq_handler, IRQF_SHARED,
+ 			       KBUILD_MODNAME, gpio_dev);
+ 	if (ret)
+ 		goto out2;
+-- 
+2.17.1
+

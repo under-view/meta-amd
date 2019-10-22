@@ -1,0 +1,32 @@
+From 9e40a1215d6352679e9e55901e0a5ee87b76f92c Mon Sep 17 00:00:00 2001
+From: Joshua Aberback <joshua.aberback@amd.com>
+Date: Fri, 2 Nov 2018 18:00:54 -0400
+Subject: [PATCH 0879/2940] drm/amd/display: Remove unused panel patch
+ "disconnect_delay"
+
+[Why]
+This patch is for use by dm, no need for it in dc.
+
+Signed-off-by: Joshua Aberback <joshua.aberback@amd.com>
+Reviewed-by: Jun Lei <Jun.Lei@amd.com>
+Acked-by: Leo Li <sunpeng.li@amd.com>
+Signed-off-by: Alex Deucher <alexander.deucher@amd.com>
+---
+ drivers/gpu/drm/amd/display/dc/dc_types.h | 1 -
+ 1 file changed, 1 deletion(-)
+
+diff --git a/drivers/gpu/drm/amd/display/dc/dc_types.h b/drivers/gpu/drm/amd/display/dc/dc_types.h
+index 6e12d640d020..91911ef8d746 100644
+--- a/drivers/gpu/drm/amd/display/dc/dc_types.h
++++ b/drivers/gpu/drm/amd/display/dc/dc_types.h
+@@ -191,7 +191,6 @@ union display_content_support {
+ };
+ 
+ struct dc_panel_patch {
+-	unsigned int disconnect_delay;
+ 	unsigned int dppowerup_delay;
+ 	unsigned int extra_t12_ms;
+ };
+-- 
+2.17.1
+

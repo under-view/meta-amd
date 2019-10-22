@@ -1,0 +1,52 @@
+From 84ff7d5adedc8d5605c57d9470dca6904c82c494 Mon Sep 17 00:00:00 2001
+From: Rex Zhu <Rex.Zhu@amd.com>
+Date: Tue, 16 Oct 2018 16:27:53 +0800
+Subject: [PATCH 0741/2940] drm/amdgpu: Remove useless csa gpu address in vmid0
+
+driver didn't use this address so far.
+
+Reviewed-by: Monk Liu <Monk.Liu@amd.com>
+Signed-off-by: Rex Zhu <Rex.Zhu@amd.com>
+Signed-off-by: Alex Deucher <alexander.deucher@amd.com>
+---
+ drivers/gpu/drm/amd/amdgpu/amdgpu_virt.c | 4 ++--
+ drivers/gpu/drm/amd/amdgpu/amdgpu_virt.h | 1 -
+ 2 files changed, 2 insertions(+), 3 deletions(-)
+
+diff --git a/drivers/gpu/drm/amd/amdgpu/amdgpu_virt.c b/drivers/gpu/drm/amd/amdgpu/amdgpu_virt.c
+index f2f358aa0597..9ff16b790c92 100644
+--- a/drivers/gpu/drm/amd/amdgpu/amdgpu_virt.c
++++ b/drivers/gpu/drm/amd/amdgpu/amdgpu_virt.c
+@@ -48,7 +48,7 @@ int amdgpu_allocate_static_csa(struct amdgpu_device *adev)
+ 
+ 	r = amdgpu_bo_create_kernel(adev, AMDGPU_CSA_SIZE, PAGE_SIZE,
+ 				AMDGPU_GEM_DOMAIN_VRAM, &adev->virt.csa_obj,
+-				&adev->virt.csa_vmid0_addr, &ptr);
++				NULL, &ptr);
+ 	if (r)
+ 		return r;
+ 
+@@ -58,7 +58,7 @@ int amdgpu_allocate_static_csa(struct amdgpu_device *adev)
+ 
+ void amdgpu_free_static_csa(struct amdgpu_device *adev) {
+ 	amdgpu_bo_free_kernel(&adev->virt.csa_obj,
+-						&adev->virt.csa_vmid0_addr,
++						NULL,
+ 						NULL);
+ }
+ 
+diff --git a/drivers/gpu/drm/amd/amdgpu/amdgpu_virt.h b/drivers/gpu/drm/amd/amdgpu/amdgpu_virt.h
+index 880ac113a3a9..f1a6a50d9444 100644
+--- a/drivers/gpu/drm/amd/amdgpu/amdgpu_virt.h
++++ b/drivers/gpu/drm/amd/amdgpu/amdgpu_virt.h
+@@ -238,7 +238,6 @@ typedef struct amdgim_vf2pf_info_v2 amdgim_vf2pf_info ;
+ struct amdgpu_virt {
+ 	uint32_t			caps;
+ 	struct amdgpu_bo		*csa_obj;
+-	uint64_t			csa_vmid0_addr;
+ 	bool chained_ib_support;
+ 	uint32_t			reg_val_offs;
+ 	struct amdgpu_irq_src		ack_irq;
+-- 
+2.17.1
+

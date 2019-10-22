@@ -1,0 +1,81 @@
+From fb31a536660953352ceee2b7273316bbe8f40761 Mon Sep 17 00:00:00 2001
+From: Leo Liu <leo.liu@amd.com>
+Date: Wed, 17 Oct 2018 14:33:48 -0400
+Subject: [PATCH 2240/2940] drm/amdgpu: add VCN2.0 decode ring test
+
+Add internal register offset for registers involving in ring tests
+
+Signed-off-by: Leo Liu <leo.liu@amd.com>
+Reviewed-by: Alex Deucher <alexander.deucher@amd.com>
+Signed-off-by: Alex Deucher <alexander.deucher@amd.com>
+---
+ drivers/gpu/drm/amd/amdgpu/amdgpu_vcn.c | 8 +++-----
+ drivers/gpu/drm/amd/amdgpu/amdgpu_vcn.h | 5 +++++
+ drivers/gpu/drm/amd/amdgpu/vcn_v1_0.c   | 3 +++
+ 3 files changed, 11 insertions(+), 5 deletions(-)
+
+diff --git a/drivers/gpu/drm/amd/amdgpu/amdgpu_vcn.c b/drivers/gpu/drm/amd/amdgpu/amdgpu_vcn.c
+index 8ece427b6019..5dbd975bac09 100644
+--- a/drivers/gpu/drm/amd/amdgpu/amdgpu_vcn.c
++++ b/drivers/gpu/drm/amd/amdgpu/amdgpu_vcn.c
+@@ -312,17 +312,15 @@ int amdgpu_vcn_dec_ring_test_ring(struct amdgpu_ring *ring)
+ 	unsigned i;
+ 	int r;
+ 
+-	WREG32(SOC15_REG_OFFSET(UVD, 0, mmUVD_SCRATCH9), 0xCAFEDEAD);
++	WREG32(adev->vcn.external.scratch9, 0xCAFEDEAD);
+ 	r = amdgpu_ring_alloc(ring, 3);
+ 	if (r)
+ 		return r;
+-
+-	amdgpu_ring_write(ring,
+-		PACKET0(SOC15_REG_OFFSET(UVD, 0, mmUVD_SCRATCH9), 0));
++	amdgpu_ring_write(ring, PACKET0(adev->vcn.internal.scratch9, 0));
+ 	amdgpu_ring_write(ring, 0xDEADBEEF);
+ 	amdgpu_ring_commit(ring);
+ 	for (i = 0; i < adev->usec_timeout; i++) {
+-		tmp = RREG32(SOC15_REG_OFFSET(UVD, 0, mmUVD_SCRATCH9));
++		tmp = RREG32(adev->vcn.external.scratch9);
+ 		if (tmp == 0xDEADBEEF)
+ 			break;
+ 		DRM_UDELAY(1);
+diff --git a/drivers/gpu/drm/amd/amdgpu/amdgpu_vcn.h b/drivers/gpu/drm/amd/amdgpu/amdgpu_vcn.h
+index a1ee19251aae..b80fc139eb7b 100644
+--- a/drivers/gpu/drm/amd/amdgpu/amdgpu_vcn.h
++++ b/drivers/gpu/drm/amd/amdgpu/amdgpu_vcn.h
+@@ -87,6 +87,10 @@ struct dpg_pause_state {
+ 	enum internal_dpg_state jpeg;
+ };
+ 
++struct amdgpu_vcn_reg{
++	unsigned	scratch9;
++};
++
+ struct amdgpu_vcn {
+ 	struct amdgpu_bo	*vcpu_bo;
+ 	void			*cpu_addr;
+@@ -102,6 +106,7 @@ struct amdgpu_vcn {
+ 	unsigned		num_enc_rings;
+ 	enum amd_powergating_state cur_state;
+ 	struct dpg_pause_state pause_state;
++	struct amdgpu_vcn_reg	internal, external;
+ 	int (*pause_dpg_mode)(struct amdgpu_device *adev,
+ 		struct dpg_pause_state *new_state);
+ };
+diff --git a/drivers/gpu/drm/amd/amdgpu/vcn_v1_0.c b/drivers/gpu/drm/amd/amdgpu/vcn_v1_0.c
+index bb47f5b24be5..bab900653a0b 100644
+--- a/drivers/gpu/drm/amd/amdgpu/vcn_v1_0.c
++++ b/drivers/gpu/drm/amd/amdgpu/vcn_v1_0.c
+@@ -128,6 +128,9 @@ static int vcn_v1_0_sw_init(void *handle)
+ 	if (r)
+ 		return r;
+ 
++	adev->vcn.internal.scratch9 = adev->vcn.external.scratch9 =
++		SOC15_REG_OFFSET(UVD, 0, mmUVD_SCRATCH9);
++
+ 	for (i = 0; i < adev->vcn.num_enc_rings; ++i) {
+ 		ring = &adev->vcn.ring_enc[i];
+ 		sprintf(ring->name, "vcn_enc%d", i);
+-- 
+2.17.1
+

@@ -1,0 +1,39 @@
+From 2163b1012685a702ba88ab0f4ec200ece5c8150e Mon Sep 17 00:00:00 2001
+From: Bhawanpreet Lakha <Bhawanpreet.Lakha@amd.com>
+Date: Tue, 9 Oct 2018 13:47:34 -0400
+Subject: [PATCH 0727/2940] drm/amd/display: Fix potential nullptr error
+
+[Why]
+Fix surface/plane potential nullptr
+
+[How]
+add null check
+
+Signed-off-by: Bhawanpreet Lakha <Bhawanpreet.Lakha@amd.com>
+Reviewed-by: Aric Cyr <Aric.Cyr@amd.com>
+Acked-by: Leo Li <sunpeng.li@amd.com>
+Signed-off-by: Alex Deucher <alexander.deucher@amd.com>
+---
+ drivers/gpu/drm/amd/display/amdgpu_dm/amdgpu_dm.c | 6 ++++++
+ 1 file changed, 6 insertions(+)
+
+diff --git a/drivers/gpu/drm/amd/display/amdgpu_dm/amdgpu_dm.c b/drivers/gpu/drm/amd/display/amdgpu_dm/amdgpu_dm.c
+index 16115ca7a0d6..6992f79bdefc 100644
+--- a/drivers/gpu/drm/amd/display/amdgpu_dm/amdgpu_dm.c
++++ b/drivers/gpu/drm/amd/display/amdgpu_dm/amdgpu_dm.c
+@@ -5347,6 +5347,12 @@ enum surface_update_type dm_determine_update_type_for_commit(struct dc *dc, stru
+ 	struct dc_stream_update stream_update;
+ 	enum surface_update_type update_type = UPDATE_TYPE_FAST;
+ 
++	if (!updates || !surface) {
++		DRM_ERROR("Plane or surface update failed to allocate");
++		/* Set type to FULL to avoid crashing in DC*/
++		update_type = UPDATE_TYPE_FULL;
++		goto ret;
++	}
+ 
+ 	for_each_oldnew_crtc_in_state(state, crtc, old_crtc_state, new_crtc_state, i) {
+ 		new_dm_crtc_state = to_dm_crtc_state(new_crtc_state);
+-- 
+2.17.1
+

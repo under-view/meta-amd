@@ -1,0 +1,54 @@
+From 7e4edaa564ef2104b42504d2a945d32ad77dfca9 Mon Sep 17 00:00:00 2001
+From: Nicholas Kazlauskas <nicholas.kazlauskas@amd.com>
+Date: Mon, 28 Jan 2019 09:00:52 -0500
+Subject: [PATCH 1166/2940] drm/amd/display: Don't leak memory when updating
+ streams
+
+[Why]
+The flip and full structures were allocated but never freed.
+
+[How]
+Free them at the end of the function. There's a small behavioral
+change here with the function returning early if the allocation fails
+but we wouldn't should be doing anything in that case anyway.
+
+Fixes: c00e0cc0fdc0 ("drm/amd/display: Call into DC once per multiplane flip")
+Fixes: ea39594e0855 ("drm/amd/display: Perform plane updates only when needed")
+
+Change-Id: Ic5e5a65581f627c5452bf4e6aa6020913007e2be
+Signed-off-by: Nicholas Kazlauskas <nicholas.kazlauskas@amd.com>
+Reviewed-by: Leo Li <sunpeng.li@amd.com>
+---
+ drivers/gpu/drm/amd/display/amdgpu_dm/amdgpu_dm.c | 8 +++++++-
+ 1 file changed, 7 insertions(+), 1 deletion(-)
+
+diff --git a/drivers/gpu/drm/amd/display/amdgpu_dm/amdgpu_dm.c b/drivers/gpu/drm/amd/display/amdgpu_dm/amdgpu_dm.c
+index 33f623d1150b..5215e0e58da1 100644
+--- a/drivers/gpu/drm/amd/display/amdgpu_dm/amdgpu_dm.c
++++ b/drivers/gpu/drm/amd/display/amdgpu_dm/amdgpu_dm.c
+@@ -4793,8 +4793,10 @@ static void amdgpu_dm_commit_planes(struct drm_atomic_state *state,
+ 	flip = kzalloc(sizeof(*flip), GFP_KERNEL);
+ 	full = kzalloc(sizeof(*full), GFP_KERNEL);
+ 
+-	if (!flip || !full)
++	if (!flip || !full) {
+ 		dm_error("Failed to allocate update bundles\n");
++		goto cleanup;
++	}
+ 
+ 	/* update planes when needed */
+ 	for_each_oldnew_plane_in_state(state, plane, old_plane_state, new_plane_state, i) {
+@@ -5018,6 +5020,10 @@ static void amdgpu_dm_commit_planes(struct drm_atomic_state *state,
+ 						     dc_state);
+ 		mutex_unlock(&dm->dc_lock);
+ 	}
++
++cleanup:
++	kfree(flip);
++	kfree(full);
+ }
+ 
+ /*
+-- 
+2.17.1
+

@@ -1,0 +1,146 @@
+From 1a5bddc2a510e8c77e02807831794743255cc2b7 Mon Sep 17 00:00:00 2001
+From: Kenneth Feng <kenneth.feng@amd.com>
+Date: Wed, 27 Mar 2019 11:46:31 +0800
+Subject: [PATCH 2282/2940] drm/amd: add gfxoff support on navi10
+
+add the gfxoff interface to navi10,it's disabled by default.
+
+Signed-off-by: Kenneth Feng <kenneth.feng@amd.com>
+Reviewed-by: Hawking Zhang <Hawking.Zhang@amd.com>
+Signed-off-by: Alex Deucher <alexander.deucher@amd.com>
+---
+ drivers/gpu/drm/amd/amdgpu/amdgpu_dpm.c       | 20 +++++++++++++++++++
+ drivers/gpu/drm/amd/amdgpu/amdgpu_dpm.h       |  7 +++----
+ drivers/gpu/drm/amd/amdgpu/amdgpu_gfx.c       |  4 +++-
+ .../gpu/drm/amd/powerplay/inc/amdgpu_smu.h    |  5 ++++-
+ drivers/gpu/drm/amd/powerplay/smu_v11_0.c     | 16 +++++++++++++++
+ 5 files changed, 46 insertions(+), 6 deletions(-)
+
+diff --git a/drivers/gpu/drm/amd/amdgpu/amdgpu_dpm.c b/drivers/gpu/drm/amd/amdgpu/amdgpu_dpm.c
+index 523b8ab6b04e..b5397135c417 100644
+--- a/drivers/gpu/drm/amd/amdgpu/amdgpu_dpm.c
++++ b/drivers/gpu/drm/amd/amdgpu/amdgpu_dpm.c
+@@ -920,3 +920,23 @@ int amdgpu_dpm_get_mclk(struct amdgpu_device *adev, bool low)
+ 	else
+ 		return (adev)->powerplay.pp_funcs->get_mclk((adev)->powerplay.pp_handle, (low));
+ }
++
++int amdgpu_dpm_set_powergating_by_smu(struct amdgpu_device *adev, uint32_t block_type, bool gate)
++{
++	int ret = 0;
++	bool swsmu = is_support_sw_smu(adev);
++
++	switch (block_type) {
++	case AMD_IP_BLOCK_TYPE_GFX:
++		if (swsmu)
++			ret = smu_gfx_off_control(&adev->smu, gate);
++		else
++			ret = ((adev)->powerplay.pp_funcs->set_powergating_by_smu(
++				(adev)->powerplay.pp_handle, block_type, gate));
++		break;
++	default:
++		break;
++	}
++
++	return ret;
++}
+diff --git a/drivers/gpu/drm/amd/amdgpu/amdgpu_dpm.h b/drivers/gpu/drm/amd/amdgpu/amdgpu_dpm.h
+index 521dbd0d9af8..1c5c0fd76dbf 100644
+--- a/drivers/gpu/drm/amd/amdgpu/amdgpu_dpm.h
++++ b/drivers/gpu/drm/amd/amdgpu/amdgpu_dpm.h
+@@ -355,10 +355,6 @@ enum amdgpu_pcie_gen {
+ 		((adev)->powerplay.pp_funcs->set_clockgating_by_smu(\
+ 			(adev)->powerplay.pp_handle, msg_id))
+ 
+-#define amdgpu_dpm_set_powergating_by_smu(adev, block_type, gate) \
+-		((adev)->powerplay.pp_funcs->set_powergating_by_smu(\
+-			(adev)->powerplay.pp_handle, block_type, gate))
+-
+ #define amdgpu_dpm_get_power_profile_mode(adev, buf) \
+ 		((adev)->powerplay.pp_funcs->get_power_profile_mode(\
+ 			(adev)->powerplay.pp_handle, buf))
+@@ -520,6 +516,9 @@ enum amdgpu_pcie_gen amdgpu_get_pcie_gen_support(struct amdgpu_device *adev,
+ struct amd_vce_state*
+ amdgpu_get_vce_clock_state(void *handle, u32 idx);
+ 
++int amdgpu_dpm_set_powergating_by_smu(struct amdgpu_device *adev,
++				      uint32_t block_type, bool gate);
++
+ extern int amdgpu_dpm_get_sclk(struct amdgpu_device *adev, bool low);
+ 
+ extern int amdgpu_dpm_get_mclk(struct amdgpu_device *adev, bool low);
+diff --git a/drivers/gpu/drm/amd/amdgpu/amdgpu_gfx.c b/drivers/gpu/drm/amd/amdgpu/amdgpu_gfx.c
+index 8c2b8543d7bd..633f6876b20d 100644
+--- a/drivers/gpu/drm/amd/amdgpu/amdgpu_gfx.c
++++ b/drivers/gpu/drm/amd/amdgpu/amdgpu_gfx.c
+@@ -547,7 +547,9 @@ void amdgpu_gfx_off_ctrl(struct amdgpu_device *adev, bool enable)
+ 	if (!(adev->pm.pp_feature & PP_GFXOFF_MASK))
+ 		return;
+ 
+-	if (!adev->powerplay.pp_funcs || !adev->powerplay.pp_funcs->set_powergating_by_smu)
++	if (!is_support_sw_smu(adev) &&
++	    (!adev->powerplay.pp_funcs ||
++	     !adev->powerplay.pp_funcs->set_powergating_by_smu))
+ 		return;
+ 
+ 
+diff --git a/drivers/gpu/drm/amd/powerplay/inc/amdgpu_smu.h b/drivers/gpu/drm/amd/powerplay/inc/amdgpu_smu.h
+index 23324b9fb31b..2336597c09e0 100644
+--- a/drivers/gpu/drm/amd/powerplay/inc/amdgpu_smu.h
++++ b/drivers/gpu/drm/amd/powerplay/inc/amdgpu_smu.h
+@@ -553,7 +553,7 @@ struct smu_funcs
+ 	int (*set_fan_speed_percent)(struct smu_context *smu, uint32_t speed);
+ 	int (*set_fan_speed_rpm)(struct smu_context *smu, uint32_t speed);
+ 	int (*set_xgmi_pstate)(struct smu_context *smu, uint32_t pstate);
+-
++	int (*gfx_off_control)(struct smu_context *smu, bool enable);
+ };
+ 
+ #define smu_init_microcode(smu) \
+@@ -592,6 +592,9 @@ struct smu_funcs
+ 	((smu)->funcs->set_tool_table_location ? (smu)->funcs->set_tool_table_location((smu)) : 0)
+ #define smu_notify_memory_pool_location(smu) \
+ 	((smu)->funcs->notify_memory_pool_location ? (smu)->funcs->notify_memory_pool_location((smu)) : 0)
++#define smu_gfx_off_control(smu, enable) \
++	((smu)->funcs->gfx_off_control ? (smu)->funcs->gfx_off_control((smu), (enable)) : 0)
++
+ #define smu_write_watermarks_table(smu) \
+ 	((smu)->funcs->write_watermarks_table ? (smu)->funcs->write_watermarks_table((smu)) : 0)
+ #define smu_set_last_dcef_min_deep_sleep_clk(smu) \
+diff --git a/drivers/gpu/drm/amd/powerplay/smu_v11_0.c b/drivers/gpu/drm/amd/powerplay/smu_v11_0.c
+index a952d2a297f7..e1841651693a 100644
+--- a/drivers/gpu/drm/amd/powerplay/smu_v11_0.c
++++ b/drivers/gpu/drm/amd/powerplay/smu_v11_0.c
+@@ -1547,6 +1547,21 @@ smu_v11_0_set_watermarks_for_clock_ranges(struct smu_context *smu, struct
+ 	return ret;
+ }
+ 
++static int smu_v11_0_gfx_off_control(struct smu_context *smu, bool enable)
++{
++	int ret = 0;
++
++	mutex_lock(&smu->mutex);
++	if (enable)
++		ret = smu_send_smc_msg(smu, SMU_MSG_AllowGfxOff);
++	else
++		ret = smu_send_smc_msg(smu, SMU_MSG_DisallowGfxOff);
++	mutex_unlock(&smu->mutex);
++
++	return ret;
++}
++
++
+ static int smu_v11_0_get_clock_ranges(struct smu_context *smu,
+ 				      uint32_t *clock,
+ 				      PPCLK_e clock_select,
+@@ -1919,6 +1934,7 @@ static const struct smu_funcs smu_v11_0_funcs = {
+ 	.set_fan_speed_percent = smu_v11_0_set_fan_speed_percent,
+ 	.set_fan_speed_rpm = smu_v11_0_set_fan_speed_rpm,
+ 	.set_xgmi_pstate = smu_v11_0_set_xgmi_pstate,
++	.gfx_off_control = smu_v11_0_gfx_off_control,
+ };
+ 
+ void smu_v11_0_set_smu_funcs(struct smu_context *smu)
+-- 
+2.17.1
+

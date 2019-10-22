@@ -1,0 +1,62 @@
+From d4fd2c0e60b2a69c2058fd5984d641b31c2a3d05 Mon Sep 17 00:00:00 2001
+From: =?UTF-8?q?Christian=20K=C3=B6nig?= <christian.koenig@amd.com>
+Date: Tue, 11 Sep 2018 10:36:16 +0200
+Subject: [PATCH 0296/2940] drm/amdgpu: always recover VRAM during GPU recovery
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+It shouldn't add much overhead and we should make sure that critical
+VRAM content is always restored.
+
+Signed-off-by: Christian König <christian.koenig@amd.com>
+Acked-by: Junwei Zhang <Jerry.Zhang@amd.com>
+---
+ drivers/gpu/drm/amd/amdgpu/amdgpu_device.c | 10 +++++-----
+ 1 file changed, 5 insertions(+), 5 deletions(-)
+
+diff --git a/drivers/gpu/drm/amd/amdgpu/amdgpu_device.c b/drivers/gpu/drm/amd/amdgpu/amdgpu_device.c
+index 3f1027575919..deafd01c6b89 100644
+--- a/drivers/gpu/drm/amd/amdgpu/amdgpu_device.c
++++ b/drivers/gpu/drm/amd/amdgpu/amdgpu_device.c
+@@ -3046,7 +3046,7 @@ static int amdgpu_device_recover_vram_from_shadow(struct amdgpu_device *adev,
+ }
+ 
+ /**
+- * amdgpu_device_handle_vram_lost - Handle the loss of VRAM contents
++ * amdgpu_device_recover_vram - Recover some VRAM contents
+  *
+  * @adev: amdgpu_device pointer
+  *
+@@ -3055,7 +3055,7 @@ static int amdgpu_device_recover_vram_from_shadow(struct amdgpu_device *adev,
+  * the contents of VRAM might be lost.
+  * Returns 0 on success, 1 on failure.
+  */
+-static int amdgpu_device_handle_vram_lost(struct amdgpu_device *adev)
++static int amdgpu_device_recover_vram(struct amdgpu_device *adev)
+ {
+ 	struct amdgpu_ring *ring = adev->mman.buffer_funcs_ring;
+ 	struct amdgpu_bo *bo, *tmp;
+@@ -3182,8 +3182,8 @@ static int amdgpu_device_reset(struct amdgpu_device *adev)
+ 		}
+ 	}
+ 
+-	if (!r && ((need_full_reset && !(adev->flags & AMD_IS_APU)) || vram_lost))
+-		r = amdgpu_device_handle_vram_lost(adev);
++	if (!r)
++		r = amdgpu_device_recover_vram(adev);
+ 
+ 	return r;
+ }
+@@ -3229,7 +3229,7 @@ static int amdgpu_device_reset_sriov(struct amdgpu_device *adev,
+ 	amdgpu_virt_release_full_gpu(adev, true);
+ 	if (!r && adev->virt.gim_feature & AMDGIM_FEATURE_GIM_FLR_VRAMLOST) {
+ 		atomic_inc(&adev->vram_lost_counter);
+-		r = amdgpu_device_handle_vram_lost(adev);
++		r = amdgpu_device_recover_vram(adev);
+ 	}
+ 
+ 	return r;
+-- 
+2.17.1
+

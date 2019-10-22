@@ -1,7 +1,0 @@
-AutoGen definitions Makefile.tpl;
-
-module = { 
-  name = amd-wdt;
-  common = contrib/grub-core/amd-wdt/amd_wdt.h;
-  common = contrib/grub-core/amd-wdt/amd_wdt.c;
-};

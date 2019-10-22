@@ -1,0 +1,432 @@
+From 4a09827743cbca0afa96df25660f494cbcd8e61a Mon Sep 17 00:00:00 2001
+From: Chunming Zhou <david1.zhou@amd.com>
+Date: Mon, 1 Apr 2019 17:51:00 +0800
+Subject: [PATCH 1720/2940] drm/amdgpu: add timeline support in amdgpu CS v3
+
+syncobj wait/signal operation is appending in command submission.
+v2: separate to two kinds in/out_deps functions
+v3: fix checking for timeline syncobj
+
+Signed-off-by: Chunming Zhou <david1.zhou@amd.com>
+Cc: Tobias Hector <Tobias.Hector@amd.com>
+Cc: Jason Ekstrand <jason@jlekstrand.net>
+Cc: Dave Airlie <airlied@redhat.com>
+Cc: Chris Wilson <chris@chris-wilson.co.uk>
+Cc: Lionel Landwerlin <lionel.g.landwerlin@intel.com>
+Reviewed-by: Lionel Landwerlin <lionel.g.landwerlin@intel.com>
+Signed-off-by: Chaudhary Amit Kumar <Chaudharyamit.Kumar@amd.com>
+---
+ drivers/gpu/drm/amd/amdgpu/amdgpu.h    |  10 +-
+ drivers/gpu/drm/amd/amdgpu/amdgpu_cs.c | 146 +++++++++++++++++++++----
+ drivers/gpu/drm/drm_syncobj.c          |  57 ++++++++--
+ include/drm/drm_syncobj.h              |  10 +-
+ include/uapi/drm/amdgpu_drm.h          |   8 ++
+ 5 files changed, 197 insertions(+), 34 deletions(-)
+
+diff --git a/drivers/gpu/drm/amd/amdgpu/amdgpu.h b/drivers/gpu/drm/amd/amdgpu/amdgpu.h
+index 9bc360586eaa..dcc54022579f 100644
+--- a/drivers/gpu/drm/amd/amdgpu/amdgpu.h
++++ b/drivers/gpu/drm/amd/amdgpu/amdgpu.h
+@@ -441,6 +441,12 @@ struct amdgpu_cs_chunk {
+ 	void			*kdata;
+ };
+ 
++struct amdgpu_cs_post_dep {
++	struct drm_syncobj *syncobj;
++	struct dma_fence_chain *chain;
++	u64 point;
++};
++
+ struct amdgpu_cs_parser {
+ 	struct amdgpu_device	*adev;
+ 	struct drm_file		*filp;
+@@ -470,8 +476,8 @@ struct amdgpu_cs_parser {
+ 	/* user fence */
+ 	struct amdgpu_bo_list_entry	uf_entry;
+ 
+-	unsigned num_post_dep_syncobjs;
+-	struct drm_syncobj **post_dep_syncobjs;
++	unsigned			num_post_deps;
++	struct amdgpu_cs_post_dep	*post_deps;
+ };
+ 
+ static inline u32 amdgpu_get_ib_value(struct amdgpu_cs_parser *p,
+diff --git a/drivers/gpu/drm/amd/amdgpu/amdgpu_cs.c b/drivers/gpu/drm/amd/amdgpu/amdgpu_cs.c
+index adfebc79124b..e68dde501f44 100644
+--- a/drivers/gpu/drm/amd/amdgpu/amdgpu_cs.c
++++ b/drivers/gpu/drm/amd/amdgpu/amdgpu_cs.c
+@@ -215,6 +215,8 @@ static int amdgpu_cs_parser_init(struct amdgpu_cs_parser *p, union drm_amdgpu_cs
+ 		case AMDGPU_CHUNK_ID_SYNCOBJ_IN:
+ 		case AMDGPU_CHUNK_ID_SYNCOBJ_OUT:
+ 		case AMDGPU_CHUNK_ID_SCHEDULED_DEPENDENCIES:
++		case AMDGPU_CHUNK_ID_SYNCOBJ_TIMELINE_WAIT:
++		case AMDGPU_CHUNK_ID_SYNCOBJ_TIMELINE_SIGNAL:
+ 			break;
+ 
+ 		default:
+@@ -759,9 +761,11 @@ static void amdgpu_cs_parser_fini(struct amdgpu_cs_parser *parser, int error,
+ 		ttm_eu_backoff_reservation(&parser->ticket,
+ 					   &parser->validated);
+ 
+-	for (i = 0; i < parser->num_post_dep_syncobjs; i++)
+-		drm_syncobj_put(parser->post_dep_syncobjs[i]);
+-	kfree(parser->post_dep_syncobjs);
++	for (i = 0; i < parser->num_post_deps; i++) {
++		drm_syncobj_put(parser->post_deps[i].syncobj);
++		kfree(parser->post_deps[i].chain);
++	}
++	kfree(parser->post_deps);
+ 
+ 	dma_fence_put(parser->fence);
+ 
+@@ -1074,12 +1078,16 @@ static int amdgpu_cs_process_fence_dep(struct amdgpu_cs_parser *p,
+ static int amdgpu_syncobj_lookup_and_add_to_sync(struct amdgpu_cs_parser *p,
+ 						 uint32_t handle)
+ {
+-	int r;
+ 	struct dma_fence *fence;
++	int r;
++
+ 	r = drm_syncobj_find_fence(p->filp, handle, &fence);
+-	if (r)
+-		return r;
++        if (r) {
++                DRM_ERROR("syncobj %u failed to find fence @ (%d)!\n",
++                          handle, r);
+ 
++		return r;
++	}
+ 	r = amdgpu_sync_fence(p->adev, &p->job->sync, fence, true);
+ 	dma_fence_put(fence);
+ 
+@@ -1089,46 +1097,115 @@ static int amdgpu_syncobj_lookup_and_add_to_sync(struct amdgpu_cs_parser *p,
+ static int amdgpu_cs_process_syncobj_in_dep(struct amdgpu_cs_parser *p,
+ 					    struct amdgpu_cs_chunk *chunk)
+ {
++	struct drm_amdgpu_cs_chunk_sem *deps;
+ 	unsigned num_deps;
+ 	int i, r;
+-	struct drm_amdgpu_cs_chunk_sem *deps;
+ 
+ 	deps = (struct drm_amdgpu_cs_chunk_sem *)chunk->kdata;
+ 	num_deps = chunk->length_dw * 4 /
+ 		sizeof(struct drm_amdgpu_cs_chunk_sem);
+-
+ 	for (i = 0; i < num_deps; ++i) {
+ 		r = amdgpu_syncobj_lookup_and_add_to_sync(p, deps[i].handle);
+ 		if (r)
+ 			return r;
+ 	}
++
++	return 0;
++}
++
++
++static int amdgpu_cs_process_syncobj_timeline_in_dep(struct amdgpu_cs_parser *p,
++						     struct amdgpu_cs_chunk *chunk)
++{
++	struct drm_amdgpu_cs_chunk_syncobj *syncobj_deps;
++	unsigned num_deps;
++	int i, r;
++
++	syncobj_deps = (struct drm_amdgpu_cs_chunk_syncobj *)chunk->kdata;
++	num_deps = chunk->length_dw * 4 /
++		sizeof(struct drm_amdgpu_cs_chunk_syncobj);
++	for (i = 0; i < num_deps; ++i) {
++		r = amdgpu_syncobj_lookup_and_add_to_sync(p,
++							  syncobj_deps[i].handle);
++		if (r)
++			return r;
++	}
++
+ 	return 0;
+ }
+ 
+ static int amdgpu_cs_process_syncobj_out_dep(struct amdgpu_cs_parser *p,
+ 					     struct amdgpu_cs_chunk *chunk)
+ {
++	struct drm_amdgpu_cs_chunk_sem *deps;
+ 	unsigned num_deps;
+ 	int i;
+-	struct drm_amdgpu_cs_chunk_sem *deps;
++
+ 	deps = (struct drm_amdgpu_cs_chunk_sem *)chunk->kdata;
+ 	num_deps = chunk->length_dw * 4 /
+ 		sizeof(struct drm_amdgpu_cs_chunk_sem);
+ 
+-	p->post_dep_syncobjs = kmalloc_array(num_deps,
+-					     sizeof(struct drm_syncobj *),
+-					     GFP_KERNEL);
+-	p->num_post_dep_syncobjs = 0;
++	p->post_deps = kmalloc_array(num_deps, sizeof(*p->post_deps),
++				     GFP_KERNEL);
++	p->num_post_deps = 0;
++
++	if (!p->post_deps)
++		return -ENOMEM;
++
++
++	for (i = 0; i < num_deps; ++i) {
++		p->post_deps[i].syncobj =
++			drm_syncobj_find(p->filp, deps[i].handle);
++		if (!p->post_deps[i].syncobj)
++			return -EINVAL;
++		p->post_deps[i].chain = NULL;
++		p->post_deps[i].point = 0;
++		p->num_post_deps++;
++	}
++
++	return 0;
++}
+ 
+-	if (!p->post_dep_syncobjs)
++
++static int amdgpu_cs_process_syncobj_timeline_out_dep(struct amdgpu_cs_parser *p,
++						      struct amdgpu_cs_chunk
++						      *chunk)
++{
++	struct drm_amdgpu_cs_chunk_syncobj *syncobj_deps;
++	unsigned num_deps;
++	int i;
++
++	syncobj_deps = (struct drm_amdgpu_cs_chunk_syncobj *)chunk->kdata;
++	num_deps = chunk->length_dw * 4 /
++		sizeof(struct drm_amdgpu_cs_chunk_syncobj);
++
++	p->post_deps = kmalloc_array(num_deps, sizeof(*p->post_deps),
++				     GFP_KERNEL);
++	p->num_post_deps = 0;
++
++	if (!p->post_deps)
+ 		return -ENOMEM;
+ 
+ 	for (i = 0; i < num_deps; ++i) {
+-		p->post_dep_syncobjs[i] = drm_syncobj_find(p->filp, deps[i].handle);
+-		if (!p->post_dep_syncobjs[i])
++		struct amdgpu_cs_post_dep *dep = &p->post_deps[i];
++
++		dep->chain = NULL;
++		if (syncobj_deps[i].point) {
++			dep->chain = kmalloc(sizeof(*dep->chain), GFP_KERNEL);
++			if (!dep->chain)
++				return -ENOMEM;
++		}
++
++		dep->syncobj = drm_syncobj_find(p->filp,
++						syncobj_deps[i].handle);
++		if (!dep->syncobj) {
++			kfree(dep->chain);
+ 			return -EINVAL;
+-		p->num_post_dep_syncobjs++;
++		}
++		dep->point = syncobj_deps[i].point;
++		p->num_post_deps++;
+ 	}
++
+ 	return 0;
+ }
+ 
+@@ -1142,19 +1219,33 @@ static int amdgpu_cs_dependencies(struct amdgpu_device *adev,
+ 
+ 		chunk = &p->chunks[i];
+ 
+-		if (chunk->chunk_id == AMDGPU_CHUNK_ID_DEPENDENCIES ||
+-		    chunk->chunk_id == AMDGPU_CHUNK_ID_SCHEDULED_DEPENDENCIES) {
++		switch (chunk->chunk_id) {
++		case AMDGPU_CHUNK_ID_DEPENDENCIES:
++		case AMDGPU_CHUNK_ID_SCHEDULED_DEPENDENCIES:
+ 			r = amdgpu_cs_process_fence_dep(p, chunk);
+ 			if (r)
+ 				return r;
+-		} else if (chunk->chunk_id == AMDGPU_CHUNK_ID_SYNCOBJ_IN) {
++			break;
++		case AMDGPU_CHUNK_ID_SYNCOBJ_IN:
+ 			r = amdgpu_cs_process_syncobj_in_dep(p, chunk);
+ 			if (r)
+ 				return r;
+-		} else if (chunk->chunk_id == AMDGPU_CHUNK_ID_SYNCOBJ_OUT) {
++			break;
++		case AMDGPU_CHUNK_ID_SYNCOBJ_OUT:
+ 			r = amdgpu_cs_process_syncobj_out_dep(p, chunk);
+ 			if (r)
+ 				return r;
++			break;
++		case AMDGPU_CHUNK_ID_SYNCOBJ_TIMELINE_WAIT:
++			r = amdgpu_cs_process_syncobj_timeline_in_dep(p, chunk);
++			if (r)
++				return r;
++			break;
++		case AMDGPU_CHUNK_ID_SYNCOBJ_TIMELINE_SIGNAL:
++			r = amdgpu_cs_process_syncobj_timeline_out_dep(p, chunk);
++			if (r)
++				return r;
++			break;
+ 		}
+ 	}
+ 
+@@ -1165,8 +1256,17 @@ static void amdgpu_cs_post_dependencies(struct amdgpu_cs_parser *p)
+ {
+ 	int i;
+ 
+-	for (i = 0; i < p->num_post_dep_syncobjs; ++i)
+-		drm_syncobj_replace_fence(p->post_dep_syncobjs[i], p->fence);
++	for (i = 0; i < p->num_post_deps; ++i) {
++		if (p->post_deps[i].chain && p->post_deps[i].point) {
++			drm_syncobj_add_point(p->post_deps[i].syncobj,
++					      p->post_deps[i].chain,
++					      p->fence, p->post_deps[i].point);
++			p->post_deps[i].chain = NULL;
++		} else {
++			drm_syncobj_replace_fence(p->post_deps[i].syncobj,
++						  p->fence);
++		}
++	}
+ }
+ 
+ static int amdgpu_cs_submit(struct amdgpu_cs_parser *p,
+diff --git a/drivers/gpu/drm/drm_syncobj.c b/drivers/gpu/drm/drm_syncobj.c
+index 759278fef35a..74482832c759 100644
+--- a/drivers/gpu/drm/drm_syncobj.c
++++ b/drivers/gpu/drm/drm_syncobj.c
+@@ -56,6 +56,17 @@
+ #include "drm_internal.h"
+ #include <drm/drm_syncobj.h>
+ 
++struct syncobj_wait_entry {
++        struct list_head node;
++        struct task_struct *task;
++        struct dma_fence *fence;
++        struct dma_fence_cb fence_cb;
++        struct drm_syncobj_cb syncobj_cb;
++};
++
++static void syncobj_wait_syncobj_func(struct drm_syncobj *syncobj,
++                                      struct drm_syncobj_cb *cb);
++
+ /**
+  * drm_syncobj_find - lookup and reference a sync object.
+  * @file_private: drm file private pointer
+@@ -82,6 +93,45 @@ struct drm_syncobj *drm_syncobj_find(struct drm_file *file_private,
+ }
+ EXPORT_SYMBOL(drm_syncobj_find);
+ 
++
++/**
++ * drm_syncobj_add_point - add new timeline point to the syncobj
++ * @syncobj: sync object to add timeline point do
++ * @chain: chain node to use to add the point
++ * @fence: fence to encapsulate in the chain node
++ * @point: sequence number to use for the point
++ *
++ * Add the chain node as new timeline point to the syncobj.
++ */
++void drm_syncobj_add_point(struct drm_syncobj *syncobj,
++                           struct dma_fence_chain *chain,
++                           struct dma_fence *fence,
++                           uint64_t point)
++{
++         struct syncobj_wait_entry *cur, *tmp;
++         struct dma_fence *prev;
++
++         dma_fence_get(fence);
++
++         spin_lock(&syncobj->lock);
++
++         prev = drm_syncobj_fence_get(syncobj);
++         /* You are adding an unorder point to timeline, which could cause payload returned from query_ioctl is 0! */
++         if (prev && prev->seqno >= point)
++                 DRM_ERROR("You are adding an unorder point to timeline!\n");
++         dma_fence_chain_init(chain, prev, fence, point);
++         rcu_assign_pointer(syncobj->fence, &chain->base);
++
++         list_for_each_entry_safe(cur, tmp, &syncobj->cb_list, node)
++                 syncobj_wait_syncobj_func(syncobj, &cur->syncobj_cb);
++         spin_unlock(&syncobj->lock);
++
++         /* Walk the chain once to trigger garbage collection */
++         dma_fence_chain_for_each(fence, prev);
++         dma_fence_put(prev);
++}
++EXPORT_SYMBOL(drm_syncobj_add_point);
++
+ static void drm_syncobj_add_callback_locked(struct drm_syncobj *syncobj,
+ 					    struct drm_syncobj_cb *cb,
+ 					    drm_syncobj_func_t func)
+@@ -657,13 +707,6 @@ drm_syncobj_fd_to_handle_ioctl(struct drm_device *dev, void *data,
+ 					&args->handle);
+ }
+ 
+-struct syncobj_wait_entry {
+-	struct task_struct *task;
+-	struct dma_fence *fence;
+-	struct dma_fence_cb fence_cb;
+-	struct drm_syncobj_cb syncobj_cb;
+-};
+-
+ static void syncobj_wait_fence_func(struct dma_fence *fence,
+ 				    struct dma_fence_cb *cb)
+ {
+diff --git a/include/drm/drm_syncobj.h b/include/drm/drm_syncobj.h
+index 3980602472c0..2ad80447ad5b 100644
+--- a/include/drm/drm_syncobj.h
++++ b/include/drm/drm_syncobj.h
+@@ -27,6 +27,7 @@
+ #define __DRM_SYNCOBJ_H__
+ 
+ #include "linux/dma-fence.h"
++#include <linux/dma-fence-chain.h>
+ 
+ struct drm_syncobj_cb;
+ 
+@@ -131,6 +132,11 @@ drm_syncobj_fence_get(struct drm_syncobj *syncobj)
+ 
+ struct drm_syncobj *drm_syncobj_find(struct drm_file *file_private,
+ 				     u32 handle);
++void drm_syncobj_add_point(struct drm_syncobj *syncobj,
++                           struct dma_fence_chain *chain,
++                           struct dma_fence *fence,
++                           uint64_t point);
++
+ void drm_syncobj_add_callback(struct drm_syncobj *syncobj,
+ 			      struct drm_syncobj_cb *cb,
+ 			      drm_syncobj_func_t func);
+@@ -139,8 +145,8 @@ void drm_syncobj_remove_callback(struct drm_syncobj *syncobj,
+ void drm_syncobj_replace_fence(struct drm_syncobj *syncobj,
+ 			       struct dma_fence *fence);
+ int drm_syncobj_find_fence(struct drm_file *file_private,
+-			   u32 handle,
+-			   struct dma_fence **fence);
++				u32 handle,
++				struct dma_fence **fence);
+ void drm_syncobj_free(struct kref *kref);
+ int drm_syncobj_create(struct drm_syncobj **out_syncobj, uint32_t flags,
+ 		       struct dma_fence *fence);
+diff --git a/include/uapi/drm/amdgpu_drm.h b/include/uapi/drm/amdgpu_drm.h
+index b28fe74b7725..ac96bed48f38 100644
+--- a/include/uapi/drm/amdgpu_drm.h
++++ b/include/uapi/drm/amdgpu_drm.h
+@@ -587,6 +587,8 @@ struct drm_amdgpu_gem_va {
+ #define AMDGPU_CHUNK_ID_SYNCOBJ_OUT     0x05
+ #define AMDGPU_CHUNK_ID_BO_HANDLES      0x06
+ #define AMDGPU_CHUNK_ID_SCHEDULED_DEPENDENCIES	0x07
++#define AMDGPU_CHUNK_ID_SYNCOBJ_TIMELINE_WAIT    0x08
++#define AMDGPU_CHUNK_ID_SYNCOBJ_TIMELINE_SIGNAL  0x09
+ 
+ struct drm_amdgpu_cs_chunk {
+ 	__u32		chunk_id;
+@@ -667,6 +669,12 @@ struct drm_amdgpu_cs_chunk_sem {
+ 	__u32 handle;
+ };
+ 
++struct drm_amdgpu_cs_chunk_syncobj {
++       __u32 handle;
++       __u32 flags;
++       __u64 point;
++};
++
+ #define AMDGPU_FENCE_TO_HANDLE_GET_SYNCOBJ	0
+ #define AMDGPU_FENCE_TO_HANDLE_GET_SYNCOBJ_FD	1
+ #define AMDGPU_FENCE_TO_HANDLE_GET_SYNC_FILE_FD	2
+-- 
+2.17.1
+

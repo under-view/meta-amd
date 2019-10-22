@@ -1,0 +1,33 @@
+From 33d95747121980978d5c184a20a9a4c43d59806b Mon Sep 17 00:00:00 2001
+From: Evan Quan <evan.quan@amd.com>
+Date: Tue, 25 Jun 2019 23:03:00 +0800
+Subject: [PATCH 2597/2940] drm/amd/powerplay: add missing
+ smu_get_clk_info_from_vbios() call
+
+This seems a merge error.
+
+Change-Id: I67389739512c8297da1187428682cc59f560ab03
+Signed-off-by: Evan Quan <evan.quan@amd.com>
+Reviewed-by: Hawking Zhang <Hawking.Zhang@amd.com>
+---
+ drivers/gpu/drm/amd/powerplay/amdgpu_smu.c | 4 ++++
+ 1 file changed, 4 insertions(+)
+
+diff --git a/drivers/gpu/drm/amd/powerplay/amdgpu_smu.c b/drivers/gpu/drm/amd/powerplay/amdgpu_smu.c
+index 38ce6a5a628f..8ac138515680 100644
+--- a/drivers/gpu/drm/amd/powerplay/amdgpu_smu.c
++++ b/drivers/gpu/drm/amd/powerplay/amdgpu_smu.c
+@@ -820,6 +820,10 @@ static int smu_smc_table_hw_init(struct smu_context *smu,
+ 		if (ret)
+ 			return ret;
+ 
++		ret = smu_get_clk_info_from_vbios(smu);
++		if (ret)
++			return ret;
++
+ 		/*
+ 		 * check if the format_revision in vbios is up to pptable header
+ 		 * version, and the structure size is not 0.
+-- 
+2.17.1
+

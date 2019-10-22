@@ -1,0 +1,134 @@
+From 9c75912e647e11af6f297ebc12f0bd6ad463997b Mon Sep 17 00:00:00 2001
+From: Sudheesh Mavila <sudheesh.mavila@amd.com>
+Date: Mon, 4 Feb 2019 11:49:23 +0530
+Subject: [PATCH 0615/2940] Revert " net: phy: improve handling delayed work"
+
+This reverts commit 6b90bf7898c7f0fdf301af72d4f49f8649531438.
+---
+ drivers/net/phy/phy.c | 37 ++++++++++++++++---------------------
+ include/linux/phy.h   |  2 +-
+ 2 files changed, 17 insertions(+), 22 deletions(-)
+ mode change 100755 => 100644 drivers/net/phy/phy.c
+
+diff --git a/drivers/net/phy/phy.c b/drivers/net/phy/phy.c
+old mode 100755
+new mode 100644
+index c15548ce06b9..1ee25877c4d1
+--- a/drivers/net/phy/phy.c
++++ b/drivers/net/phy/phy.c
+@@ -537,7 +537,7 @@ static int phy_start_aneg_priv(struct phy_device *phydev, bool sync)
+ 	mutex_unlock(&phydev->lock);
+ 
+ 	if (trigger)
+-		phy_trigger_machine(phydev);
++		phy_trigger_machine(phydev, sync);
+ 
+ 	return err;
+ }
+@@ -635,13 +635,6 @@ int phy_speed_up(struct phy_device *phydev)
+ }
+ EXPORT_SYMBOL_GPL(phy_speed_up);
+ 
+-static void phy_queue_state_machine(struct phy_device *phydev,
+-				    unsigned int secs)
+-{
+-	mod_delayed_work(system_power_efficient_wq, &phydev->state_queue,
+-			 secs * HZ);
+-}
+-
+ /**
+  * phy_start_machine - start PHY state machine tracking
+  * @phydev: the phy_device struct
+@@ -654,7 +647,7 @@ static void phy_queue_state_machine(struct phy_device *phydev,
+  */
+ void phy_start_machine(struct phy_device *phydev)
+ {
+-	phy_queue_state_machine(phydev, 1);
++	queue_delayed_work(system_power_efficient_wq, &phydev->state_queue, HZ);
+ }
+ EXPORT_SYMBOL_GPL(phy_start_machine);
+ 
+@@ -662,14 +655,19 @@ EXPORT_SYMBOL_GPL(phy_start_machine);
+  * phy_trigger_machine - trigger the state machine to run
+  *
+  * @phydev: the phy_device struct
++ * @sync: indicate whether we should wait for the workqueue cancelation
+  *
+  * Description: There has been a change in state which requires that the
+  *   state machine runs.
+  */
+ 
+-void phy_trigger_machine(struct phy_device *phydev)
++void phy_trigger_machine(struct phy_device *phydev, bool sync)
+ {
+-	phy_queue_state_machine(phydev, 0);
++	if (sync)
++		cancel_delayed_work_sync(&phydev->state_queue);
++	else
++		cancel_delayed_work(&phydev->state_queue);
++	queue_delayed_work(system_power_efficient_wq, &phydev->state_queue, 0);
+ }
+ 
+ /**
+@@ -705,7 +703,7 @@ static void phy_error(struct phy_device *phydev)
+ 	phydev->state = PHY_HALTED;
+ 	mutex_unlock(&phydev->lock);
+ 
+-	phy_trigger_machine(phydev);
++	phy_trigger_machine(phydev, false);
+ }
+ 
+ /**
+@@ -747,7 +745,7 @@ static irqreturn_t phy_change(struct phy_device *phydev)
+ 	mutex_unlock(&phydev->lock);
+ 
+ 	/* reschedule state queue work to run as soon as possible */
+-	phy_trigger_machine(phydev);
++	phy_trigger_machine(phydev, true);
+ 
+ 	if (phy_interrupt_is_valid(phydev) && phy_clear_interrupt(phydev))
+ 		goto phy_err;
+@@ -911,7 +909,7 @@ void phy_start(struct phy_device *phydev)
+ 	}
+ 	mutex_unlock(&phydev->lock);
+ 
+-	phy_trigger_machine(phydev);
++	phy_trigger_machine(phydev, true);
+ }
+ EXPORT_SYMBOL(phy_start);
+ 
+@@ -1123,14 +1121,11 @@ void phy_state_machine(struct work_struct *work)
+ 
+ 	/* Only re-schedule a PHY state machine change if we are polling the
+ 	 * PHY, if PHY_IGNORE_INTERRUPT is set, then we will be moving
+-	 * between states from phy_mac_interrupt().
+-	 *
+-	 * In state PHY_HALTED the PHY gets suspended, so rescheduling the
+-	 * state machine would be pointless and possibly error prone when
+-	 * called from phy_disconnect() synchronously.
++	 * between states from phy_mac_interrupt()
+ 	 */
+-	if (phy_polling_mode(phydev) && old_state != PHY_HALTED)
+-		phy_queue_state_machine(phydev, PHY_STATE_TIME);
++	if (phy_polling_mode(phydev))
++		queue_delayed_work(system_power_efficient_wq, &phydev->state_queue,
++				   PHY_STATE_TIME * HZ);
+ }
+ 
+ /**
+diff --git a/include/linux/phy.h b/include/linux/phy.h
+index 2e86acadb9bc..7086051820f9 100644
+--- a/include/linux/phy.h
++++ b/include/linux/phy.h
+@@ -1048,7 +1048,7 @@ void phy_change_work(struct work_struct *work);
+ void phy_mac_interrupt(struct phy_device *phydev);
+ void phy_start_machine(struct phy_device *phydev);
+ void phy_stop_machine(struct phy_device *phydev);
+-void phy_trigger_machine(struct phy_device *phydev);
++void phy_trigger_machine(struct phy_device *phydev, bool sync);
+ int phy_ethtool_sset(struct phy_device *phydev, struct ethtool_cmd *cmd);
+ void phy_ethtool_ksettings_get(struct phy_device *phydev,
+ 			       struct ethtool_link_ksettings *cmd);
+-- 
+2.17.1
+

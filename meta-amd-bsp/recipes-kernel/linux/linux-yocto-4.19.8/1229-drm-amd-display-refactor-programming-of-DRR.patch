@@ -1,0 +1,122 @@
+From 82981505398d2f631816b0e75f4a56fe418dd743 Mon Sep 17 00:00:00 2001
+From: Anthony Koo <Anthony.Koo@amd.com>
+Date: Sun, 20 Jan 2019 01:45:36 -0500
+Subject: [PATCH 1229/2940] drm/amd/display: refactor programming of DRR
+
+[Why]
+Keep enable_stream_timing programming only
+timing related stuff.
+
+[How]
+Move DRR and static screen mask programming from
+enable_stream_timing to outside in
+apply_single_controller_ctx_to_hw
+
+Change-Id: I4bf0d94fc3c7dbf52d5a9f91699e6c22b37a0306
+Signed-off-by: Anthony Koo <Anthony.Koo@amd.com>
+Reviewed-by: Aric Cyr <Aric.Cyr@amd.com>
+Acked-by: Bhawanpreet Lakha <Bhawanpreet.Lakha@amd.com>
+---
+ .../display/dc/dce110/dce110_hw_sequencer.c   | 31 +++++++++----------
+ .../amd/display/dc/dcn10/dcn10_hw_sequencer.c | 15 ---------
+ 2 files changed, 15 insertions(+), 31 deletions(-)
+
+diff --git a/drivers/gpu/drm/amd/display/dc/dce110/dce110_hw_sequencer.c b/drivers/gpu/drm/amd/display/dc/dce110/dce110_hw_sequencer.c
+index 9e2de86eb796..423abc28de7f 100644
+--- a/drivers/gpu/drm/amd/display/dc/dce110/dce110_hw_sequencer.c
++++ b/drivers/gpu/drm/amd/display/dc/dce110/dce110_hw_sequencer.c
+@@ -1250,8 +1250,6 @@ static enum dc_status dce110_enable_stream_timing(
+ 	struct pipe_ctx *pipe_ctx_old = &dc->current_state->res_ctx.
+ 			pipe_ctx[pipe_ctx->pipe_idx];
+ 	struct tg_color black_color = {0};
+-	struct drr_params params = {0};
+-	unsigned int event_triggers = 0;
+ 
+ 	if (!pipe_ctx_old->stream) {
+ 
+@@ -1280,20 +1278,6 @@ static enum dc_status dce110_enable_stream_timing(
+ 				pipe_ctx->stream_res.tg,
+ 				&stream->timing,
+ 				true);
+-
+-		params.vertical_total_min = stream->adjust.v_total_min;
+-		params.vertical_total_max = stream->adjust.v_total_max;
+-		if (pipe_ctx->stream_res.tg->funcs->set_drr)
+-			pipe_ctx->stream_res.tg->funcs->set_drr(
+-				pipe_ctx->stream_res.tg, &params);
+-
+-		// DRR should set trigger event to monitor surface update event
+-		if (stream->adjust.v_total_min != 0 &&
+-				stream->adjust.v_total_max != 0)
+-			event_triggers = 0x80;
+-		if (pipe_ctx->stream_res.tg->funcs->set_static_screen_control)
+-			pipe_ctx->stream_res.tg->funcs->set_static_screen_control(
+-				pipe_ctx->stream_res.tg, event_triggers);
+ 	}
+ 
+ 	if (!pipe_ctx_old->stream) {
+@@ -1313,6 +1297,8 @@ static enum dc_status apply_single_controller_ctx_to_hw(
+ 		struct dc *dc)
+ {
+ 	struct dc_stream_state *stream = pipe_ctx->stream;
++	struct drr_params params = {0};
++	unsigned int event_triggers = 0;
+ 
+ 	if (pipe_ctx->stream_res.audio != NULL) {
+ 		struct audio_output audio_output;
+@@ -1348,6 +1334,19 @@ static enum dc_status apply_single_controller_ctx_to_hw(
+ 						pipe_ctx->stream_res.tg,
+ 							&stream->timing);
+ 
++	params.vertical_total_min = stream->adjust.v_total_min;
++	params.vertical_total_max = stream->adjust.v_total_max;
++	if (pipe_ctx->stream_res.tg->funcs->set_drr)
++		pipe_ctx->stream_res.tg->funcs->set_drr(
++			pipe_ctx->stream_res.tg, &params);
++
++	// DRR should set trigger event to monitor surface update event
++	if (stream->adjust.v_total_min != 0 && stream->adjust.v_total_max != 0)
++		event_triggers = 0x80;
++	if (pipe_ctx->stream_res.tg->funcs->set_static_screen_control)
++		pipe_ctx->stream_res.tg->funcs->set_static_screen_control(
++				pipe_ctx->stream_res.tg, event_triggers);
++
+ 	if (pipe_ctx->stream->signal != SIGNAL_TYPE_VIRTUAL)
+ 		pipe_ctx->stream_res.stream_enc->funcs->dig_connect_to_otg(
+ 			pipe_ctx->stream_res.stream_enc,
+diff --git a/drivers/gpu/drm/amd/display/dc/dcn10/dcn10_hw_sequencer.c b/drivers/gpu/drm/amd/display/dc/dcn10/dcn10_hw_sequencer.c
+index b32787ca5e25..d1ad55c56ba7 100644
+--- a/drivers/gpu/drm/amd/display/dc/dcn10/dcn10_hw_sequencer.c
++++ b/drivers/gpu/drm/amd/display/dc/dcn10/dcn10_hw_sequencer.c
+@@ -636,8 +636,6 @@ static enum dc_status dcn10_enable_stream_timing(
+ 	struct dc_stream_state *stream = pipe_ctx->stream;
+ 	enum dc_color_space color_space;
+ 	struct tg_color black_color = {0};
+-	struct drr_params params = {0};
+-	unsigned int event_triggers = 0;
+ 
+ 	/* by upper caller loop, pipe0 is parent pipe and be called first.
+ 	 * back end is set up by for pipe0. Other children pipe share back end
+@@ -705,19 +703,6 @@ static enum dc_status dcn10_enable_stream_timing(
+ 		return DC_ERROR_UNEXPECTED;
+ 	}
+ 
+-	params.vertical_total_min = stream->adjust.v_total_min;
+-	params.vertical_total_max = stream->adjust.v_total_max;
+-	if (pipe_ctx->stream_res.tg->funcs->set_drr)
+-		pipe_ctx->stream_res.tg->funcs->set_drr(
+-			pipe_ctx->stream_res.tg, &params);
+-
+-	// DRR should set trigger event to monitor surface update event
+-	if (stream->adjust.v_total_min != 0 && stream->adjust.v_total_max != 0)
+-		event_triggers = 0x80;
+-	if (pipe_ctx->stream_res.tg->funcs->set_static_screen_control)
+-		pipe_ctx->stream_res.tg->funcs->set_static_screen_control(
+-				pipe_ctx->stream_res.tg, event_triggers);
+-
+ 	/* TODO program crtc source select for non-virtual signal*/
+ 	/* TODO program FMT */
+ 	/* TODO setup link_enc */
+-- 
+2.17.1
+

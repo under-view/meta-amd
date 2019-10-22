@@ -1,0 +1,42 @@
+From a602313c111058b536ec25e85a79fc91296a838d Mon Sep 17 00:00:00 2001
+From: Tao Zhou <tao.zhou1@amd.com>
+Date: Mon, 13 May 2019 16:52:22 +0800
+Subject: [PATCH 2374/2940] drm/amd/powerplay/smu11: disable some pp features
+ on navi10 A0 secure board
+
+disable DPM UCLK and SOC DS on A0 secure board
+
+Signed-off-by: Tao Zhou <tao.zhou1@amd.com>
+Acked-by: Alex Deucher <alexander.deucher@amd.com>
+Reviewed-by: Kevin Wang <kevin1.wang@amd.com>
+Signed-off-by: Alex Deucher <alexander.deucher@amd.com>
+---
+ drivers/gpu/drm/amd/powerplay/navi10_ppt.c | 12 ++++++++++++
+ 1 file changed, 12 insertions(+)
+
+diff --git a/drivers/gpu/drm/amd/powerplay/navi10_ppt.c b/drivers/gpu/drm/amd/powerplay/navi10_ppt.c
+index 253830f3c307..4f3d8604540d 100644
+--- a/drivers/gpu/drm/amd/powerplay/navi10_ppt.c
++++ b/drivers/gpu/drm/amd/powerplay/navi10_ppt.c
+@@ -340,6 +340,18 @@ navi10_get_allowed_feature_mask(struct smu_context *smu,
+ 	if (smu->adev->pg_flags & AMD_PG_SUPPORT_VCN)
+ 		*(uint64_t *)feature_mask |= FEATURE_MASK(FEATURE_VCN_PG_BIT);
+ 
++	/* disable DPM UCLK and DS SOCCLK on navi10 A0 secure board */
++	if (is_asic_secure(smu)) {
++		/* only for navi10 A0 */
++		if ((adev->asic_type == CHIP_NAVI10) &&
++			(adev->rev_id == 0)) {
++			*(uint64_t *)feature_mask &=
++					~FEATURE_MASK(FEATURE_DPM_UCLK_BIT);
++			*(uint64_t *)feature_mask &=
++					~FEATURE_MASK(FEATURE_DS_SOCCLK_BIT);
++		}
++	}
++
+ 	return 0;
+ }
+ 
+-- 
+2.17.1
+

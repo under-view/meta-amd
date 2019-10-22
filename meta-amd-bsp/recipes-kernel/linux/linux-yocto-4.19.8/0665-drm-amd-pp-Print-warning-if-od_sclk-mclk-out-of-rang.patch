@@ -1,0 +1,62 @@
+From c1e0fba0a9cd09cfe13753369f067f87fb05b6bb Mon Sep 17 00:00:00 2001
+From: Rex Zhu <Rex.Zhu@amd.com>
+Date: Wed, 31 Oct 2018 19:12:01 +0800
+Subject: [PATCH 0665/2940] drm/amd/pp: Print warning if od_sclk/mclk out of
+ range
+
+print warning in dmesg to notify user the setting for
+sclk_od/mclk_od out of range that vbios can support
+
+Reviewed-by: Alex Deucher <alexander.deucher@amd.com>
+Signed-off-by: Rex Zhu <Rex.Zhu@amd.com>
+Signed-off-by: Alex Deucher <alexander.deucher@amd.com>
+---
+ drivers/gpu/drm/amd/powerplay/hwmgr/vega10_hwmgr.c | 12 ++++++++----
+ 1 file changed, 8 insertions(+), 4 deletions(-)
+
+diff --git a/drivers/gpu/drm/amd/powerplay/hwmgr/vega10_hwmgr.c b/drivers/gpu/drm/amd/powerplay/hwmgr/vega10_hwmgr.c
+index 3fd68df23932..8c4db86bb4b7 100644
+--- a/drivers/gpu/drm/amd/powerplay/hwmgr/vega10_hwmgr.c
++++ b/drivers/gpu/drm/amd/powerplay/hwmgr/vega10_hwmgr.c
+@@ -1333,7 +1333,6 @@ static int vega10_setup_default_dpm_tables(struct pp_hwmgr *hwmgr)
+ 	if (hwmgr->platform_descriptor.overdriveLimit.memoryClock == 0)
+ 		hwmgr->platform_descriptor.overdriveLimit.memoryClock =
+ 					dpm_table->dpm_levels[dpm_table->count-1].value;
+-
+ 	vega10_init_dpm_state(&(dpm_table->dpm_state));
+ 
+ 	data->dpm_table.eclk_table.count = 0;
+@@ -4560,11 +4559,13 @@ static int vega10_set_sclk_od(struct pp_hwmgr *hwmgr, uint32_t value)
+ 
+ 	if (vega10_ps->performance_levels
+ 			[vega10_ps->performance_level_count - 1].gfx_clock >
+-			hwmgr->platform_descriptor.overdriveLimit.engineClock)
++			hwmgr->platform_descriptor.overdriveLimit.engineClock) {
+ 		vega10_ps->performance_levels
+ 		[vega10_ps->performance_level_count - 1].gfx_clock =
+ 				hwmgr->platform_descriptor.overdriveLimit.engineClock;
+-
++		pr_warn("max sclk supported by vbios is %d\n",
++				hwmgr->platform_descriptor.overdriveLimit.engineClock);
++	}
+ 	return 0;
+ }
+ 
+@@ -4612,10 +4613,13 @@ static int vega10_set_mclk_od(struct pp_hwmgr *hwmgr, uint32_t value)
+ 
+ 	if (vega10_ps->performance_levels
+ 			[vega10_ps->performance_level_count - 1].mem_clock >
+-			hwmgr->platform_descriptor.overdriveLimit.memoryClock)
++			hwmgr->platform_descriptor.overdriveLimit.memoryClock) {
+ 		vega10_ps->performance_levels
+ 		[vega10_ps->performance_level_count - 1].mem_clock =
+ 				hwmgr->platform_descriptor.overdriveLimit.memoryClock;
++		pr_warn("max mclk supported by vbios is %d\n",
++				hwmgr->platform_descriptor.overdriveLimit.memoryClock);
++	}
+ 
+ 	return 0;
+ }
+-- 
+2.17.1
+

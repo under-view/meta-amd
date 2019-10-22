@@ -1,0 +1,30 @@
+From 385eb3462531dde48de8b57ba614dbb7dc693c9c Mon Sep 17 00:00:00 2001
+From: Jun Lei <Jun.Lei@amd.com>
+Date: Tue, 13 Nov 2018 10:47:47 -0500
+Subject: [PATCH 0999/2940] drm/amd/display: Add a PP_SMU_VER_MAX enum
+
+Signed-off-by: Jun Lei <Jun.Lei@amd.com>
+Reviewed-by: Nevenko Stupar <Nevenko.Stupar@amd.com>
+Acked-by: Leo Li <sunpeng.li@amd.com>
+Signed-off-by: Alex Deucher <alexander.deucher@amd.com>
+---
+ drivers/gpu/drm/amd/display/dc/dm_pp_smu.h | 3 ++-
+ 1 file changed, 2 insertions(+), 1 deletion(-)
+
+diff --git a/drivers/gpu/drm/amd/display/dc/dm_pp_smu.h b/drivers/gpu/drm/amd/display/dc/dm_pp_smu.h
+index c5ec9cec998b..b10272d6b84b 100644
+--- a/drivers/gpu/drm/amd/display/dc/dm_pp_smu.h
++++ b/drivers/gpu/drm/amd/display/dc/dm_pp_smu.h
+@@ -38,7 +38,8 @@ enum pp_smu_ver {
+ 	 * of interface sharing between families of ASIcs.
+ 	 */
+ 	PP_SMU_UNSUPPORTED,
+-	PP_SMU_VER_RV
++	PP_SMU_VER_RV,
++	PP_SMU_VER_MAX
+ };
+ 
+ struct pp_smu {
+-- 
+2.17.1
+

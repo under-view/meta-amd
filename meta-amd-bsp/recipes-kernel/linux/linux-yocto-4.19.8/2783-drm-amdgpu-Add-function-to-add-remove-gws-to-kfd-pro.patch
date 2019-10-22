@@ -1,0 +1,167 @@
+From 5421a289538c49824ac837fcfca54b0279a63d23 Mon Sep 17 00:00:00 2001
+From: Oak Zeng <Oak.Zeng@amd.com>
+Date: Wed, 8 May 2019 16:14:45 -0500
+Subject: [PATCH 2783/2940] drm/amdgpu: Add function to add/remove gws to kfd
+ process
+
+GWS bo is shared between all kfd processes. Add function to add gws
+to kfd process's bo list so gws can be evicted from and restored
+for process.
+
+Change-Id: I75d74cfdadb7075ff8b2b68634e205deb73dc1ea
+Signed-off-by: Oak Zeng <Oak.Zeng@amd.com>
+Reviewed-by: Felix Kuehling <Felix.Kuehling@amd.com>
+---
+ drivers/gpu/drm/amd/amdgpu/amdgpu_amdkfd.h    |   2 +
+ .../gpu/drm/amd/amdgpu/amdgpu_amdkfd_gpuvm.c  | 103 +++++++++++++++++-
+ 2 files changed, 100 insertions(+), 5 deletions(-)
+
+diff --git a/drivers/gpu/drm/amd/amdgpu/amdgpu_amdkfd.h b/drivers/gpu/drm/amd/amdgpu/amdgpu_amdkfd.h
+index a1d79a223a2a..96ff067ae88e 100644
+--- a/drivers/gpu/drm/amd/amdgpu/amdgpu_amdkfd.h
++++ b/drivers/gpu/drm/amd/amdgpu/amdgpu_amdkfd.h
+@@ -148,6 +148,8 @@ int amdgpu_amdkfd_alloc_gtt_mem(struct kgd_dev *kgd, size_t size,
+ void amdgpu_amdkfd_free_gtt_mem(struct kgd_dev *kgd, void *mem_obj);
+ int amdgpu_amdkfd_alloc_gws(struct kgd_dev *kgd, size_t size, void **mem_obj);
+ void amdgpu_amdkfd_free_gws(struct kgd_dev *kgd, void *mem_obj);
++int amdgpu_amdkfd_add_gws_to_process(void *info, void *gws, struct kgd_mem **mem);
++int amdgpu_amdkfd_remove_gws_from_process(void *info, void *mem);
+ void amdgpu_amdkfd_get_local_mem_info(struct kgd_dev *kgd,
+ 				      struct kfd_local_mem_info *mem_info);
+ uint64_t amdgpu_amdkfd_get_gpu_clock_counter(struct kgd_dev *kgd);
+diff --git a/drivers/gpu/drm/amd/amdgpu/amdgpu_amdkfd_gpuvm.c b/drivers/gpu/drm/amd/amdgpu/amdgpu_amdkfd_gpuvm.c
+index 57378d3f4d63..eba2d1bd08f5 100644
+--- a/drivers/gpu/drm/amd/amdgpu/amdgpu_amdkfd_gpuvm.c
++++ b/drivers/gpu/drm/amd/amdgpu/amdgpu_amdkfd_gpuvm.c
+@@ -545,6 +545,17 @@ static void add_kgd_mem_to_kfd_bo_list(struct kgd_mem *mem,
+ 	mutex_unlock(&process_info->lock);
+ }
+ 
++static void remove_kgd_mem_from_kfd_bo_list(struct kgd_mem *mem,
++		struct amdkfd_process_info *process_info)
++{
++	struct ttm_validate_buffer *bo_list_entry;
++
++	bo_list_entry = &mem->validate_list;
++	mutex_lock(&process_info->lock);
++	list_del(&bo_list_entry->head);
++	mutex_unlock(&process_info->lock);
++}
++
+ /* Initializes user pages. It registers the MMU notifier and validates
+  * the userptr BO in the GTT domain.
+  *
+@@ -1321,12 +1332,8 @@ int amdgpu_amdkfd_gpuvm_alloc_memory_of_gpu(
+ 
+ 	if (user_addr) {
+ 		ret = init_user_pages(*mem, current->mm, user_addr);
+-		if (ret) {
+-			mutex_lock(&avm->process_info->lock);
+-			list_del(&(*mem)->validate_list.head);
+-			mutex_unlock(&avm->process_info->lock);
++		if (ret)
+ 			goto allocate_init_user_pages_failed;
+-		}
+ 	}
+ 
+ 	if (offset)
+@@ -1335,6 +1342,7 @@ int amdgpu_amdkfd_gpuvm_alloc_memory_of_gpu(
+ 	return 0;
+ 
+ allocate_init_user_pages_failed:
++	remove_kgd_mem_from_kfd_bo_list(*mem, avm->process_info);
+ 	amdgpu_bo_unref(&bo);
+ 	/* Don't unreserve system mem limit twice */
+ 	goto err_reserve_limit;
+@@ -2524,3 +2532,88 @@ int amdgpu_amdkfd_copy_mem_to_mem(struct kgd_dev *kgd, struct kgd_mem *src_mem,
+ 	ttm_eu_backoff_reservation(&ticket, &list);
+ 	return r;
+ }
++
++int amdgpu_amdkfd_add_gws_to_process(void *info, void *gws, struct kgd_mem **mem)
++{
++	struct amdkfd_process_info *process_info = (struct amdkfd_process_info *)info;
++	struct amdgpu_bo *gws_bo = (struct amdgpu_bo *)gws;
++	int ret;
++
++	if (!info || !gws)
++		return -EINVAL;
++
++	*mem = kzalloc(sizeof(struct kgd_mem), GFP_KERNEL);
++	if (!*mem)
++		return -EINVAL;
++
++	mutex_init(&(*mem)->lock);
++	(*mem)->bo = amdgpu_bo_ref(gws_bo);
++	(*mem)->domain = AMDGPU_GEM_DOMAIN_GWS;
++	(*mem)->process_info = process_info;
++	add_kgd_mem_to_kfd_bo_list(*mem, process_info, false);
++	amdgpu_sync_create(&(*mem)->sync);
++
++
++	/* Validate gws bo the first time it is added to process */
++	mutex_lock(&(*mem)->process_info->lock);
++	ret = amdgpu_bo_reserve(gws_bo, false);
++	if (unlikely(ret)) {
++		pr_err("Reserve gws bo failed %d\n", ret);
++		goto bo_reservation_failure;
++	}
++
++	ret = amdgpu_amdkfd_bo_validate(gws_bo, AMDGPU_GEM_DOMAIN_GWS, true);
++	if (ret) {
++		pr_err("GWS BO validate failed %d\n", ret);
++		goto bo_validation_failure;
++	}
++	/* GWS resource is shared b/t amdgpu and amdkfd
++	 * Add process eviction fence to bo so they can
++	 * evict each other.
++	 */
++	amdgpu_bo_fence(gws_bo, &process_info->eviction_fence->base, true);
++	amdgpu_bo_unreserve(gws_bo);
++	mutex_unlock(&(*mem)->process_info->lock);
++
++	return ret;
++
++bo_validation_failure:
++	amdgpu_bo_unreserve(gws_bo);
++bo_reservation_failure:
++	mutex_unlock(&(*mem)->process_info->lock);
++	amdgpu_sync_free(&(*mem)->sync);
++	remove_kgd_mem_from_kfd_bo_list(*mem, process_info);
++	amdgpu_bo_unref(&gws_bo);
++	mutex_destroy(&(*mem)->lock);
++	kfree(*mem);
++	*mem = NULL;
++	return ret;
++}
++
++int amdgpu_amdkfd_remove_gws_from_process(void *info, void *mem)
++{
++	int ret;
++	struct amdkfd_process_info *process_info = (struct amdkfd_process_info *)info;
++	struct kgd_mem *kgd_mem = (struct kgd_mem *)mem;
++	struct amdgpu_bo *gws_bo = kgd_mem->bo;
++
++	/* Remove BO from process's validate list so restore worker won't touch
++	 * it anymore
++	 */
++	remove_kgd_mem_from_kfd_bo_list(kgd_mem, process_info);
++
++	ret = amdgpu_bo_reserve(gws_bo, false);
++	if (unlikely(ret)) {
++		pr_err("Reserve gws bo failed %d\n", ret);
++		//TODO add BO back to validate_list?
++		return ret;
++	}
++	amdgpu_amdkfd_remove_eviction_fence(gws_bo,
++			process_info->eviction_fence);
++	amdgpu_bo_unreserve(gws_bo);
++	amdgpu_sync_free(&kgd_mem->sync);
++	amdgpu_bo_unref(&gws_bo);
++	mutex_destroy(&kgd_mem->lock);
++	kfree(mem);
++	return 0;
++}
+-- 
+2.17.1
+

@@ -1,0 +1,50 @@
+From 85cf3db587aa3c3eb54da26ff29c10b5a9c54be6 Mon Sep 17 00:00:00 2001
+From: xinhui pan <xinhui.pan@amd.com>
+Date: Thu, 9 May 2019 08:26:02 +0800
+Subject: [PATCH 1933/2940] drm/amdgpu: gmc handle ras resume
+
+During S3/S4 bootloader will re-init ras state behind us.
+Resume might fail or raise a gpu reset.
+
+Signed-off-by: xinhui pan <xinhui.pan@amd.com>
+Reviewed-by: Alex Deucher <alexander.deucher@amd.com>
+Reviewed-by: James Zhu <James.Zhu@amd.com>
+Tested-by: James Zhu <James.Zhu@amd.com>
+---
+ drivers/gpu/drm/amd/amdgpu/gmc_v9_0.c | 19 ++++++++++++++++++-
+ 1 file changed, 18 insertions(+), 1 deletion(-)
+
+diff --git a/drivers/gpu/drm/amd/amdgpu/gmc_v9_0.c b/drivers/gpu/drm/amd/amdgpu/gmc_v9_0.c
+index 69c8de9f8b58..89b482bc9e58 100644
+--- a/drivers/gpu/drm/amd/amdgpu/gmc_v9_0.c
++++ b/drivers/gpu/drm/amd/amdgpu/gmc_v9_0.c
+@@ -682,8 +682,25 @@ static int gmc_v9_0_ecc_late_init(void *handle)
+ 		return 0;
+ 	}
+ 	/* handle resume path. */
+-	if (*ras_if)
++	if (*ras_if) {
++		/* resend ras TA enable cmd during resume.
++		 * prepare to handle failure.
++		 */
++		ih_info.head = **ras_if;
++		r = amdgpu_ras_feature_enable_on_boot(adev, *ras_if, 1);
++		if (r) {
++			if (r == -EAGAIN) {
++				/* request a gpu reset. will run again. */
++				amdgpu_ras_request_reset_on_boot(adev,
++						AMDGPU_RAS_BLOCK__UMC);
++				return 0;
++			}
++			/* fail to enable ras, cleanup all. */
++			goto irq;
++		}
++		/* enable successfully. continue. */
+ 		goto resume;
++	}
+ 
+ 	*ras_if = kmalloc(sizeof(**ras_if), GFP_KERNEL);
+ 	if (!*ras_if)
+-- 
+2.17.1
+

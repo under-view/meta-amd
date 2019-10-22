@@ -1,0 +1,83 @@
+From 9566ccdc9c7cddb8b4f607d56507ee3e3039c1e5 Mon Sep 17 00:00:00 2001
+From: Eryk Brol <eryk.brol@amd.com>
+Date: Wed, 8 May 2019 09:08:03 -0400
+Subject: [PATCH 2013/2940] drm/amd/display: Disable audio stream only if it's
+ currently enabled
+
+[Why]
+Previously there were 2 consecutive calls being made to disable
+audio stream. The first one disabled the audio stream, and the second
+one went through and also tried to disable the audio stream causing
+BACO entry issues due to the ASIC appearing busy.
+
+[How]
+1. Add a status field to the audio struct which stores enabled/disabled
+info
+2. In the calls to enable/disable audio stream check if we're already
+in the desired state before executing the function
+
+Signed-off-by: Eryk Brol <eryk.brol@amd.com>
+Reviewed-by: Jun Lei <Jun.Lei@amd.com>
+Acked-by: Leo Li <sunpeng.li@amd.com>
+---
+ .../drm/amd/display/dc/dce110/dce110_hw_sequencer.c    | 10 ++++++++++
+ drivers/gpu/drm/amd/display/dc/inc/hw/audio.h          |  1 +
+ 2 files changed, 11 insertions(+)
+
+diff --git a/drivers/gpu/drm/amd/display/dc/dce110/dce110_hw_sequencer.c b/drivers/gpu/drm/amd/display/dc/dce110/dce110_hw_sequencer.c
+index bb28b057a4c8..f9ee77115a5d 100644
+--- a/drivers/gpu/drm/amd/display/dc/dce110/dce110_hw_sequencer.c
++++ b/drivers/gpu/drm/amd/display/dc/dce110/dce110_hw_sequencer.c
+@@ -961,6 +961,9 @@ void dce110_enable_audio_stream(struct pipe_ctx *pipe_ctx)
+ 	struct pp_smu_funcs *pp_smu = NULL;
+ 	unsigned int i, num_audio = 1;
+ 
++	if (pipe_ctx->stream_res.audio && pipe_ctx->stream_res.audio->enabled == true)
++		return;
++
+ 	if (core_dc->res_pool->pp_smu)
+ 		pp_smu = core_dc->res_pool->pp_smu;
+ 
+@@ -980,6 +983,8 @@ void dce110_enable_audio_stream(struct pipe_ctx *pipe_ctx)
+ 		/* TODO: audio should be per stream rather than per link */
+ 		pipe_ctx->stream_res.stream_enc->funcs->audio_mute_control(
+ 					pipe_ctx->stream_res.stream_enc, false);
++		if (pipe_ctx->stream_res.audio)
++			pipe_ctx->stream_res.audio->enabled = true;
+ 	}
+ }
+ 
+@@ -988,6 +993,9 @@ void dce110_disable_audio_stream(struct pipe_ctx *pipe_ctx, int option)
+ 	struct dc *dc = pipe_ctx->stream->ctx->dc;
+ 	struct pp_smu_funcs *pp_smu = NULL;
+ 
++	if (pipe_ctx->stream_res.audio && pipe_ctx->stream_res.audio->enabled == false)
++		return;
++
+ 	pipe_ctx->stream_res.stream_enc->funcs->audio_mute_control(
+ 			pipe_ctx->stream_res.stream_enc, true);
+ 	if (pipe_ctx->stream_res.audio) {
+@@ -1021,6 +1029,8 @@ void dce110_disable_audio_stream(struct pipe_ctx *pipe_ctx, int option)
+ 		/* dal_audio_disable_azalia_audio_jack_presence(stream->audio,
+ 		 * stream->stream_engine_id);
+ 		 */
++		if (pipe_ctx->stream_res.audio)
++			pipe_ctx->stream_res.audio->enabled = false;
+ 	}
+ }
+ 
+diff --git a/drivers/gpu/drm/amd/display/dc/inc/hw/audio.h b/drivers/gpu/drm/amd/display/dc/inc/hw/audio.h
+index 925204f49717..6ed1fb8c9300 100644
+--- a/drivers/gpu/drm/amd/display/dc/inc/hw/audio.h
++++ b/drivers/gpu/drm/amd/display/dc/inc/hw/audio.h
+@@ -57,6 +57,7 @@ struct audio {
+ 	const struct audio_funcs *funcs;
+ 	struct dc_context *ctx;
+ 	unsigned int inst;
++	bool enabled;
+ };
+ 
+ #endif  /* __DAL_AUDIO__ */
+-- 
+2.17.1
+

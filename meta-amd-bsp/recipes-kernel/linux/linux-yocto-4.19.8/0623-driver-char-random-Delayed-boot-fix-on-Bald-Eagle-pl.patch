@@ -1,0 +1,91 @@
+From 47a01c925cc3fb1f2abda1266cb12d9d06a3dc32 Mon Sep 17 00:00:00 2001
+From: kalyan alle <Kalyan.Alle@amd.com>
+Date: Thu, 31 Jan 2019 19:15:05 +0530
+Subject: [PATCH 0623/2940] driver/char/random: Delayed boot fix on Bald Eagle
+ platform
+
+when booting from SATA SSD.
+
+Reverting the commit id=43838a23a05fbd13e47d750d3dfd77001536dd33
+from the upstream linux kernel as this commit was causing
+the crng_ready() check returning false, and since the getrandom
+syscall was not invoked with GRND_NONBLOCK, we're waiting for the crng
+to become ready. Currently this is kept under CONFIG_DRM_AMDGPU_CIK flag
+for legacy Bald eagle platform.
+Note: currently we have a common kernel config file which always has
+CONFIG_DRM_AMDGPU_CIK enabled. This code not getting invoked for other platforms
+would be possible when CONFIG_DRM_AMDGPU_CIK is disabled is rest of the platforms.
+
+Signed-off-by: Kalyan Alle <kalyan.alle@amd.com>
+---
+ drivers/char/random.c | 21 +++++++++++++++++++++
+ 1 file changed, 21 insertions(+)
+
+diff --git a/drivers/char/random.c b/drivers/char/random.c
+index c75b6cdf0053..18e0bf21bce7 100644
+--- a/drivers/char/random.c
++++ b/drivers/char/random.c
+@@ -428,7 +428,11 @@ struct crng_state primary_crng = {
+  * its value (from 0->1->2).
+  */
+ static int crng_init = 0;
++#ifdef CONFIG_DRM_AMDGPU_CIK
++#define crng_ready() (likely(crng_init > 0))
++#else
+ #define crng_ready() (likely(crng_init > 1))
++#endif
+ static int crng_init_cnt = 0;
+ static unsigned long crng_global_init_time = 0;
+ #define CRNG_INIT_CNT_THRESH (2*CHACHA20_KEY_SIZE)
+@@ -857,7 +861,12 @@ static int crng_fast_load(const char *cp, size_t len)
+ 
+ 	if (!spin_trylock_irqsave(&primary_crng.lock, flags))
+ 		return 0;
++
++#ifdef CONFIG_DRM_AMDGPU_CIK
++	if (crng_ready()) {
++#else
+ 	if (crng_init != 0) {
++#endif
+ 		spin_unlock_irqrestore(&primary_crng.lock, flags);
+ 		return 0;
+ 	}
+@@ -977,7 +986,11 @@ static void _extract_crng(struct crng_state *crng,
+ {
+ 	unsigned long v, flags;
+ 
++#ifdef CONFIG_DRM_AMDGPU_CIK
++	if (crng_init >1 &&
++#else
+ 	if (crng_ready() &&
++#endif
+ 	    (time_after(crng_global_init_time, crng->init_time) ||
+ 	     time_after(jiffies, crng->init_time + CRNG_RESEED_INTERVAL)))
+ 		crng_reseed(crng, crng == &primary_crng ? &input_pool : NULL);
+@@ -1255,7 +1268,11 @@ void add_interrupt_randomness(int irq, int irq_flags)
+ 	fast_mix(fast_pool);
+ 	add_interrupt_bench(cycles);
+ 
++#ifdef CONFIG_DRM_AMDGPU_CIK
++	if (!crng_ready()) {
++#else
+ 	if (unlikely(crng_init == 0)) {
++#endif
+ 		if ((fast_pool->count >= 64) &&
+ 		    crng_fast_load((char *) fast_pool->pool,
+ 				   sizeof(fast_pool->pool))) {
+@@ -2348,7 +2365,11 @@ void add_hwgenerator_randomness(const char *buffer, size_t count,
+ {
+ 	struct entropy_store *poolp = &input_pool;
+ 
++#ifdef CONFIG_DRM_AMDGPU_CIK
++	if (!crng_ready()) {
++#else
+ 	if (unlikely(crng_init == 0)) {
++#endif
+ 		crng_fast_load(buffer, count);
+ 		return;
+ 	}
+-- 
+2.17.1
+

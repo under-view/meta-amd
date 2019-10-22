@@ -1,0 +1,61 @@
+From 5c4934b1a753bc45eb679614a07d6042543f117e Mon Sep 17 00:00:00 2001
+From: Rex Zhu <Rex.Zhu@amd.com>
+Date: Wed, 22 Aug 2018 13:45:25 +0800
+Subject: [PATCH 2168/2940] drm/amdgpu: Add common gfx func Disable kcq via kiq
+
+so can be shared with gfx8 and gfx9
+
+Reviewed-by: Alex Deucher <alexander.deucher@amd.com>
+Reviewed-by: Hawking Zhang <Hawking.Zhang@amd.com>
+Signed-off-by: Rex Zhu <Rex.Zhu@amd.com>
+Signed-off-by: Alex Deucher <alexander.deucher@amd.com>
+---
+ drivers/gpu/drm/amd/amdgpu/amdgpu_gfx.c | 19 +++++++++++++++++++
+ drivers/gpu/drm/amd/amdgpu/amdgpu_gfx.h |  1 +
+ 2 files changed, 20 insertions(+)
+
+diff --git a/drivers/gpu/drm/amd/amdgpu/amdgpu_gfx.c b/drivers/gpu/drm/amd/amdgpu/amdgpu_gfx.c
+index 15e9f120ff84..ad159e06cfb2 100644
+--- a/drivers/gpu/drm/amd/amdgpu/amdgpu_gfx.c
++++ b/drivers/gpu/drm/amd/amdgpu/amdgpu_gfx.c
+@@ -431,6 +431,25 @@ void amdgpu_gfx_mqd_sw_fini(struct amdgpu_device *adev)
+ 			      &ring->mqd_ptr);
+ }
+ 
++int amdgpu_gfx_disable_kcq(struct amdgpu_device *adev)
++{
++	struct amdgpu_kiq *kiq = &adev->gfx.kiq;
++	struct amdgpu_ring *kiq_ring = &kiq->ring;
++	int i;
++
++	if (!kiq->pmf || !kiq->pmf->kiq_unmap_queues)
++		return -EINVAL;
++
++	if (amdgpu_ring_alloc(kiq_ring, kiq->pmf->unmap_queues_size *
++					adev->gfx.num_compute_rings))
++		return -ENOMEM;
++
++	for (i = 0; i < adev->gfx.num_compute_rings; i++)
++		kiq->pmf->kiq_unmap_queues(kiq_ring, &adev->gfx.compute_ring[i], true);
++
++	return amdgpu_ring_test_ring(kiq_ring);
++}
++
+ /* amdgpu_gfx_off_ctrl - Handle gfx off feature enable/disable
+  *
+  * @adev: amdgpu_device pointer
+diff --git a/drivers/gpu/drm/amd/amdgpu/amdgpu_gfx.h b/drivers/gpu/drm/amd/amdgpu/amdgpu_gfx.h
+index 14d6f01db27b..b22421f2b6fe 100644
+--- a/drivers/gpu/drm/amd/amdgpu/amdgpu_gfx.h
++++ b/drivers/gpu/drm/amd/amdgpu/amdgpu_gfx.h
+@@ -353,6 +353,7 @@ int amdgpu_gfx_kiq_init(struct amdgpu_device *adev,
+ int amdgpu_gfx_mqd_sw_init(struct amdgpu_device *adev,
+ 			   unsigned mqd_size);
+ void amdgpu_gfx_mqd_sw_fini(struct amdgpu_device *adev);
++int amdgpu_gfx_disable_kcq(struct amdgpu_device *adev);
+ 
+ void amdgpu_gfx_compute_queue_acquire(struct amdgpu_device *adev);
+ void amdgpu_gfx_graphics_queue_acquire(struct amdgpu_device *adev);
+-- 
+2.17.1
+

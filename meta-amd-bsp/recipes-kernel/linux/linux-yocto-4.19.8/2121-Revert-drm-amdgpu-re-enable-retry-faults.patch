@@ -1,0 +1,48 @@
+From 330b46871814e50a3ddad003711bf1d47e5cb5f6 Mon Sep 17 00:00:00 2001
+From: Gang Ba <gaba@amd.com>
+Date: Wed, 24 Apr 2019 12:01:35 -0400
+Subject: [PATCH 2121/2940] Revert "drm/amdgpu: re-enable retry faults"
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+This reverts commit b3a99c0912994c51e92ec8ec37b4d066d50a77d8.
+
+Change-Id: I1502ee959683f6e0b17d5530640119144cd44c04
+Signed-off-by: Gang Ba <gaba@amd.com>
+Signed-off-by: Felix Kuehling <Felix.Kuehling@amd.com>
+Reviewed-by: Christian König <Christian.Koenig@amd.com>
+---
+ drivers/gpu/drm/amd/amdgpu/gfxhub_v1_0.c | 2 +-
+ drivers/gpu/drm/amd/amdgpu/mmhub_v1_0.c  | 2 +-
+ 2 files changed, 2 insertions(+), 2 deletions(-)
+
+diff --git a/drivers/gpu/drm/amd/amdgpu/gfxhub_v1_0.c b/drivers/gpu/drm/amd/amdgpu/gfxhub_v1_0.c
+index 44eda670d948..20ddb1874bfb 100644
+--- a/drivers/gpu/drm/amd/amdgpu/gfxhub_v1_0.c
++++ b/drivers/gpu/drm/amd/amdgpu/gfxhub_v1_0.c
+@@ -231,7 +231,7 @@ static void gfxhub_v1_0_setup_vmid_config(struct amdgpu_device *adev)
+ 				    block_size);
+ 		/* Send no-retry XNACK on fault to suppress VM fault storm. */
+ 		tmp = REG_SET_FIELD(tmp, VM_CONTEXT1_CNTL,
+-				    RETRY_PERMISSION_OR_INVALID_PAGE_FAULT, 1);
++				    RETRY_PERMISSION_OR_INVALID_PAGE_FAULT, 0);
+ 		WREG32_SOC15_OFFSET(GC, 0, mmVM_CONTEXT1_CNTL, i, tmp);
+ 		WREG32_SOC15_OFFSET(GC, 0, mmVM_CONTEXT1_PAGE_TABLE_START_ADDR_LO32, i*2, 0);
+ 		WREG32_SOC15_OFFSET(GC, 0, mmVM_CONTEXT1_PAGE_TABLE_START_ADDR_HI32, i*2, 0);
+diff --git a/drivers/gpu/drm/amd/amdgpu/mmhub_v1_0.c b/drivers/gpu/drm/amd/amdgpu/mmhub_v1_0.c
+index a91a7a29a8cb..4cd2e3b7c82d 100644
+--- a/drivers/gpu/drm/amd/amdgpu/mmhub_v1_0.c
++++ b/drivers/gpu/drm/amd/amdgpu/mmhub_v1_0.c
+@@ -260,7 +260,7 @@ static void mmhub_v1_0_setup_vmid_config(struct amdgpu_device *adev)
+ 				    block_size);
+ 		/* Send no-retry XNACK on fault to suppress VM fault storm. */
+ 		tmp = REG_SET_FIELD(tmp, VM_CONTEXT1_CNTL,
+-				    RETRY_PERMISSION_OR_INVALID_PAGE_FAULT, 1);
++				    RETRY_PERMISSION_OR_INVALID_PAGE_FAULT, 0);
+ 		WREG32_SOC15_OFFSET(MMHUB, 0, mmVM_CONTEXT1_CNTL, i, tmp);
+ 		WREG32_SOC15_OFFSET(MMHUB, 0, mmVM_CONTEXT1_PAGE_TABLE_START_ADDR_LO32, i*2, 0);
+ 		WREG32_SOC15_OFFSET(MMHUB, 0, mmVM_CONTEXT1_PAGE_TABLE_START_ADDR_HI32, i*2, 0);
+-- 
+2.17.1
+

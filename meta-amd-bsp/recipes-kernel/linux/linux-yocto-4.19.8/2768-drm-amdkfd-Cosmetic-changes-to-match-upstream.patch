@@ -1,0 +1,163 @@
+From 68b5bbf955798f7f81a4b5055597745ef682a538 Mon Sep 17 00:00:00 2001
+From: Kent Russell <kent.russell@amd.com>
+Date: Wed, 1 May 2019 07:46:03 -0400
+Subject: [PATCH 2768/2940] drm/amdkfd: Cosmetic changes to match upstream
+
+Change-Id: Iba2b03944da3074e34e2b9ca0fca657d20c3ff08
+Signed-off-by: Kent Russell <kent.russell@amd.com>
+---
+ drivers/gpu/drm/amd/amdgpu/amdgpu_amdkfd.c       | 10 ++++------
+ drivers/gpu/drm/amd/amdgpu/amdgpu_amdkfd.h       |  1 +
+ drivers/gpu/drm/amd/amdgpu/amdgpu_amdkfd_gpuvm.c |  2 +-
+ drivers/gpu/drm/amd/amdkfd/kfd_dbgdev.c          |  1 +
+ drivers/gpu/drm/amd/amdkfd/kfd_device.c          |  2 +-
+ drivers/gpu/drm/amd/amdkfd/kfd_events.c          |  6 +++---
+ drivers/gpu/drm/amd/amdkfd/kfd_mqd_manager_v9.c  |  1 +
+ drivers/gpu/drm/amd/amdkfd/kfd_priv.h            |  2 +-
+ 8 files changed, 13 insertions(+), 12 deletions(-)
+
+diff --git a/drivers/gpu/drm/amd/amdgpu/amdgpu_amdkfd.c b/drivers/gpu/drm/amd/amdgpu/amdgpu_amdkfd.c
+index 6cd2054d4713..0c0d6ec107b4 100644
+--- a/drivers/gpu/drm/amd/amdgpu/amdgpu_amdkfd.c
++++ b/drivers/gpu/drm/amd/amdgpu/amdgpu_amdkfd.c
+@@ -419,7 +419,7 @@ void amdgpu_amdkfd_get_cu_info(struct kgd_dev *kgd, struct kfd_cu_info *cu_info)
+ 	cu_info->cu_active_number = acu_info.number;
+ 	cu_info->cu_ao_mask = acu_info.ao_cu_mask;
+ 	memcpy(&cu_info->cu_bitmap[0], &acu_info.bitmap[0],
+-					sizeof(acu_info.bitmap));
++	       sizeof(acu_info.bitmap));
+ 	cu_info->num_shader_engines = adev->gfx.config.max_shader_engines;
+ 	cu_info->num_shader_arrays_per_engine = adev->gfx.config.max_sh_per_se;
+ 	cu_info->num_cu_per_sh = adev->gfx.config.max_cu_per_sh;
+@@ -489,9 +489,8 @@ int amdgpu_amdkfd_get_dmabuf_info(struct kgd_dev *kgd, int dma_buf_fd,
+ uint64_t amdgpu_amdkfd_get_vram_usage(struct kgd_dev *kgd)
+ {
+ 	struct amdgpu_device *adev = (struct amdgpu_device *)kgd;
+-	uint64_t usage =
+-		amdgpu_vram_mgr_usage(&adev->mman.bdev.man[TTM_PL_VRAM]);
+-	return usage;
++
++	return amdgpu_vram_mgr_usage(&adev->mman.bdev.man[TTM_PL_VRAM]);
+ }
+ 
+ uint64_t amdgpu_amdkfd_get_mmio_remap_phys_addr(struct kgd_dev *kgd)
+@@ -567,8 +566,7 @@ void amdgpu_amdkfd_set_compute_idle(struct kgd_dev *kgd, bool idle)
+ 						!idle);
+ }
+ 
+-bool amdgpu_amdkfd_is_kfd_vmid(struct amdgpu_device *adev,
+-			u32 vmid)
++bool amdgpu_amdkfd_is_kfd_vmid(struct amdgpu_device *adev, u32 vmid)
+ {
+ 	if (adev->kfd.dev) {
+ 		if ((1 << vmid) & compute_vmid_bitmap)
+diff --git a/drivers/gpu/drm/amd/amdgpu/amdgpu_amdkfd.h b/drivers/gpu/drm/amd/amdgpu/amdgpu_amdkfd.h
+index 4939c3c5e610..23793739e98f 100644
+--- a/drivers/gpu/drm/amd/amdgpu/amdgpu_amdkfd.h
++++ b/drivers/gpu/drm/amd/amdgpu/amdgpu_amdkfd.h
+@@ -124,6 +124,7 @@ int amdgpu_amdkfd_submit_ib(struct kgd_dev *kgd, enum kgd_engine_type engine,
+ 				uint32_t vmid, uint64_t gpu_addr,
+ 				uint32_t *ib_cmd, uint32_t ib_len);
+ void amdgpu_amdkfd_set_compute_idle(struct kgd_dev *kgd, bool idle);
++
+ struct kfd2kgd_calls *amdgpu_amdkfd_gfx_7_get_functions(void);
+ struct kfd2kgd_calls *amdgpu_amdkfd_gfx_8_0_get_functions(void);
+ struct kfd2kgd_calls *amdgpu_amdkfd_gfx_9_0_get_functions(void);
+diff --git a/drivers/gpu/drm/amd/amdgpu/amdgpu_amdkfd_gpuvm.c b/drivers/gpu/drm/amd/amdgpu/amdgpu_amdkfd_gpuvm.c
+index 21fb0eebc240..57378d3f4d63 100644
+--- a/drivers/gpu/drm/amd/amdgpu/amdgpu_amdkfd_gpuvm.c
++++ b/drivers/gpu/drm/amd/amdgpu/amdgpu_amdkfd_gpuvm.c
+@@ -1191,8 +1191,8 @@ int amdgpu_amdkfd_gpuvm_alloc_memory_of_gpu(
+ {
+ 	struct amdgpu_device *adev = get_amdgpu_device(kgd);
+ 	struct amdgpu_vm *avm = (struct amdgpu_vm *)vm;
+-	uint64_t user_addr = 0;
+ 	enum ttm_bo_type bo_type = ttm_bo_type_device;
++	uint64_t user_addr = 0;
+ 	struct amdgpu_bo *bo;
+ 	struct amdgpu_bo_param bp;
+ 	int byte_align;
+diff --git a/drivers/gpu/drm/amd/amdkfd/kfd_dbgdev.c b/drivers/gpu/drm/amd/amdkfd/kfd_dbgdev.c
+index c41109068ec4..3635e0b4b3b7 100644
+--- a/drivers/gpu/drm/amd/amdkfd/kfd_dbgdev.c
++++ b/drivers/gpu/drm/amd/amdkfd/kfd_dbgdev.c
+@@ -190,6 +190,7 @@ static int dbgdev_register_diq(struct kfd_dbgdev *dbgdev)
+ 	int status;
+ 
+ 	properties.type = KFD_QUEUE_TYPE_DIQ;
++
+ 	status = pqm_create_queue(dbgdev->pqm, dbgdev->dev, NULL,
+ 				&properties, &qid);
+ 
+diff --git a/drivers/gpu/drm/amd/amdkfd/kfd_device.c b/drivers/gpu/drm/amd/amdkfd/kfd_device.c
+index 89450244c273..2debfc5188a3 100644
+--- a/drivers/gpu/drm/amd/amdkfd/kfd_device.c
++++ b/drivers/gpu/drm/amd/amdkfd/kfd_device.c
+@@ -483,7 +483,7 @@ struct kfd_dev *kgd2kfd_probe(struct kgd_dev *kgd,
+ 	ret = pci_enable_atomic_ops_to_root(pdev,
+ 			PCI_EXP_DEVCAP2_ATOMIC_COMP32 |
+ 			PCI_EXP_DEVCAP2_ATOMIC_COMP64);
+-	if (device_info->needs_pci_atomics && ret  < 0) {
++	if (device_info->needs_pci_atomics && ret < 0) {
+ 		dev_info(kfd_device,
+ 			 "skipped device %x:%x, PCI rejects atomics\n",
+ 			 pdev->vendor, pdev->device);
+diff --git a/drivers/gpu/drm/amd/amdkfd/kfd_events.c b/drivers/gpu/drm/amd/amdkfd/kfd_events.c
+index 8e2499c2ca01..b5a7b6bb4a60 100644
+--- a/drivers/gpu/drm/amd/amdkfd/kfd_events.c
++++ b/drivers/gpu/drm/amd/amdkfd/kfd_events.c
+@@ -496,7 +496,7 @@ void kfd_signal_event_interrupt(unsigned int pasid, uint32_t partial_id,
+ 			pr_debug_ratelimited("Partial ID invalid: %u (%u valid bits)\n",
+ 					     partial_id, valid_id_bits);
+ 
+-		if (p->signal_event_count < KFD_SIGNAL_EVENT_LIMIT/64) {
++		if (p->signal_event_count < KFD_SIGNAL_EVENT_LIMIT / 64) {
+ 			/* With relatively few events, it's faster to
+ 			 * iterate over the event IDR
+ 			 */
+@@ -1021,7 +1021,7 @@ void kfd_signal_reset_event(struct kfd_dev *dev)
+ 			KFD_HW_EXCEPTION_ECC :
+ 			KFD_HW_EXCEPTION_GPU_HANG;
+ 
+-	/* Whole gpu reset caused by GPU hang , and  memory is lost */
++	/* Whole gpu reset caused by GPU hang and memory is lost */
+ 	memset(&hw_exception_data, 0, sizeof(hw_exception_data));
+ 	hw_exception_data.gpu_id = dev->id;
+ 	hw_exception_data.memory_lost = 1;
+@@ -1032,7 +1032,7 @@ void kfd_signal_reset_event(struct kfd_dev *dev)
+ 	memory_exception_data.gpu_id = dev->id;
+ 	memory_exception_data.failure.imprecise = true;
+ 
+-	idx  = srcu_read_lock(&kfd_processes_srcu);
++	idx = srcu_read_lock(&kfd_processes_srcu);
+ 	hash_for_each_rcu(kfd_processes_table, temp, p, kfd_processes) {
+ 		mutex_lock(&p->event_mutex);
+ 		id = KFD_FIRST_NONSIGNAL_EVENT_ID;
+diff --git a/drivers/gpu/drm/amd/amdkfd/kfd_mqd_manager_v9.c b/drivers/gpu/drm/amd/amdkfd/kfd_mqd_manager_v9.c
+index b6c312f7ce7e..ee42cf87b58d 100644
+--- a/drivers/gpu/drm/amd/amdkfd/kfd_mqd_manager_v9.c
++++ b/drivers/gpu/drm/amd/amdkfd/kfd_mqd_manager_v9.c
+@@ -337,6 +337,7 @@ static bool is_occupied(struct mqd_manager *mm, void *mqd,
+ 		mm->dev->kgd, queue_address,
+ 		pipe_id, queue_id);
+ }
++
+ static int get_wave_state(struct mqd_manager *mm, void *mqd,
+ 			  void __user *ctl_stack,
+ 			  u32 *ctl_stack_used_size,
+diff --git a/drivers/gpu/drm/amd/amdkfd/kfd_priv.h b/drivers/gpu/drm/amd/amdkfd/kfd_priv.h
+index 4ca628f8bdf4..ce113dc5bda5 100644
+--- a/drivers/gpu/drm/amd/amdkfd/kfd_priv.h
++++ b/drivers/gpu/drm/amd/amdkfd/kfd_priv.h
+@@ -651,7 +651,7 @@ struct qcm_process_device {
+ 	uint64_t ib_base;
+ 	void *ib_kaddr;
+ 
+-	/* doorbell resources per process per device*/
++	/* doorbell resources per process per device */
+ 	unsigned long *doorbell_bitmap;
+ 	/* doorbell user mmap vma */
+ 	struct vm_area_struct *doorbell_vma;
+-- 
+2.17.1
+

@@ -1,0 +1,79 @@
+From 16eacee732c764046e44612df9585d9d8b30a67e Mon Sep 17 00:00:00 2001
+From: Eric Yang <Eric.Yang2@amd.com>
+Date: Wed, 10 Apr 2019 16:31:08 -0400
+Subject: [PATCH 2024/2940] drm/amd/display: Fix type of pp_smu_wm_set_range
+ struct
+
+[why]
+Value read from SMU is 16 bits, not 32.
+
+[How]
+Fix type, and add wm_type enum in preparation for future interfaces.
+
+Signed-off-by: Eric Yang <Eric.Yang2@amd.com>
+Reviewed-by: Tony Cheng <Tony.Cheng@amd.com>
+Acked-by: Leo Li <sunpeng.li@amd.com>
+---
+ drivers/gpu/drm/amd/display/dc/dm_pp_smu.h | 31 ++++++++++++++++++----
+ 1 file changed, 26 insertions(+), 5 deletions(-)
+
+diff --git a/drivers/gpu/drm/amd/display/dc/dm_pp_smu.h b/drivers/gpu/drm/amd/display/dc/dm_pp_smu.h
+index d3ed5d61ea19..ae0a005704c6 100644
+--- a/drivers/gpu/drm/amd/display/dc/dm_pp_smu.h
++++ b/drivers/gpu/drm/amd/display/dc/dm_pp_smu.h
+@@ -41,6 +41,7 @@ enum pp_smu_ver {
+ 	 */
+ 	PP_SMU_UNSUPPORTED,
+ 	PP_SMU_VER_RV,
++
+ 	PP_SMU_VER_MAX
+ };
+ 
+@@ -56,12 +57,31 @@ struct pp_smu {
+ 	const void *dm;
+ };
+ 
++enum pp_smu_status {
++	PP_SMU_RESULT_UNDEFINED = 0,
++	PP_SMU_RESULT_OK = 1,
++	PP_SMU_RESULT_FAIL,
++	PP_SMU_RESULT_UNSUPPORTED
++};
++
++
++#define PP_SMU_WM_SET_RANGE_CLK_UNCONSTRAINED_MIN 0x0
++#define PP_SMU_WM_SET_RANGE_CLK_UNCONSTRAINED_MAX 0xFFFF
++
++enum wm_type {
++	WM_TYPE_PSTATE_CHG = 0,
++	WM_TYPE_RETRAINING = 1,
++};
++
++/* This structure is a copy of WatermarkRowGeneric_t defined by smuxx_driver_if.h*/
+ struct pp_smu_wm_set_range {
+-	unsigned int wm_inst;
+-	uint32_t min_fill_clk_mhz;
+-	uint32_t max_fill_clk_mhz;
+-	uint32_t min_drain_clk_mhz;
+-	uint32_t max_drain_clk_mhz;
++	uint16_t min_fill_clk_mhz;
++	uint16_t max_fill_clk_mhz;
++	uint16_t min_drain_clk_mhz;
++	uint16_t max_drain_clk_mhz;
++
++	uint8_t wm_inst;
++	uint8_t wm_type;
+ };
+ 
+ #define MAX_WATERMARK_SETS 4
+@@ -116,6 +136,7 @@ struct pp_smu_funcs {
+ 	struct pp_smu ctx;
+ 	union {
+ 		struct pp_smu_funcs_rv rv_funcs;
++
+ 	};
+ };
+ 
+-- 
+2.17.1
+

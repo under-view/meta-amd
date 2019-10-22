@@ -1,0 +1,27 @@
+From 0cd778a68f303337caab566013d55a80869c6008 Mon Sep 17 00:00:00 2001
+From: Le Ma <le.ma@amd.com>
+Date: Tue, 11 Sep 2018 12:13:41 +0800
+Subject: [PATCH 2911/2940] drm/amdgpu: add number of mec for Arcturus
+
+Signed-off-by: Le Ma <le.ma@amd.com>
+Reviewed-by: Alex Deucher <alexander.deucher@amd.com>
+Signed-off-by: Alex Deucher <alexander.deucher@amd.com>
+---
+ drivers/gpu/drm/amd/amdgpu/gfx_v9_0.c | 1 +
+ 1 file changed, 1 insertion(+)
+
+diff --git a/drivers/gpu/drm/amd/amdgpu/gfx_v9_0.c b/drivers/gpu/drm/amd/amdgpu/gfx_v9_0.c
+index 9e086b496c54..11a1f9882811 100644
+--- a/drivers/gpu/drm/amd/amdgpu/gfx_v9_0.c
++++ b/drivers/gpu/drm/amd/amdgpu/gfx_v9_0.c
+@@ -1669,6 +1669,7 @@ static int gfx_v9_0_sw_init(void *handle)
+ 	case CHIP_VEGA12:
+ 	case CHIP_VEGA20:
+ 	case CHIP_RAVEN:
++	case CHIP_ARCTURUS:
+ 		adev->gfx.mec.num_mec = 2;
+ 		break;
+ 	default:
+-- 
+2.17.1
+

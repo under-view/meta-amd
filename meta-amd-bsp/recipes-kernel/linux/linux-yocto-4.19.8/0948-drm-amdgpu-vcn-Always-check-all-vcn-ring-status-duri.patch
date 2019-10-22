@@ -1,0 +1,61 @@
+From bf7081725e1f8b1df7d6126b5fc17b4f9461bebd Mon Sep 17 00:00:00 2001
+From: James Zhu <James.Zhu@amd.com>
+Date: Wed, 12 Dec 2018 14:50:03 -0500
+Subject: [PATCH 0948/2940] drm/amdgpu/vcn:Always check all vcn ring status
+ during dpg mode stop
+
+Always check all vcn ring status during dpg mode stop, it will help
+identify which vcn ring may cause the issue.
+
+Signed-off-by: James Zhu <James.Zhu@amd.com>
+Acked-by: Leo Liu <leo.liu@amd.com>
+Signed-off-by: Alex Deucher <alexander.deucher@amd.com>
+---
+ drivers/gpu/drm/amd/amdgpu/vcn_v1_0.c | 24 ++++++++++++++++--------
+ 1 file changed, 16 insertions(+), 8 deletions(-)
+
+diff --git a/drivers/gpu/drm/amd/amdgpu/vcn_v1_0.c b/drivers/gpu/drm/amd/amdgpu/vcn_v1_0.c
+index 5df6ea9e87e0..89bb2fef90eb 100644
+--- a/drivers/gpu/drm/amd/amdgpu/vcn_v1_0.c
++++ b/drivers/gpu/drm/amd/amdgpu/vcn_v1_0.c
+@@ -1161,21 +1161,29 @@ static int vcn_v1_0_stop_spg_mode(struct amdgpu_device *adev)
+ static int vcn_v1_0_stop_dpg_mode(struct amdgpu_device *adev)
+ {
+ 	int ret_code = 0;
++	uint32_t tmp;
+ 
+ 	/* Wait for power status to be UVD_POWER_STATUS__UVD_POWER_STATUS_TILES_OFF */
+ 	SOC15_WAIT_ON_RREG(UVD, 0, mmUVD_POWER_STATUS,
+ 			UVD_POWER_STATUS__UVD_POWER_STATUS_TILES_OFF,
+ 			UVD_POWER_STATUS__UVD_POWER_STATUS_MASK, ret_code);
+ 
+-	if (!ret_code) {
+-		int tmp = RREG32_SOC15(UVD, 0, mmUVD_RBC_RB_WPTR) & 0x7FFFFFFF;
+-		/* wait for read ptr to be equal to write ptr */
+-		SOC15_WAIT_ON_RREG(UVD, 0, mmUVD_RBC_RB_RPTR, tmp, 0xFFFFFFFF, ret_code);
++	/* wait for read ptr to be equal to write ptr */
++	tmp = RREG32_SOC15(UVD, 0, mmUVD_RB_WPTR);
++	SOC15_WAIT_ON_RREG(UVD, 0, mmUVD_RB_RPTR, tmp, 0xFFFFFFFF, ret_code);
+ 
+-		SOC15_WAIT_ON_RREG(UVD, 0, mmUVD_POWER_STATUS,
+-			UVD_POWER_STATUS__UVD_POWER_STATUS_TILES_OFF,
+-			UVD_POWER_STATUS__UVD_POWER_STATUS_MASK, ret_code);
+-	}
++	tmp = RREG32_SOC15(UVD, 0, mmUVD_RB_WPTR2);
++	SOC15_WAIT_ON_RREG(UVD, 0, mmUVD_RB_RPTR2, tmp, 0xFFFFFFFF, ret_code);
++
++	tmp = RREG32_SOC15(UVD, 0, mmUVD_JRBC_RB_WPTR);
++	SOC15_WAIT_ON_RREG(UVD, 0, mmUVD_JRBC_RB_RPTR, tmp, 0xFFFFFFFF, ret_code);
++
++	tmp = RREG32_SOC15(UVD, 0, mmUVD_RBC_RB_WPTR) & 0x7FFFFFFF;
++	SOC15_WAIT_ON_RREG(UVD, 0, mmUVD_RBC_RB_RPTR, tmp, 0xFFFFFFFF, ret_code);
++
++	SOC15_WAIT_ON_RREG(UVD, 0, mmUVD_POWER_STATUS,
++		UVD_POWER_STATUS__UVD_POWER_STATUS_TILES_OFF,
++		UVD_POWER_STATUS__UVD_POWER_STATUS_MASK, ret_code);
+ 
+ 	/* disable dynamic power gating mode */
+ 	WREG32_P(SOC15_REG_OFFSET(UVD, 0, mmUVD_POWER_STATUS), 0,
+-- 
+2.17.1
+

@@ -1,0 +1,41 @@
+From ecca95d02dfc61c89eca204f2eb9a1fc1e425759 Mon Sep 17 00:00:00 2001
+From: Jun Lei <Jun.Lei@amd.com>
+Date: Tue, 30 Apr 2019 16:22:38 -0400
+Subject: [PATCH 1975/2940] drm/amd/display: dont set otg offset
+
+move the update of otg instance outside of hw programming logic,
+since this is sw state, it should always be updated and should
+never be optimized away.
+
+Signed-off-by: Jun Lei <Jun.Lei@amd.com>
+Reviewed-by: Eric Yang <eric.yang2@amd.com>
+Acked-by: Bhawanpreet Lakha <Bhawanpreet.Lakha@amd.com>
+---
+ drivers/gpu/drm/amd/display/dc/core/dc.c | 4 ----
+ 1 file changed, 4 deletions(-)
+
+diff --git a/drivers/gpu/drm/amd/display/dc/core/dc.c b/drivers/gpu/drm/amd/display/dc/core/dc.c
+index 14dd7e3fb8a5..3729ac4982db 100644
+--- a/drivers/gpu/drm/amd/display/dc/core/dc.c
++++ b/drivers/gpu/drm/amd/display/dc/core/dc.c
+@@ -1153,7 +1153,6 @@ static enum dc_status dc_commit_state_no_check(struct dc *dc, struct dc_state *c
+ 	/* Program all planes within new context*/
+ 	for (i = 0; i < context->stream_count; i++) {
+ 		const struct dc_link *link = context->streams[i]->link;
+-		struct dc_stream_status *status;
+ 
+ 		if (!context->streams[i]->mode_changed)
+ 			continue;
+@@ -1178,9 +1177,6 @@ static enum dc_status dc_commit_state_no_check(struct dc *dc, struct dc_state *c
+ 			}
+ 		}
+ 
+-		status = dc_stream_get_status_from_state(context, context->streams[i]);
+-		context->streams[i]->out.otg_offset = status->primary_otg_inst;
+-
+ 		CONN_MSG_MODE(link, "{%dx%d, %dx%d@%dKhz}",
+ 				context->streams[i]->timing.h_addressable,
+ 				context->streams[i]->timing.v_addressable,
+-- 
+2.17.1
+

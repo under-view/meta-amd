@@ -1,0 +1,93 @@
+From bc78aba3197d938b5ec945ef39f1ed5e5e0e4c8f Mon Sep 17 00:00:00 2001
+From: Oak Zeng <Oak.Zeng@amd.com>
+Date: Wed, 29 May 2019 23:06:04 -0500
+Subject: [PATCH 2815/2940] drm/amdkfd: Parameterize
+ queue_preemption_timeout_ms
+
+Added a module parameter queue_preemption_timeout_ms. This is helpful
+for debugging kfd on emulator environment which is much slower than
+a real chip so the fence wait timeout value should be much bigger.
+
+Change-Id: Ib685bb8e8e80b47a5aecf4891cf3fe0e2df082cf
+Signed-off-by: Oak Zeng <Oak.Zeng@amd.com>
+Signed-off-by: Alex Deucher <alexander.deucher@amd.com>
+---
+ drivers/gpu/drm/amd/amdgpu/amdgpu_drv.c               | 8 ++++++++
+ drivers/gpu/drm/amd/amdkfd/kfd_device_queue_manager.c | 2 +-
+ drivers/gpu/drm/amd/amdkfd/kfd_device_queue_manager.h | 2 --
+ drivers/gpu/drm/amd/amdkfd/kfd_priv.h                 | 7 +++++++
+ 4 files changed, 16 insertions(+), 3 deletions(-)
+
+diff --git a/drivers/gpu/drm/amd/amdgpu/amdgpu_drv.c b/drivers/gpu/drm/amd/amdgpu/amdgpu_drv.c
+index 2a2014fca297..6a37f79db5d5 100644
+--- a/drivers/gpu/drm/amd/amdgpu/amdgpu_drv.c
++++ b/drivers/gpu/drm/amd/amdgpu/amdgpu_drv.c
+@@ -766,6 +766,14 @@ MODULE_PARM_DESC(priv_cp_queues, "Enable privileged mode for CP queues (0 = off
+ bool keep_idle_process_evicted;
+ module_param(keep_idle_process_evicted, bool, 0444);
+ MODULE_PARM_DESC(keep_idle_process_evicted, "Restore evicted process only if queues are active (N = off(default), Y = on)");
++
++/**
++  * DOC: queue_preemption_timeout_ms (int)
++  * queue preemption timeout in ms (1 = Minimum, 9000 = default)
++  */
++int queue_preemption_timeout_ms;
++module_param(queue_preemption_timeout_ms, int, 0644);
++MODULE_PARM_DESC(queue_preemption_timeout_ms, "queue preemption timeout in ms (1 = Minimum, 9000 = default)");
+ #endif
+ 
+ static const struct pci_device_id pciidlist[] = {
+diff --git a/drivers/gpu/drm/amd/amdkfd/kfd_device_queue_manager.c b/drivers/gpu/drm/amd/amdkfd/kfd_device_queue_manager.c
+index e695b4942b68..a0344d7165b4 100644
+--- a/drivers/gpu/drm/amd/amdkfd/kfd_device_queue_manager.c
++++ b/drivers/gpu/drm/amd/amdkfd/kfd_device_queue_manager.c
+@@ -1376,7 +1376,7 @@ static int unmap_queues_cpsch(struct device_queue_manager *dqm,
+ 				KFD_FENCE_COMPLETED);
+ 	/* should be timed out */
+ 	retval = amdkfd_fence_wait_timeout(dqm->fence_addr, KFD_FENCE_COMPLETED,
+-				QUEUE_PREEMPT_DEFAULT_TIMEOUT_MS);
++				queue_preemption_timeout_ms);
+ 	if (retval)
+ 		return retval;
+ 
+diff --git a/drivers/gpu/drm/amd/amdkfd/kfd_device_queue_manager.h b/drivers/gpu/drm/amd/amdkfd/kfd_device_queue_manager.h
+index 0cbead4f4007..67ae43c1acc9 100644
+--- a/drivers/gpu/drm/amd/amdkfd/kfd_device_queue_manager.h
++++ b/drivers/gpu/drm/amd/amdkfd/kfd_device_queue_manager.h
+@@ -31,8 +31,6 @@
+ #include "kfd_priv.h"
+ #include "kfd_mqd_manager.h"
+ 
+-#define KFD_UNMAP_LATENCY_MS			(4000)
+-#define QUEUE_PREEMPT_DEFAULT_TIMEOUT_MS (2 * KFD_UNMAP_LATENCY_MS + 1000)
+ 
+ struct device_process_node {
+ 	struct qcm_process_device *qpd;
+diff --git a/drivers/gpu/drm/amd/amdkfd/kfd_priv.h b/drivers/gpu/drm/amd/amdkfd/kfd_priv.h
+index 67967a893a55..dc6b3eadc65a 100644
+--- a/drivers/gpu/drm/amd/amdkfd/kfd_priv.h
++++ b/drivers/gpu/drm/amd/amdkfd/kfd_priv.h
+@@ -111,6 +111,8 @@ struct drm_device;
+ 
+ #define KFD_KERNEL_QUEUE_SIZE 2048
+ 
++#define KFD_UNMAP_LATENCY_MS	(4000)
++
+ /*
+  * 512 = 0x200
+  * The doorbell index distance between SDMA RLC (2*i) and (2*i+1) in the
+@@ -183,6 +185,11 @@ extern bool hws_gws_support;
+ extern bool keep_idle_process_evicted;
+ 
+ 
++/*
++ * Queue preemption timeout in ms
++ */
++extern int queue_preemption_timeout_ms;
++
+ enum cache_policy {
+ 	cache_policy_coherent,
+ 	cache_policy_noncoherent
+-- 
+2.17.1
+

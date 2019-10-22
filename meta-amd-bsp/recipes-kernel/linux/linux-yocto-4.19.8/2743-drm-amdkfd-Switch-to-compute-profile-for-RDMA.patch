@@ -1,0 +1,35 @@
+From d36001b5fbac1c1dcc869b990902024d2038a60c Mon Sep 17 00:00:00 2001
+From: Harish Kasiviswanathan <Harish.Kasiviswanathan@amd.com>
+Date: Fri, 25 Jan 2019 16:49:35 -0500
+Subject: [PATCH 2743/2940] drm/amdkfd: Switch to compute profile for RDMA
+
+Change-Id: I1aede6b5dd79441e3516be16163df059891cf89a
+Signed-off-by: Harish Kasiviswanathan <Harish.Kasiviswanathan@amd.com>
+---
+ drivers/gpu/drm/amd/amdkfd/kfd_rdma.c | 3 ++-
+ 1 file changed, 2 insertions(+), 1 deletion(-)
+
+diff --git a/drivers/gpu/drm/amd/amdkfd/kfd_rdma.c b/drivers/gpu/drm/amd/amdkfd/kfd_rdma.c
+index 78debff74e33..58a11fab2bc7 100644
+--- a/drivers/gpu/drm/amd/amdkfd/kfd_rdma.c
++++ b/drivers/gpu/drm/amd/amdkfd/kfd_rdma.c
+@@ -119,6 +119,7 @@ static int get_pages(uint64_t address, uint64_t length, struct pid *pid,
+ 
+ 	list_add(&rdma_cb_data->node, &buf_obj->cb_data_head);
+ 
++	kfd_inc_compute_active(dev);
+ 	*amd_p2p_data = &rdma_cb_data->amd_p2p_data;
+ 
+ 	goto out;
+@@ -154,7 +155,7 @@ static int put_pages_helper(struct amd_p2p_info *p2p_data)
+ 	kfree(rdma_cb_data);
+ 
+ 	amdgpu_amdkfd_gpuvm_unpin_put_sg_table(buf_obj->mem, sg_table_tmp);
+-
++	kfd_dec_compute_active(dev);
+ 
+ 	return 0;
+ }
+-- 
+2.17.1
+

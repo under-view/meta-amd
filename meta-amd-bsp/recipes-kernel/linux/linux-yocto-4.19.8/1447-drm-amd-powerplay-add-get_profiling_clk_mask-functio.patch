@@ -1,0 +1,86 @@
+From fff64d956830b3596d968487b74fbaf2b3279ac3 Mon Sep 17 00:00:00 2001
+From: Chengming Gui <Jack.Gui@amd.com>
+Date: Thu, 17 Jan 2019 18:10:52 +0800
+Subject: [PATCH 1447/2940] drm/amd/powerplay: add get_profiling_clk_mask
+ functions for SMU11
+
+add get_profiling_clk_masking_clk_mask
+to support sys interface for SMU11.
+
+Signed-off-by: Chengming Gui <Jack.Gui@amd.com>
+Reviewed-by: Huang Rui <ray.huang@amd.com>
+Acked-by: Alex Deucher <alexander.deucher@amd.com>
+---
+ drivers/gpu/drm/amd/powerplay/vega20_ppt.c | 40 ++++++++++++++++++++++
+ drivers/gpu/drm/amd/powerplay/vega20_ppt.h |  3 ++
+ 2 files changed, 43 insertions(+)
+
+diff --git a/drivers/gpu/drm/amd/powerplay/vega20_ppt.c b/drivers/gpu/drm/amd/powerplay/vega20_ppt.c
+index 04ff56143eba..62ca0ef050f4 100644
+--- a/drivers/gpu/drm/amd/powerplay/vega20_ppt.c
++++ b/drivers/gpu/drm/amd/powerplay/vega20_ppt.c
+@@ -1299,6 +1299,46 @@ static int vega20_get_od_percentage(struct smu_context *smu,
+ 	return value;
+ }
+ 
++static int
++vega20_get_profiling_clk_mask(struct smu_context *smu,
++			      enum amd_dpm_forced_level level,
++			      uint32_t *sclk_mask,
++			      uint32_t *mclk_mask,
++			      uint32_t *soc_mask)
++{
++	struct vega20_dpm_table *dpm_table = (struct vega20_dpm_table *)smu->smu_dpm.dpm_context;
++	if (!smu->smu_dpm.dpm_context)
++		return -EINVAL;
++
++	struct vega20_single_dpm_table *gfx_dpm_table = &(dpm_table->gfx_table);
++	struct vega20_single_dpm_table *mem_dpm_table = &(dpm_table->mem_table);
++	struct vega20_single_dpm_table *soc_dpm_table = &(dpm_table->soc_table);
++
++	*sclk_mask = 0;
++	*mclk_mask = 0;
++	*soc_mask  = 0;
++
++	if (gfx_dpm_table->count > VEGA20_UMD_PSTATE_GFXCLK_LEVEL &&
++	    mem_dpm_table->count > VEGA20_UMD_PSTATE_MCLK_LEVEL &&
++	    soc_dpm_table->count > VEGA20_UMD_PSTATE_SOCCLK_LEVEL) {
++		*sclk_mask = VEGA20_UMD_PSTATE_GFXCLK_LEVEL;
++		*mclk_mask = VEGA20_UMD_PSTATE_MCLK_LEVEL;
++		*soc_mask  = VEGA20_UMD_PSTATE_SOCCLK_LEVEL;
++	}
++
++	if (level == AMD_DPM_FORCED_LEVEL_PROFILE_MIN_SCLK) {
++		*sclk_mask = 0;
++	} else if (level == AMD_DPM_FORCED_LEVEL_PROFILE_MIN_MCLK) {
++		*mclk_mask = 0;
++	} else if (level == AMD_DPM_FORCED_LEVEL_PROFILE_PEAK) {
++		*sclk_mask = gfx_dpm_table->count - 1;
++		*mclk_mask = mem_dpm_table->count - 1;
++		*soc_mask  = soc_dpm_table->count - 1;
++	}
++
++	return 0;
++}
++
+ static const struct pptable_funcs vega20_ppt_funcs = {
+ 	.alloc_dpm_context = vega20_allocate_dpm_context,
+ 	.store_powerplay_table = vega20_store_powerplay_table,
+diff --git a/drivers/gpu/drm/amd/powerplay/vega20_ppt.h b/drivers/gpu/drm/amd/powerplay/vega20_ppt.h
+index 9b229b2f09f5..5a0d2af63173 100644
+--- a/drivers/gpu/drm/amd/powerplay/vega20_ppt.h
++++ b/drivers/gpu/drm/amd/powerplay/vega20_ppt.h
+@@ -24,7 +24,10 @@
+ #define __VEGA20_PPT_H__
+ 
+ #define VEGA20_UMD_PSTATE_GFXCLK_LEVEL         0x3
++#define VEGA20_UMD_PSTATE_SOCCLK_LEVEL         0x3
+ #define VEGA20_UMD_PSTATE_MCLK_LEVEL           0x2
++#define VEGA20_UMD_PSTATE_UVDCLK_LEVEL         0x3
++#define VEGA20_UMD_PSTATE_VCEMCLK_LEVEL        0x3
+ 
+ #define MAX_REGULAR_DPM_NUMBER 16
+ #define MAX_PCIE_CONF 2
+-- 
+2.17.1
+

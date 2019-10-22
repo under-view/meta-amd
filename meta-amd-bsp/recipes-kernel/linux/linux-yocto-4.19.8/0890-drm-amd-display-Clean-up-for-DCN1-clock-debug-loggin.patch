@@ -1,0 +1,196 @@
+From d9bb0fd1320294004f869170dd490b7fdfe9da5d Mon Sep 17 00:00:00 2001
+From: Fatemeh Darbehani <fatemeh.darbehani@amd.com>
+Date: Tue, 30 Oct 2018 11:32:40 -0400
+Subject: [PATCH 0890/2940] drm/amd/display: Clean up for DCN1 clock debug
+ logging
+
+[Why]
+To prepare for clock debug logging. With the exception of removing
+max_supported_dppclk_khz from logs, there are no functional changes.
+
+[How]
+Add clk_bypass struct and clean up buffer logic
+
+Signed-off-by: Fatemeh Darbehani <fatemeh.darbehani@amd.com>
+Reviewed-by: Yongqiang Sun <yongqiang.sun@amd.com>
+Acked-by: Su Chung <Su.Chung@amd.com>
+Acked-by: Leo Li <sunpeng.li@amd.com>
+Signed-off-by: Alex Deucher <alexander.deucher@amd.com>
+---
+ .../drm/amd/display/dc/dcn10/dcn10_clk_mgr.c  |  4 +-
+ .../drm/amd/display/dc/dcn10/dcn10_clk_mgr.h  |  6 +++
+ .../dc/dcn10/dcn10_hw_sequencer_debug.c       | 39 +++++++++++--------
+ .../drm/amd/display/dc/dcn10/dcn10_resource.c |  4 --
+ drivers/gpu/drm/amd/display/dc/dm_pp_smu.h    |  2 +-
+ 5 files changed, 32 insertions(+), 23 deletions(-)
+
+diff --git a/drivers/gpu/drm/amd/display/dc/dcn10/dcn10_clk_mgr.c b/drivers/gpu/drm/amd/display/dc/dcn10/dcn10_clk_mgr.c
+index 4312b091f6bb..22c5864da21c 100644
+--- a/drivers/gpu/drm/amd/display/dc/dcn10/dcn10_clk_mgr.c
++++ b/drivers/gpu/drm/amd/display/dc/dcn10/dcn10_clk_mgr.c
+@@ -309,12 +309,10 @@ static void dcn1_update_clocks(struct clk_mgr *clk_mgr,
+ 
+ 	*smu_req_cur = smu_req;
+ }
+-
+ static const struct clk_mgr_funcs dcn1_funcs = {
+ 	.get_dp_ref_clk_frequency = dce12_get_dp_ref_freq_khz,
+ 	.update_clocks = dcn1_update_clocks
+ };
+-
+ struct clk_mgr *dcn1_clk_mgr_create(struct dc_context *ctx)
+ {
+ 	struct dc_debug_options *debug = &ctx->dc->debug;
+@@ -354,3 +352,5 @@ struct clk_mgr *dcn1_clk_mgr_create(struct dc_context *ctx)
+ 
+ 	return &clk_mgr_dce->base;
+ }
++
++
+diff --git a/drivers/gpu/drm/amd/display/dc/dcn10/dcn10_clk_mgr.h b/drivers/gpu/drm/amd/display/dc/dcn10/dcn10_clk_mgr.h
+index 9dbaf6578006..a995eda443a3 100644
+--- a/drivers/gpu/drm/amd/display/dc/dcn10/dcn10_clk_mgr.h
++++ b/drivers/gpu/drm/amd/display/dc/dcn10/dcn10_clk_mgr.h
+@@ -28,6 +28,12 @@
+ 
+ #include "../dce/dce_clk_mgr.h"
+ 
++struct clk_bypass {
++	uint32_t dcfclk_bypass;
++	uint32_t dispclk_pypass;
++	uint32_t dprefclk_bypass;
++};
++
+ void dcn1_pplib_apply_display_requirements(
+ 	struct dc *dc,
+ 	struct dc_state *context);
+diff --git a/drivers/gpu/drm/amd/display/dc/dcn10/dcn10_hw_sequencer_debug.c b/drivers/gpu/drm/amd/display/dc/dcn10/dcn10_hw_sequencer_debug.c
+index 211bb240a720..cd469014baa3 100644
+--- a/drivers/gpu/drm/amd/display/dc/dcn10/dcn10_hw_sequencer_debug.c
++++ b/drivers/gpu/drm/amd/display/dc/dcn10/dcn10_hw_sequencer_debug.c
+@@ -44,6 +44,7 @@
+ #include "dcn10_hubp.h"
+ #include "dcn10_hubbub.h"
+ #include "dcn10_cm_common.h"
++#include "dcn10_clk_mgr.h"
+ 
+ static unsigned int snprintf_count(char *pBuf, unsigned int bufSize, char *fmt, ...)
+ {
+@@ -463,19 +464,22 @@ static unsigned int dcn10_get_otg_states(struct dc *dc, char *pBuf, unsigned int
+ static unsigned int dcn10_get_clock_states(struct dc *dc, char *pBuf, unsigned int bufSize)
+ {
+ 	unsigned int chars_printed = 0;
++	unsigned int remaining_buffer = bufSize;
+ 
+-	chars_printed = snprintf_count(pBuf, bufSize, "dcfclk_khz,dcfclk_deep_sleep_khz,dispclk_khz,"
+-		"dppclk_khz,max_supported_dppclk_khz,fclk_khz,socclk_khz\n"
+-		"%d,%d,%d,%d,%d,%d,%d\n",
++	chars_printed = snprintf_count(pBuf, bufSize, "dcfclk,dcfclk_deep_sleep,dispclk,"
++		"dppclk,fclk,socclk\n"
++		"%d,%d,%d,%d,%d,%d\n",
+ 		dc->current_state->bw.dcn.clk.dcfclk_khz,
+ 		dc->current_state->bw.dcn.clk.dcfclk_deep_sleep_khz,
+ 		dc->current_state->bw.dcn.clk.dispclk_khz,
+ 		dc->current_state->bw.dcn.clk.dppclk_khz,
+-		dc->current_state->bw.dcn.clk.max_supported_dppclk_khz,
+ 		dc->current_state->bw.dcn.clk.fclk_khz,
+ 		dc->current_state->bw.dcn.clk.socclk_khz);
+ 
+-	return chars_printed;
++	remaining_buffer -= chars_printed;
++	pBuf += chars_printed;
++
++	return bufSize - remaining_buffer;
+ }
+ 
+ static void dcn10_clear_otpc_underflow(struct dc *dc)
+@@ -538,16 +542,16 @@ void dcn10_get_hw_state(struct dc *dc, char *pBuf, unsigned int bufSize, unsigne
+ 	 *  Bit 0 - 15: Hardware block mask
+ 	 *  Bit 15: 1 = Invariant Only, 0 = All
+ 	 */
+-	const unsigned int DC_HW_STATE_MASK_HUBBUB 	= 0x1;
+-	const unsigned int DC_HW_STATE_MASK_HUBP 	= 0x2;
+-	const unsigned int DC_HW_STATE_MASK_RQ 		= 0x4;
+-	const unsigned int DC_HW_STATE_MASK_DLG 	= 0x8;
+-	const unsigned int DC_HW_STATE_MASK_TTU 	= 0x10;
+-	const unsigned int DC_HW_STATE_MASK_CM 		= 0x20;
+-	const unsigned int DC_HW_STATE_MASK_MPCC 	= 0x40;
+-	const unsigned int DC_HW_STATE_MASK_OTG 	= 0x80;
+-	const unsigned int DC_HW_STATE_MASK_CLOCKS 	= 0x100;
+-	const unsigned int DC_HW_STATE_INVAR_ONLY	= 0x8000;
++	const unsigned int DC_HW_STATE_MASK_HUBBUB			= 0x1;
++	const unsigned int DC_HW_STATE_MASK_HUBP			= 0x2;
++	const unsigned int DC_HW_STATE_MASK_RQ				= 0x4;
++	const unsigned int DC_HW_STATE_MASK_DLG				= 0x8;
++	const unsigned int DC_HW_STATE_MASK_TTU				= 0x10;
++	const unsigned int DC_HW_STATE_MASK_CM				= 0x20;
++	const unsigned int DC_HW_STATE_MASK_MPCC			= 0x40;
++	const unsigned int DC_HW_STATE_MASK_OTG				= 0x80;
++	const unsigned int DC_HW_STATE_MASK_CLOCKS			= 0x100;
++	const unsigned int DC_HW_STATE_INVAR_ONLY			= 0x8000;
+ 
+ 	unsigned int chars_printed = 0;
+ 	unsigned int remaining_buf_size = bufSize;
+@@ -603,6 +607,9 @@ void dcn10_get_hw_state(struct dc *dc, char *pBuf, unsigned int bufSize, unsigne
+ 		remaining_buf_size -= chars_printed;
+ 	}
+ 
+-	if ((mask & DC_HW_STATE_MASK_CLOCKS) && remaining_buf_size > 0)
++	if ((mask & DC_HW_STATE_MASK_CLOCKS) && remaining_buf_size > 0) {
+ 		chars_printed = dcn10_get_clock_states(dc, pBuf, remaining_buf_size);
++		pBuf += chars_printed;
++		remaining_buf_size -= chars_printed;
++	}
+ }
+diff --git a/drivers/gpu/drm/amd/display/dc/dcn10/dcn10_resource.c b/drivers/gpu/drm/amd/display/dc/dcn10/dcn10_resource.c
+index 47dbe4bb294a..5d4772dec0ba 100644
+--- a/drivers/gpu/drm/amd/display/dc/dcn10/dcn10_resource.c
++++ b/drivers/gpu/drm/amd/display/dc/dcn10/dcn10_resource.c
+@@ -202,7 +202,6 @@ enum dcn10_clk_src_array_id {
+ #define MMHUB_SR(reg_name)\
+ 		.reg_name = MMHUB_BASE(mm ## reg_name ## _BASE_IDX) +  \
+ 					mm ## reg_name
+-
+ /* macros to expend register list macro defined in HW object header file
+  * end *********************/
+ 
+@@ -436,7 +435,6 @@ static const struct dcn_optc_mask tg_mask = {
+ 	TG_COMMON_MASK_SH_LIST_DCN1_0(_MASK)
+ };
+ 
+-
+ static const struct bios_registers bios_regs = {
+ 		NBIO_SR(BIOS_SCRATCH_0),
+ 		NBIO_SR(BIOS_SCRATCH_3),
+@@ -497,7 +495,6 @@ static const struct dce110_clk_src_mask cs_mask = {
+ 		CS_COMMON_MASK_SH_LIST_DCN1_0(_MASK)
+ };
+ 
+-
+ static const struct resource_caps res_cap = {
+ 		.num_timing_generator = 4,
+ 		.num_opp = 4,
+@@ -1277,7 +1274,6 @@ static bool construct(
+ 			goto fail;
+ 		}
+ 	}
+-
+ 	pool->base.clk_mgr = dcn1_clk_mgr_create(ctx);
+ 	if (pool->base.clk_mgr == NULL) {
+ 		dm_error("DC: failed to create display clock!\n");
+diff --git a/drivers/gpu/drm/amd/display/dc/dm_pp_smu.h b/drivers/gpu/drm/amd/display/dc/dm_pp_smu.h
+index e95502942e8c..c5ec9cec998b 100644
+--- a/drivers/gpu/drm/amd/display/dc/dm_pp_smu.h
++++ b/drivers/gpu/drm/amd/display/dc/dm_pp_smu.h
+@@ -102,7 +102,7 @@ struct pp_smu_funcs_rv {
+ 	 */
+ 	void (*set_display_count)(struct pp_smu *pp, int count);
+ 
+-	/* which SMU message?  are reader and writer WM separate SMU msg? */
++	/*  reader and writer WM's are sent together as part of one table*/
+ 	void (*set_wm_ranges)(struct pp_smu *pp,
+ 			struct pp_smu_wm_range_sets *ranges);
+ 
+-- 
+2.17.1
+

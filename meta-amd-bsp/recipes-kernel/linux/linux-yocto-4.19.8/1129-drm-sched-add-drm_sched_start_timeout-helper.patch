@@ -1,0 +1,89 @@
+From 7d9ba3ec094af869067f84486bae565353d3107f Mon Sep 17 00:00:00 2001
+From: =?UTF-8?q?Christian=20K=C3=B6nig?= <christian.koenig@amd.com>
+Date: Fri, 5 Oct 2018 19:56:39 +0200
+Subject: [PATCH 1129/2940] drm/sched: add drm_sched_start_timeout helper
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+Cleanup starting the timeout a bit.
+
+Signed-off-by: Christian König <christian.koenig@amd.com>
+Reviewed-by: Nayan Deshmukh <nayan26deshmukh@gmail.com>
+Signed-off-by: Alex Deucher <alexander.deucher@amd.com>
+Signed-off-by: Chaudhary Amit Kumar <Chaudharyamit.Kumar@amd.com>
+---
+ drivers/gpu/drm/scheduler/sched_main.c | 29 +++++++++++++++-----------
+ 1 file changed, 17 insertions(+), 12 deletions(-)
+
+diff --git a/drivers/gpu/drm/scheduler/sched_main.c b/drivers/gpu/drm/scheduler/sched_main.c
+index 0ebe6b51962a..581722769b9a 100644
+--- a/drivers/gpu/drm/scheduler/sched_main.c
++++ b/drivers/gpu/drm/scheduler/sched_main.c
+@@ -195,6 +195,20 @@ void drm_sched_fault(struct drm_gpu_scheduler *sched)
+ }
+ EXPORT_SYMBOL(drm_sched_fault);
+ 
++/**
++ * drm_sched_start_timeout - start timeout for reset worker
++ *
++ * @sched: scheduler instance to start the worker for
++ *
++ * Start the timeout for the given scheduler.
++ */
++static void drm_sched_start_timeout(struct drm_gpu_scheduler *sched)
++{
++	if (sched->timeout != MAX_SCHEDULE_TIMEOUT &&
++	    !list_empty(&sched->ring_mirror_list))
++		schedule_delayed_work(&sched->work_tdr, sched->timeout);
++}
++
+ /* job_finish is called after hw fence signaled
+  */
+ static void drm_sched_job_finish(struct work_struct *work)
+@@ -216,9 +230,7 @@ static void drm_sched_job_finish(struct work_struct *work)
+ 	/* remove job from ring_mirror_list */
+ 	list_del(&s_job->node);
+ 	/* queue TDR for next job */
+-	if (sched->timeout != MAX_SCHEDULE_TIMEOUT &&
+-	    !list_empty(&sched->ring_mirror_list))
+-		schedule_delayed_work(&sched->work_tdr, sched->timeout);
++	drm_sched_start_timeout(sched);
+ 	spin_unlock(&sched->job_list_lock);
+ 
+ 	sched->ops->free_job(s_job);
+@@ -241,10 +253,7 @@ static void drm_sched_job_begin(struct drm_sched_job *s_job)
+ 
+ 	spin_lock(&sched->job_list_lock);
+ 	list_add_tail(&s_job->node, &sched->ring_mirror_list);
+-	if (sched->timeout != MAX_SCHEDULE_TIMEOUT &&
+-	    list_first_entry_or_null(&sched->ring_mirror_list,
+-				     struct drm_sched_job, node) == s_job)
+-		schedule_delayed_work(&sched->work_tdr, sched->timeout);
++	drm_sched_start_timeout(sched);
+ 	spin_unlock(&sched->job_list_lock);
+ }
+ 
+@@ -325,11 +334,6 @@ void drm_sched_job_recovery(struct drm_gpu_scheduler *sched)
+ 	int r;
+ 
+ 	spin_lock(&sched->job_list_lock);
+-	s_job = list_first_entry_or_null(&sched->ring_mirror_list,
+-					 struct drm_sched_job, node);
+-	if (s_job && sched->timeout != MAX_SCHEDULE_TIMEOUT)
+-		schedule_delayed_work(&sched->work_tdr, sched->timeout);
+-
+ 	list_for_each_entry_safe(s_job, tmp, &sched->ring_mirror_list, node) {
+ 		struct drm_sched_fence *s_fence = s_job->s_fence;
+ 		struct dma_fence *fence;
+@@ -362,6 +366,7 @@ void drm_sched_job_recovery(struct drm_gpu_scheduler *sched)
+ 		}
+ 		spin_lock(&sched->job_list_lock);
+ 	}
++	drm_sched_start_timeout(sched);
+ 	spin_unlock(&sched->job_list_lock);
+ }
+ EXPORT_SYMBOL(drm_sched_job_recovery);
+-- 
+2.17.1
+

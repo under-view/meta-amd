@@ -1,0 +1,81 @@
+From 856e5734662bd1d96c0f50cea6c55e8501a2dfb9 Mon Sep 17 00:00:00 2001
+From: Leo Li <sunpeng.li@amd.com>
+Date: Wed, 31 Oct 2018 17:07:41 -0400
+Subject: [PATCH 0957/2940] drm/amd/display: Add functionality to get XGMI SS
+ info
+
+[Why]
+When XGMI is enabled, the DP reference clock needs to be adjusted
+according to the XGMI spread spectrum percentage and mode. But first,
+we need the ability to fetch this info.
+
+[How]
+Within the BIOS parser, Read from vBIOS when XGMI SS info is requested.
+
+In addition, diags build uses include_legacy/atomfirmware.h for the
+smu_info_v3_3 table headers. Update that as well.
+
+Signed-off-by: Leo Li <sunpeng.li@amd.com>
+Reviewed-by: Nicholas Kazlauskas <Nicholas.Kazlauskas@amd.com>
+Acked-by: Tony Cheng <Tony.Cheng@amd.com>
+Signed-off-by: Alex Deucher <alexander.deucher@amd.com>
+---
+ .../gpu/drm/amd/display/dc/bios/bios_parser2.c    | 15 +++++++++++++++
+ .../drm/amd/display/include/bios_parser_types.h   |  1 +
+ 2 files changed, 16 insertions(+)
+
+diff --git a/drivers/gpu/drm/amd/display/dc/bios/bios_parser2.c b/drivers/gpu/drm/amd/display/dc/bios/bios_parser2.c
+index 751bb614fc0e..c513ab6f3843 100644
+--- a/drivers/gpu/drm/amd/display/dc/bios/bios_parser2.c
++++ b/drivers/gpu/drm/amd/display/dc/bios/bios_parser2.c
+@@ -638,6 +638,7 @@ static enum bp_result get_ss_info_v4_1(
+ {
+ 	enum bp_result result = BP_RESULT_OK;
+ 	struct atom_display_controller_info_v4_1 *disp_cntl_tbl = NULL;
++	struct atom_smu_info_v3_3 *smu_info = NULL;
+ 
+ 	if (!ss_info)
+ 		return BP_RESULT_BADINPUT;
+@@ -650,6 +651,7 @@ static enum bp_result get_ss_info_v4_1(
+ 	if (!disp_cntl_tbl)
+ 		return BP_RESULT_BADBIOSTABLE;
+ 
++
+ 	ss_info->type.STEP_AND_DELAY_INFO = false;
+ 	ss_info->spread_percentage_divider = 1000;
+ 	/* BIOS no longer uses target clock.  Always enable for now */
+@@ -688,6 +690,19 @@ static enum bp_result get_ss_info_v4_1(
+ 		 */
+ 		result = BP_RESULT_UNSUPPORTED;
+ 		break;
++	case AS_SIGNAL_TYPE_XGMI:
++		smu_info =  GET_IMAGE(struct atom_smu_info_v3_3,
++				      DATA_TABLES(smu_info));
++		if (!smu_info)
++			return BP_RESULT_BADBIOSTABLE;
++
++		ss_info->spread_spectrum_percentage =
++				smu_info->waflclk_ss_percentage;
++		ss_info->spread_spectrum_range =
++				smu_info->gpuclk_ss_rate_10hz * 10;
++		if (smu_info->waflclk_ss_mode & ATOM_SS_CENTRE_SPREAD_MODE)
++			ss_info->type.CENTER_MODE = true;
++		break;
+ 	default:
+ 		result = BP_RESULT_UNSUPPORTED;
+ 	}
+diff --git a/drivers/gpu/drm/amd/display/include/bios_parser_types.h b/drivers/gpu/drm/amd/display/include/bios_parser_types.h
+index f8dbfa5b89f2..7fd78a696800 100644
+--- a/drivers/gpu/drm/amd/display/include/bios_parser_types.h
++++ b/drivers/gpu/drm/amd/display/include/bios_parser_types.h
+@@ -41,6 +41,7 @@ enum as_signal_type {
+ 	AS_SIGNAL_TYPE_LVDS,
+ 	AS_SIGNAL_TYPE_DISPLAY_PORT,
+ 	AS_SIGNAL_TYPE_GPU_PLL,
++	AS_SIGNAL_TYPE_XGMI,
+ 	AS_SIGNAL_TYPE_UNKNOWN
+ };
+ 
+-- 
+2.17.1
+

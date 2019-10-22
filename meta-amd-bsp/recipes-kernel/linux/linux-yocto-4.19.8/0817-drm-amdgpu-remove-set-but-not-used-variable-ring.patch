@@ -1,0 +1,67 @@
+From 141e497bf910eb19aa982c8dd9d83a33f5c66e0f Mon Sep 17 00:00:00 2001
+From: YueHaibing <yuehaibing@huawei.com>
+Date: Thu, 15 Nov 2018 20:00:35 +0800
+Subject: [PATCH 0817/2940] drm/amdgpu: remove set but not used variable 'ring'
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+Fixes gcc '-Wunused-but-set-variable' warning:
+
+drivers/gpu/drm/amd/amdgpu/psp_v10_0.c: In function 'psp_v10_0_ring_stop':
+drivers/gpu/drm/amd/amdgpu/psp_v10_0.c:230:19: warning:
+ variable 'ring' set but not used [-Wunused-but-set-variable]
+
+drivers/gpu/drm/amd/amdgpu/psp_v3_1.c: In function 'psp_v3_1_ring_stop':
+drivers/gpu/drm/amd/amdgpu/psp_v3_1.c:359:19: warning:
+ variable ‘ring’ set but not used [-Wunused-but-set-variable]
+
+It not used since commit
+4ef72453311a ("drm/amdgpu: added api for stopping psp ring (v2)")
+
+Signed-off-by: YueHaibing <yuehaibing@huawei.com>
+Reviewed-by: Huang Rui <ray.huang@amd.com>
+Acked-by: Christian König <christian.koenig@amd.com>
+Signed-off-by: Alex Deucher <alexander.deucher@amd.com>
+---
+ drivers/gpu/drm/amd/amdgpu/psp_v10_0.c | 3 ---
+ drivers/gpu/drm/amd/amdgpu/psp_v3_1.c  | 3 ---
+ 2 files changed, 6 deletions(-)
+
+diff --git a/drivers/gpu/drm/amd/amdgpu/psp_v10_0.c b/drivers/gpu/drm/amd/amdgpu/psp_v10_0.c
+index 7a9260694165..c5a03ccba3e6 100644
+--- a/drivers/gpu/drm/amd/amdgpu/psp_v10_0.c
++++ b/drivers/gpu/drm/amd/amdgpu/psp_v10_0.c
+@@ -243,12 +243,9 @@ static int psp_v10_0_ring_stop(struct psp_context *psp,
+ 			       enum psp_ring_type ring_type)
+ {
+ 	int ret = 0;
+-	struct psp_ring *ring;
+ 	unsigned int psp_ring_reg = 0;
+ 	struct amdgpu_device *adev = psp->adev;
+ 
+-	ring = &psp->km_ring;
+-
+ 	/* Write the ring destroy command to C2PMSG_64 */
+ 	psp_ring_reg = 3 << 16;
+ 	WREG32_SOC15(MP0, 0, mmMP0_SMN_C2PMSG_64, psp_ring_reg);
+diff --git a/drivers/gpu/drm/amd/amdgpu/psp_v3_1.c b/drivers/gpu/drm/amd/amdgpu/psp_v3_1.c
+index 9cea0bbe4525..64c267f37d4b 100644
+--- a/drivers/gpu/drm/amd/amdgpu/psp_v3_1.c
++++ b/drivers/gpu/drm/amd/amdgpu/psp_v3_1.c
+@@ -356,12 +356,9 @@ static int psp_v3_1_ring_stop(struct psp_context *psp,
+ 			      enum psp_ring_type ring_type)
+ {
+ 	int ret = 0;
+-	struct psp_ring *ring;
+ 	unsigned int psp_ring_reg = 0;
+ 	struct amdgpu_device *adev = psp->adev;
+ 
+-	ring = &psp->km_ring;
+-
+ 	/* Write the ring destroy command to C2PMSG_64 */
+ 	psp_ring_reg = 3 << 16;
+ 	WREG32_SOC15(MP0, 0, mmMP0_SMN_C2PMSG_64, psp_ring_reg);
+-- 
+2.17.1
+

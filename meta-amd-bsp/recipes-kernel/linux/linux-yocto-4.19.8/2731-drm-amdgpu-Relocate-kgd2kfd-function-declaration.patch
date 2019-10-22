@@ -1,0 +1,226 @@
+From 1e0eded5bb2aa3c2bef95b01a60f2cd4f1d8939f Mon Sep 17 00:00:00 2001
+From: Amber Lin <Amber.Lin@amd.com>
+Date: Thu, 13 Dec 2018 11:57:35 -0500
+Subject: [PATCH 2731/2940] drm/amdgpu: Relocate kgd2kfd function declaration
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+Since amdkfd is merged into amdgpu module and amdgpu can access amdkfd
+directly, move declaration of kgd2kfd functions from kfd_priv.h to
+amdgpu_amdkfd.h
+
+Signed-off-by: Amber Lin <Amber.Lin@amd.com>
+Reviewed-by: Felix Kuehling <Felix.Kuehling@amd.com>
+Acked-by: Christian König <christian.koenig@amd.com>
+Signed-off-by: Alex Deucher <alexander.deucher@amd.com>
+---
+ drivers/gpu/drm/amd/amdgpu/amdgpu_amdkfd.c    | 43 +++++++++++++++++++
+ drivers/gpu/drm/amd/amdgpu/amdgpu_amdkfd.h    | 20 ++++++++-
+ .../gpu/drm/amd/amdgpu/amdgpu_amdkfd_fence.c  |  1 +
+ .../gpu/drm/amd/amdgpu/amdgpu_amdkfd_gpuvm.c  |  2 +
+ drivers/gpu/drm/amd/amdkfd/kfd_module.c       |  2 +-
+ drivers/gpu/drm/amd/amdkfd/kfd_priv.h         | 22 ----------
+ .../gpu/drm/amd/include/kgd_kfd_interface.h   |  3 --
+ 7 files changed, 66 insertions(+), 27 deletions(-)
+
+diff --git a/drivers/gpu/drm/amd/amdgpu/amdgpu_amdkfd.c b/drivers/gpu/drm/amd/amdgpu/amdgpu_amdkfd.c
+index 81e606a642a0..067c017bbdd7 100644
+--- a/drivers/gpu/drm/amd/amdgpu/amdgpu_amdkfd.c
++++ b/drivers/gpu/drm/amd/amdgpu/amdgpu_amdkfd.c
+@@ -607,4 +607,47 @@ struct kfd2kgd_calls *amdgpu_amdkfd_gfx_9_0_get_functions(void)
+ {
+ 	return NULL;
+ }
++
++struct kfd_dev *kgd2kfd_probe(struct kgd_dev *kgd, struct pci_dev *pdev,
++			      const struct kfd2kgd_calls *f2g)
++{
++	return NULL;
++}
++
++bool kgd2kfd_device_init(struct kfd_dev *kfd,
++			 const struct kgd2kfd_shared_resources *gpu_resources)
++{
++	return false;
++}
++
++void kgd2kfd_device_exit(struct kfd_dev *kfd)
++{
++}
++
++void kgd2kfd_exit(void)
++{
++}
++
++void kgd2kfd_suspend(struct kfd_dev *kfd)
++{
++}
++
++int kgd2kfd_resume(struct kfd_dev *kfd)
++{
++	return 0;
++}
++
++int kgd2kfd_pre_reset(struct kfd_dev *kfd)
++{
++	return 0;
++}
++
++int kgd2kfd_post_reset(struct kfd_dev *kfd)
++{
++	return 0;
++}
++
++void kgd2kfd_interrupt(struct kfd_dev *kfd, const void *ih_ring_entry)
++{
++}
+ #endif
+diff --git a/drivers/gpu/drm/amd/amdgpu/amdgpu_amdkfd.h b/drivers/gpu/drm/amd/amdgpu/amdgpu_amdkfd.h
+index 28ec41a04b1f..0f913f9823bc 100644
+--- a/drivers/gpu/drm/amd/amdgpu/amdgpu_amdkfd.h
++++ b/drivers/gpu/drm/amd/amdgpu/amdgpu_amdkfd.h
+@@ -33,7 +33,6 @@
+ #include "amdgpu_sync.h"
+ #include "amdgpu_vm.h"
+ 
+-extern const struct kgd2kfd_calls *kgd2kfd;
+ extern uint64_t amdgpu_amdkfd_total_mem_size;
+ 
+ struct amdgpu_device;
+@@ -213,4 +212,23 @@ int amdgpu_amdkfd_gpuvm_import_dmabuf(struct kgd_dev *kgd,
+ void amdgpu_amdkfd_gpuvm_init_mem_limits(void);
+ void amdgpu_amdkfd_unreserve_memory_limit(struct amdgpu_bo *bo);
+ 
++/* KGD2KFD callbacks */
++int kgd2kfd_init(unsigned interface_version,
++		 const struct kgd2kfd_calls **g2f);
++void kgd2kfd_exit(void);
++struct kfd_dev *kgd2kfd_probe(struct kgd_dev *kgd, struct pci_dev *pdev,
++			      const struct kfd2kgd_calls *f2g);
++bool kgd2kfd_device_init(struct kfd_dev *kfd,
++			 const struct kgd2kfd_shared_resources *gpu_resources);
++void kgd2kfd_device_exit(struct kfd_dev *kfd);
++void kgd2kfd_suspend(struct kfd_dev *kfd);
++int kgd2kfd_resume(struct kfd_dev *kfd);
++int kgd2kfd_pre_reset(struct kfd_dev *kfd);
++int kgd2kfd_post_reset(struct kfd_dev *kfd);
++void kgd2kfd_interrupt(struct kfd_dev *kfd, const void *ih_ring_entry);
++int kgd2kfd_quiesce_mm(struct mm_struct *mm);
++int kgd2kfd_resume_mm(struct mm_struct *mm);
++int kgd2kfd_schedule_evict_and_restore_process(struct mm_struct *mm,
++					       struct dma_fence *fence);
++
+ #endif /* AMDGPU_AMDKFD_H_INCLUDED */
+diff --git a/drivers/gpu/drm/amd/amdgpu/amdgpu_amdkfd_fence.c b/drivers/gpu/drm/amd/amdgpu/amdgpu_amdkfd_fence.c
+index 574c1181ae9a..3c7055ecd990 100644
+--- a/drivers/gpu/drm/amd/amdgpu/amdgpu_amdkfd_fence.c
++++ b/drivers/gpu/drm/amd/amdgpu/amdgpu_amdkfd_fence.c
+@@ -31,6 +31,7 @@
+ 
+ static const struct dma_fence_ops amdkfd_fence_ops;
+ static atomic_t fence_seq = ATOMIC_INIT(0);
++extern const struct kgd2kfd_calls *kgd2kfd;
+ 
+ /* Eviction Fence
+  * Fence helper functions to deal with KFD memory eviction.
+diff --git a/drivers/gpu/drm/amd/amdgpu/amdgpu_amdkfd_gpuvm.c b/drivers/gpu/drm/amd/amdgpu/amdgpu_amdkfd_gpuvm.c
+index b1cc59490f96..5ca697af9a53 100644
+--- a/drivers/gpu/drm/amd/amdgpu/amdgpu_amdkfd_gpuvm.c
++++ b/drivers/gpu/drm/amd/amdgpu/amdgpu_amdkfd_gpuvm.c
+@@ -44,6 +44,8 @@
+  */
+ #define AMDGPU_USERPTR_RESTORE_DELAY_MS 1
+ 
++extern const struct kgd2kfd_calls *kgd2kfd;
++
+ /* Impose limit on how much memory KFD can use */
+ static struct {
+ 	uint64_t max_system_mem_limit;
+diff --git a/drivers/gpu/drm/amd/amdkfd/kfd_module.c b/drivers/gpu/drm/amd/amdkfd/kfd_module.c
+index b445674bba9a..4fe5ceff7ec8 100644
+--- a/drivers/gpu/drm/amd/amdkfd/kfd_module.c
++++ b/drivers/gpu/drm/amd/amdkfd/kfd_module.c
+@@ -24,6 +24,7 @@
+ #include <linux/moduleparam.h>
+ #include <linux/device.h>
+ #include "kfd_priv.h"
++#include "amdgpu_amdkfd.h"
+ 
+ static const struct kgd2kfd_calls kgd2kfd = {
+ 	.exit		= kgd2kfd_exit,
+@@ -149,7 +150,6 @@ int kgd2kfd_init(unsigned int interface_version,
+ 
+ 	return 0;
+ }
+-EXPORT_SYMBOL(kgd2kfd_init);
+ 
+ void kgd2kfd_exit(void)
+ {
+diff --git a/drivers/gpu/drm/amd/amdkfd/kfd_priv.h b/drivers/gpu/drm/amd/amdkfd/kfd_priv.h
+index 0e218c4f8408..c56b877e59b5 100644
+--- a/drivers/gpu/drm/amd/amdkfd/kfd_priv.h
++++ b/drivers/gpu/drm/amd/amdkfd/kfd_priv.h
+@@ -294,14 +294,6 @@ struct kfd_dev {
+ 	bool pci_atomic_requested;
+ };
+ 
+-/* KGD2KFD callbacks */
+-void kgd2kfd_exit(void);
+-struct kfd_dev *kgd2kfd_probe(struct kgd_dev *kgd,
+-			struct pci_dev *pdev, const struct kfd2kgd_calls *f2g);
+-bool kgd2kfd_device_init(struct kfd_dev *kfd,
+-			const struct kgd2kfd_shared_resources *gpu_resources);
+-void kgd2kfd_device_exit(struct kfd_dev *kfd);
+-
+ enum kfd_mempool {
+ 	KFD_MEMPOOL_SYSTEM_CACHEABLE = 1,
+ 	KFD_MEMPOOL_SYSTEM_WRITECOMBINE = 2,
+@@ -569,11 +561,6 @@ struct qcm_process_device {
+ /* Approx. time before evicting the process again */
+ #define PROCESS_ACTIVE_TIME_MS 10
+ 
+-int kgd2kfd_quiesce_mm(struct mm_struct *mm);
+-int kgd2kfd_resume_mm(struct mm_struct *mm);
+-int kgd2kfd_schedule_evict_and_restore_process(struct mm_struct *mm,
+-					       struct dma_fence *fence);
+-
+ /* 8 byte handle containing GPU ID in the most significant 4 bytes and
+  * idr_handle in the least significant 4 bytes
+  */
+@@ -828,20 +815,11 @@ int kfd_numa_node_to_apic_id(int numa_node_id);
+ /* Interrupts */
+ int kfd_interrupt_init(struct kfd_dev *dev);
+ void kfd_interrupt_exit(struct kfd_dev *dev);
+-void kgd2kfd_interrupt(struct kfd_dev *kfd, const void *ih_ring_entry);
+ bool enqueue_ih_ring_entry(struct kfd_dev *kfd,	const void *ih_ring_entry);
+ bool interrupt_is_wanted(struct kfd_dev *dev,
+ 				const uint32_t *ih_ring_entry,
+ 				uint32_t *patched_ihre, bool *flag);
+ 
+-/* Power Management */
+-void kgd2kfd_suspend(struct kfd_dev *kfd);
+-int kgd2kfd_resume(struct kfd_dev *kfd);
+-
+-/* GPU reset */
+-int kgd2kfd_pre_reset(struct kfd_dev *kfd);
+-int kgd2kfd_post_reset(struct kfd_dev *kfd);
+-
+ /* amdkfd Apertures */
+ int kfd_init_apertures(struct kfd_process *process);
+ 
+diff --git a/drivers/gpu/drm/amd/include/kgd_kfd_interface.h b/drivers/gpu/drm/amd/include/kgd_kfd_interface.h
+index 0285e1a71fa4..08be33912e40 100644
+--- a/drivers/gpu/drm/amd/include/kgd_kfd_interface.h
++++ b/drivers/gpu/drm/amd/include/kgd_kfd_interface.h
+@@ -354,7 +354,4 @@ struct kgd2kfd_calls {
+ 	int  (*post_reset)(struct kfd_dev *kfd);
+ };
+ 
+-int kgd2kfd_init(unsigned interface_version,
+-		const struct kgd2kfd_calls **g2f);
+-
+ #endif	/* KGD_KFD_INTERFACE_H_INCLUDED */
+-- 
+2.17.1
+

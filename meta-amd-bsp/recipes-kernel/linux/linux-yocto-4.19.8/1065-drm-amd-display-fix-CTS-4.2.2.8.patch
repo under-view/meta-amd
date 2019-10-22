@@ -1,0 +1,44 @@
+From 5a1486db68e9a8db31ab175ad341bee9cc84dea4 Mon Sep 17 00:00:00 2001
+From: abdoulaye berthe <abdoulaye.berthe@amd.com>
+Date: Fri, 7 Dec 2018 16:12:09 -0500
+Subject: [PATCH 1065/2940] drm/amd/display: fix CTS 4.2.2.8
+
+[Why]
+1-Test equipment does not reset test automation flag after completing
+current test causing the next test to fail.
+2.When test request is empty, we shouldn't ack the test.
+
+[How]
+1-Driver should always clear test equipment automation test request
+when request is completed.
+2-Driver should clear test equipement test automation if driver does
+not complete the request.
+
+Signed-off-by: abdoulaye berthe <abdoulaye.berthe@amd.com>
+Reviewed-by: Wenjing Liu <Wenjing.Liu@amd.com>
+Acked-by: Leo Li <sunpeng.li@amd.com>
+Signed-off-by: Alex Deucher <alexander.deucher@amd.com>
+---
+ drivers/gpu/drm/amd/display/dc/core/dc_link_dp.c | 6 +-----
+ 1 file changed, 1 insertion(+), 5 deletions(-)
+
+diff --git a/drivers/gpu/drm/amd/display/dc/core/dc_link_dp.c b/drivers/gpu/drm/amd/display/dc/core/dc_link_dp.c
+index 568fdc9423e6..cf9362704d12 100644
+--- a/drivers/gpu/drm/amd/display/dc/core/dc_link_dp.c
++++ b/drivers/gpu/drm/amd/display/dc/core/dc_link_dp.c
+@@ -2002,11 +2002,7 @@ static void handle_automated_test(struct dc_link *link)
+ 		dp_test_send_phy_test_pattern(link);
+ 		test_response.bits.ACK = 1;
+ 	}
+-	if (!test_request.raw)
+-		/* no requests, revert all test signals
+-		 * TODO: revert all test signals
+-		 */
+-		test_response.bits.ACK = 1;
++
+ 	/* send request acknowledgment */
+ 	if (test_response.bits.ACK)
+ 		core_link_write_dpcd(
+-- 
+2.17.1
+

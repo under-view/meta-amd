@@ -1,0 +1,39 @@
+From 64d95402e563e211eef16e408329c48609626032 Mon Sep 17 00:00:00 2001
+From: =?UTF-8?q?Christian=20K=C3=B6nig?= <christian.koenig@amd.com>
+Date: Mon, 6 Aug 2018 15:01:45 +0200
+Subject: [PATCH 0707/2940] drm/scheduler: rename gpu_scheduler.c to
+ sched_main.c
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+Better match the naming of the other components.
+
+Signed-off-by: Christian König <christian.koenig@amd.com>
+Reviewed-by: Huang Rui <ray.huang@amd.com>
+Signed-off-by: Alex Deucher <alexander.deucher@amd.com>
+---
+ drivers/gpu/drm/scheduler/Makefile                          | 2 +-
+ drivers/gpu/drm/scheduler/{gpu_scheduler.c => sched_main.c} | 0
+ 2 files changed, 1 insertion(+), 1 deletion(-)
+ rename drivers/gpu/drm/scheduler/{gpu_scheduler.c => sched_main.c} (100%)
+
+diff --git a/drivers/gpu/drm/scheduler/Makefile b/drivers/gpu/drm/scheduler/Makefile
+index f23785d4b3c8..53863621829f 100644
+--- a/drivers/gpu/drm/scheduler/Makefile
++++ b/drivers/gpu/drm/scheduler/Makefile
+@@ -20,6 +20,6 @@
+ # OTHER DEALINGS IN THE SOFTWARE.
+ #
+ #
+-gpu-sched-y := gpu_scheduler.o sched_fence.o sched_entity.o
++gpu-sched-y := sched_main.o sched_fence.o sched_entity.o
+ 
+ obj-$(CONFIG_DRM_SCHED) += gpu-sched.o
+diff --git a/drivers/gpu/drm/scheduler/gpu_scheduler.c b/drivers/gpu/drm/scheduler/sched_main.c
+similarity index 100%
+rename from drivers/gpu/drm/scheduler/gpu_scheduler.c
+rename to drivers/gpu/drm/scheduler/sched_main.c
+-- 
+2.17.1
+

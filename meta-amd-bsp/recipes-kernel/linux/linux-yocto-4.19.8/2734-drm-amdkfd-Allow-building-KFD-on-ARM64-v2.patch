@@ -1,0 +1,119 @@
+From 8c39f7199fd044f38a97b9f6e30dfbb593581562 Mon Sep 17 00:00:00 2001
+From: Felix Kuehling <Felix.Kuehling@amd.com>
+Date: Wed, 2 Jan 2019 14:52:13 -0500
+Subject: [PATCH 2734/2940] drm/amdkfd: Allow building KFD on ARM64 (v2)
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+ifdef x86_64 specific code.
+Allow enabling CONFIG_HSA_AMD on ARM64.
+
+v2: Fixed a compiler warning due to an unused variable
+
+CC: Mark Nutter <Mark.Nutter@arm.com>
+Signed-off-by: Felix Kuehling <Felix.Kuehling@amd.com>
+Tested-by: Mark Nutter <Mark.Nutter@arm.com>
+Acked-by: Alex Deucher <alexander.deucher@amd.com>
+Acked-by: Christian König <christian.koenig@amd.com>
+Signed-off-by: Alex Deucher <alexander.deucher@amd.com>
+---
+ drivers/gpu/drm/amd/amdkfd/Kconfig        | 5 ++---
+ drivers/gpu/drm/amd/amdkfd/kfd_crat.c     | 8 ++++++++
+ drivers/gpu/drm/amd/amdkfd/kfd_topology.c | 9 +++++----
+ 3 files changed, 15 insertions(+), 7 deletions(-)
+
+diff --git a/drivers/gpu/drm/amd/amdkfd/Kconfig b/drivers/gpu/drm/amd/amdkfd/Kconfig
+index 94cbfbcbda4f..2ddd92bb49af 100644
+--- a/drivers/gpu/drm/amd/amdkfd/Kconfig
++++ b/drivers/gpu/drm/amd/amdkfd/Kconfig
+@@ -4,9 +4,8 @@
+ 
+ config HSA_AMD
+ 	bool "HSA kernel driver for AMD GPU devices"
+-	depends on (DRM_RADEON || DRM_AMDGPU) && (X86_64 || PPC64 || ARM64)
+-	select DRM_AMDGPU_USERPTR
+-	imply AMD_IOMMU_V2
++	depends on DRM_AMDGPU && (X86_64 || PPC64 || ARM64)
++        imply AMD_IOMMU_V2 if X86_64
+ 	select MMU_NOTIFIER
+ 	help
+ 	  Enable this if you want to use HSA features on AMD GPU devices.
+diff --git a/drivers/gpu/drm/amd/amdkfd/kfd_crat.c b/drivers/gpu/drm/amd/amdkfd/kfd_crat.c
+index c02adbbeef2a..d7ddb352bd8f 100644
+--- a/drivers/gpu/drm/amd/amdkfd/kfd_crat.c
++++ b/drivers/gpu/drm/amd/amdkfd/kfd_crat.c
+@@ -863,6 +863,7 @@ static int kfd_fill_mem_info_for_cpu(int numa_node_id, int *avail_size,
+ 	return 0;
+ }
+ 
++#if CONFIG_X86_64
+ static int kfd_fill_iolink_info_for_cpu(int numa_node_id, int *avail_size,
+ 				uint32_t *num_entries,
+ 				struct crat_subtype_iolink *sub_type_hdr)
+@@ -905,6 +906,7 @@ static int kfd_fill_iolink_info_for_cpu(int numa_node_id, int *avail_size,
+ 
+ 	return 0;
+ }
++#endif
+ 
+ /* kfd_create_vcrat_image_cpu - Create Virtual CRAT for CPU
+  *
+@@ -920,7 +922,9 @@ static int kfd_create_vcrat_image_cpu(void *pcrat_image, size_t *size)
+ 	struct crat_subtype_generic *sub_type_hdr;
+ 	int avail_size = *size;
+ 	int numa_node_id;
++#ifdef CONFIG_X86_64
+ 	uint32_t entries = 0;
++#endif
+ 	int ret = 0;
+ 
+ 	if (!pcrat_image || avail_size < VCRAT_SIZE_FOR_CPU)
+@@ -982,6 +986,7 @@ static int kfd_create_vcrat_image_cpu(void *pcrat_image, size_t *size)
+ 			sub_type_hdr->length);
+ 
+ 		/* Fill in Subtype: IO Link */
++#ifdef CONFIG_X86_64
+ 		ret = kfd_fill_iolink_info_for_cpu(numa_node_id, &avail_size,
+ 				&entries,
+ 				(struct crat_subtype_iolink *)sub_type_hdr);
+@@ -992,6 +997,9 @@ static int kfd_create_vcrat_image_cpu(void *pcrat_image, size_t *size)
+ 
+ 		sub_type_hdr = (typeof(sub_type_hdr))((char *)sub_type_hdr +
+ 				sub_type_hdr->length * entries);
++#else
++		pr_info("IO link not available for non x86 platforms\n");
++#endif
+ 
+ 		crat_table->num_domains++;
+ 	}
+diff --git a/drivers/gpu/drm/amd/amdkfd/kfd_topology.c b/drivers/gpu/drm/amd/amdkfd/kfd_topology.c
+index 5f5b2acedbac..4734f1a35516 100644
+--- a/drivers/gpu/drm/amd/amdkfd/kfd_topology.c
++++ b/drivers/gpu/drm/amd/amdkfd/kfd_topology.c
+@@ -1392,7 +1392,6 @@ int kfd_topology_enum_kfd_devices(uint8_t idx, struct kfd_dev **kdev)
+ 
+ static int kfd_cpumask_to_apic_id(const struct cpumask *cpumask)
+ {
+-	const struct cpuinfo_x86 *cpuinfo;
+ 	int first_cpu_of_numa_node;
+ 
+ 	if (!cpumask || cpumask == cpu_none_mask)
+@@ -1400,9 +1399,11 @@ static int kfd_cpumask_to_apic_id(const struct cpumask *cpumask)
+ 	first_cpu_of_numa_node = cpumask_first(cpumask);
+ 	if (first_cpu_of_numa_node >= nr_cpu_ids)
+ 		return -1;
+-	cpuinfo = &cpu_data(first_cpu_of_numa_node);
+-
+-	return cpuinfo->apicid;
++#ifdef CONFIG_X86_64
++	return cpu_data(first_cpu_of_numa_node).apicid;
++#else
++	return first_cpu_of_numa_node;
++#endif
+ }
+ 
+ /* kfd_numa_node_to_apic_id - Returns the APIC ID of the first logical processor
+-- 
+2.17.1
+

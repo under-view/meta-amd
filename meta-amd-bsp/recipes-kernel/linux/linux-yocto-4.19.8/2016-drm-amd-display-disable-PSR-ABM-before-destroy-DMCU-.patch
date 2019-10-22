@@ -1,0 +1,146 @@
+From 4aeeb1bc5dcbb9451058ca2413496c79761dcd4a Mon Sep 17 00:00:00 2001
+From: Paul Hsieh <paul.hsieh@amd.com>
+Date: Tue, 7 May 2019 17:58:58 +0800
+Subject: [PATCH 2016/2940] drm/amd/display: disable PSR/ABM before destroy
+ DMCU struct
+
+[Why]
+1. DMCU is not running on some platform but driver still send ABM
+   command. It may cause assert due to DMCU is not alive.
+2. To make sure PSR disable when driver disable
+
+[How]
+1. Add dmcu_is_running in ABM struct, driver can check this flag to
+   determine driver should send ABM command or not.
+2. Send PSR disable command when destroy PSR
+
+Signed-off-by: Paul Hsieh <paul.hsieh@amd.com>
+Reviewed-by: Anthony Koo <Anthony.Koo@amd.com>
+Acked-by: Leo Li <sunpeng.li@amd.com>
+---
+ drivers/gpu/drm/amd/display/dc/dce/dce_abm.c        | 13 ++++++++++++-
+ drivers/gpu/drm/amd/display/dc/dce/dce_dmcu.c       |  3 +++
+ .../drm/amd/display/dc/dce110/dce110_hw_sequencer.c |  5 +++++
+ .../drm/amd/display/dc/dcn10/dcn10_hw_sequencer.c   |  3 +++
+ drivers/gpu/drm/amd/display/dc/inc/hw/abm.h         |  2 +-
+ 5 files changed, 24 insertions(+), 2 deletions(-)
+
+diff --git a/drivers/gpu/drm/amd/display/dc/dce/dce_abm.c b/drivers/gpu/drm/amd/display/dc/dce/dce_abm.c
+index 2959c3c9390b..3d87a8800300 100644
+--- a/drivers/gpu/drm/amd/display/dc/dce/dce_abm.c
++++ b/drivers/gpu/drm/amd/display/dc/dce/dce_abm.c
+@@ -58,6 +58,9 @@ static bool dce_abm_set_pipe(struct abm *abm, uint32_t controller_id)
+ 	struct dce_abm *abm_dce = TO_DCE_ABM(abm);
+ 	uint32_t rampingBoundary = 0xFFFF;
+ 
++	if (abm->dmcu_is_running == false)
++		return true;
++
+ 	REG_WAIT(MASTER_COMM_CNTL_REG, MASTER_COMM_INTERRUPT, 0,
+ 			1, 80000);
+ 
+@@ -302,6 +305,9 @@ static bool dce_abm_set_level(struct abm *abm, uint32_t level)
+ {
+ 	struct dce_abm *abm_dce = TO_DCE_ABM(abm);
+ 
++	if (abm->dmcu_is_running == false)
++		return true;
++
+ 	REG_WAIT(MASTER_COMM_CNTL_REG, MASTER_COMM_INTERRUPT, 0,
+ 			1, 80000);
+ 
+@@ -320,6 +326,9 @@ static bool dce_abm_immediate_disable(struct abm *abm)
+ {
+ 	struct dce_abm *abm_dce = TO_DCE_ABM(abm);
+ 
++	if (abm->dmcu_is_running == false)
++		return true;
++
+ 	dce_abm_set_pipe(abm, MCP_DISABLE_ABM_IMMEDIATELY);
+ 
+ 	abm->stored_backlight_registers.BL_PWM_CNTL =
+@@ -443,6 +452,7 @@ static void dce_abm_construct(
+ 	base->stored_backlight_registers.BL_PWM_CNTL2 = 0;
+ 	base->stored_backlight_registers.BL_PWM_PERIOD_CNTL = 0;
+ 	base->stored_backlight_registers.LVTMA_PWRSEQ_REF_DIV_BL_PWM_REF_DIV = 0;
++	base->dmcu_is_running = false;
+ 
+ 	abm_dce->regs = regs;
+ 	abm_dce->abm_shift = abm_shift;
+@@ -473,7 +483,8 @@ void dce_abm_destroy(struct abm **abm)
+ {
+ 	struct dce_abm *abm_dce = TO_DCE_ABM(*abm);
+ 
+-	abm_dce->base.funcs->set_abm_immediate_disable(*abm);
++	if (abm_dce->base.dmcu_is_running == true)
++		abm_dce->base.funcs->set_abm_immediate_disable(*abm);
+ 
+ 	kfree(abm_dce);
+ 	*abm = NULL;
+diff --git a/drivers/gpu/drm/amd/display/dc/dce/dce_dmcu.c b/drivers/gpu/drm/amd/display/dc/dce/dce_dmcu.c
+index 818536eea00a..6504227ead9c 100644
+--- a/drivers/gpu/drm/amd/display/dc/dce/dce_dmcu.c
++++ b/drivers/gpu/drm/amd/display/dc/dce/dce_dmcu.c
+@@ -813,6 +813,9 @@ void dce_dmcu_destroy(struct dmcu **dmcu)
+ {
+ 	struct dce_dmcu *dmcu_dce = TO_DCE_DMCU(*dmcu);
+ 
++	if (dmcu_dce->base.dmcu_state == DMCU_RUNNING)
++		dmcu_dce->base.funcs->set_psr_enable(*dmcu, false, true);
++
+ 	kfree(dmcu_dce);
+ 	*dmcu = NULL;
+ }
+diff --git a/drivers/gpu/drm/amd/display/dc/dce110/dce110_hw_sequencer.c b/drivers/gpu/drm/amd/display/dc/dce110/dce110_hw_sequencer.c
+index f9ee77115a5d..f3dd117b4831 100644
+--- a/drivers/gpu/drm/amd/display/dc/dce110/dce110_hw_sequencer.c
++++ b/drivers/gpu/drm/amd/display/dc/dce110/dce110_hw_sequencer.c
+@@ -2324,6 +2324,7 @@ static void init_hw(struct dc *dc)
+ 	struct dc_bios *bp;
+ 	struct transform *xfm;
+ 	struct abm *abm;
++	struct dmcu *dmcu;
+ 
+ 	bp = dc->ctx->dc_bios;
+ 	for (i = 0; i < dc->res_pool->pipe_count; i++) {
+@@ -2379,6 +2380,10 @@ static void init_hw(struct dc *dc)
+ 		abm->funcs->abm_init(abm);
+ 	}
+ 
++	dmcu = dc->res_pool->dmcu;
++	if (dmcu != NULL && abm != NULL)
++		abm->dmcu_is_running = dmcu->funcs->is_dmcu_initialized(dmcu);
++
+ 	if (dc->fbc_compressor)
+ 		dc->fbc_compressor->funcs->power_up_fbc(dc->fbc_compressor);
+ 
+diff --git a/drivers/gpu/drm/amd/display/dc/dcn10/dcn10_hw_sequencer.c b/drivers/gpu/drm/amd/display/dc/dcn10/dcn10_hw_sequencer.c
+index 06c01a93616e..c1623b80e131 100644
+--- a/drivers/gpu/drm/amd/display/dc/dcn10/dcn10_hw_sequencer.c
++++ b/drivers/gpu/drm/amd/display/dc/dcn10/dcn10_hw_sequencer.c
+@@ -1146,6 +1146,9 @@ static void dcn10_init_hw(struct dc *dc)
+ 	if (dmcu != NULL)
+ 		dmcu->funcs->dmcu_init(dmcu);
+ 
++	if (abm != NULL && dmcu != NULL)
++		abm->dmcu_is_running = dmcu->funcs->is_dmcu_initialized(dmcu);
++
+ 	/* power AFMT HDMI memory TODO: may move to dis/en output save power*/
+ 	REG_WRITE(DIO_MEM_PWR_CTRL, 0);
+ 
+diff --git a/drivers/gpu/drm/amd/display/dc/inc/hw/abm.h b/drivers/gpu/drm/amd/display/dc/inc/hw/abm.h
+index 86dc39a02408..d607b3191954 100644
+--- a/drivers/gpu/drm/amd/display/dc/inc/hw/abm.h
++++ b/drivers/gpu/drm/amd/display/dc/inc/hw/abm.h
+@@ -37,7 +37,7 @@ struct abm_backlight_registers {
+ struct abm {
+ 	struct dc_context *ctx;
+ 	const struct abm_funcs *funcs;
+-
++	bool dmcu_is_running;
+ 	/* registers setting needs to be saved and restored at InitBacklight */
+ 	struct abm_backlight_registers stored_backlight_registers;
+ };
+-- 
+2.17.1
+

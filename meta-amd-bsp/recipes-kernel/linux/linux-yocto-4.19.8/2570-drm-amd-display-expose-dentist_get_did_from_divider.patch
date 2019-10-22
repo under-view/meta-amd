@@ -1,0 +1,44 @@
+From 106c5fb2ab5c3f083a7d720f181aab8d8313977d Mon Sep 17 00:00:00 2001
+From: Charlene Liu <charlene.liu@amd.com>
+Date: Tue, 28 May 2019 19:44:32 -0400
+Subject: [PATCH 2570/2940] drm/amd/display: expose
+ dentist_get_did_from_divider
+
+for future use
+
+Signed-off-by: Charlene Liu <charlene.liu@amd.com>
+Reviewed-by: Dmytro Laktyushkin <Dmytro.Laktyushkin@amd.com>
+Acked-by: Bhawanpreet Lakha <Bhawanpreet.Lakha@amd.com>
+Signed-off-by: Alex Deucher <alexander.deucher@amd.com>
+---
+ drivers/gpu/drm/amd/display/dc/clk_mgr/dcn20/dcn20_clk_mgr.c | 2 +-
+ drivers/gpu/drm/amd/display/dc/clk_mgr/dcn20/dcn20_clk_mgr.h | 2 ++
+ 2 files changed, 3 insertions(+), 1 deletion(-)
+
+diff --git a/drivers/gpu/drm/amd/display/dc/clk_mgr/dcn20/dcn20_clk_mgr.c b/drivers/gpu/drm/amd/display/dc/clk_mgr/dcn20/dcn20_clk_mgr.c
+index 445bbc3bea0e..df59cb7597a5 100644
+--- a/drivers/gpu/drm/amd/display/dc/clk_mgr/dcn20/dcn20_clk_mgr.c
++++ b/drivers/gpu/drm/amd/display/dc/clk_mgr/dcn20/dcn20_clk_mgr.c
+@@ -70,7 +70,7 @@ static const struct clk_mgr_mask clk_mgr_mask = {
+ 	CLK_MASK_SH_LIST_NV10(_MASK)
+ };
+ 
+-static uint32_t dentist_get_did_from_divider(int divider)
++uint32_t dentist_get_did_from_divider(int divider)
+ {
+ 	uint32_t divider_id;
+ 
+diff --git a/drivers/gpu/drm/amd/display/dc/clk_mgr/dcn20/dcn20_clk_mgr.h b/drivers/gpu/drm/amd/display/dc/clk_mgr/dcn20/dcn20_clk_mgr.h
+index a44afc0625c5..5661a5a89847 100644
+--- a/drivers/gpu/drm/amd/display/dc/clk_mgr/dcn20/dcn20_clk_mgr.h
++++ b/drivers/gpu/drm/amd/display/dc/clk_mgr/dcn20/dcn20_clk_mgr.h
+@@ -43,4 +43,6 @@ void dcn20_clk_mgr_construct(struct dc_context *ctx,
+ 		struct pp_smu_funcs *pp_smu,
+ 		struct dccg *dccg);
+ 
++uint32_t dentist_get_did_from_divider(int divider);
++
+ #endif //__DCN20_CLK_MGR_H__
+-- 
+2.17.1
+

@@ -1,0 +1,47 @@
+From ab2f2d322eafe85155062d10e19df94295441caa Mon Sep 17 00:00:00 2001
+From: Dmytro Laktyushkin <Dmytro.Laktyushkin@amd.com>
+Date: Mon, 19 Nov 2018 16:25:23 -0500
+Subject: [PATCH 0962/2940] drm/amd/display: fix surface update sequence
+
+An earlier change added update of interdependent dlg/ttu params for pipes
+not being updated in the current call. The code fails to check if the other
+pipes are actually active yet causing an assert.
+
+This change adds a check for surface presence on the pipes before updating
+the interdepenednt params.
+
+Signed-off-by: Dmytro Laktyushkin <Dmytro.Laktyushkin@amd.com>
+Reviewed-by: Nikola Cornij <Nikola.Cornij@amd.com>
+Acked-by: Leo Li <sunpeng.li@amd.com>
+Signed-off-by: Alex Deucher <alexander.deucher@amd.com>
+---
+ drivers/gpu/drm/amd/display/dc/dcn10/dcn10_hw_sequencer.c | 6 ++++--
+ 1 file changed, 4 insertions(+), 2 deletions(-)
+
+diff --git a/drivers/gpu/drm/amd/display/dc/dcn10/dcn10_hw_sequencer.c b/drivers/gpu/drm/amd/display/dc/dcn10/dcn10_hw_sequencer.c
+index 5c2a17dcd08b..4645804f0035 100644
+--- a/drivers/gpu/drm/amd/display/dc/dcn10/dcn10_hw_sequencer.c
++++ b/drivers/gpu/drm/amd/display/dc/dcn10/dcn10_hw_sequencer.c
+@@ -2356,7 +2356,8 @@ static void dcn10_apply_ctx_for_surface(
+ 			struct pipe_ctx *pipe_ctx = &context->res_ctx.pipe_ctx[i];
+ 
+ 			/* Skip inactive pipes and ones already updated */
+-			if (!pipe_ctx->stream || pipe_ctx->stream == stream)
++			if (!pipe_ctx->stream || pipe_ctx->stream == stream
++					|| !pipe_ctx->plane_state)
+ 				continue;
+ 
+ 			pipe_ctx->stream_res.tg->funcs->lock(pipe_ctx->stream_res.tg);
+@@ -2370,7 +2371,8 @@ static void dcn10_apply_ctx_for_surface(
+ 	for (i = 0; i < dc->res_pool->pipe_count; i++) {
+ 		struct pipe_ctx *pipe_ctx = &context->res_ctx.pipe_ctx[i];
+ 
+-		if (!pipe_ctx->stream || pipe_ctx->stream == stream)
++		if (!pipe_ctx->stream || pipe_ctx->stream == stream
++				|| !pipe_ctx->plane_state)
+ 			continue;
+ 
+ 		dcn10_pipe_control_lock(dc, pipe_ctx, false);
+-- 
+2.17.1
+
