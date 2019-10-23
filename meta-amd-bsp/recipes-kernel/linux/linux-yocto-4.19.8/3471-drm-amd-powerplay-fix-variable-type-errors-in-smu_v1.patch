@@ -1,0 +1,50 @@
+From bd80417958d63acfc61b977eb2209c94d0df5e1f Mon Sep 17 00:00:00 2001
+From: Kevin Wang <kevin1.wang@amd.com>
+Date: Mon, 19 Aug 2019 23:38:02 +0800
+Subject: [PATCH 3471/4256] drm/amd/powerplay: fix variable type errors in
+ smu_v11_0_setup_pptable
+
+fix size type errors, from uint32_t to uint16_t.
+it will cause only initializes the highest 16 bits in
+smu_get_atom_data_table function.
+
+bug report:
+This fixes the following static checker warning.
+        drivers/gpu/drm/amd/amdgpu/../powerplay/smu_v11_0.c:390 smu_v11_0_setup_pptable()
+        warn: passing casted pointer '&size' to 'smu_get_atom_data_table()' 32 vs 16.
+
+Signed-off-by: Kevin Wang <kevin1.wang@amd.com>
+Reported-by: Dan Carpenter <dan.carpenter@oracle.com>
+Reviewed-by: Evan Quan <evan.quan@amd.com>
+---
+ drivers/gpu/drm/amd/powerplay/smu_v11_0.c | 4 +++-
+ 1 file changed, 3 insertions(+), 1 deletion(-)
+
+diff --git a/drivers/gpu/drm/amd/powerplay/smu_v11_0.c b/drivers/gpu/drm/amd/powerplay/smu_v11_0.c
+index 4a51de4ff162..4cdbed3b7a83 100644
+--- a/drivers/gpu/drm/amd/powerplay/smu_v11_0.c
++++ b/drivers/gpu/drm/amd/powerplay/smu_v11_0.c
+@@ -360,6 +360,7 @@ static int smu_v11_0_setup_pptable(struct smu_context *smu)
+ 	const struct smc_firmware_header_v1_0 *hdr;
+ 	int ret, index;
+ 	uint32_t size;
++	uint16_t atom_table_size;
+ 	uint8_t frev, crev;
+ 	void *table;
+ 	uint16_t version_major, version_minor;
+@@ -387,10 +388,11 @@ static int smu_v11_0_setup_pptable(struct smu_context *smu)
+ 		index = get_index_into_master_table(atom_master_list_of_data_tables_v2_1,
+ 						    powerplayinfo);
+ 
+-		ret = smu_get_atom_data_table(smu, index, (uint16_t *)&size, &frev, &crev,
++		ret = smu_get_atom_data_table(smu, index, &atom_table_size, &frev, &crev,
+ 					      (uint8_t **)&table);
+ 		if (ret)
+ 			return ret;
++		size = atom_table_size;
+ 	}
+ 
+ 	if (!smu->smu_table.power_play_table)
+-- 
+2.17.1
+

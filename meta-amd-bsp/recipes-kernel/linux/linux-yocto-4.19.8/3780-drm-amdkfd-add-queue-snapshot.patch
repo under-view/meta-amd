@@ -1,0 +1,311 @@
+From ffcec3477d42f38d9f4b1ed0da69bf9880931070 Mon Sep 17 00:00:00 2001
+From: Jonathan Kim <jonathan.kim@amd.com>
+Date: Tue, 27 Aug 2019 15:14:51 -0400
+Subject: [PATCH 3780/4256] drm/amdkfd: add queue snapshot
+
+update ioctl call to get queue snapshot per process
+
+Change-Id: I827e8dd4e570e31e01c775b24949b0d2aeb6d9b4
+Signed-off-by: Jonathan Kim <jonathan.kim@amd.com>
+Reviewed-by: Felix Kuehling <Felix.Kuehling@amd.com>
+---
+ drivers/gpu/drm/amd/amdkfd/kfd_chardev.c      | 12 ++++-
+ drivers/gpu/drm/amd/amdkfd/kfd_debug_events.c | 45 ++++++++++---------
+ drivers/gpu/drm/amd/amdkfd/kfd_debug_events.h |  2 +
+ .../drm/amd/amdkfd/kfd_device_queue_manager.c | 38 ++++++++++++++++
+ .../drm/amd/amdkfd/kfd_device_queue_manager.h |  5 +++
+ drivers/gpu/drm/amd/amdkfd/kfd_priv.h         |  5 +++
+ .../amd/amdkfd/kfd_process_queue_manager.c    | 36 +++++++++++++++
+ include/uapi/linux/kfd_ioctl.h                | 21 +++++++++
+ 8 files changed, 142 insertions(+), 22 deletions(-)
+
+diff --git a/drivers/gpu/drm/amd/amdkfd/kfd_chardev.c b/drivers/gpu/drm/amd/amdkfd/kfd_chardev.c
+index 44a9803f26f3..547e7f511775 100644
+--- a/drivers/gpu/drm/amd/amdkfd/kfd_chardev.c
++++ b/drivers/gpu/drm/amd/amdkfd/kfd_chardev.c
+@@ -2628,7 +2628,6 @@ static int kfd_ioctl_dbg_set_debug_trap(struct file *filep,
+ 		debug_trap_action == KFD_IOC_DBG_TRAP_NODE_SUSPEND ||
+ 		debug_trap_action == KFD_IOC_DBG_TRAP_NODE_RESUME;
+ 
+-
+ 	pid = find_get_pid(args->pid);
+ 	if (!pid) {
+ 		pr_err("Cannot find pid info for %i\n",
+@@ -2801,6 +2800,17 @@ static int kfd_ioctl_dbg_set_debug_trap(struct file *filep,
+ 						 args->data2,
+ 						 &args->data3);
+ 		break;
++	case KFD_IOC_DBG_TRAP_GET_QUEUE_SNAPSHOT:
++		r = pqm_get_queue_snapshot(&p->pqm, args->data1,
++					   (void __user *)args->ptr,
++					   args->data2);
++
++		if (r > 0) {
++			args->data2 = r;
++			r = 0;
++		}
++
++		break;
+ 	default:
+ 		pr_err("Invalid option: %i\n", debug_trap_action);
+ 		r = -EINVAL;
+diff --git a/drivers/gpu/drm/amd/amdkfd/kfd_debug_events.c b/drivers/gpu/drm/amd/amdkfd/kfd_debug_events.c
+index 1681107a2aa6..5433b6527bae 100644
+--- a/drivers/gpu/drm/amd/amdkfd/kfd_debug_events.c
++++ b/drivers/gpu/drm/amd/amdkfd/kfd_debug_events.c
+@@ -101,6 +101,25 @@ static int kfd_dbg_ev_release(struct inode *inode, struct file *filep)
+ 	((x) = (n) ? (x) | KFD_DBG_EV_STATUS_NEW_QUEUE :	\
+ 		(x) & ~KFD_DBG_EV_STATUS_NEW_QUEUE)
+ 
++uint32_t kfd_dbg_get_queue_status_word(struct queue *q, int flags)
++{
++	uint32_t queue_status_word = 0;
++
++	KFD_DBG_EV_SET_EVENT_TYPE(queue_status_word,
++				  q->properties.debug_event_type);
++	KFD_DBG_EV_SET_SUSPEND_STATE(queue_status_word,
++				  q->properties.is_suspended);
++	KFD_DBG_EV_SET_NEW_QUEUE_STATE(queue_status_word,
++				  q->properties.is_new);
++
++	if (flags & KFD_DBG_EV_FLAG_CLEAR_STATUS) {
++		q->properties.is_new = false;
++		q->properties.debug_event_type = 0;
++	}
++
++	return queue_status_word;
++}
++
+ int kfd_dbg_ev_query_debug_event(struct kfd_process_device *pdd,
+ 		      unsigned int *queue_id,
+ 		      unsigned int flags,
+@@ -126,16 +145,8 @@ int kfd_dbg_ev_query_debug_event(struct kfd_process_device *pdd,
+ 			goto out;
+ 		}
+ 
+-		KFD_DBG_EV_SET_EVENT_TYPE(*event_status,
+-					  q->properties.debug_event_type);
+-		KFD_DBG_EV_SET_SUSPEND_STATE(*event_status,
+-					  q->properties.is_suspended);
+-		KFD_DBG_EV_SET_NEW_QUEUE_STATE(*event_status,
+-					  q->properties.is_new);
+-		if (flags & KFD_DBG_EV_FLAG_CLEAR_STATUS) {
+-			q->properties.is_new = false;
+-			q->properties.debug_event_type = 0;
+-		}
++		*event_status = kfd_dbg_get_queue_status_word(q, flags);
++
+ 		goto out;
+ 
+ 	} else {
+@@ -146,17 +157,9 @@ int kfd_dbg_ev_query_debug_event(struct kfd_process_device *pdd,
+ 				|| pqn->q->properties.debug_event_type
+ 					== KFD_DBG_EV_STATUS_VMFAULT)) {
+ 				*queue_id = pqn->q->properties.queue_id;
+-				KFD_DBG_EV_SET_EVENT_TYPE(*event_status,
+-					pqn->q->properties.debug_event_type);
+-				KFD_DBG_EV_SET_SUSPEND_STATE(*event_status,
+-					pqn->q->properties.is_suspended);
+-				KFD_DBG_EV_SET_NEW_QUEUE_STATE(*event_status,
+-					pqn->q->properties.is_new);
+-				if (flags & KFD_DBG_EV_FLAG_CLEAR_STATUS) {
+-					pqn->q->properties.is_new = false;
+-					pqn->q->properties.debug_event_type
+-									= 0;
+-				}
++				*event_status =
++					kfd_dbg_get_queue_status_word(pqn->q,
++								      flags);
+ 				goto out;
+ 			}
+ 		}
+diff --git a/drivers/gpu/drm/amd/amdkfd/kfd_debug_events.h b/drivers/gpu/drm/amd/amdkfd/kfd_debug_events.h
+index 5b035a4321c6..49ccf8b2b66c 100644
+--- a/drivers/gpu/drm/amd/amdkfd/kfd_debug_events.h
++++ b/drivers/gpu/drm/amd/amdkfd/kfd_debug_events.h
+@@ -25,6 +25,8 @@
+ 
+ #include "kfd_priv.h"
+ 
++uint32_t kfd_dbg_get_queue_status_word(struct queue *q, int flags);
++
+ int kfd_dbg_ev_query_debug_event(struct kfd_process_device *pdd,
+ 		      unsigned int *queue_id,
+ 		      unsigned int flags,
+diff --git a/drivers/gpu/drm/amd/amdkfd/kfd_device_queue_manager.c b/drivers/gpu/drm/amd/amdkfd/kfd_device_queue_manager.c
+index 83cddab4d482..dbcbacb5abd4 100644
+--- a/drivers/gpu/drm/amd/amdkfd/kfd_device_queue_manager.c
++++ b/drivers/gpu/drm/amd/amdkfd/kfd_device_queue_manager.c
+@@ -35,6 +35,7 @@
+ #include "cik_regs.h"
+ #include "kfd_kernel_queue.h"
+ #include "amdgpu_amdkfd.h"
++#include "kfd_debug_events.h"
+ 
+ /* Size of the per-pipe EOP queue */
+ #define CIK_HPD_EOP_BYTES_LOG2 11
+@@ -2234,6 +2235,43 @@ int resume_queues(struct kfd_process *p,
+ 	return r;
+ }
+ 
++static uint32_t set_queue_type_for_user(struct queue_properties *q_props)
++{
++	switch (q_props->type) {
++	case KFD_QUEUE_TYPE_COMPUTE:
++		return q_props->format == KFD_QUEUE_FORMAT_PM4
++					? KFD_IOC_QUEUE_TYPE_COMPUTE
++					: KFD_IOC_QUEUE_TYPE_COMPUTE_AQL;
++	case KFD_QUEUE_TYPE_SDMA:
++		return KFD_IOC_QUEUE_TYPE_SDMA;
++	case KFD_QUEUE_TYPE_SDMA_XGMI:
++		return KFD_IOC_QUEUE_TYPE_SDMA_XGMI;
++	default:
++		WARN_ONCE(true, "queue type not recognized!");
++		return 0xffffffff;
++	};
++}
++
++void set_queue_snapshot_entry(struct device_queue_manager *dqm,
++			      struct queue *q,
++			      int flags,
++			      struct kfd_queue_snapshot_entry *qss_entry)
++{
++	dqm_lock(dqm);
++
++	qss_entry->ring_base_address = q->properties.queue_address,
++	qss_entry->write_pointer_address = (uint64_t)q->properties.write_ptr;
++	qss_entry->read_pointer_address = (uint64_t)q->properties.read_ptr,
++	qss_entry->ctx_save_restore_address =
++				q->properties.ctx_save_restore_area_address;
++	qss_entry->queue_id = q->properties.queue_id;
++	qss_entry->gpu_id = q->device->id;
++	qss_entry->ring_size = (uint32_t)q->properties.queue_size;
++	qss_entry->queue_type = set_queue_type_for_user(&q->properties);
++	qss_entry->queue_status = kfd_dbg_get_queue_status_word(q, flags);
++
++	dqm_unlock(dqm);
++}
+ 
+ #if defined(CONFIG_DEBUG_FS)
+ 
+diff --git a/drivers/gpu/drm/amd/amdkfd/kfd_device_queue_manager.h b/drivers/gpu/drm/amd/amdkfd/kfd_device_queue_manager.h
+index fcab7ad80512..54f4fad61359 100644
+--- a/drivers/gpu/drm/amd/amdkfd/kfd_device_queue_manager.h
++++ b/drivers/gpu/drm/amd/amdkfd/kfd_device_queue_manager.h
+@@ -237,6 +237,11 @@ int resume_queues(struct kfd_process *p,
+ 		uint32_t flags,
+ 		uint32_t *queue_ids);
+ 
++void set_queue_snapshot_entry(struct device_queue_manager *dqm,
++			      struct queue *q,
++			      int flags,
++			      struct kfd_queue_snapshot_entry *qss_entry);
++
+ static inline unsigned int get_sh_mem_bases_32(struct kfd_process_device *pdd)
+ {
+ 	return (pdd->lds_base >> 16) & 0xFF;
+diff --git a/drivers/gpu/drm/amd/amdkfd/kfd_priv.h b/drivers/gpu/drm/amd/amdkfd/kfd_priv.h
+index 5d3cffc9d0ec..b0965eaa327e 100644
+--- a/drivers/gpu/drm/amd/amdkfd/kfd_priv.h
++++ b/drivers/gpu/drm/amd/amdkfd/kfd_priv.h
+@@ -1055,6 +1055,11 @@ int pqm_get_wave_state(struct process_queue_manager *pqm,
+ 		       u32 *ctl_stack_used_size,
+ 		       u32 *save_area_used_size);
+ 
++int pqm_get_queue_snapshot(struct process_queue_manager *pqm,
++			   int flags,
++			   struct kfd_queue_snapshot_entry __user *buf,
++			   int num_qss_entries);
++
+ int amdkfd_fence_wait_timeout(unsigned int *fence_addr,
+ 				unsigned int fence_value,
+ 				unsigned int timeout_ms);
+diff --git a/drivers/gpu/drm/amd/amdkfd/kfd_process_queue_manager.c b/drivers/gpu/drm/amd/amdkfd/kfd_process_queue_manager.c
+index d47ab53d613b..a594945097a3 100644
+--- a/drivers/gpu/drm/amd/amdkfd/kfd_process_queue_manager.c
++++ b/drivers/gpu/drm/amd/amdkfd/kfd_process_queue_manager.c
+@@ -505,6 +505,42 @@ int pqm_get_wave_state(struct process_queue_manager *pqm,
+ 						       save_area_used_size);
+ }
+ 
++int pqm_get_queue_snapshot(struct process_queue_manager *pqm,
++			   int flags,
++			   struct kfd_queue_snapshot_entry __user *buf,
++			   int num_qss_entries)
++{
++	struct process_queue_node *pqn;
++	int r, qss_entry_count = 0;
++
++	mutex_lock(&pqm->process->event_mutex);
++
++	list_for_each_entry(pqn, &pqm->queues, process_queue_list) {
++		if (!pqn->q)
++			continue;
++
++		if (qss_entry_count < num_qss_entries) {
++
++			struct kfd_queue_snapshot_entry src = {0};
++
++			set_queue_snapshot_entry(pqn->q->device->dqm,
++						 pqn->q, flags, &src);
++
++			r = copy_to_user(buf++, &src, sizeof(src));
++
++			if (r) {
++				qss_entry_count = -EFAULT;
++				goto unlock;
++			}
++		}
++
++		qss_entry_count++;
++	}
++unlock:
++	mutex_unlock(&pqm->process->event_mutex);
++	return qss_entry_count;
++}
++
+ #if defined(CONFIG_DEBUG_FS)
+ 
+ int pqm_debugfs_mqds(struct seq_file *m, void *data)
+diff --git a/include/uapi/linux/kfd_ioctl.h b/include/uapi/linux/kfd_ioctl.h
+index 86805463e1d3..be91603f2c0f 100644
+--- a/include/uapi/linux/kfd_ioctl.h
++++ b/include/uapi/linux/kfd_ioctl.h
+@@ -91,6 +91,19 @@ struct kfd_ioctl_get_queue_wave_state_args {
+ 	__u32 pad;
+ };
+ 
++struct kfd_queue_snapshot_entry {
++	__u64 ring_base_address;
++	__u64 write_pointer_address;
++	__u64 read_pointer_address;
++	__u64 ctx_save_restore_address;
++	__u32 queue_id;
++	__u32 gpu_id;
++	__u32 ring_size;
++	__u32 queue_type;
++	__u32 queue_status;
++	__u32 reserved[19];
++};
++
+ /* For kfd_ioctl_set_memory_policy_args.default_policy and alternate_policy */
+ #define KFD_IOC_CACHE_POLICY_COHERENT 0
+ #define KFD_IOC_CACHE_POLICY_NONCOHERENT 1
+@@ -252,6 +265,14 @@ struct kfd_ioctl_dbg_wave_control_args {
+  */
+ #define KFD_IOC_DBG_TRAP_QUERY_DEBUG_EVENT 6
+ 
++/* KFD_IOC_DBG_TRAP_GET_QUEUE_SNAPSHOT:
++ * ptr: user buffer (IN)
++ * data1: flags (IN)
++ * data2: number of queue snapshots (IN/OUT) - 0 for IN ignores buffer writes
++ * data3: unused
++ */
++#define KFD_IOC_DBG_TRAP_GET_QUEUE_SNAPSHOT 7
++
+ struct kfd_ioctl_dbg_trap_args {
+ 	__u64 ptr;     /* to KFD -- used for pointer arguments: queue arrays */
+ 	__u32 pid;     /* to KFD */
+-- 
+2.17.1
+

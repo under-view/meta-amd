@@ -1,0 +1,60 @@
+From fc663a90c06aae37be13fc66ac880c64c49a33ff Mon Sep 17 00:00:00 2001
+From: Kent Russell <kent.russell@amd.com>
+Date: Fri, 23 Aug 2019 09:13:18 -0400
+Subject: [PATCH 3558/4256] drm/powerplay: Fix Vega20 power reading again
+
+For the 40.46 SMU release, they changed CurrSocketPower to
+AverageSocketPower, but this was changed back in 40.47 so just check if
+it's 40.46 and make the appropriate change
+
+Tested with 40.45, 40.46 and 40.47 successfully
+
+Change-Id: Icbbe6fd3381b8ad6298c2d0852a726ffac98f93a
+Signed-off-by: Kent Russell <kent.russell@amd.com>
+Reviewed-by: Alex Deucher <alexander.deucher@amd.com>
+---
+ drivers/gpu/drm/amd/powerplay/hwmgr/vega20_hwmgr.c | 7 ++++---
+ drivers/gpu/drm/amd/powerplay/vega20_ppt.c         | 7 ++++---
+ 2 files changed, 8 insertions(+), 6 deletions(-)
+
+diff --git a/drivers/gpu/drm/amd/powerplay/hwmgr/vega20_hwmgr.c b/drivers/gpu/drm/amd/powerplay/hwmgr/vega20_hwmgr.c
+index 9f50a12f5c03..98a6f5305974 100644
+--- a/drivers/gpu/drm/amd/powerplay/hwmgr/vega20_hwmgr.c
++++ b/drivers/gpu/drm/amd/powerplay/hwmgr/vega20_hwmgr.c
+@@ -2101,10 +2101,11 @@ static int vega20_get_gpu_power(struct pp_hwmgr *hwmgr,
+ 	if (ret)
+ 		return ret;
+ 
+-	if (hwmgr->smu_version < 0x282e00)
+-		*query = metrics_table.CurrSocketPower << 8;
+-	else
++	/* For the 40.46 release, they changed the value name */
++	if (hwmgr->smu_version == 0x282e00)
+ 		*query = metrics_table.AverageSocketPower << 8;
++	else
++		*query = metrics_table.CurrSocketPower << 8;
+ 
+ 	return ret;
+ }
+diff --git a/drivers/gpu/drm/amd/powerplay/vega20_ppt.c b/drivers/gpu/drm/amd/powerplay/vega20_ppt.c
+index 0fac824490d7..899bf96b23e1 100644
+--- a/drivers/gpu/drm/amd/powerplay/vega20_ppt.c
++++ b/drivers/gpu/drm/amd/powerplay/vega20_ppt.c
+@@ -2932,10 +2932,11 @@ static int vega20_get_gpu_power(struct smu_context *smu, uint32_t *value)
+ 	if (ret)
+ 		return ret;
+ 
+-	if (smu_version < 0x282e00)
+-		*value = metrics.CurrSocketPower << 8;
+-	else
++	/* For the 40.46 release, they changed the value name */
++	if (smu_version == 0x282e00)
+ 		*value = metrics.AverageSocketPower << 8;
++	else
++		*value = metrics.CurrSocketPower << 8;
+ 
+ 	return 0;
+ }
+-- 
+2.17.1
+

@@ -1,0 +1,30 @@
+From 72c9843c9b4acb53608e6453979e496fbe9e17ee Mon Sep 17 00:00:00 2001
+From: John Clements <John.Clements@amd.com>
+Date: Wed, 31 Jul 2019 16:11:38 +0800
+Subject: [PATCH 3259/4256] drm/amdgpu: removed duplicate line
+
+Remove duplicate break.
+
+Change-Id: I8da4b70bb2c84723075136597c2e5bcdee0ec560
+Signed-off-by: John Clements <John.Clements@amd.com>
+Reviewed-by: Hawking Zhang <Hawking.Zhang@amd.com>
+Signed-off-by: Alex Deucher <alexander.deucher@amd.com>
+---
+ drivers/gpu/drm/amd/amdgpu/gfx_v9_0.c | 1 -
+ 1 file changed, 1 deletion(-)
+
+diff --git a/drivers/gpu/drm/amd/amdgpu/gfx_v9_0.c b/drivers/gpu/drm/amd/amdgpu/gfx_v9_0.c
+index 6168d1df31d7..bc8f35853196 100644
+--- a/drivers/gpu/drm/amd/amdgpu/gfx_v9_0.c
++++ b/drivers/gpu/drm/amd/amdgpu/gfx_v9_0.c
+@@ -1330,7 +1330,6 @@ static int gfx_v9_0_init_microcode(struct amdgpu_device *adev)
+ 		else
+ 			chip_name = "raven";
+ 		break;
+-		break;
+ 	case CHIP_ARCTURUS:
+ 		chip_name = "arcturus";
+ 		break;
+-- 
+2.17.1
+

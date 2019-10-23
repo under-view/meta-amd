@@ -1,0 +1,31 @@
+From dd50154ed1be847716ca799e7c1cc1b6dca3960c Mon Sep 17 00:00:00 2001
+From: Alex Deucher <alexander.deucher@amd.com>
+Date: Wed, 21 Aug 2019 22:23:18 -0500
+Subject: [PATCH 3506/4256] drm/amdgpu/powerplay: silence a warning in
+ smu_v11_0_setup_pptable
+
+I think gcc is confused as I don't see how size could be used
+uninitialized, but go ahead and silence the warning.
+
+Reviewed-by: Evan Quan <evan.quan@amd.com>
+Signed-off-by: Alex Deucher <alexander.deucher@amd.com>
+---
+ drivers/gpu/drm/amd/powerplay/smu_v11_0.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/drivers/gpu/drm/amd/powerplay/smu_v11_0.c b/drivers/gpu/drm/amd/powerplay/smu_v11_0.c
+index 62bfde0ab0ee..1ec42903a250 100644
+--- a/drivers/gpu/drm/amd/powerplay/smu_v11_0.c
++++ b/drivers/gpu/drm/amd/powerplay/smu_v11_0.c
+@@ -359,7 +359,7 @@ static int smu_v11_0_setup_pptable(struct smu_context *smu)
+ 	struct amdgpu_device *adev = smu->adev;
+ 	const struct smc_firmware_header_v1_0 *hdr;
+ 	int ret, index;
+-	uint32_t size;
++	uint32_t size = 0;
+ 	uint16_t atom_table_size;
+ 	uint8_t frev, crev;
+ 	void *table;
+-- 
+2.17.1
+

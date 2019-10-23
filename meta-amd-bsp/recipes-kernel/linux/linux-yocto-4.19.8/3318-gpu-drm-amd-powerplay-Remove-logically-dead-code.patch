@@ -1,0 +1,32 @@
+From 73c809a562f9fea7f96a10486c0a366d2a922716 Mon Sep 17 00:00:00 2001
+From: Hariprasad Kelam <hariprasad.kelam@gmail.com>
+Date: Mon, 5 Aug 2019 22:51:38 +0530
+Subject: [PATCH 3318/4256] gpu: drm: amd: powerplay: Remove logically dead
+ code
+
+Result of pointer airthmentic is never null
+
+fix coverity defect:1451876
+
+Signed-off-by: Hariprasad Kelam <hariprasad.kelam@gmail.com>
+Signed-off-by: Alex Deucher <alexander.deucher@amd.com>
+---
+ drivers/gpu/drm/amd/powerplay/smu_v11_0.c | 2 --
+ 1 file changed, 2 deletions(-)
+
+diff --git a/drivers/gpu/drm/amd/powerplay/smu_v11_0.c b/drivers/gpu/drm/amd/powerplay/smu_v11_0.c
+index 2ddb4ec75305..c078bf4d522e 100644
+--- a/drivers/gpu/drm/amd/powerplay/smu_v11_0.c
++++ b/drivers/gpu/drm/amd/powerplay/smu_v11_0.c
+@@ -733,8 +733,6 @@ static int smu_v11_0_write_watermarks_table(struct smu_context *smu)
+ 	struct smu_table *table = NULL;
+ 
+ 	table = &smu_table->tables[SMU_TABLE_WATERMARKS];
+-	if (!table)
+-		return -EINVAL;
+ 
+ 	if (!table->cpu_addr)
+ 		return -EINVAL;
+-- 
+2.17.1
+

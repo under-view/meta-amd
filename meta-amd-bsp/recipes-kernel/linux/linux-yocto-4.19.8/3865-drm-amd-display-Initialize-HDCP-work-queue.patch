@@ -1,0 +1,104 @@
+From 7449b7794f2bfbf63c8347d2e82175447b17dd87 Mon Sep 17 00:00:00 2001
+From: Bhawanpreet Lakha <Bhawanpreet.Lakha@amd.com>
+Date: Fri, 24 May 2019 15:44:20 -0400
+Subject: [PATCH 3865/4256] drm/amd/display: Initialize HDCP work queue
+
+[Why]
+We need this to enable HDCP on linux, as we need events to interact
+with the hdcp module
+
+[How]
+Add work queue to display manager and handle the creation and destruction
+of the queue
+
+Signed-off-by: Bhawanpreet Lakha <Bhawanpreet.Lakha@amd.com>
+Reviewed-by: Harry Wentland <harry.wentland@amd.com>
+Signed-off-by: Alex Deucher <alexander.deucher@amd.com>
+---
+ .../gpu/drm/amd/display/amdgpu_dm/amdgpu_dm.c | 29 ++++++++++++++++++-
+ .../gpu/drm/amd/display/amdgpu_dm/amdgpu_dm.h |  3 ++
+ 2 files changed, 31 insertions(+), 1 deletion(-)
+
+diff --git a/drivers/gpu/drm/amd/display/amdgpu_dm/amdgpu_dm.c b/drivers/gpu/drm/amd/display/amdgpu_dm/amdgpu_dm.c
+index bc6389e13b12..f04b5798ce2c 100644
+--- a/drivers/gpu/drm/amd/display/amdgpu_dm/amdgpu_dm.c
++++ b/drivers/gpu/drm/amd/display/amdgpu_dm/amdgpu_dm.c
+@@ -37,6 +37,9 @@
+ #include "amdgpu_ucode.h"
+ #include "atom.h"
+ #include "amdgpu_dm.h"
++#ifdef CONFIG_DRM_AMD_DC_HDCP
++#include "amdgpu_dm_hdcp.h"
++#endif
+ #include "amdgpu_pm.h"
+ 
+ #include "amd_shared.h"
+@@ -644,11 +647,17 @@ void amdgpu_dm_audio_eld_notify(struct amdgpu_device *adev, int pin)
+ static int amdgpu_dm_init(struct amdgpu_device *adev)
+ {
+ 	struct dc_init_data init_data;
++#ifdef CONFIG_DRM_AMD_DC_HDCP
++	struct dc_callback_init init_params;
++#endif
+ 	adev->dm.ddev = adev->ddev;
+ 	adev->dm.adev = adev;
+ 
+ 	/* Zero all the fields */
+ 	memset(&init_data, 0, sizeof(init_data));
++#ifdef CONFIG_DRM_AMD_DC_HDCP
++        memset(&init_params, 0, sizeof(init_params));
++#endif
+ 
+ 	mutex_init(&adev->dm.dc_lock);
+ 	mutex_init(&adev->dm.audio_lock);
+@@ -763,7 +772,15 @@ static void amdgpu_dm_fini(struct amdgpu_device *adev)
+ 	amdgpu_dm_audio_fini(adev);
+ 
+ 	amdgpu_dm_destroy_drm_device(&adev->dm);
+-
++#ifdef CONFIG_DRM_AMD_DC_HDCP
++        if (adev->dm.hdcp_workqueue) {
++                hdcp_destroy(adev->dm.hdcp_workqueue);
++                adev->dm.hdcp_workqueue = NULL;
++       }
++
++        if (adev->dm.dc)
++                dc_deinit_callbacks(adev->dm.dc);
++#endif
+ 	/* DC Destroy TODO: Replace destroy DAL */
+ 	if (adev->dm.dc)
+ 		dc_destroy(&adev->dm.dc);
+@@ -2147,6 +2164,16 @@ amdgpu_dm_register_backlight_device(struct amdgpu_display_manager *dm)
+ 		DRM_DEBUG_DRIVER("DM: Registered Backlight device: %s\n", bl_name);
+ }
+ 
++#ifdef CONFIG_DRM_AMD_DC_HDCP
++	adev->dm.hdcp_workqueue = hdcp_create_workqueue(&adev->psp, &init_params.cp_psp, adev->dm.dc);
++
++	if (!adev->dm.hdcp_workqueue)
++		DRM_ERROR("amdgpu: failed to initialize hdcp_workqueue.\n");
++	else
++		DRM_DEBUG_DRIVER("amdgpu: hdcp_workqueue init done %p.\n", adev->dm.hdcp_workqueue);
++
++	dc_init_callbacks(adev->dm.dc, &init_params);
++#endif
+ #endif
+ 
+ static int initialize_plane(struct amdgpu_display_manager *dm,
+diff --git a/drivers/gpu/drm/amd/display/amdgpu_dm/amdgpu_dm.h b/drivers/gpu/drm/amd/display/amdgpu_dm/amdgpu_dm.h
+index c39ee21c290f..94ab7109447a 100644
+--- a/drivers/gpu/drm/amd/display/amdgpu_dm/amdgpu_dm.h
++++ b/drivers/gpu/drm/amd/display/amdgpu_dm/amdgpu_dm.h
+@@ -219,6 +219,9 @@ struct amdgpu_display_manager {
+ 	struct amdgpu_dm_backlight_caps backlight_caps;
+ 
+ 	struct mod_freesync *freesync_module;
++#ifdef CONFIG_DRM_AMD_DC_HDCP
++	struct hdcp_workqueue *hdcp_workqueue;
++#endif
+ 
+ 	struct drm_atomic_state *cached_state;
+ 
+-- 
+2.17.1
+

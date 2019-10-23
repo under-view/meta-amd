@@ -1,0 +1,29 @@
+From 9a4133c95cf46d258b5848970170e5169909c126 Mon Sep 17 00:00:00 2001
+From: Xiaojie Yuan <xiaojie.yuan@amd.com>
+Date: Thu, 16 May 2019 19:03:01 +0800
+Subject: [PATCH 3274/4256] drm/amdgpu/gfx10: set gfx cg for navi12
+
+Same as other navi asics.
+
+Signed-off-by: Xiaojie Yuan <xiaojie.yuan@amd.com>
+Reviewed-by: Hawking Zhang <Hawking.Zhang@amd.com>
+Signed-off-by: Alex Deucher <alexander.deucher@amd.com>
+---
+ drivers/gpu/drm/amd/amdgpu/gfx_v10_0.c | 1 +
+ 1 file changed, 1 insertion(+)
+
+diff --git a/drivers/gpu/drm/amd/amdgpu/gfx_v10_0.c b/drivers/gpu/drm/amd/amdgpu/gfx_v10_0.c
+index 8f4af2c49cf6..313009f11207 100644
+--- a/drivers/gpu/drm/amd/amdgpu/gfx_v10_0.c
++++ b/drivers/gpu/drm/amd/amdgpu/gfx_v10_0.c
+@@ -4145,6 +4145,7 @@ static int gfx_v10_0_set_clockgating_state(void *handle,
+ 	switch (adev->asic_type) {
+ 	case CHIP_NAVI10:
+ 	case CHIP_NAVI14:
++	case CHIP_NAVI12:
+ 		gfx_v10_0_update_gfx_clock_gating(adev,
+ 						 state == AMD_CG_STATE_GATE ? true : false);
+ 		break;
+-- 
+2.17.1
+

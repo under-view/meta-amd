@@ -1,0 +1,31 @@
+From a2b5c017df2546c6a51f5df90cc0ecbaff33dbf9 Mon Sep 17 00:00:00 2001
+From: Prike Liang <Prike.Liang@amd.com>
+Date: Fri, 2 Aug 2019 15:27:11 +0800
+Subject: [PATCH 3531/4256] drm/amdgpu: enable IH clock gating for rn
+
+Enable IH clock gating during IH block initialized.
+
+Signed-off-by: Prike Liang <Prike.Liang@amd.com>
+Reviewed-by: Alex Deucher <alexander.deucher@amd.com>
+Signed-off-by: Alex Deucher <alexander.deucher@amd.com>
+---
+ drivers/gpu/drm/amd/amdgpu/soc15.c | 3 ++-
+ 1 file changed, 2 insertions(+), 1 deletion(-)
+
+diff --git a/drivers/gpu/drm/amd/amdgpu/soc15.c b/drivers/gpu/drm/amd/amdgpu/soc15.c
+index 3b92da4ff69c..81dd1ac6086d 100644
+--- a/drivers/gpu/drm/amd/amdgpu/soc15.c
++++ b/drivers/gpu/drm/amd/amdgpu/soc15.c
+@@ -1168,7 +1168,8 @@ static int soc15_common_early_init(void *handle)
+ 				 AMD_CG_SUPPORT_BIF_LS |
+ 				 AMD_CG_SUPPORT_HDP_LS |
+ 				 AMD_CG_SUPPORT_ROM_MGCG |
+-				 AMD_CG_SUPPORT_VCN_MGCG;
++				 AMD_CG_SUPPORT_VCN_MGCG |
++				 AMD_CG_SUPPORT_IH_CG;
+ 		adev->pg_flags = 0;
+ 		adev->external_rev_id = adev->rev_id + 0x91;
+ 
+-- 
+2.17.1
+

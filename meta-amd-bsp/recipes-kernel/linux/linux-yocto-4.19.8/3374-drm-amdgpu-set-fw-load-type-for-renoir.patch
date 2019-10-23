@@ -1,0 +1,31 @@
+From 17f648a26fa401f86cca0311dc01076341c88e50 Mon Sep 17 00:00:00 2001
+From: Huang Rui <ray.huang@amd.com>
+Date: Wed, 24 Jul 2019 13:43:16 -0500
+Subject: [PATCH 3374/4256] drm/amdgpu: set fw load type for renoir
+
+This patch sets fw load type as direct for renoir for the moment.
+Will switch to psp when psp is ready.
+
+Acked-by: Huang Rui <ray.huang@amd.com>
+Signed-off-by: Huang Rui <ray.huang@amd.com>
+Reviewed-by: Hawking Zhang <Hawking.Zhang@amd.com>
+Signed-off-by: Alex Deucher <alexander.deucher@amd.com>
+---
+ drivers/gpu/drm/amd/amdgpu/amdgpu_ucode.c | 1 +
+ 1 file changed, 1 insertion(+)
+
+diff --git a/drivers/gpu/drm/amd/amdgpu/amdgpu_ucode.c b/drivers/gpu/drm/amd/amdgpu/amdgpu_ucode.c
+index 6185ba0730a8..f6bce50e2b09 100644
+--- a/drivers/gpu/drm/amd/amdgpu/amdgpu_ucode.c
++++ b/drivers/gpu/drm/amd/amdgpu/amdgpu_ucode.c
+@@ -368,6 +368,7 @@ amdgpu_ucode_get_load_type(struct amdgpu_device *adev, int load_type)
+ 		else
+ 			return AMDGPU_FW_LOAD_PSP;
+ 	case CHIP_ARCTURUS:
++	case CHIP_RENOIR:
+ 		return AMDGPU_FW_LOAD_DIRECT;
+ 	default:
+ 		DRM_ERROR("Unknown firmware load type\n");
+-- 
+2.17.1
+

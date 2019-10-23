@@ -1,0 +1,29 @@
+From ab54a0488ebc25134d389f3532e0fd0618a39e50 Mon Sep 17 00:00:00 2001
+From: Alex Deucher <alexander.deucher@amd.com>
+Date: Mon, 26 Aug 2019 13:52:25 -0500
+Subject: [PATCH 3617/4256] drm/amdgpu: fix a warning in smu11 i2c code
+
+make sure reg is initialized in smu_v11_0_i2c_set_clock_gating.
+
+Reviewed-by: Andrey Grodzovsky <andrey.grodzovsky@amd.com>
+Signed-off-by: Alex Deucher <alexander.deucher@amd.com>
+---
+ drivers/gpu/drm/amd/amdgpu/smu_v11_0_i2c.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/drivers/gpu/drm/amd/amdgpu/smu_v11_0_i2c.c b/drivers/gpu/drm/amd/amdgpu/smu_v11_0_i2c.c
+index 4cfcef0feff8..7d0d4c57b315 100644
+--- a/drivers/gpu/drm/amd/amdgpu/smu_v11_0_i2c.c
++++ b/drivers/gpu/drm/amd/amdgpu/smu_v11_0_i2c.c
+@@ -50,7 +50,7 @@
+ static void smu_v11_0_i2c_set_clock_gating(struct i2c_adapter *control, bool en)
+ {
+ 	struct amdgpu_device *adev = to_amdgpu_device(control);
+-	uint32_t reg;
++	uint32_t reg = RREG32_SOC15(SMUIO, 0, mmSMUIO_PWRMGT);
+ 
+ 	reg = REG_SET_FIELD(reg, SMUIO_PWRMGT, i2c_clk_gate_en, en ? 1 : 0);
+ 	WREG32_SOC15(SMUIO, 0, mmSMUIO_PWRMGT, reg);
+-- 
+2.17.1
+

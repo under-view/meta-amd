@@ -1,0 +1,77 @@
+From 8481e79de033e64e283b0346ea346db86ceb6c19 Mon Sep 17 00:00:00 2001
+From: Dennis Li <Dennis.Li@amd.com>
+Date: Wed, 31 Jul 2019 20:45:50 +0800
+Subject: [PATCH 3219/4256] drm/amdgpu: support gfx ras error injection and
+ err_cnt query
+
+check gfx error count in both ras querry function and
+ras interrupt handler.
+
+gfx ras is still disabled by default due to known stability
+issue found in gpu reset.
+
+Signed-off-by: Dennis Li <Dennis.Li@amd.com>
+Reviewed-by: Tao Zhou <tao.zhou1@amd.com>
+Reviewed-by: Hawking Zhang <Hawking.Zhang@amd.com>
+---
+ drivers/gpu/drm/amd/amdgpu/amdgpu_ras.c | 19 ++++++++++++++++---
+ drivers/gpu/drm/amd/amdgpu/gfx_v9_0.c   |  2 ++
+ 2 files changed, 18 insertions(+), 3 deletions(-)
+
+diff --git a/drivers/gpu/drm/amd/amdgpu/amdgpu_ras.c b/drivers/gpu/drm/amd/amdgpu/amdgpu_ras.c
+index ccd5863bca88..a96b0f17c619 100644
+--- a/drivers/gpu/drm/amd/amdgpu/amdgpu_ras.c
++++ b/drivers/gpu/drm/amd/amdgpu/amdgpu_ras.c
+@@ -600,6 +600,10 @@ int amdgpu_ras_error_query(struct amdgpu_device *adev,
+ 		if (adev->umc.funcs->query_ras_error_count)
+ 			adev->umc.funcs->query_ras_error_count(adev, &err_data);
+ 		break;
++	case AMDGPU_RAS_BLOCK__GFX:
++		if (adev->gfx.funcs->query_ras_error_count)
++			adev->gfx.funcs->query_ras_error_count(adev, &err_data);
++		break;
+ 	default:
+ 		break;
+ 	}
+@@ -637,13 +641,22 @@ int amdgpu_ras_error_inject(struct amdgpu_device *adev,
+ 	if (!obj)
+ 		return -EINVAL;
+ 
+-	if (block_info.block_id != TA_RAS_BLOCK__UMC) {
++	switch (info->head.block) {
++	case AMDGPU_RAS_BLOCK__GFX:
++		if (adev->gfx.funcs->ras_error_inject)
++			ret = adev->gfx.funcs->ras_error_inject(adev, info);
++		else
++			ret = -EINVAL;
++		break;
++	case AMDGPU_RAS_BLOCK__UMC:
++		ret = psp_ras_trigger_error(&adev->psp, &block_info);
++		break;
++	default:
+ 		DRM_INFO("%s error injection is not supported yet\n",
+ 			 ras_block_str(info->head.block));
+-		return -EINVAL;
++		ret = -EINVAL;
+ 	}
+ 
+-	ret = psp_ras_trigger_error(&adev->psp, &block_info);
+ 	if (ret)
+ 		DRM_ERROR("RAS ERROR: inject %s error failed ret %d\n",
+ 				ras_block_str(info->head.block),
+diff --git a/drivers/gpu/drm/amd/amdgpu/gfx_v9_0.c b/drivers/gpu/drm/amd/amdgpu/gfx_v9_0.c
+index 371abcdccb32..738eb477f775 100644
+--- a/drivers/gpu/drm/amd/amdgpu/gfx_v9_0.c
++++ b/drivers/gpu/drm/amd/amdgpu/gfx_v9_0.c
+@@ -5618,6 +5618,8 @@ static int gfx_v9_0_process_ras_data_cb(struct amdgpu_device *adev,
+ {
+ 	/* TODO ue will trigger an interrupt. */
+ 	kgd2kfd_set_sram_ecc_flag(adev->kfd.dev);
++	if (adev->gfx.funcs->query_ras_error_count)
++		adev->gfx.funcs->query_ras_error_count(adev, err_data);
+ 	amdgpu_ras_reset_gpu(adev, 0);
+ 	return AMDGPU_RAS_UE;
+ }
+-- 
+2.17.1
+

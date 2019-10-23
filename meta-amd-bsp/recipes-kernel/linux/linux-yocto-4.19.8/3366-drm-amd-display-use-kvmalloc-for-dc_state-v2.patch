@@ -1,0 +1,57 @@
+From 883bc9f7e09949638a8292489a27be34bfe771f0 Mon Sep 17 00:00:00 2001
+From: Alex Deucher <alexander.deucher@amd.com>
+Date: Thu, 8 Aug 2019 00:29:23 -0500
+Subject: [PATCH 3366/4256] drm/amd/display: use kvmalloc for dc_state (v2)
+
+It's large and doesn't need contiguous memory.  Fixes
+allocation failures in some cases.
+
+v2: kvfree the memory.
+
+Reviewed-by: Andrey Grodzovsky <andrey.grodzovsky@amd.com>
+Signed-off-by: Alex Deucher <alexander.deucher@amd.com>
+---
+ drivers/gpu/drm/amd/display/dc/core/dc.c | 10 +++++-----
+ 1 file changed, 5 insertions(+), 5 deletions(-)
+
+diff --git a/drivers/gpu/drm/amd/display/dc/core/dc.c b/drivers/gpu/drm/amd/display/dc/core/dc.c
+index bc48e8e6ce4d..51653834dab6 100644
+--- a/drivers/gpu/drm/amd/display/dc/core/dc.c
++++ b/drivers/gpu/drm/amd/display/dc/core/dc.c
+@@ -1193,8 +1193,8 @@ bool dc_post_update_surfaces_to_stream(struct dc *dc)
+ 
+ struct dc_state *dc_create_state(struct dc *dc)
+ {
+-	struct dc_state *context = kzalloc(sizeof(struct dc_state),
+-					   GFP_KERNEL);
++	struct dc_state *context = kvzalloc(sizeof(struct dc_state),
++					    GFP_KERNEL);
+ 
+ 	if (!context)
+ 		return NULL;
+@@ -1214,11 +1214,11 @@ struct dc_state *dc_create_state(struct dc *dc)
+ struct dc_state *dc_copy_state(struct dc_state *src_ctx)
+ {
+ 	int i, j;
+-	struct dc_state *new_ctx = kmemdup(src_ctx,
+-			sizeof(struct dc_state), GFP_KERNEL);
++	struct dc_state *new_ctx = kvmalloc(sizeof(struct dc_state), GFP_KERNEL);
+ 
+ 	if (!new_ctx)
+ 		return NULL;
++	memcpy(new_ctx, src_ctx, sizeof(struct dc_state));
+ 
+ 	for (i = 0; i < MAX_PIPES; i++) {
+ 			struct pipe_ctx *cur_pipe = &new_ctx->res_ctx.pipe_ctx[i];
+@@ -1252,7 +1252,7 @@ static void dc_state_free(struct kref *kref)
+ {
+ 	struct dc_state *context = container_of(kref, struct dc_state, refcount);
+ 	dc_resource_state_destruct(context);
+-	kfree(context);
++	kvfree(context);
+ }
+ 
+ void dc_release_state(struct dc_state *context)
+-- 
+2.17.1
+

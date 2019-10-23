@@ -1,0 +1,75 @@
+From 6426b4c5639b36f5f9e82f349c98bc12f185f286 Mon Sep 17 00:00:00 2001
+From: Hawking Zhang <Hawking.Zhang@amd.com>
+Date: Sat, 31 Aug 2019 14:20:38 +0800
+Subject: [PATCH 3697/4256] drm/amdgpu: fix memory leak when ras is not
+ supported on specific ip block
+
+free ras_if if ras is not supported
+
+Signed-off-by: Hawking Zhang <Hawking.Zhang@amd.com>
+Reviewed-by: Tao Zhou <tao.zhou1@amd.com>
+---
+ drivers/gpu/drm/amd/amdgpu/gfx_v9_0.c   | 3 ++-
+ drivers/gpu/drm/amd/amdgpu/gmc_v9_0.c   | 3 ++-
+ drivers/gpu/drm/amd/amdgpu/mmhub_v1_0.c | 2 +-
+ drivers/gpu/drm/amd/amdgpu/sdma_v4_0.c  | 3 ++-
+ 4 files changed, 7 insertions(+), 4 deletions(-)
+
+diff --git a/drivers/gpu/drm/amd/amdgpu/gfx_v9_0.c b/drivers/gpu/drm/amd/amdgpu/gfx_v9_0.c
+index 3f0081ca45e3..384fc226ecb5 100644
+--- a/drivers/gpu/drm/amd/amdgpu/gfx_v9_0.c
++++ b/drivers/gpu/drm/amd/amdgpu/gfx_v9_0.c
+@@ -4442,7 +4442,8 @@ static int gfx_v9_0_ecc_late_init(void *handle)
+ 		r = amdgpu_irq_get(adev, &adev->gfx.cp_ecc_error_irq, 0);
+ 		if (r)
+ 			goto late_fini;
+-	}
++	} else
++		kfree(adev->gfx.ras_if);
+ 
+ 	return 0;
+ late_fini:
+diff --git a/drivers/gpu/drm/amd/amdgpu/gmc_v9_0.c b/drivers/gpu/drm/amd/amdgpu/gmc_v9_0.c
+index 81352d01fbee..4a19647edfea 100644
+--- a/drivers/gpu/drm/amd/amdgpu/gmc_v9_0.c
++++ b/drivers/gpu/drm/amd/amdgpu/gmc_v9_0.c
+@@ -793,7 +793,8 @@ static int gmc_v9_0_ecc_late_init(void *handle)
+ 		r = amdgpu_irq_get(adev, &adev->gmc.ecc_irq, 0);
+ 		if (r)
+ 			goto umc_late_fini;
+-	}
++	} else
++		kfree(adev->gmc.umc_ras_if);
+ 
+ 	if (adev->mmhub_funcs && adev->mmhub_funcs->ras_late_init) {
+ 		r = adev->mmhub_funcs->ras_late_init(adev);
+diff --git a/drivers/gpu/drm/amd/amdgpu/mmhub_v1_0.c b/drivers/gpu/drm/amd/amdgpu/mmhub_v1_0.c
+index 5793d56fc7ea..ece27e27658f 100644
+--- a/drivers/gpu/drm/amd/amdgpu/mmhub_v1_0.c
++++ b/drivers/gpu/drm/amd/amdgpu/mmhub_v1_0.c
+@@ -639,7 +639,7 @@ static int mmhub_v1_0_ras_late_init(struct amdgpu_device *adev)
+ 	mmhub_ih_info.head = mmhub_fs_info.head = *adev->gmc.mmhub_ras_if;
+ 	r = amdgpu_ras_late_init(adev, adev->gmc.mmhub_ras_if,
+ 				 &mmhub_fs_info, &mmhub_ih_info);
+-	if (r)
++	if (r || !amdgpu_ras_is_supported(adev, adev->gmc.mmhub_ras_if->block))
+ 		kfree(adev->gmc.mmhub_ras_if);
+ 	return r;
+ }
+diff --git a/drivers/gpu/drm/amd/amdgpu/sdma_v4_0.c b/drivers/gpu/drm/amd/amdgpu/sdma_v4_0.c
+index abad7f14610b..72840582f716 100644
+--- a/drivers/gpu/drm/amd/amdgpu/sdma_v4_0.c
++++ b/drivers/gpu/drm/amd/amdgpu/sdma_v4_0.c
+@@ -1727,7 +1727,8 @@ static int sdma_v4_0_late_init(void *handle)
+ 			if (r)
+ 				goto late_fini;
+ 		}
+-	}
++	} else
++		kfree(adev->sdma.ras_if);
+ 
+         return 0;
+ late_fini:
+-- 
+2.17.1
+

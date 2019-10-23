@@ -1,0 +1,34 @@
+From 0d402e03c13734d266ec1fff9ea900a404f4aee9 Mon Sep 17 00:00:00 2001
+From: Dmytro Laktyushkin <Dmytro.Laktyushkin@amd.com>
+Date: Thu, 30 May 2019 15:47:51 -0400
+Subject: [PATCH 3013/4256] drm/amd/display: fix dsc disable
+
+A regression caused dsc to never get disabled in certain situations.
+
+Signed-off-by: Dmytro Laktyushkin <Dmytro.Laktyushkin@amd.com>
+Reviewed-by: Nikola Cornij <Nikola.Cornij@amd.com>
+Acked-by: Leo Li <sunpeng.li@amd.com>
+---
+ drivers/gpu/drm/amd/display/dc/dcn20/dcn20_hwseq.c | 5 ++++-
+ 1 file changed, 4 insertions(+), 1 deletion(-)
+
+diff --git a/drivers/gpu/drm/amd/display/dc/dcn20/dcn20_hwseq.c b/drivers/gpu/drm/amd/display/dc/dcn20/dcn20_hwseq.c
+index 6925d25d2457..45f9dad95644 100644
+--- a/drivers/gpu/drm/amd/display/dc/dcn20/dcn20_hwseq.c
++++ b/drivers/gpu/drm/amd/display/dc/dcn20/dcn20_hwseq.c
+@@ -1715,8 +1715,11 @@ static void dcn20_reset_back_end_for_pipe(
+ 		else if (pipe_ctx->stream_res.audio) {
+ 			dc->hwss.disable_audio_stream(pipe_ctx, FREE_ACQUIRED_RESOURCE);
+ 		}
+-
+ 	}
++#ifdef CONFIG_DRM_AMD_DC_DSC_SUPPORT
++	else if (pipe_ctx->stream_res.dsc)
++		dp_set_dsc_enable(pipe_ctx, false);
++#endif
+ 
+ 	/* by upper caller loop, parent pipe: pipe0, will be reset last.
+ 	 * back end share by all pipes and will be disable only when disable
+-- 
+2.17.1
+

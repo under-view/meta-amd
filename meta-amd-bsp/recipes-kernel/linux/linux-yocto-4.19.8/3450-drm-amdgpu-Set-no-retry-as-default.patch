@@ -1,0 +1,38 @@
+From 98fa0937670ded8ef5ea3a1b571cd6dd39f04c9f Mon Sep 17 00:00:00 2001
+From: Feifei Xu <Feifei.Xu@amd.com>
+Date: Fri, 16 Aug 2019 11:08:52 +0800
+Subject: [PATCH 3450/4256] drm/amdgpu: Set no-retry as default.
+
+This is to improve performance.
+
+Signed-off-by: Feifei Xu <Feifei.Xu@amd.com>
+Tested-by: Candice Li <candice.li@amd.com>
+---
+ drivers/gpu/drm/amd/amdgpu/amdgpu_drv.c | 4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
+
+diff --git a/drivers/gpu/drm/amd/amdgpu/amdgpu_drv.c b/drivers/gpu/drm/amd/amdgpu/amdgpu_drv.c
+index 73d5ede4329d..0db64bcbe22e 100644
+--- a/drivers/gpu/drm/amd/amdgpu/amdgpu_drv.c
++++ b/drivers/gpu/drm/amd/amdgpu/amdgpu_drv.c
+@@ -146,7 +146,7 @@ int amdgpu_async_gfx_ring = 1;
+ int amdgpu_mcbp = 0;
+ int amdgpu_discovery = -1;
+ int amdgpu_mes = 0;
+-int amdgpu_noretry;
++int amdgpu_noretry = 1;
+ 
+ struct amdgpu_mgpu_info mgpu_info = {
+ 	.mutex = __MUTEX_INITIALIZER(mgpu_info.mutex),
+@@ -623,7 +623,7 @@ MODULE_PARM_DESC(mes,
+ module_param_named(mes, amdgpu_mes, int, 0444);
+ 
+ MODULE_PARM_DESC(noretry,
+-	"Disable retry faults (0 = retry enabled (default), 1 = retry disabled)");
++	"Disable retry faults (0 = retry enabled, 1 = retry disabled (default))");
+ module_param_named(noretry, amdgpu_noretry, int, 0644);
+ 
+ #ifdef CONFIG_HSA_AMD
+-- 
+2.17.1
+

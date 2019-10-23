@@ -1,0 +1,28 @@
+From 5a183f691f07e7bfa577d3860f066c9903bb1abd Mon Sep 17 00:00:00 2001
+From: Alex Deucher <alexander.deucher@amd.com>
+Date: Mon, 19 Aug 2019 08:30:38 -0500
+Subject: [PATCH 3761/4256] drm/amdgpu/psp: fix warning in switch statement
+
+Trivial.
+
+Signed-off-by: Alex Deucher <alexander.deucher@amd.com>
+---
+ drivers/gpu/drm/amd/amdgpu/amdgpu_psp.c | 2 ++
+ 1 file changed, 2 insertions(+)
+
+diff --git a/drivers/gpu/drm/amd/amdgpu/amdgpu_psp.c b/drivers/gpu/drm/amd/amdgpu/amdgpu_psp.c
+index b45216c37aeb..a49b4ccd611e 100644
+--- a/drivers/gpu/drm/amd/amdgpu/amdgpu_psp.c
++++ b/drivers/gpu/drm/amd/amdgpu/amdgpu_psp.c
+@@ -985,6 +985,8 @@ static void psp_print_fw_hdr(struct psp_context *psp,
+ 		hdr = (struct common_firmware_header *)adev->pm.fw->data;
+ 		amdgpu_ucode_print_smc_hdr(hdr);
+ 		break;
++	default:
++		break;
+ 	}
+ }
+ 
+-- 
+2.17.1
+

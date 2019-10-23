@@ -1,0 +1,83 @@
+From 766ec49917d91473e96859b4b36ec64c1a1212c2 Mon Sep 17 00:00:00 2001
+From: Nicholas Kazlauskas <nicholas.kazlauskas@amd.com>
+Date: Fri, 5 Jul 2019 16:54:28 -0400
+Subject: [PATCH 3099/4256] drm/amd/display: Force uclk to max for every state
+
+Workaround for now to avoid underflow.
+
+The uclk switch time should really be bumped up to 404, but doing so
+would expose p-state hang issues for higher bandwidth display
+configurations.
+
+Signed-off-by: Nicholas Kazlauskas <nicholas.kazlauskas@amd.com>
+Signed-off-by: Leo Li <sunpeng.li@amd.com>
+Reviewed-by: Zhan Liu <Zhan.Liu@amd.com>
+---
+ .../gpu/drm/amd/display/amdgpu_dm/amdgpu_dm_pp_smu.c   |  6 +++---
+ drivers/gpu/drm/amd/display/dc/dcn20/dcn20_resource.c  | 10 ++++++++++
+ 2 files changed, 13 insertions(+), 3 deletions(-)
+
+diff --git a/drivers/gpu/drm/amd/display/amdgpu_dm/amdgpu_dm_pp_smu.c b/drivers/gpu/drm/amd/display/amdgpu_dm/amdgpu_dm_pp_smu.c
+index e0f1bd32567d..7bc7abcf3db1 100644
+--- a/drivers/gpu/drm/amd/display/amdgpu_dm/amdgpu_dm_pp_smu.c
++++ b/drivers/gpu/drm/amd/display/amdgpu_dm/amdgpu_dm_pp_smu.c
+@@ -912,11 +912,11 @@ void dm_pp_get_funcs(
+ 		/* todo set_pme_wa_enable cause 4k@6ohz display not light up */
+ 		funcs->nv_funcs.set_pme_wa_enable = NULL;
+ 		/* todo debug waring message */
+-		funcs->nv_funcs.set_hard_min_uclk_by_freq = NULL;
++		funcs->nv_funcs.set_hard_min_uclk_by_freq = pp_nv_set_hard_min_uclk_by_freq;
+ 		/* todo  compare data with window driver*/
+-		funcs->nv_funcs.get_maximum_sustainable_clocks = NULL;
++		funcs->nv_funcs.get_maximum_sustainable_clocks = pp_nv_get_maximum_sustainable_clocks;
+ 		/*todo  compare data with window driver */
+-		funcs->nv_funcs.get_uclk_dpm_states = NULL;
++		funcs->nv_funcs.get_uclk_dpm_states = pp_nv_get_uclk_dpm_states;
+ 		break;
+ #endif
+ 	default:
+diff --git a/drivers/gpu/drm/amd/display/dc/dcn20/dcn20_resource.c b/drivers/gpu/drm/amd/display/dc/dcn20/dcn20_resource.c
+index 2cf788a3704e..44537651f0a1 100644
+--- a/drivers/gpu/drm/amd/display/dc/dcn20/dcn20_resource.c
++++ b/drivers/gpu/drm/amd/display/dc/dcn20/dcn20_resource.c
+@@ -2707,6 +2707,9 @@ static void cap_soc_clocks(
+ 						&& max_clocks.uClockInKhz != 0)
+ 			bb->clock_limits[i].dram_speed_mts = (max_clocks.uClockInKhz / 1000) * 16;
+ 
++		// HACK: Force every uclk to max for now to "disable" uclk switching.
++		bb->clock_limits[i].dram_speed_mts = (max_clocks.uClockInKhz / 1000) * 16;
++
+ 		if ((bb->clock_limits[i].fabricclk_mhz > (max_clocks.fabricClockInKhz / 1000))
+ 						&& max_clocks.fabricClockInKhz != 0)
+ 			bb->clock_limits[i].fabricclk_mhz = (max_clocks.fabricClockInKhz / 1000);
+@@ -2922,6 +2925,8 @@ static bool init_soc_bounding_box(struct dc *dc,
+ 				le32_to_cpu(bb->vmm_page_size_bytes);
+ 		dcn2_0_soc.dram_clock_change_latency_us =
+ 				fixed16_to_double_to_cpu(bb->dram_clock_change_latency_us);
++		// HACK!! Lower uclock latency switch time so we don't switch
++		dcn2_0_soc.dram_clock_change_latency_us = 10;
+ 		dcn2_0_soc.writeback_dram_clock_change_latency_us =
+ 				fixed16_to_double_to_cpu(bb->writeback_dram_clock_change_latency_us);
+ 		dcn2_0_soc.return_bus_width_bytes =
+@@ -2963,6 +2968,7 @@ static bool init_soc_bounding_box(struct dc *dc,
+ 		struct pp_smu_nv_clock_table max_clocks = {0};
+ 		unsigned int uclk_states[8] = {0};
+ 		unsigned int num_states = 0;
++		int i;
+ 		enum pp_smu_status status;
+ 		bool clock_limits_available = false;
+ 		bool uclk_states_available = false;
+@@ -2984,6 +2990,10 @@ static bool init_soc_bounding_box(struct dc *dc,
+ 			clock_limits_available = (status == PP_SMU_RESULT_OK);
+ 		}
+ 
++		// HACK: Use the max uclk_states value for all elements.
++		for (i = 0; i < num_states; i++)
++			uclk_states[i] = uclk_states[num_states - 1];
++
+ 		if (clock_limits_available && uclk_states_available && num_states)
+ 			update_bounding_box(dc, &dcn2_0_soc, &max_clocks, uclk_states, num_states);
+ 		else if (clock_limits_available)
+-- 
+2.17.1
+

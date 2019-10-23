@@ -1,0 +1,32 @@
+From 4bd5c54c2e48773c11225c12af4da663f53b2a47 Mon Sep 17 00:00:00 2001
+From: Andrey Grodzovsky <andrey.grodzovsky@amd.com>
+Date: Fri, 2 Aug 2019 16:48:08 -0400
+Subject: [PATCH 3315/4256] drm/amdgpu: Fix GPU reset crash regression.
+
+amdgpu_ip_block.status.hw for GMC wasn't set to
+false on suspend during GPU reset and so on resume gmc_v9_0_resume
+wasn't called.
+Caused by 'drm/amdgpu: fix double ucode load by PSP(v3)'
+
+Signed-off-by: Andrey Grodzovsky <andrey.grodzovsky@amd.com>
+Reviewed-by: Alex Deucher <alexander.deucher@amd.com>
+---
+ drivers/gpu/drm/amd/amdgpu/amdgpu_device.c | 2 ++
+ 1 file changed, 2 insertions(+)
+
+diff --git a/drivers/gpu/drm/amd/amdgpu/amdgpu_device.c b/drivers/gpu/drm/amd/amdgpu/amdgpu_device.c
+index 6a9b14e68e6e..1f88222d007d 100644
+--- a/drivers/gpu/drm/amd/amdgpu/amdgpu_device.c
++++ b/drivers/gpu/drm/amd/amdgpu/amdgpu_device.c
+@@ -2257,6 +2257,8 @@ static int amdgpu_device_ip_suspend_phase2(struct amdgpu_device *adev)
+ 				}
+ 			}
+ 		}
++
++		adev->ip_blocks[i].status.hw = false;
+ 	}
+ 
+ 	return 0;
+-- 
+2.17.1
+

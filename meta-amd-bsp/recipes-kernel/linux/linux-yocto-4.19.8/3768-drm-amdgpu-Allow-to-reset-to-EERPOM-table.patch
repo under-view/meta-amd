@@ -1,0 +1,71 @@
+From 2f862e4caa1c7df5ed6a3254a7c925f0dcbf357f Mon Sep 17 00:00:00 2001
+From: Andrey Grodzovsky <andrey.grodzovsky@amd.com>
+Date: Mon, 9 Sep 2019 16:00:56 -0400
+Subject: [PATCH 3768/4256] drm/amdgpu: Allow to reset to EERPOM table.
+
+The table grows quickly during debug/development effort when
+multiple RAS errors are injected. Allow to avoid this by setting
+table header back to empty if needed.
+
+v2: Switch to debugfs entry instead of load time parameter.
+
+Signed-off-by: Andrey Grodzovsky <andrey.grodzovsky@amd.com>
+Reviewed-by: Tao Zhou <tao.zhou1@amd.com>
+Reviewed-by: Guchun Chen <guchun.chen@amd.com>
+---
+ drivers/gpu/drm/amd/amdgpu/amdgpu_ras.c | 25 +++++++++++++++++++++++++
+ 1 file changed, 25 insertions(+)
+
+diff --git a/drivers/gpu/drm/amd/amdgpu/amdgpu_ras.c b/drivers/gpu/drm/amd/amdgpu/amdgpu_ras.c
+index a9aba06c9452..656e364a473d 100644
+--- a/drivers/gpu/drm/amd/amdgpu/amdgpu_ras.c
++++ b/drivers/gpu/drm/amd/amdgpu/amdgpu_ras.c
+@@ -303,6 +303,22 @@ static ssize_t amdgpu_ras_debugfs_ctrl_write(struct file *f, const char __user *
+ 	return size;
+ }
+ 
++/**
++ * DOC: AMDGPU RAS debugfs EEPROM table reset interface
++ *
++ * Usage: echo 1 > ../ras/ras_eeprom_reset will reset EEPROM table to 0 entries.
++ */
++static ssize_t amdgpu_ras_debugfs_eeprom_write(struct file *f, const char __user *buf,
++		size_t size, loff_t *pos)
++{
++	struct amdgpu_device *adev = (struct amdgpu_device *)file_inode(f)->i_private;
++	int ret;
++
++	ret = amdgpu_ras_eeprom_reset_table(&adev->psp.ras.ras->eeprom_control);
++
++	return ret == 1 ? size : -EIO;
++}
++
+ static const struct file_operations amdgpu_ras_debugfs_ctrl_ops = {
+ 	.owner = THIS_MODULE,
+ 	.read = NULL,
+@@ -310,6 +326,13 @@ static const struct file_operations amdgpu_ras_debugfs_ctrl_ops = {
+ 	.llseek = default_llseek
+ };
+ 
++static const struct file_operations amdgpu_ras_debugfs_eeprom_ops = {
++	.owner = THIS_MODULE,
++	.read = NULL,
++	.write = amdgpu_ras_debugfs_eeprom_write,
++	.llseek = default_llseek
++};
++
+ static ssize_t amdgpu_ras_sysfs_read(struct device *dev,
+ 		struct device_attribute *attr, char *buf)
+ {
+@@ -951,6 +974,8 @@ static void amdgpu_ras_debugfs_create_ctrl_node(struct amdgpu_device *adev)
+ 	con->dir = debugfs_create_dir("ras", minor->debugfs_root);
+ 	con->ent = debugfs_create_file("ras_ctrl", S_IWUGO | S_IRUGO, con->dir,
+ 				       adev, &amdgpu_ras_debugfs_ctrl_ops);
++	con->ent = debugfs_create_file("ras_eeprom_reset", S_IWUGO | S_IRUGO, con->dir,
++					       adev, &amdgpu_ras_debugfs_eeprom_ops);
+ }
+ 
+ void amdgpu_ras_debugfs_create(struct amdgpu_device *adev,
+-- 
+2.17.1
+

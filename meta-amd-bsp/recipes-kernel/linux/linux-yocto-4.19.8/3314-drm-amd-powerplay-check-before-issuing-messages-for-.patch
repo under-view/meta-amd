@@ -1,0 +1,36 @@
+From 0e0f7c9591c5808ddd116f7c95eda56435f21229 Mon Sep 17 00:00:00 2001
+From: Evan Quan <evan.quan@amd.com>
+Date: Tue, 6 Aug 2019 16:14:22 +0800
+Subject: [PATCH 3314/4256] drm/amd/powerplay: check before issuing messages
+ for max sustainable clocks
+
+Those messages are not supported on Arcturus and should not be
+issued.
+
+Affected ASIC: Arcturus
+
+Change-Id: I391099fc28e00356234fd2ae7b68f5861fd4c147
+Signed-off-by: Evan Quan <evan.quan@amd.com>
+Reviewed-by: Feifei Xu <Feifei.Xu@amd.com>
+---
+ drivers/gpu/drm/amd/powerplay/smu_v11_0.c | 4 ++++
+ 1 file changed, 4 insertions(+)
+
+diff --git a/drivers/gpu/drm/amd/powerplay/smu_v11_0.c b/drivers/gpu/drm/amd/powerplay/smu_v11_0.c
+index 84eb14a6650f..2ddb4ec75305 100644
+--- a/drivers/gpu/drm/amd/powerplay/smu_v11_0.c
++++ b/drivers/gpu/drm/amd/powerplay/smu_v11_0.c
+@@ -905,6 +905,10 @@ smu_v11_0_get_max_sustainable_clock(struct smu_context *smu, uint32_t *clock,
+ 	if (!smu->pm_enabled)
+ 		return ret;
+ 
++	if ((smu_msg_get_index(smu, SMU_MSG_GetDcModeMaxDpmFreq) < 0) ||
++	    (smu_msg_get_index(smu, SMU_MSG_GetMaxDpmFreq) < 0))
++		return 0;
++
+ 	clk_id = smu_clk_get_index(smu, clock_select);
+ 	if (clk_id < 0)
+ 		return -EINVAL;
+-- 
+2.17.1
+

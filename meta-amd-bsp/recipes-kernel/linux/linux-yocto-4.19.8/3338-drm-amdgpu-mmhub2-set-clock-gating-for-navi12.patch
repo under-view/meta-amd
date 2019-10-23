@@ -1,0 +1,28 @@
+From fd3752aa19f6988d0757924242b62f533afe3cd0 Mon Sep 17 00:00:00 2001
+From: Xiaojie Yuan <xiaojie.yuan@amd.com>
+Date: Thu, 1 Aug 2019 15:47:15 +0800
+Subject: [PATCH 3338/4256] drm/amdgpu/mmhub2: set clock gating for navi12
+
+add navi12 define
+
+Signed-off-by: Xiaojie Yuan <xiaojie.yuan@amd.com>
+Reviewed-by: Alex Deucher <alexander.deucher@amd.com>
+---
+ drivers/gpu/drm/amd/amdgpu/mmhub_v2_0.c | 1 +
+ 1 file changed, 1 insertion(+)
+
+diff --git a/drivers/gpu/drm/amd/amdgpu/mmhub_v2_0.c b/drivers/gpu/drm/amd/amdgpu/mmhub_v2_0.c
+index d2f4775299c7..8ee1225d1a18 100644
+--- a/drivers/gpu/drm/amd/amdgpu/mmhub_v2_0.c
++++ b/drivers/gpu/drm/amd/amdgpu/mmhub_v2_0.c
+@@ -407,6 +407,7 @@ int mmhub_v2_0_set_clockgating(struct amdgpu_device *adev,
+ 	switch (adev->asic_type) {
+ 	case CHIP_NAVI10:
+ 	case CHIP_NAVI14:
++	case CHIP_NAVI12:
+ 		mmhub_v2_0_update_medium_grain_clock_gating(adev,
+ 				state == AMD_CG_STATE_GATE ? true : false);
+ 		mmhub_v2_0_update_medium_grain_light_sleep(adev,
+-- 
+2.17.1
+

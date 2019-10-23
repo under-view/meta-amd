@@ -1,0 +1,31 @@
+From c9c507655dde5f5374da43859858c24e2ea013f9 Mon Sep 17 00:00:00 2001
+From: Xiaojie Yuan <xiaojie.yuan@amd.com>
+Date: Thu, 1 Aug 2019 15:00:28 +0800
+Subject: [PATCH 3335/4256] drm/amdgpu: enable hdp clock gating for navi12
+
+enables hdp medium grained clock gating and memory light sleep
+
+Signed-off-by: Xiaojie Yuan <xiaojie.yuan@amd.com>
+Reviewed-by: Alex Deucher <alexander.deucher@amd.com>
+---
+ drivers/gpu/drm/amd/amdgpu/nv.c | 4 +++-
+ 1 file changed, 3 insertions(+), 1 deletion(-)
+
+diff --git a/drivers/gpu/drm/amd/amdgpu/nv.c b/drivers/gpu/drm/amd/amdgpu/nv.c
+index 056f0467419b..804388b44c86 100644
+--- a/drivers/gpu/drm/amd/amdgpu/nv.c
++++ b/drivers/gpu/drm/amd/amdgpu/nv.c
+@@ -644,7 +644,9 @@ static int nv_common_early_init(void *handle)
+ 			AMD_CG_SUPPORT_GFX_MGLS |
+ 			AMD_CG_SUPPORT_GFX_CGCG |
+ 			AMD_CG_SUPPORT_GFX_CP_LS |
+-			AMD_CG_SUPPORT_GFX_RLC_LS;
++			AMD_CG_SUPPORT_GFX_RLC_LS |
++			AMD_CG_SUPPORT_HDP_MGCG |
++			AMD_CG_SUPPORT_HDP_LS;
+ 		adev->pg_flags = AMD_PG_SUPPORT_VCN_DPG;
+ 		adev->external_rev_id = adev->rev_id + 0xa;
+ 		break;
+-- 
+2.17.1
+
