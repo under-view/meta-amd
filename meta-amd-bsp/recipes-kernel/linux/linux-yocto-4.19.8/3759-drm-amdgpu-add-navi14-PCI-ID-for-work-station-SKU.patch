@@ -1,0 +1,30 @@
+From a7796882b3188342a554049b96e555d0d3d3e3f4 Mon Sep 17 00:00:00 2001
+From: "Tianci.Yin" <tianci.yin@amd.com>
+Date: Thu, 5 Sep 2019 15:28:57 +0800
+Subject: [PATCH 3759/4256] drm/amdgpu: add navi14 PCI ID for work station SKU
+
+Add the navi14 PCI device id.
+
+Change-Id: I96a8c892becaa8dcc7ad59dc80d047d3f755775f
+Reviewed-by: Feifei Xu <Feifei.Xu@amd.com>
+Signed-off-by: Tianci.Yin <tianci.yin@amd.com>
+---
+ drivers/gpu/drm/amd/amdgpu/amdgpu_drv.c | 2 ++
+ 1 file changed, 2 insertions(+)
+
+diff --git a/drivers/gpu/drm/amd/amdgpu/amdgpu_drv.c b/drivers/gpu/drm/amd/amdgpu/amdgpu_drv.c
+index 511fd4649796..27828e432601 100644
+--- a/drivers/gpu/drm/amd/amdgpu/amdgpu_drv.c
++++ b/drivers/gpu/drm/amd/amdgpu/amdgpu_drv.c
+@@ -1061,6 +1061,8 @@ static const struct pci_device_id pciidlist[] = {
+ 	{0x1002, 0x731F, PCI_ANY_ID, PCI_ANY_ID, 0, 0, CHIP_NAVI10},
+ 	/* Navi14 */
+ 	{0x1002, 0x7340, PCI_ANY_ID, PCI_ANY_ID, 0, 0, CHIP_NAVI14},
++	{0x1002, 0x7341, PCI_ANY_ID, PCI_ANY_ID, 0, 0, CHIP_NAVI14},
++	{0x1002, 0x7347, PCI_ANY_ID, PCI_ANY_ID, 0, 0, CHIP_NAVI14},
+ 
+ 	/* Renoir */
+ 	{0x1002, 0x1636, PCI_ANY_ID, PCI_ANY_ID, 0, 0, CHIP_RENOIR|AMD_IS_APU},
+-- 
+2.17.1
+

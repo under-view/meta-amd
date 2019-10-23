@@ -1,0 +1,40 @@
+From 6162463ce6b40387effec15b11d4e6792d1e6e51 Mon Sep 17 00:00:00 2001
+From: Nikola Cornij <nikola.cornij@amd.com>
+Date: Wed, 5 Jun 2019 14:29:47 -0400
+Subject: [PATCH 3022/4256] drm/amd/display: Set one 4:2:0-related PPS field as
+ recommended by DSC spec
+
+[why]
+'second_line_offset_adj' was mistakenly left at zero, even though DSC spec
+v1.2a recommends setting this field to 512 for 4:2:0.
+
+[how]
+Set 'second_line_offset_adj' to 512 for 4:2:0 and leave at zero otherwise
+
+Signed-off-by: Nikola Cornij <nikola.cornij@amd.com>
+Reviewed-by: Eric Bernstein <Eric.Bernstein@amd.com>
+Acked-by: Leo Li <sunpeng.li@amd.com>
+---
+ drivers/gpu/drm/amd/display/dc/dsc/drm_dsc_dc.c | 6 ++++++
+ 1 file changed, 6 insertions(+)
+
+diff --git a/drivers/gpu/drm/amd/display/dc/dsc/drm_dsc_dc.c b/drivers/gpu/drm/amd/display/dc/dsc/drm_dsc_dc.c
+index 04c6295f296e..fd1fb1653479 100644
+--- a/drivers/gpu/drm/amd/display/dc/dsc/drm_dsc_dc.c
++++ b/drivers/gpu/drm/amd/display/dc/dsc/drm_dsc_dc.c
+@@ -442,6 +442,12 @@ int drm_dsc_compute_rc_parameters(struct drm_dsc_config *vdsc_cfg)
+ 	vdsc_cfg->rc_bits = (hrd_delay * vdsc_cfg->bits_per_pixel) / 16;
+ 	vdsc_cfg->initial_dec_delay = hrd_delay - vdsc_cfg->initial_xmit_delay;
+ 
++	/* As per DSC spec v1.2a recommendation: */
++	if (vdsc_cfg->native_420)
++		vdsc_cfg->second_line_offset_adj = 512;
++	else
++		vdsc_cfg->second_line_offset_adj = 0;
++
+ 	return 0;
+ }
+ EXPORT_SYMBOL(drm_dsc_compute_rc_parameters);
+-- 
+2.17.1
+

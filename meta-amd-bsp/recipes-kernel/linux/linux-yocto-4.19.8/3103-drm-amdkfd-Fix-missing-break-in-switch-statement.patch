@@ -1,0 +1,34 @@
+From f0d86e35f87513e2c370abc1134b6f9f2e074154 Mon Sep 17 00:00:00 2001
+From: "Gustavo A. R. Silva" <gustavo@embeddedor.com>
+Date: Sun, 21 Jul 2019 16:49:35 -0500
+Subject: [PATCH 3103/4256] drm/amdkfd: Fix missing break in switch statement
+
+Add missing break statement in order to prevent the code from falling
+through to case CHIP_NAVI10.
+
+This bug was found thanks to the ongoing efforts to enable
+-Wimplicit-fallthrough.
+
+Fixes: 14328aa58ce5 ("drm/amdkfd: Add navi10 support to amdkfd. (v3)")
+Cc: stable@vger.kernel.org
+Signed-off-by: Gustavo A. R. Silva <gustavo@embeddedor.com>
+Signed-off-by: Alex Deucher <alexander.deucher@amd.com>
+---
+ drivers/gpu/drm/amd/amdkfd/kfd_crat.c | 1 +
+ 1 file changed, 1 insertion(+)
+
+diff --git a/drivers/gpu/drm/amd/amdkfd/kfd_crat.c b/drivers/gpu/drm/amd/amdkfd/kfd_crat.c
+index a59253a31caf..4d6427440758 100644
+--- a/drivers/gpu/drm/amd/amdkfd/kfd_crat.c
++++ b/drivers/gpu/drm/amd/amdkfd/kfd_crat.c
+@@ -669,6 +669,7 @@ static int kfd_fill_gpu_cache_info(struct kfd_dev *kdev,
+ 	case CHIP_RAVEN:
+ 		pcache_info = raven_cache_info;
+ 		num_of_cache_types = ARRAY_SIZE(raven_cache_info);
++		break;
+ 	case CHIP_NAVI10:
+ 		pcache_info = navi10_cache_info;
+ 		num_of_cache_types = ARRAY_SIZE(navi10_cache_info);
+-- 
+2.17.1
+

@@ -1,0 +1,36 @@
+From 20352d2851d0702e665a42985f9ab52b6c45837e Mon Sep 17 00:00:00 2001
+From: Gang Ba <gaba@amd.com>
+Date: Wed, 14 Aug 2019 11:00:19 -0400
+Subject: [PATCH 3454/4256] drm/amd/amdgpu: Update VM function pointer
+
+When VM state changed and system in large bar mode,
+make sure to use CPU update function, otherwise use
+SDMA function.
+
+Change-Id: Ibcfada560a00c9aeebfd922ae48de920e44a5866
+Signed-off-by: Gang Ba <gaba@amd.com>
+---
+ drivers/gpu/drm/amd/amdgpu/amdgpu_vm.c | 7 +++++++
+ 1 file changed, 7 insertions(+)
+
+diff --git a/drivers/gpu/drm/amd/amdgpu/amdgpu_vm.c b/drivers/gpu/drm/amd/amdgpu/amdgpu_vm.c
+index 3ed870f294f5..c55e7aba2f99 100644
+--- a/drivers/gpu/drm/amd/amdgpu/amdgpu_vm.c
++++ b/drivers/gpu/drm/amd/amdgpu/amdgpu_vm.c
+@@ -2815,6 +2815,13 @@ int amdgpu_vm_make_compute(struct amdgpu_device *adev, struct amdgpu_vm *vm)
+ 	WARN_ONCE((vm->use_cpu_for_update && !amdgpu_gmc_vram_full_visible(&adev->gmc)),
+ 		  "CPU update of VM recommended only for large BAR system\n");
+ 
++	if (vm->use_cpu_for_update)
++		vm->update_funcs = &amdgpu_vm_cpu_funcs;
++	else
++		vm->update_funcs = &amdgpu_vm_sdma_funcs;
++	dma_fence_put(vm->last_update);
++	vm->last_update = NULL;
++
+ 	if (vm->pasid) {
+ 		unsigned long flags;
+ 
+-- 
+2.17.1
+

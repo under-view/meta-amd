@@ -1,0 +1,31 @@
+From 564d26a797aa20d2c1eba8502adcdb9de7ca9c0e Mon Sep 17 00:00:00 2001
+From: Ilya Bakoulin <Ilya.Bakoulin@amd.com>
+Date: Wed, 29 May 2019 18:52:17 -0400
+Subject: [PATCH 3042/4256] drm/amd/display: Check for valid stream_encode
+
+Before accessing it's vtable, check that stream_encoder is non-null.
+
+Signed-off-by: Ilya Bakoulin <Ilya.Bakoulin@amd.com>
+Reviewed-by: Eric Bernstein <Eric.Bernstein@amd.com>
+Acked-by: Leo Li <sunpeng.li@amd.com>
+---
+ drivers/gpu/drm/amd/display/dc/core/dc_stream.c | 3 ++-
+ 1 file changed, 2 insertions(+), 1 deletion(-)
+
+diff --git a/drivers/gpu/drm/amd/display/dc/core/dc_stream.c b/drivers/gpu/drm/amd/display/dc/core/dc_stream.c
+index 1bc19d42fc9f..35d697dd5808 100644
+--- a/drivers/gpu/drm/amd/display/dc/core/dc_stream.c
++++ b/drivers/gpu/drm/amd/display/dc/core/dc_stream.c
+@@ -609,7 +609,8 @@ bool dc_stream_set_dynamic_metadata(struct dc *dc,
+ 
+ 	pipe_ctx->stream->dmdata_address = attr->address;
+ 
+-	if (pipe_ctx->stream_res.stream_enc->funcs->set_dynamic_metadata != NULL) {
++	if (pipe_ctx->stream_res.stream_enc &&
++			pipe_ctx->stream_res.stream_enc->funcs->set_dynamic_metadata != NULL) {
+ 		if (pipe_ctx->stream->dmdata_address.quad_part != 0) {
+ 			/* if using dynamic meta, don't set up generic infopackets */
+ 			pipe_ctx->stream_res.encoder_info_frame.hdrsmd.valid = false;
+-- 
+2.17.1
+

@@ -1,0 +1,26 @@
+From f82fca93fbc762a2126cdd329e5d7a9245def14f Mon Sep 17 00:00:00 2001
+From: "Frank.Min" <Frank.Min@amd.com>
+Date: Fri, 16 Aug 2019 15:07:32 +0800
+Subject: [PATCH 3495/4256] amd/amdgpu: add Arcturus vf DID support
+
+Reviewed-by: Feifei Xu <Feifei.Xu@amd.com>
+Signed-off-by: Frank.Min <Frank.Min@amd.com>
+---
+ drivers/gpu/drm/amd/amdgpu/amdgpu_drv.c | 1 +
+ 1 file changed, 1 insertion(+)
+
+diff --git a/drivers/gpu/drm/amd/amdgpu/amdgpu_drv.c b/drivers/gpu/drm/amd/amdgpu/amdgpu_drv.c
+index 0db64bcbe22e..23fce40922e9 100644
+--- a/drivers/gpu/drm/amd/amdgpu/amdgpu_drv.c
++++ b/drivers/gpu/drm/amd/amdgpu/amdgpu_drv.c
+@@ -1037,6 +1037,7 @@ static const struct pci_device_id pciidlist[] = {
+ 	{0x1002, 0x738C, PCI_ANY_ID, PCI_ANY_ID, 0, 0, CHIP_ARCTURUS},
+ 	{0x1002, 0x7388, PCI_ANY_ID, PCI_ANY_ID, 0, 0, CHIP_ARCTURUS},
+ 	{0x1002, 0x738E, PCI_ANY_ID, PCI_ANY_ID, 0, 0, CHIP_ARCTURUS},
++	{0x1002, 0x7390, PCI_ANY_ID, PCI_ANY_ID, 0, 0, CHIP_ARCTURUS},
+ 	/* Navi10 */
+ 	{0x1002, 0x7310, PCI_ANY_ID, PCI_ANY_ID, 0, 0, CHIP_NAVI10},
+ 	{0x1002, 0x7312, PCI_ANY_ID, PCI_ANY_ID, 0, 0, CHIP_NAVI10},
+-- 
+2.17.1
+

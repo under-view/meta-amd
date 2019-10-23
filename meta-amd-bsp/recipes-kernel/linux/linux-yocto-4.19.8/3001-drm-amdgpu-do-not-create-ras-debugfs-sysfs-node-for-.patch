@@ -1,0 +1,36 @@
+From 92c190bcf2f6ddb2cf67528c1e617932b085c2eb Mon Sep 17 00:00:00 2001
+From: Hawking Zhang <Hawking.Zhang@amd.com>
+Date: Thu, 18 Jul 2019 12:49:15 +0800
+Subject: [PATCH 3001/4256] drm/amdgpu: do not create ras debugfs/sysfs node
+ for ASICs that don't have ras ability
+
+driver shouldn't init any ras debugfs/sysfs node for ASICs that don't have ras
+hardware ability
+
+Change-Id: I7a84814b4fc79375e4daab2ba4fec6b35e53b9a6
+Signed-off-by: Hawking Zhang <Hawking.Zhang@amd.com>
+Reviewed-by: Feifei Xu <Feifei.Xu@amd.com>
+---
+ drivers/gpu/drm/amd/amdgpu/amdgpu_ras.c | 6 ++++++
+ 1 file changed, 6 insertions(+)
+
+diff --git a/drivers/gpu/drm/amd/amdgpu/amdgpu_ras.c b/drivers/gpu/drm/amd/amdgpu/amdgpu_ras.c
+index 614116c7036a..cba2c0f90c77 100644
+--- a/drivers/gpu/drm/amd/amdgpu/amdgpu_ras.c
++++ b/drivers/gpu/drm/amd/amdgpu/amdgpu_ras.c
+@@ -1555,6 +1555,12 @@ int amdgpu_ras_init(struct amdgpu_device *adev)
+ 
+ 	amdgpu_ras_check_supported(adev, &con->hw_supported,
+ 			&con->supported);
++	if (!con->hw_supported) {
++		amdgpu_ras_set_context(adev, NULL);
++		kfree(con);
++		return 0;
++	}
++
+ 	con->features = 0;
+ 	INIT_LIST_HEAD(&con->head);
+ 	/* Might need get this flag from vbios. */
+-- 
+2.17.1
+

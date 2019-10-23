@@ -1,0 +1,31 @@
+From 7d18887cc87dd111423aa679bc2853a67a7f5e46 Mon Sep 17 00:00:00 2001
+From: Prike Liang <Prike.Liang@amd.com>
+Date: Fri, 2 Aug 2019 15:32:57 +0800
+Subject: [PATCH 3533/4256] drm/amdgpu: enable DF clock gating for rn
+
+Enable DF clock gating during DF IP early init.
+
+Signed-off-by: Prike Liang <Prike.Liang@amd.com>
+Reviewed-by: Alex Deucher <alexander.deucher@amd.com>
+Signed-off-by: Alex Deucher <alexander.deucher@amd.com>
+---
+ drivers/gpu/drm/amd/amdgpu/soc15.c | 3 ++-
+ 1 file changed, 2 insertions(+), 1 deletion(-)
+
+diff --git a/drivers/gpu/drm/amd/amdgpu/soc15.c b/drivers/gpu/drm/amd/amdgpu/soc15.c
+index 0552942ee732..6ab444d6be72 100644
+--- a/drivers/gpu/drm/amd/amdgpu/soc15.c
++++ b/drivers/gpu/drm/amd/amdgpu/soc15.c
+@@ -1171,7 +1171,8 @@ static int soc15_common_early_init(void *handle)
+ 				 AMD_CG_SUPPORT_VCN_MGCG |
+ 				 AMD_CG_SUPPORT_IH_CG |
+ 				 AMD_CG_SUPPORT_ATHUB_LS |
+-				 AMD_CG_SUPPORT_ATHUB_MGCG;
++				 AMD_CG_SUPPORT_ATHUB_MGCG |
++				 AMD_CG_SUPPORT_DF_MGCG;
+ 		adev->pg_flags = 0;
+ 		adev->external_rev_id = adev->rev_id + 0x91;
+ 
+-- 
+2.17.1
+

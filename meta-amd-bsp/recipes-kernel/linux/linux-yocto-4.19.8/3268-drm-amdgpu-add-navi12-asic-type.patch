@@ -1,0 +1,28 @@
+From 3bc09316391e610cb8c59d5394fe8a754a9b2765 Mon Sep 17 00:00:00 2001
+From: Xiaojie Yuan <xiaojie.yuan@amd.com>
+Date: Mon, 17 Dec 2018 18:00:26 +0800
+Subject: [PATCH 3268/4256] drm/amdgpu: add navi12 asic type
+
+Change-Id: Iaa760f994ee683a029046dd9bdae9cca58791f0d
+Signed-off-by: Xiaojie Yuan <xiaojie.yuan@amd.com>
+Reviewed-by: Hawking Zhang <Hawking.Zhang@amd.com>
+Signed-off-by: Alex Deucher <alexander.deucher@amd.com>
+---
+ drivers/gpu/drm/amd/amdgpu/amdgpu_device.c | 1 +
+ 1 file changed, 1 insertion(+)
+
+diff --git a/drivers/gpu/drm/amd/amdgpu/amdgpu_device.c b/drivers/gpu/drm/amd/amdgpu/amdgpu_device.c
+index 87179dd882d0..c8c87711f6f1 100644
+--- a/drivers/gpu/drm/amd/amdgpu/amdgpu_device.c
++++ b/drivers/gpu/drm/amd/amdgpu/amdgpu_device.c
+@@ -102,6 +102,7 @@ static const char *amdgpu_asic_name[] = {
+ 	"ARCTURUS",
+ 	"NAVI10",
+ 	"NAVI14",
++	"NAVI12",
+ 	"LAST",
+ };
+ 
+-- 
+2.17.1
+

@@ -1,0 +1,39 @@
+From 897f1712316ef76df460d56c8d4aad22362bdcf9 Mon Sep 17 00:00:00 2001
+From: Wenjing Liu <Wenjing.Liu@amd.com>
+Date: Tue, 11 Jun 2019 18:18:36 -0400
+Subject: [PATCH 3031/4256] drm/amd/display: wait for the whole frame after
+ global unlock
+
+[why]
+The current code will not wait for the entire frame
+ after global unlock.
+This causes dsc dynamic target bpp update corruption when
+there is a surface update immediately happens after this.
+
+[how]
+Wait for the entire whole frame after unlock before continuing
+the rest of stream and surface update.
+
+Signed-off-by: Wenjing Liu <Wenjing.Liu@amd.com>
+Reviewed-by: Jun Lei <Jun.Lei@amd.com>
+Acked-by: Leo Li <sunpeng.li@amd.com>
+---
+ drivers/gpu/drm/amd/display/dc/dcn20/dcn20_hwseq.c | 2 ++
+ 1 file changed, 2 insertions(+)
+
+diff --git a/drivers/gpu/drm/amd/display/dc/dcn20/dcn20_hwseq.c b/drivers/gpu/drm/amd/display/dc/dcn20/dcn20_hwseq.c
+index f820e9667e3c..7c08f81000c5 100644
+--- a/drivers/gpu/drm/amd/display/dc/dcn20/dcn20_hwseq.c
++++ b/drivers/gpu/drm/amd/display/dc/dcn20/dcn20_hwseq.c
+@@ -1256,6 +1256,8 @@ void dcn20_pipe_control_lock_global(
+ 				CRTC_STATE_VACTIVE);
+ 		pipe->stream_res.tg->funcs->wait_for_state(pipe->stream_res.tg,
+ 				CRTC_STATE_VBLANK);
++		pipe->stream_res.tg->funcs->wait_for_state(pipe->stream_res.tg,
++				CRTC_STATE_VACTIVE);
+ 		pipe->stream_res.tg->funcs->lock_doublebuffer_disable(
+ 				pipe->stream_res.tg);
+ 	}
+-- 
+2.17.1
+

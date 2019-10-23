@@ -1,0 +1,35 @@
+From 7c5a4b52de95b3b49f5cc40a9a3b7ddb0e3d063e Mon Sep 17 00:00:00 2001
+From: Jonathan Kim <jonathan.kim@amd.com>
+Date: Mon, 12 Aug 2019 11:47:28 -0400
+Subject: [PATCH 3542/4256] drm/amdkfd: updated read to set errno to eagain
+
+User space requries -1 and errno set to EAGAIN on kfifo_to_user
+failure or 0 bytes copy.
+
+Change-Id: I34985ff641b21568e12bf5534bd39d1d5d744364
+Signed-off-by: Jonathan Kim <jonathan.kim@amd.com>
+---
+ drivers/gpu/drm/amd/amdkfd/kfd_debug_events.c | 7 ++++---
+ 1 file changed, 4 insertions(+), 3 deletions(-)
+
+diff --git a/drivers/gpu/drm/amd/amdkfd/kfd_debug_events.c b/drivers/gpu/drm/amd/amdkfd/kfd_debug_events.c
+index 210cccdeed81..df42b1dd8b4b 100644
+--- a/drivers/gpu/drm/amd/amdkfd/kfd_debug_events.c
++++ b/drivers/gpu/drm/amd/amdkfd/kfd_debug_events.c
+@@ -70,9 +70,10 @@ static ssize_t kfd_dbg_ev_read(struct file *filep, char __user *user,
+ 
+ 	ret = kfifo_to_user(&dpd->fifo, user, size, &copied);
+ 
+-	if (ret) {
+-		pr_debug("KFD DEBUG EVENT: Failed to read poll fd (%i)\n", ret);
+-		return ret;
++	if (ret || !copied) {
++		pr_debug("KFD DEBUG EVENT: Failed to read poll fd (%i) (%i)\n",
++								ret, copied);
++		return ret ? ret : -EAGAIN;
+ 	}
+ 
+ 	return copied;
+-- 
+2.17.1
+

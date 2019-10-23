@@ -1,0 +1,199 @@
+From 35cdf912c427cf87744feab42a5e89cc77ccf6f1 Mon Sep 17 00:00:00 2001
+From: Yong Zhao <Yong.Zhao@amd.com>
+Date: Sat, 21 Sep 2019 20:02:57 -0400
+Subject: [PATCH 3964/4256] drm/amdkfd: Delete useless SDMA register setting on
+ non HWS path
+
+HW folks have confirm that we should not touch RESUME_CTX of
+SDMA*_GFX_CONTEXT_CNTL when manipulating RLC queues.
+
+Change-Id: I2c142d024e94f92194b1cb9feb7f44396b8f3ecc
+Signed-off-by: Yong Zhao <Yong.Zhao@amd.com>
+Reviewed-by: Alex Deucher <alexander.deucher@amd.com>
+---
+ .../drm/amd/amdgpu/amdgpu_amdkfd_arcturus.c   | 34 +------------------
+ .../drm/amd/amdgpu/amdgpu_amdkfd_gfx_v10.c    |  9 +----
+ .../gpu/drm/amd/amdgpu/amdgpu_amdkfd_gfx_v7.c | 11 ------
+ .../gpu/drm/amd/amdgpu/amdgpu_amdkfd_gfx_v8.c | 11 ------
+ .../gpu/drm/amd/amdgpu/amdgpu_amdkfd_gfx_v9.c |  9 +----
+ 5 files changed, 3 insertions(+), 71 deletions(-)
+
+diff --git a/drivers/gpu/drm/amd/amdgpu/amdgpu_amdkfd_arcturus.c b/drivers/gpu/drm/amd/amdgpu/amdgpu_amdkfd_arcturus.c
+index ce0ceb71ef35..a3382af6a89f 100644
+--- a/drivers/gpu/drm/amd/amdgpu/amdgpu_amdkfd_arcturus.c
++++ b/drivers/gpu/drm/amd/amdgpu/amdgpu_amdkfd_arcturus.c
+@@ -102,38 +102,12 @@ static uint32_t get_sdma_base_addr(struct amdgpu_device *adev,
+ 	return retval;
+ }
+ 
+-static u32 sdma_v4_0_get_reg_offset(struct amdgpu_device *adev,
+-		u32 instance, u32 offset)
+-{
+-	switch (instance) {
+-	case 0:
+-		return (adev->reg_offset[SDMA0_HWIP][0][0] + offset);
+-	case 1:
+-		return (adev->reg_offset[SDMA1_HWIP][0][1] + offset);
+-	case 2:
+-		return (adev->reg_offset[SDMA2_HWIP][0][1] + offset);
+-	case 3:
+-		return (adev->reg_offset[SDMA3_HWIP][0][1] + offset);
+-	case 4:
+-		return (adev->reg_offset[SDMA4_HWIP][0][1] + offset);
+-	case 5:
+-		return (adev->reg_offset[SDMA5_HWIP][0][1] + offset);
+-	case 6:
+-		return (adev->reg_offset[SDMA6_HWIP][0][1] + offset);
+-	case 7:
+-		return (adev->reg_offset[SDMA7_HWIP][0][1] + offset);
+-	default:
+-		break;
+-	}
+-	return 0;
+-}
+-
+ static int kgd_hqd_sdma_load(struct kgd_dev *kgd, void *mqd,
+ 			     uint32_t __user *wptr, struct mm_struct *mm)
+ {
+ 	struct amdgpu_device *adev = get_amdgpu_device(kgd);
+ 	struct v9_sdma_mqd *m;
+-	uint32_t sdma_base_addr, sdmax_gfx_context_cntl;
++	uint32_t sdma_base_addr;
+ 	unsigned long end_jiffies;
+ 	uint32_t data;
+ 	uint64_t data64;
+@@ -142,8 +116,6 @@ static int kgd_hqd_sdma_load(struct kgd_dev *kgd, void *mqd,
+ 	m = get_sdma_mqd(mqd);
+ 	sdma_base_addr = get_sdma_base_addr(adev, m->sdma_engine_id,
+ 					    m->sdma_queue_id);
+-	sdmax_gfx_context_cntl = sdma_v4_0_get_reg_offset(adev,
+-			m->sdma_engine_id, mmSDMA0_GFX_CONTEXT_CNTL);
+ 
+ 	WREG32(sdma_base_addr + mmSDMA0_RLC0_RB_CNTL,
+ 		m->sdmax_rlcx_rb_cntl & (~SDMA0_RLC0_RB_CNTL__RB_ENABLE_MASK));
+@@ -159,10 +131,6 @@ static int kgd_hqd_sdma_load(struct kgd_dev *kgd, void *mqd,
+ 		}
+ 		usleep_range(500, 1000);
+ 	}
+-	data = RREG32(sdmax_gfx_context_cntl);
+-	data = REG_SET_FIELD(data, SDMA0_GFX_CONTEXT_CNTL,
+-			     RESUME_CTX, 0);
+-	WREG32(sdmax_gfx_context_cntl, data);
+ 
+ 	WREG32(sdma_base_addr + mmSDMA0_RLC0_DOORBELL_OFFSET,
+ 	       m->sdmax_rlcx_doorbell_offset);
+diff --git a/drivers/gpu/drm/amd/amdgpu/amdgpu_amdkfd_gfx_v10.c b/drivers/gpu/drm/amd/amdgpu/amdgpu_amdkfd_gfx_v10.c
+index ae0862b05dd3..0ebca783753f 100644
+--- a/drivers/gpu/drm/amd/amdgpu/amdgpu_amdkfd_gfx_v10.c
++++ b/drivers/gpu/drm/amd/amdgpu/amdgpu_amdkfd_gfx_v10.c
+@@ -490,7 +490,7 @@ static int kgd_hqd_sdma_load(struct kgd_dev *kgd, void *mqd,
+ {
+ 	struct amdgpu_device *adev = get_amdgpu_device(kgd);
+ 	struct v10_sdma_mqd *m;
+-	uint32_t sdma_base_addr, sdmax_gfx_context_cntl;
++	uint32_t sdma_base_addr;
+ 	unsigned long end_jiffies;
+ 	uint32_t data;
+ 	uint64_t data64;
+@@ -500,9 +500,6 @@ static int kgd_hqd_sdma_load(struct kgd_dev *kgd, void *mqd,
+ 	sdma_base_addr = get_sdma_base_addr(adev, m->sdma_engine_id,
+ 					    m->sdma_queue_id);
+ 	pr_debug("sdma load base addr %x for engine %d, queue %d\n", sdma_base_addr, m->sdma_engine_id, m->sdma_queue_id);
+-	sdmax_gfx_context_cntl = m->sdma_engine_id ?
+-		SOC15_REG_OFFSET(SDMA1, 0, mmSDMA1_GFX_CONTEXT_CNTL) :
+-		SOC15_REG_OFFSET(SDMA0, 0, mmSDMA0_GFX_CONTEXT_CNTL);
+ 
+ 	WREG32(sdma_base_addr + mmSDMA0_RLC0_RB_CNTL,
+ 		m->sdmax_rlcx_rb_cntl & (~SDMA0_RLC0_RB_CNTL__RB_ENABLE_MASK));
+@@ -518,10 +515,6 @@ static int kgd_hqd_sdma_load(struct kgd_dev *kgd, void *mqd,
+ 		}
+ 		usleep_range(500, 1000);
+ 	}
+-	data = RREG32(sdmax_gfx_context_cntl);
+-	data = REG_SET_FIELD(data, SDMA0_GFX_CONTEXT_CNTL,
+-			     RESUME_CTX, 0);
+-	WREG32(sdmax_gfx_context_cntl, data);
+ 
+ 	WREG32(sdma_base_addr + mmSDMA0_RLC0_DOORBELL_OFFSET,
+ 	       m->sdmax_rlcx_doorbell_offset);
+diff --git a/drivers/gpu/drm/amd/amdgpu/amdgpu_amdkfd_gfx_v7.c b/drivers/gpu/drm/amd/amdgpu/amdgpu_amdkfd_gfx_v7.c
+index 7eedb5c9fd1d..ccbb1adbcb55 100644
+--- a/drivers/gpu/drm/amd/amdgpu/amdgpu_amdkfd_gfx_v7.c
++++ b/drivers/gpu/drm/amd/amdgpu/amdgpu_amdkfd_gfx_v7.c
+@@ -435,17 +435,6 @@ static int kgd_hqd_sdma_load(struct kgd_dev *kgd, void *mqd,
+ 		}
+ 		usleep_range(500, 1000);
+ 	}
+-	if (m->sdma_engine_id) {
+-		data = RREG32(mmSDMA1_GFX_CONTEXT_CNTL);
+-		data = REG_SET_FIELD(data, SDMA1_GFX_CONTEXT_CNTL,
+-				RESUME_CTX, 0);
+-		WREG32(mmSDMA1_GFX_CONTEXT_CNTL, data);
+-	} else {
+-		data = RREG32(mmSDMA0_GFX_CONTEXT_CNTL);
+-		data = REG_SET_FIELD(data, SDMA0_GFX_CONTEXT_CNTL,
+-				RESUME_CTX, 0);
+-		WREG32(mmSDMA0_GFX_CONTEXT_CNTL, data);
+-	}
+ 
+ 	data = REG_SET_FIELD(m->sdma_rlc_doorbell, SDMA0_RLC0_DOORBELL,
+ 			     ENABLE, 1);
+diff --git a/drivers/gpu/drm/amd/amdgpu/amdgpu_amdkfd_gfx_v8.c b/drivers/gpu/drm/amd/amdgpu/amdgpu_amdkfd_gfx_v8.c
+index fafb42175656..dc72a4242e7e 100644
+--- a/drivers/gpu/drm/amd/amdgpu/amdgpu_amdkfd_gfx_v8.c
++++ b/drivers/gpu/drm/amd/amdgpu/amdgpu_amdkfd_gfx_v8.c
+@@ -427,17 +427,6 @@ static int kgd_hqd_sdma_load(struct kgd_dev *kgd, void *mqd,
+ 		}
+ 		usleep_range(500, 1000);
+ 	}
+-	if (m->sdma_engine_id) {
+-		data = RREG32(mmSDMA1_GFX_CONTEXT_CNTL);
+-		data = REG_SET_FIELD(data, SDMA1_GFX_CONTEXT_CNTL,
+-				RESUME_CTX, 0);
+-		WREG32(mmSDMA1_GFX_CONTEXT_CNTL, data);
+-	} else {
+-		data = RREG32(mmSDMA0_GFX_CONTEXT_CNTL);
+-		data = REG_SET_FIELD(data, SDMA0_GFX_CONTEXT_CNTL,
+-				RESUME_CTX, 0);
+-		WREG32(mmSDMA0_GFX_CONTEXT_CNTL, data);
+-	}
+ 
+ 	data = REG_SET_FIELD(m->sdmax_rlcx_doorbell, SDMA0_RLC0_DOORBELL,
+ 			     ENABLE, 1);
+diff --git a/drivers/gpu/drm/amd/amdgpu/amdgpu_amdkfd_gfx_v9.c b/drivers/gpu/drm/amd/amdgpu/amdgpu_amdkfd_gfx_v9.c
+index 58f82da00e6d..10d500507501 100644
+--- a/drivers/gpu/drm/amd/amdgpu/amdgpu_amdkfd_gfx_v9.c
++++ b/drivers/gpu/drm/amd/amdgpu/amdgpu_amdkfd_gfx_v9.c
+@@ -406,7 +406,7 @@ static int kgd_hqd_sdma_load(struct kgd_dev *kgd, void *mqd,
+ {
+ 	struct amdgpu_device *adev = get_amdgpu_device(kgd);
+ 	struct v9_sdma_mqd *m;
+-	uint32_t sdma_base_addr, sdmax_gfx_context_cntl;
++	uint32_t sdma_base_addr;
+ 	unsigned long end_jiffies;
+ 	uint32_t data;
+ 	uint64_t data64;
+@@ -415,9 +415,6 @@ static int kgd_hqd_sdma_load(struct kgd_dev *kgd, void *mqd,
+ 	m = get_sdma_mqd(mqd);
+ 	sdma_base_addr = get_sdma_base_addr(adev, m->sdma_engine_id,
+ 					    m->sdma_queue_id);
+-	sdmax_gfx_context_cntl = m->sdma_engine_id ?
+-		SOC15_REG_OFFSET(SDMA1, 0, mmSDMA1_GFX_CONTEXT_CNTL) :
+-		SOC15_REG_OFFSET(SDMA0, 0, mmSDMA0_GFX_CONTEXT_CNTL);
+ 
+ 	WREG32(sdma_base_addr + mmSDMA0_RLC0_RB_CNTL,
+ 		m->sdmax_rlcx_rb_cntl & (~SDMA0_RLC0_RB_CNTL__RB_ENABLE_MASK));
+@@ -433,10 +430,6 @@ static int kgd_hqd_sdma_load(struct kgd_dev *kgd, void *mqd,
+ 		}
+ 		usleep_range(500, 1000);
+ 	}
+-	data = RREG32(sdmax_gfx_context_cntl);
+-	data = REG_SET_FIELD(data, SDMA0_GFX_CONTEXT_CNTL,
+-			     RESUME_CTX, 0);
+-	WREG32(sdmax_gfx_context_cntl, data);
+ 
+ 	WREG32(sdma_base_addr + mmSDMA0_RLC0_DOORBELL_OFFSET,
+ 	       m->sdmax_rlcx_doorbell_offset);
+-- 
+2.17.1
+

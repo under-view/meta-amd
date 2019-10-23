@@ -1,0 +1,31 @@
+From d4163466fc1decfd8b93a45bafdac53b0cc38f38 Mon Sep 17 00:00:00 2001
+From: Masahiro Yamada <yamada.masahiro@socionext.com>
+Date: Tue, 27 Aug 2019 15:44:25 +0900
+Subject: [PATCH 3621/4256] drm/amd: remove meaningless descending into
+ amd/amdkfd/
+
+Since commit 04d5e2765802 ("drm/amdgpu: Merge amdkfd into amdgpu"),
+drivers/gpu/drm/amd/amdkfd/Makefile does not contain any syntax that
+is understood by the build system.
+
+Signed-off-by: Masahiro Yamada <yamada.masahiro@socionext.com>
+Signed-off-by: Alex Deucher <alexander.deucher@amd.com>
+---
+ drivers/gpu/drm/Makefile | 1 -
+ 1 file changed, 1 deletion(-)
+
+diff --git a/drivers/gpu/drm/Makefile b/drivers/gpu/drm/Makefile
+index 873823206df7..205ffae7fed9 100644
+--- a/drivers/gpu/drm/Makefile
++++ b/drivers/gpu/drm/Makefile
+@@ -54,7 +54,6 @@ obj-$(CONFIG_DRM_TTM)	+= ttm/
+ obj-$(CONFIG_DRM_SCHED)	+= scheduler/
+ obj-$(CONFIG_DRM_TDFX)	+= tdfx/
+ obj-$(CONFIG_DRM_R128)	+= r128/
+-obj-$(CONFIG_HSA_AMD) += amd/amdkfd/
+ obj-$(CONFIG_DRM_RADEON)+= radeon/
+ obj-$(CONFIG_DRM_AMDGPU)+= amd/amdgpu/
+ obj-$(CONFIG_DRM_MGA)	+= mga/
+-- 
+2.17.1
+

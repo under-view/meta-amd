@@ -1,0 +1,33 @@
+From 90d395d8de946fd902a81f22205e9a841d3398c5 Mon Sep 17 00:00:00 2001
+From: YueHaibing <yuehaibing@huawei.com>
+Date: Fri, 26 Jul 2019 15:51:31 +0800
+Subject: [PATCH 3491/4256] drm/amd/display: remove duplicated include from
+ dc_link.c
+
+Remove duplicated include.
+
+Reported-by: Hulk Robot <hulkci@huawei.com>
+Signed-off-by: YueHaibing <yuehaibing@huawei.com>
+Signed-off-by: Alex Deucher <alexander.deucher@amd.com>
+---
+ drivers/gpu/drm/amd/display/dc/core/dc_link.c | 4 ----
+ 1 file changed, 4 deletions(-)
+
+diff --git a/drivers/gpu/drm/amd/display/dc/core/dc_link.c b/drivers/gpu/drm/amd/display/dc/core/dc_link.c
+index 8ec4fa3ed675..0ccf0cd0a44d 100644
+--- a/drivers/gpu/drm/amd/display/dc/core/dc_link.c
++++ b/drivers/gpu/drm/amd/display/dc/core/dc_link.c
+@@ -43,10 +43,6 @@
+ #include "dpcd_defs.h"
+ #include "dmcu.h"
+ #include "hw/clk_mgr.h"
+-#if defined(CONFIG_DRM_AMD_DC_DCN2_0)
+-#include "resource.h"
+-#endif
+-#include "hw/clk_mgr.h"
+ 
+ #define DC_LOGGER_INIT(logger)
+ 
+-- 
+2.17.1
+

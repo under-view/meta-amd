@@ -1,0 +1,121 @@
+From d4f38503c8c78bc6faa6c07f7c864f7aeec2241b Mon Sep 17 00:00:00 2001
+From: Joseph Greathouse <Joseph.Greathouse@amd.com>
+Date: Wed, 17 Jul 2019 11:55:22 -0500
+Subject: [PATCH 2998/4256] drm/amdgpu: Default disable GDS for compute VMIDs
+
+The GDS and GWS blocks default to allowing all VMIDs to
+access all entries. Graphics VMIDs can handle setting
+these limits when the driver launches work. However,
+compute workloads under HWS control don't go through the
+kernel driver. Instead, HWS firmware should set these
+limits when a process is put into a VMID slot.
+
+Disable access to these devices by default by turning off
+all mask bits (for OA) and setting BASE=SIZE=0 (for GDS
+and GWS) for all compute VMIDs. If a process wants to use
+these resources, they can request this from the HWS
+firmware (when such capabilities are enabled). HWS will
+then handle setting the base and limit for the process when
+it is assigned to a VMID.
+
+This will also prevent user kernels from getting 'stuck' in
+GWS by accident if they write GWS-using code but HWS
+firmware is not set up to handle GWS reset. Until HWS is
+enabled to handle GWS properly, all GWS accesses will
+MEM_VIOL fault the kernel.
+
+v2: Move initialization outside of SRBM mutex
+
+Change-Id: I3129a1295998b4234df8c3e824b0002058cf9c64
+Signed-off-by: Joseph Greathouse <Joseph.Greathouse@amd.com>
+Reviewed-by: Felix Kuehling <Felix.Kuehling@amd.com>
+---
+ drivers/gpu/drm/amd/amdgpu/gfx_v10_0.c | 9 +++++++++
+ drivers/gpu/drm/amd/amdgpu/gfx_v7_0.c  | 9 +++++++++
+ drivers/gpu/drm/amd/amdgpu/gfx_v8_0.c  | 9 +++++++++
+ drivers/gpu/drm/amd/amdgpu/gfx_v9_0.c  | 9 +++++++++
+ 4 files changed, 36 insertions(+)
+
+diff --git a/drivers/gpu/drm/amd/amdgpu/gfx_v10_0.c b/drivers/gpu/drm/amd/amdgpu/gfx_v10_0.c
+index 85d33d6af5a3..ed48dc5fe36a 100644
+--- a/drivers/gpu/drm/amd/amdgpu/gfx_v10_0.c
++++ b/drivers/gpu/drm/amd/amdgpu/gfx_v10_0.c
+@@ -1516,6 +1516,15 @@ static void gfx_v10_0_init_compute_vmid(struct amdgpu_device *adev)
+ 	}
+ 	nv_grbm_select(adev, 0, 0, 0, 0);
+ 	mutex_unlock(&adev->srbm_mutex);
++
++	/* Initialize all compute VMIDs to have no GDS, GWS, or OA
++	   acccess. These should be enabled by FW for target VMIDs. */
++	for (i = FIRST_COMPUTE_VMID; i < LAST_COMPUTE_VMID; i++) {
++		WREG32_SOC15_OFFSET(GC, 0, mmGDS_VMID0_BASE, 2 * i, 0);
++		WREG32_SOC15_OFFSET(GC, 0, mmGDS_VMID0_SIZE, 2 * i, 0);
++		WREG32_SOC15_OFFSET(GC, 0, mmGDS_GWS_VMID0, i, 0);
++		WREG32_SOC15_OFFSET(GC, 0, mmGDS_OA_VMID0, i, 0);
++	}
+ }
+ 
+ static void gfx_v10_0_tcp_harvest(struct amdgpu_device *adev)
+diff --git a/drivers/gpu/drm/amd/amdgpu/gfx_v7_0.c b/drivers/gpu/drm/amd/amdgpu/gfx_v7_0.c
+index e1e2a44ee13c..3f98624772a4 100644
+--- a/drivers/gpu/drm/amd/amdgpu/gfx_v7_0.c
++++ b/drivers/gpu/drm/amd/amdgpu/gfx_v7_0.c
+@@ -1877,6 +1877,15 @@ static void gfx_v7_0_init_compute_vmid(struct amdgpu_device *adev)
+ 	}
+ 	cik_srbm_select(adev, 0, 0, 0, 0);
+ 	mutex_unlock(&adev->srbm_mutex);
++
++	/* Initialize all compute VMIDs to have no GDS, GWS, or OA
++	   acccess. These should be enabled by FW for target VMIDs. */
++	for (i = FIRST_COMPUTE_VMID; i < LAST_COMPUTE_VMID; i++) {
++		WREG32(amdgpu_gds_reg_offset[i].mem_base, 0);
++		WREG32(amdgpu_gds_reg_offset[i].mem_size, 0);
++		WREG32(amdgpu_gds_reg_offset[i].gws, 0);
++		WREG32(amdgpu_gds_reg_offset[i].oa, 0);
++	}
+ }
+ 
+ static void gfx_v7_0_config_init(struct amdgpu_device *adev)
+diff --git a/drivers/gpu/drm/amd/amdgpu/gfx_v8_0.c b/drivers/gpu/drm/amd/amdgpu/gfx_v8_0.c
+index e16800839172..a18d8ab1e4b2 100644
+--- a/drivers/gpu/drm/amd/amdgpu/gfx_v8_0.c
++++ b/drivers/gpu/drm/amd/amdgpu/gfx_v8_0.c
+@@ -3702,6 +3702,15 @@ static void gfx_v8_0_init_compute_vmid(struct amdgpu_device *adev)
+ 	}
+ 	vi_srbm_select(adev, 0, 0, 0, 0);
+ 	mutex_unlock(&adev->srbm_mutex);
++
++	/* Initialize all compute VMIDs to have no GDS, GWS, or OA
++	   acccess. These should be enabled by FW for target VMIDs. */
++	for (i = FIRST_COMPUTE_VMID; i < LAST_COMPUTE_VMID; i++) {
++		WREG32(amdgpu_gds_reg_offset[i].mem_base, 0);
++		WREG32(amdgpu_gds_reg_offset[i].mem_size, 0);
++		WREG32(amdgpu_gds_reg_offset[i].gws, 0);
++		WREG32(amdgpu_gds_reg_offset[i].oa, 0);
++	}
+ }
+ 
+ static void gfx_v8_0_config_init(struct amdgpu_device *adev)
+diff --git a/drivers/gpu/drm/amd/amdgpu/gfx_v9_0.c b/drivers/gpu/drm/amd/amdgpu/gfx_v9_0.c
+index 3bcf02bf4c9b..6fa433ff6043 100644
+--- a/drivers/gpu/drm/amd/amdgpu/gfx_v9_0.c
++++ b/drivers/gpu/drm/amd/amdgpu/gfx_v9_0.c
+@@ -2025,6 +2025,15 @@ static void gfx_v9_0_init_compute_vmid(struct amdgpu_device *adev)
+ 	}
+ 	soc15_grbm_select(adev, 0, 0, 0, 0);
+ 	mutex_unlock(&adev->srbm_mutex);
++
++	/* Initialize all compute VMIDs to have no GDS, GWS, or OA
++	   acccess. These should be enabled by FW for target VMIDs. */
++	for (i = FIRST_COMPUTE_VMID; i < LAST_COMPUTE_VMID; i++) {
++		WREG32_SOC15_OFFSET(GC, 0, mmGDS_VMID0_BASE, 2 * i, 0);
++		WREG32_SOC15_OFFSET(GC, 0, mmGDS_VMID0_SIZE, 2 * i, 0);
++		WREG32_SOC15_OFFSET(GC, 0, mmGDS_GWS_VMID0, i, 0);
++		WREG32_SOC15_OFFSET(GC, 0, mmGDS_OA_VMID0, i, 0);
++	}
+ }
+ 
+ static void gfx_v9_0_constants_init(struct amdgpu_device *adev)
+-- 
+2.17.1
+

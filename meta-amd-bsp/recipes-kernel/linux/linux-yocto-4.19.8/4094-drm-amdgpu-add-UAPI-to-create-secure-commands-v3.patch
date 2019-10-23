@@ -1,0 +1,48 @@
+From 20c539209cd600898d75e8016b1360bbf1091fb1 Mon Sep 17 00:00:00 2001
+From: Luben Tuikov <luben.tuikov@amd.com>
+Date: Mon, 23 Sep 2019 19:02:41 -0400
+Subject: [PATCH 4094/4256] drm/amdgpu: add UAPI to create secure commands (v3)
+
+Add a flag to the command submission IOCTL
+structure which when present indicates that this
+command submission should be treated as
+secure. The kernel driver uses this flag to
+determine whether the engine should be
+transitioned to secure or unsecure, or the work
+can be submitted to a secure queue depending on
+the IP.
+
+v3: the flag is now at command submission IOCTL
+
+Signed-off-by: Luben Tuikov <luben.tuikov@amd.com>
+Reviewed-by: Alex Deucher <alexander.deucher@amd.com>
+---
+ include/uapi/drm/amdgpu_drm.h | 5 ++++-
+ 1 file changed, 4 insertions(+), 1 deletion(-)
+
+diff --git a/include/uapi/drm/amdgpu_drm.h b/include/uapi/drm/amdgpu_drm.h
+index 43a87fc23865..8b3694310e44 100644
+--- a/include/uapi/drm/amdgpu_drm.h
++++ b/include/uapi/drm/amdgpu_drm.h
+@@ -219,6 +219,9 @@ union drm_amdgpu_bo_list {
+ #define AMDGPU_CTX_OP_QUERY_STATE	3
+ #define AMDGPU_CTX_OP_QUERY_STATE2	4
+ 
++/* Flag the command submission as secure */
++#define AMDGPU_CS_FLAGS_SECURE          (1 << 0)
++
+ /* GPU reset status */
+ #define AMDGPU_CTX_NO_RESET		0
+ /* this the context caused it */
+@@ -613,7 +616,7 @@ struct drm_amdgpu_cs_in {
+ 	/**  Handle of resource list associated with CS */
+ 	__u32		bo_list_handle;
+ 	__u32		num_chunks;
+-	__u32		_pad;
++	__u32		flags;
+ 	/** this points to __u64 * which point to cs chunks */
+ 	__u64		chunks;
+ };
+-- 
+2.17.1
+

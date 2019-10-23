@@ -1,0 +1,30 @@
+From 99f21e15aad95762ddd92eed0ecd066cd56895f0 Mon Sep 17 00:00:00 2001
+From: Xiaojie Yuan <xiaojie.yuan@amd.com>
+Date: Thu, 10 Oct 2019 01:01:23 +0800
+Subject: [PATCH 4099/4256] drm/amdgpu/sdma5: fix mask value of POLL_REGMEM
+ packet for pipe sync
+
+sdma will hang once sequence number to be polled reaches 0x1000_0000
+
+Signed-off-by: Xiaojie Yuan <xiaojie.yuan@amd.com>
+Reviewed-by: Alex Deucher <alexander.deucher@amd.com>
+---
+ drivers/gpu/drm/amd/amdgpu/sdma_v5_0.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/drivers/gpu/drm/amd/amdgpu/sdma_v5_0.c b/drivers/gpu/drm/amd/amdgpu/sdma_v5_0.c
+index ad5c3566337c..3460c00f3eaa 100644
+--- a/drivers/gpu/drm/amd/amdgpu/sdma_v5_0.c
++++ b/drivers/gpu/drm/amd/amdgpu/sdma_v5_0.c
+@@ -1126,7 +1126,7 @@ static void sdma_v5_0_ring_emit_pipeline_sync(struct amdgpu_ring *ring)
+ 	amdgpu_ring_write(ring, addr & 0xfffffffc);
+ 	amdgpu_ring_write(ring, upper_32_bits(addr) & 0xffffffff);
+ 	amdgpu_ring_write(ring, seq); /* reference */
+-	amdgpu_ring_write(ring, 0xfffffff); /* mask */
++	amdgpu_ring_write(ring, 0xffffffff); /* mask */
+ 	amdgpu_ring_write(ring, SDMA_PKT_POLL_REGMEM_DW5_RETRY_COUNT(0xfff) |
+ 			  SDMA_PKT_POLL_REGMEM_DW5_INTERVAL(4)); /* retry count, poll interval */
+ }
+-- 
+2.17.1
+

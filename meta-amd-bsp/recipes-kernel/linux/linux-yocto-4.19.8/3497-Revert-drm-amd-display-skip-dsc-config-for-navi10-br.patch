@@ -1,0 +1,50 @@
+From 7db61d72405847d0e2d5ba0e5fa1d43c8b81e68f Mon Sep 17 00:00:00 2001
+From: David Francis <David.Francis@amd.com>
+Date: Thu, 28 Mar 2019 13:52:00 -0400
+Subject: [PATCH 3497/4256] Revert "drm/amd/display: skip dsc config for navi10
+ bring up"
+
+This reverts commit 55ad81f3510ec1a1c19e6a4d8a6319812d07d256.
+
+optc dsc config was causing warnings due to missing register
+definitions. With the registers restored, the function can
+be re-enabled
+
+The reverted commit also disabled sanity checks and dsc
+power gating. The sanity check warnings are not associated
+with dsc, and power gating on dsc still has an issue on
+non-dsc monitors where the dsc hardware block is never init
+and so cannot respond to power gating requests. Therefore,
+those are left as is
+
+Signed-off-by: David Francis <David.Francis@amd.com>
+Reviewed-by: Roman Li <Roman.Li@amd.com>
+Reviewed-by: Harry Wentland <harry.wentland@amd.com>
+Reviewed-by: Nicholas Kazlauskas <nicholas.kazlauskas@amd.com>
+---
+ drivers/gpu/drm/amd/display/dc/dcn20/dcn20_optc.c | 9 ---------
+ 1 file changed, 9 deletions(-)
+
+diff --git a/drivers/gpu/drm/amd/display/dc/dcn20/dcn20_optc.c b/drivers/gpu/drm/amd/display/dc/dcn20/dcn20_optc.c
+index aedf9de1c947..99070e93020b 100644
+--- a/drivers/gpu/drm/amd/display/dc/dcn20/dcn20_optc.c
++++ b/drivers/gpu/drm/amd/display/dc/dcn20/dcn20_optc.c
+@@ -191,15 +191,6 @@ void optc2_set_dsc_config(struct timing_generator *optc,
+ 					uint32_t dsc_slice_width)
+ {
+ 	struct optc *optc1 = DCN10TG_FROM_TG(optc);
+-	uint32_t data_format = 0;
+-	/* skip if dsc mode is not changed */
+-	data_format = dm_read_reg(CTX, REG(OPTC_DATA_FORMAT_CONTROL));
+-
+-	data_format = data_format & 0x30; /* bit5:4 */
+-	data_format = data_format >> 4;
+-
+-	if (data_format == dsc_mode)
+-		return;
+ 
+ 	REG_UPDATE(OPTC_DATA_FORMAT_CONTROL,
+ 		OPTC_DSC_MODE, dsc_mode);
+-- 
+2.17.1
+

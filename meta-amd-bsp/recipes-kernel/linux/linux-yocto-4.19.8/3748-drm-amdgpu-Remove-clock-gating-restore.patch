@@ -1,0 +1,39 @@
+From e1bf1c707aeb54987d85d18ca03dfa7316d85e2a Mon Sep 17 00:00:00 2001
+From: Andrey Grodzovsky <andrey.grodzovsky@amd.com>
+Date: Wed, 4 Sep 2019 11:16:24 -0400
+Subject: [PATCH 3748/4256] drm/amdgpu: Remove clock gating restore.
+
+Restoring clock gating break SMU opeartion afterwards, avoid
+this until this further invistigated with SMU.
+
+Signed-off-by: Andrey Grodzovsky <andrey.grodzovsky@amd.com>
+Reviewed-by: Tao Zhou <tao.zhou1@amd.com>
+Reviewed-and-tested-by: Guchun Chen <guchun.chen@amd.com>
+---
+ drivers/gpu/drm/amd/amdgpu/smu_v11_0_i2c.c | 10 +++++++++-
+ 1 file changed, 9 insertions(+), 1 deletion(-)
+
+diff --git a/drivers/gpu/drm/amd/amdgpu/smu_v11_0_i2c.c b/drivers/gpu/drm/amd/amdgpu/smu_v11_0_i2c.c
+index 7d0d4c57b315..aad83932dd05 100644
+--- a/drivers/gpu/drm/amd/amdgpu/smu_v11_0_i2c.c
++++ b/drivers/gpu/drm/amd/amdgpu/smu_v11_0_i2c.c
+@@ -491,7 +491,15 @@ static void smu_v11_0_i2c_fini(struct i2c_adapter *control)
+ 	}
+ 
+ 	/* Restore clock gating */
+-	smu_v11_0_i2c_set_clock_gating(control, true);
++
++	/*
++	 * TODO Reenabling clock gating seems to break subsequent SMU operation
++	 *      on the I2C bus. My guess is that SMU doesn't disable clock gating like
++	 *      we do here before working with the bus. So for now just don't restore
++	 *      it but later work with SMU to see if they have this issue and can
++	 *      update their code appropriately
++	 */
++	/* smu_v11_0_i2c_set_clock_gating(control, true); */
+ 
+ }
+ 
+-- 
+2.17.1
+

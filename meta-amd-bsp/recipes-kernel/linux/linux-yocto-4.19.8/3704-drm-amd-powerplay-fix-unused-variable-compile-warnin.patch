@@ -1,0 +1,67 @@
+From 7e62e7c9b679b0dae099c33244c657d3eb09c717 Mon Sep 17 00:00:00 2001
+From: Xiaojie Yuan <xiaojie.yuan@amd.com>
+Date: Thu, 5 Sep 2019 17:23:57 +0800
+Subject: [PATCH 3704/4256] drm/amd/powerplay: fix 'unused variable' compile
+ warning
+
+Signed-off-by: Xiaojie Yuan <xiaojie.yuan@amd.com>
+Reviewed-by: Evan Quan <evan.quan@amd.com>
+---
+ drivers/gpu/drm/amd/powerplay/arcturus_ppt.c | 2 --
+ drivers/gpu/drm/amd/powerplay/navi10_ppt.c   | 2 --
+ drivers/gpu/drm/amd/powerplay/renoir_ppt.c   | 2 --
+ drivers/gpu/drm/amd/powerplay/vega20_ppt.c   | 2 --
+ 4 files changed, 8 deletions(-)
+
+diff --git a/drivers/gpu/drm/amd/powerplay/arcturus_ppt.c b/drivers/gpu/drm/amd/powerplay/arcturus_ppt.c
+index e7ec8d583ea0..f2be65928237 100644
+--- a/drivers/gpu/drm/amd/powerplay/arcturus_ppt.c
++++ b/drivers/gpu/drm/amd/powerplay/arcturus_ppt.c
+@@ -1931,7 +1931,5 @@ static const struct pptable_funcs arcturus_ppt_funcs = {
+ 
+ void arcturus_set_ppt_funcs(struct smu_context *smu)
+ {
+-	struct smu_table_context *smu_table = &smu->smu_table;
+-
+ 	smu->ppt_funcs = &arcturus_ppt_funcs;
+ }
+diff --git a/drivers/gpu/drm/amd/powerplay/navi10_ppt.c b/drivers/gpu/drm/amd/powerplay/navi10_ppt.c
+index e3add8b59291..16634e657589 100644
+--- a/drivers/gpu/drm/amd/powerplay/navi10_ppt.c
++++ b/drivers/gpu/drm/amd/powerplay/navi10_ppt.c
+@@ -1630,7 +1630,5 @@ static const struct pptable_funcs navi10_ppt_funcs = {
+ 
+ void navi10_set_ppt_funcs(struct smu_context *smu)
+ {
+-	struct smu_table_context *smu_table = &smu->smu_table;
+-
+ 	smu->ppt_funcs = &navi10_ppt_funcs;
+ }
+diff --git a/drivers/gpu/drm/amd/powerplay/renoir_ppt.c b/drivers/gpu/drm/amd/powerplay/renoir_ppt.c
+index b7fa8b158ff2..a5cf846b50d4 100644
+--- a/drivers/gpu/drm/amd/powerplay/renoir_ppt.c
++++ b/drivers/gpu/drm/amd/powerplay/renoir_ppt.c
+@@ -257,8 +257,6 @@ static const struct pptable_funcs renoir_ppt_funcs = {
+ 
+ void renoir_set_ppt_funcs(struct smu_context *smu)
+ {
+-	struct smu_table_context *smu_table = &smu->smu_table;
+-
+ 	smu->ppt_funcs = &renoir_ppt_funcs;
+ 	smu->smc_if_version = SMU12_DRIVER_IF_VERSION;
+ }
+diff --git a/drivers/gpu/drm/amd/powerplay/vega20_ppt.c b/drivers/gpu/drm/amd/powerplay/vega20_ppt.c
+index 18d1b432f719..929f61891dfa 100644
+--- a/drivers/gpu/drm/amd/powerplay/vega20_ppt.c
++++ b/drivers/gpu/drm/amd/powerplay/vega20_ppt.c
+@@ -3180,7 +3180,5 @@ static const struct pptable_funcs vega20_ppt_funcs = {
+ 
+ void vega20_set_ppt_funcs(struct smu_context *smu)
+ {
+-	struct smu_table_context *smu_table = &smu->smu_table;
+-
+ 	smu->ppt_funcs = &vega20_ppt_funcs;
+ }
+-- 
+2.17.1
+

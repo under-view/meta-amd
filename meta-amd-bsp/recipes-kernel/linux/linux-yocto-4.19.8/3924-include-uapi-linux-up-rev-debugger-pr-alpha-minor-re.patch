@@ -1,0 +1,31 @@
+From c6e7d6cb1d0b67d0544d240e52335ba99b167a1e Mon Sep 17 00:00:00 2001
+From: Jonathan Kim <jonathan.kim@amd.com>
+Date: Fri, 27 Sep 2019 15:07:34 -0400
+Subject: [PATCH 3924/4256] include/uapi/linux: up rev debugger pr-alpha minor
+ rev
+
+one time revision bump.  in future all kernel feature add/fixes for
+debugger should include rev bump.
+
+Change-Id: I19f16f7ddbcc13bac266320abd57b7a721c4cc86
+Signed-off-by: Jonathan Kim <jonathan.kim@amd.com>
+---
+ include/uapi/linux/kfd_ioctl.h | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/include/uapi/linux/kfd_ioctl.h b/include/uapi/linux/kfd_ioctl.h
+index e126cfcb0bbe..8c9a5ab34d9e 100644
+--- a/include/uapi/linux/kfd_ioctl.h
++++ b/include/uapi/linux/kfd_ioctl.h
+@@ -29,7 +29,7 @@
+ #define KFD_IOCTL_MAJOR_VERSION 1
+ #define KFD_IOCTL_MINOR_VERSION 2
+ #define KFD_IOCTL_DBG_MAJOR_VERSION	0
+-#define KFD_IOCTL_DBG_MINOR_VERSION	1
++#define KFD_IOCTL_DBG_MINOR_VERSION	2
+ 
+ struct kfd_ioctl_get_version_args {
+ 	__u32 major_version;	/* from KFD */
+-- 
+2.17.1
+

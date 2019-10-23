@@ -1,0 +1,36 @@
+From 422949a500329692033a8700c9b067bc4ddd3b6d Mon Sep 17 00:00:00 2001
+From: Oak Zeng <Oak.Zeng@amd.com>
+Date: Fri, 4 Oct 2019 09:28:21 -0500
+Subject: [PATCH 3978/4256] drm/amdkfd: Fix MQD size calculation
+
+On device initialization, a chunk of GTT memory is pre-allocated for
+HIQ and all SDMA queues mqd. The size of this allocation was wrong.
+The correct sdma engine number should be PCIe-optimized SDMA engine
+number plus xgmi SDMA engine number.
+
+Change-Id: Iecd11ae4f5a314591566772aa2a23e1fe4b94275
+Reported-by: Jonathan Kim <Jonathan.Kim@amd.com>
+Signed-off-by: Jonathan Kim <Jonathan.Kim@amd.com>
+Signed-off-by: Oak Zeng <Oak.Zeng@amd.com>
+Reviewed-by: Felix Kuehling <Felix.Kuehling@amd.com>
+---
+ drivers/gpu/drm/amd/amdkfd/kfd_device_queue_manager.c | 3 ++-
+ 1 file changed, 2 insertions(+), 1 deletion(-)
+
+diff --git a/drivers/gpu/drm/amd/amdkfd/kfd_device_queue_manager.c b/drivers/gpu/drm/amd/amdkfd/kfd_device_queue_manager.c
+index 437a9d28b5c2..d8b54ebe8359 100644
+--- a/drivers/gpu/drm/amd/amdkfd/kfd_device_queue_manager.c
++++ b/drivers/gpu/drm/amd/amdkfd/kfd_device_queue_manager.c
+@@ -1840,7 +1840,8 @@ static int allocate_hiq_sdma_mqd(struct device_queue_manager *dqm)
+ 	struct kfd_dev *dev = dqm->dev;
+ 	struct kfd_mem_obj *mem_obj = &dqm->hiq_sdma_mqd;
+ 	uint32_t size = dqm->mqd_mgrs[KFD_MQD_TYPE_SDMA]->mqd_size *
+-		dev->device_info->num_sdma_engines *
++		(dev->device_info->num_sdma_engines +
++		dev->device_info->num_xgmi_sdma_engines) *
+ 		dev->device_info->num_sdma_queues_per_engine +
+ 		dqm->mqd_mgrs[KFD_MQD_TYPE_HIQ]->mqd_size;
+ 
+-- 
+2.17.1
+

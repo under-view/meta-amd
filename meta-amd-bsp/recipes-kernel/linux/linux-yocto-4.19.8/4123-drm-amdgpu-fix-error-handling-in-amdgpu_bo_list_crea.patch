@@ -1,0 +1,38 @@
+From aa3c9761ac3979cf949991281f45306c578c3b6d Mon Sep 17 00:00:00 2001
+From: =?UTF-8?q?Christian=20K=C3=B6nig?= <christian.koenig@amd.com>
+Date: Wed, 18 Sep 2019 19:42:14 +0200
+Subject: [PATCH 4123/4256] drm/amdgpu: fix error handling in
+ amdgpu_bo_list_create
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+We need to drop normal and userptr BOs separately.
+
+Signed-off-by: Christian König <christian.koenig@amd.com>
+Acked-by: Huang Rui <ray.huang@amd.com>
+---
+ drivers/gpu/drm/amd/amdgpu/amdgpu_bo_list.c | 7 ++++++-
+ 1 file changed, 6 insertions(+), 1 deletion(-)
+
+diff --git a/drivers/gpu/drm/amd/amdgpu/amdgpu_bo_list.c b/drivers/gpu/drm/amd/amdgpu/amdgpu_bo_list.c
+index e143d9e110bd..92df38fd794d 100644
+--- a/drivers/gpu/drm/amd/amdgpu/amdgpu_bo_list.c
++++ b/drivers/gpu/drm/amd/amdgpu/amdgpu_bo_list.c
+@@ -140,7 +140,12 @@ int amdgpu_bo_list_create(struct amdgpu_device *adev, struct drm_file *filp,
+ 	return 0;
+ 
+ error_free:
+-	while (i--) {
++	for (i = 0; i < last_entry; ++i) {
++		struct amdgpu_bo *bo = ttm_to_amdgpu_bo(array[i].tv.bo);
++
++		amdgpu_bo_unref(&bo);
++	}
++	for (i = first_userptr; i < num_entries; ++i) {
+ 		struct amdgpu_bo *bo = ttm_to_amdgpu_bo(array[i].tv.bo);
+ 
+ 		amdgpu_bo_unref(&bo);
+-- 
+2.17.1
+

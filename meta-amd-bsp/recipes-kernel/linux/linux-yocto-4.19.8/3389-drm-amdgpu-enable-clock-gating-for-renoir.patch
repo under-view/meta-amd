@@ -1,0 +1,44 @@
+From 548d197d71bb57e27da4dc7ea34807e2d532ced1 Mon Sep 17 00:00:00 2001
+From: Aaron Liu <aaron.liu@amd.com>
+Date: Mon, 12 Aug 2019 11:32:56 -0500
+Subject: [PATCH 3389/4256] drm/amdgpu: enable clock gating for renoir
+
+enable gfx&common clock gating for renoir
+
+Acked-by: Huang Rui <ray.huang@amd.com>
+Signed-off-by: Aaron Liu <aaron.liu@amd.com>
+Reviewed-by: Huang Rui <ray.huang@amd.com>
+Reviewed-by: Evan Quan <evan.quan@amd.com>
+Signed-off-by: Alex Deucher <alexander.deucher@amd.com>
+---
+ drivers/gpu/drm/amd/amdgpu/gfx_v9_0.c | 1 +
+ drivers/gpu/drm/amd/amdgpu/soc15.c    | 1 +
+ 2 files changed, 2 insertions(+)
+
+diff --git a/drivers/gpu/drm/amd/amdgpu/gfx_v9_0.c b/drivers/gpu/drm/amd/amdgpu/gfx_v9_0.c
+index 75ea77cc457f..db9d7f986b92 100644
+--- a/drivers/gpu/drm/amd/amdgpu/gfx_v9_0.c
++++ b/drivers/gpu/drm/amd/amdgpu/gfx_v9_0.c
+@@ -4868,6 +4868,7 @@ static int gfx_v9_0_set_clockgating_state(void *handle,
+ 	case CHIP_VEGA20:
+ 	case CHIP_RAVEN:
+ 	case CHIP_ARCTURUS:
++	case CHIP_RENOIR:
+ 		gfx_v9_0_update_gfx_clock_gating(adev,
+ 						 state == AMD_CG_STATE_GATE ? true : false);
+ 		break;
+diff --git a/drivers/gpu/drm/amd/amdgpu/soc15.c b/drivers/gpu/drm/amd/amdgpu/soc15.c
+index 8d3e711d5123..c2d324d8da75 100644
+--- a/drivers/gpu/drm/amd/amdgpu/soc15.c
++++ b/drivers/gpu/drm/amd/amdgpu/soc15.c
+@@ -1405,6 +1405,7 @@ static int soc15_common_set_clockgating_state(void *handle,
+ 				state == AMD_CG_STATE_GATE ? true : false);
+ 		break;
+ 	case CHIP_RAVEN:
++	case CHIP_RENOIR:
+ 		adev->nbio_funcs->update_medium_grain_clock_gating(adev,
+ 				state == AMD_CG_STATE_GATE ? true : false);
+ 		adev->nbio_funcs->update_medium_grain_light_sleep(adev,
+-- 
+2.17.1
+

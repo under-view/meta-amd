@@ -1,0 +1,35 @@
+From c0c1fc42ed27a2e44bb10e65769297d3d9147800 Mon Sep 17 00:00:00 2001
+From: Oak Zeng <Oak.Zeng@amd.com>
+Date: Mon, 7 Oct 2019 15:32:23 -0500
+Subject: [PATCH 4042/4256] drm/amdgpu: Enable gfx cache probing on HDP write
+ for arcturus
+
+This allows gfx cache to be probed and invalidated (for none-dirty cache lines)
+on a HDP write (from either another GPU or CPU). This should work only for the
+memory mapped as RW memory type newly added for arcturus, to achieve some cache
+coherence b/t multiple memory clients.
+
+Change-Id: I5c9a6a25d88cd75c71c88822123e0d4c067aa3f8
+Acked-by: Christian Konig <christian.koenig@amd.com>
+Signed-off-by: Oak Zeng <Oak.Zeng@amd.com>
+---
+ drivers/gpu/drm/amd/amdgpu/gmc_v9_0.c | 3 +++
+ 1 file changed, 3 insertions(+)
+
+diff --git a/drivers/gpu/drm/amd/amdgpu/gmc_v9_0.c b/drivers/gpu/drm/amd/amdgpu/gmc_v9_0.c
+index cfe135544d24..6ddb8bdf77cc 100644
+--- a/drivers/gpu/drm/amd/amdgpu/gmc_v9_0.c
++++ b/drivers/gpu/drm/amd/amdgpu/gmc_v9_0.c
+@@ -1204,6 +1204,9 @@ static int gmc_v9_0_hw_init(void *handle)
+ 		/* TODO for renoir */
+ 		mmhub_v1_0_update_power_gating(adev, true);
+ 		break;
++	case CHIP_ARCTURUS:
++		WREG32_FIELD15(HDP, 0, HDP_MMHUB_CNTL, HDP_MMHUB_GCC, 1);
++		break;
+ 	default:
+ 		break;
+ 	}
+-- 
+2.17.1
+
