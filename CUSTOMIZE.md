@@ -66,13 +66,13 @@ target.
 
 | Feature               | Configuration variable        | Configuration values                   | Default value | Supported BSPs |
 |:----------------------|:------------------------------|:---------------------------------------|:--------------|:---------------|
-| VULKAN                | INCLUDE_VULKAN                | yes, no                                | no            | r1000          |
-| MPV                   | INCLUDE_MPV                   | yes, no                                | no            | r1000          |
-| COMMERCIAL MULTIMEDIA | INCLUDE_COMMERCIAL_MULTIMEDIA | yes, no                                | no            | r1000          |
-| MULTI DISPLAY         | MULTI_DISPLAY_MODE            | auto, mirrored, extended-v, extended-h | auto          | r1000          |
-| ON-TARGET DEVELOPMENT | EXTRA_IMAGE_FEATURES_append   | tools-sdk                              |               | r1000          |
-| ON-TARGET DEBUGGING   | EXTRA_IMAGE_FEATURES_append   | tools-debug                            |               | r1000          |
-| ON-TARGET PROFILING   | EXTRA_IMAGE_FEATURES_append   | tools-profile                          |               | r1000          |
+| VULKAN                | INCLUDE_VULKAN                | yes, no                                | no            | r1000, v1000   |   
+| MPV                   | INCLUDE_MPV                   | yes, no                                | no            | r1000, v1000   |   
+| COMMERCIAL MULTIMEDIA | INCLUDE_COMMERCIAL_MULTIMEDIA | yes, no                                | no            | r1000, v1000   |   
+| MULTI DISPLAY         | MULTI_DISPLAY_MODE            | auto, mirrored, extended-v, extended-h | auto          | r1000, v1000   |   
+| ON-TARGET DEVELOPMENT | EXTRA_IMAGE_FEATURES_append   | tools-sdk                              |               | r1000, v1000   |   
+| ON-TARGET DEBUGGING   | EXTRA_IMAGE_FEATURES_append   | tools-debug                            |               | r1000, v1000   |   
+| ON-TARGET PROFILING   | EXTRA_IMAGE_FEATURES_append   | tools-profile                          |               | r1000, v1000   |
 
 #### Example configuration in local.conf
 ```sh
