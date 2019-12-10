@@ -1,7 +1,7 @@
 # Features
 
-This document lists the features supported for the AMD BSPs. In each
-BSP column, a "Y" represents that the feature in this row is supported
+This section lists the features supported for the AMD BSPs. In each
+BSP column, a 'Y' represents that the feature in this row is supported
 for this BSP.
 
 | Category                        | Feature                                 | R1000 | V1000 |
@@ -64,7 +64,7 @@ for this BSP.
 |                                 | Touchscreen                             | Y     | Y     |
 | Display Device Support          |                                         |       |       |
 |                                 | DP                                      | Y     | Y     |
-|                                 | HDMI                                    | Y     |       |
+|                                 | HDMI                                    | Y     | Y     |
 | Network Protocols               |                                         |       |       |
 |                                 | IPv4                                    | Y     | Y     |
 |                                 | IPv6                                    | Y     | Y     |
