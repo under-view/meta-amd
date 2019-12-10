@@ -3,17 +3,17 @@
 Building images for AMD BSPs requires setting up the Yocto Project
 Build System. Please follow the guidelines on
 [Yocto Project Overview and Concepts Manual](https://www.yoctoproject.org/docs/2.7.1/overview-manual/overview-manual.html)
-and [Yocto Project Quick Build](https://www.yoctoproject.org/docs/2.7.1/brief-yoctoprojectqs/brief-yoctoprojectqs.html)
+and [Yocto Project Quick Build Guide](https://www.yoctoproject.org/docs/2.7.1/brief-yoctoprojectqs/brief-yoctoprojectqs.html)
 if you are not familiar with the Yocto Project and it's Build System.
 
 Running the following commands will setup the build system and will
 enable us to build recipes & images for any of the
-[supported AMD BSPs](meta-amd-bsp/README.md).
+supported AMD BSPs (i.e `r1000`, `v1000` or `e3000`).
 
 ### 1.1 Prerequisites
 
-Install the build system's dependencies
-```
+Install the build system's dependencies:
+```sh
 sudo apt install -y gawk wget git-core diffstat unzip texinfo \
      gcc-multilib build-essential chrpath socat cpio python python3 \
      python3-pip python3-pexpect xz-utils debianutils iputils-ping \
@@ -29,11 +29,15 @@ YOCTO_BRANCH="warrior"
 
 Clone the git repositories: 
 ```sh
-git clone --single-branch --branch "${YOCTO_BRANCH}" "git://git.yoctoproject.org/poky" "poky-amd"
+git clone --single-branch --branch "${YOCTO_BRANCH}" \
+    "git://git.yoctoproject.org/poky" "poky-amd"
 cd poky-amd
-git clone --single-branch --branch "${YOCTO_BRANCH}" "git://git.openembedded.org/meta-openembedded"
-git clone --single-branch --branch "${YOCTO_BRANCH}" "git://git.yoctoproject.org/meta-dpdk"
-git clone --single-branch --branch "${YOCTO_BRANCH}" "git://git.yoctoproject.org/meta-amd"
+git clone --single-branch --branch "${YOCTO_BRANCH}" \
+    "git://git.openembedded.org/meta-openembedded"
+git clone --single-branch --branch "${YOCTO_BRANCH}" \
+    "git://git.yoctoproject.org/meta-dpdk"
+git clone --single-branch --branch "${YOCTO_BRANCH}" \
+    "git://git.yoctoproject.org/meta-amd"
 ```
 
 Checkout commit hashes:
@@ -51,5 +55,6 @@ cd ..
 ---
 #### What's next
 
-Continue to "[section 2 - build](BUILD.md)" for instructions on how to
-setup and start a build for a particular AMD BSP.
+Continue to "Section 2 - Setting up and starting a build"
+([BUILD.md](BUILD.md)) for instructions on how to setup and start a
+build for a particular AMD BSP.
