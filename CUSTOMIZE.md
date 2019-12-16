@@ -41,6 +41,10 @@ them to be installed/available on your image, or can be configured:
 
 > lttng, babeltrace, systemtap, powertop, valgrind
 
+* **RT KERNEL - Realtime Kernel support**
+
+> Linux kernel with PREEMPT_RT patch
+
 ---
 #### Disclaimer
 
@@ -64,15 +68,16 @@ target.
 
 #### Supported Features
 
-| Feature               | Configuration variable        | Configuration values                   | Default value | Supported BSPs |
-|:----------------------|:------------------------------|:---------------------------------------|:--------------|:---------------|
-| VULKAN                | INCLUDE_VULKAN                | yes, no                                | no            | r1000, v1000   |
-| MPV                   | INCLUDE_MPV                   | yes, no                                | no            | r1000, v1000   |
-| COMMERCIAL MULTIMEDIA | INCLUDE_COMMERCIAL_MULTIMEDIA | yes, no                                | no            | r1000, v1000   |
-| MULTI DISPLAY         | MULTI_DISPLAY_MODE            | auto, mirrored, extended-v, extended-h | auto          | r1000, v1000   |
-| ON-TARGET DEVELOPMENT | EXTRA_IMAGE_FEATURES_append   | tools-sdk                              |               | r1000, v1000   |
-| ON-TARGET DEBUGGING   | EXTRA_IMAGE_FEATURES_append   | tools-debug                            |               | r1000, v1000   |
-| ON-TARGET PROFILING   | EXTRA_IMAGE_FEATURES_append   | tools-profile                          |               | r1000, v1000   |
+| Feature               | Configuration variable        | Configuration values                   | Default value | Supported BSPs      |
+|:----------------------|:------------------------------|:---------------------------------------|:--------------|:--------------------|
+| VULKAN                | INCLUDE_VULKAN                | yes, no                                | no            | r1000, v1000        |
+| MPV                   | INCLUDE_MPV                   | yes, no                                | no            | r1000, v1000        |
+| COMMERCIAL MULTIMEDIA | INCLUDE_COMMERCIAL_MULTIMEDIA | yes, no                                | no            | r1000, v1000        |
+| MULTI DISPLAY         | MULTI_DISPLAY_MODE            | auto, mirrored, extended-v, extended-h | auto          | r1000, v1000        |
+| ON-TARGET DEVELOPMENT | EXTRA_IMAGE_FEATURES_append   | tools-sdk                              |               | r1000, v1000, e3000 |
+| ON-TARGET DEBUGGING   | EXTRA_IMAGE_FEATURES_append   | tools-debug                            |               | r1000, v1000, e3000 |
+| ON-TARGET PROFILING   | EXTRA_IMAGE_FEATURES_append   | tools-profile                          |               | r1000, v1000, e3000 |
+| RT KERNEL             | RT_KERNEL_AMD                 | yes, no                                | no            | e3000               |
 
 #### Example configuration in local.conf
 ```sh
@@ -85,6 +90,9 @@ MULTI_DISPLAY_MODE = "auto"
 EXTRA_IMAGE_FEATURES_append = " tools-sdk"
 EXTRA_IMAGE_FEATURES_append = " tools-debug"
 EXTRA_IMAGE_FEATURES_append = " tools-profile"
+
+# Please run 'bitbake -c clean virtual/kernel' before configuring RT_KERNEL_AMD
+RT_KERNEL_AMD = "yes"
 ```
 
 ---
