@@ -12,3 +12,4 @@ features and a general guide to Yocto Project and it's build system.
 | KGDB                                         | https://www.kernel.org/doc/html/v4.19/dev-tools/kgdb.html                              |                                                                  |
 | LTTng                                        | https://lttng.org/docs/v2.10                                                           |                                                                  |
 | RGP                                          | https://github.com/GPUOpen-Tools/Radeon-GPUProfiler/releases/tag/v1.5.1                | Follow the docs contained in the .tgz file attached on this link |
+| DPDK                                         | https://doc.dpdk.org/guides-18.11                                                      |                                                                  |
