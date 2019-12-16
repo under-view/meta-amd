@@ -2,8 +2,8 @@
 
 Building images for AMD BSPs requires setting up the Yocto Project
 Build System. Please follow the guidelines on
-[Yocto Project Overview and Concepts Manual](https://www.yoctoproject.org/docs/2.7.1/overview-manual/overview-manual.html)
-and [Yocto Project Quick Build Guide](https://www.yoctoproject.org/docs/2.7.1/brief-yoctoprojectqs/brief-yoctoprojectqs.html)
+[Yocto Project Overview and Concepts Manual](https://www.yoctoproject.org/docs/2.7.2/overview-manual/overview-manual.html)
+and [Yocto Project Quick Build Guide](https://www.yoctoproject.org/docs/2.7.2/brief-yoctoprojectqs/brief-yoctoprojectqs.html)
 if you are not familiar with the Yocto Project and it's Build System.
 
 Running the following commands will setup the build system and will
