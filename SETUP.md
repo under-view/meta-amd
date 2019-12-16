@@ -2,8 +2,8 @@
 
 Building images for AMD BSPs requires setting up the Yocto Project
 Build System. Please follow the guidelines on
-[Yocto Project Overview and Concepts Manual](https://www.yoctoproject.org/docs/2.7.1/overview-manual/overview-manual.html)
-and [Yocto Project Quick Build Guide](https://www.yoctoproject.org/docs/2.7.1/brief-yoctoprojectqs/brief-yoctoprojectqs.html)
+[Yocto Project Overview and Concepts Manual](https://www.yoctoproject.org/docs/2.7.2/overview-manual/overview-manual.html)
+and [Yocto Project Quick Build Guide](https://www.yoctoproject.org/docs/2.7.2/brief-yoctoprojectqs/brief-yoctoprojectqs.html)
 if you are not familiar with the Yocto Project and it's Build System.
 
 Running the following commands will setup the build system and will
@@ -42,13 +42,13 @@ git clone --single-branch --branch "${YOCTO_BRANCH}" \
 
 Checkout commit hashes:
 ```sh
-git checkout --quiet 79a850a10a4b88a6d20d607b322542f947874323
+git checkout --quiet 023ff85a9ae94331926e923b346fd8a349881e63
 cd meta-openembedded
-git checkout --quiet f4ccdf2bc3fe4f00778629088baab840c868e36b
+git checkout --quiet a24acf94d48d635eca668ea34598c6e5c857e3f8
 cd ../meta-dpdk
 git checkout --quiet c8c30c2c4e2f36b4a55a69a475fe774015423705
 cd ../meta-amd
-git checkout --quiet tags/warrior-v1000-ga-201912
+git checkout --quiet HEAD
 cd ..
 ```
 
