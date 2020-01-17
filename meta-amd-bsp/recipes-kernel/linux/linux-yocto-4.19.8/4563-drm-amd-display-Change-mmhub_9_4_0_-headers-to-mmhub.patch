@@ -1,0 +1,39 @@
+From 8b92f281daaefb0e0c265784505e38a6afa8bac3 Mon Sep 17 00:00:00 2001
+From: Zhan Liu <zhan.liu@amd.com>
+Date: Wed, 20 Nov 2019 14:35:37 -0500
+Subject: [PATCH 4563/4736] drm/amd/display: Change mmhub_9_4_0_ headers to
+ mmhub_1_0_ ones.
+
+[Why]
+Kernal won't compile without this patch. That is because
+mmhub_9_4_0_ headers are obsolete. All contents within
+mmhub_9_4_0_ headers are inherited by their corresponding
+mmhub_1_0_ ones.
+
+[How]
+Change mmhub_9_4_0_ headers to their corresponding mmhub_1_0_ ones.
+
+Signed-off-by: Zhan Liu <zhan.liu@amd.com>
+Reviewed-by: Alex Deucher <alexander.deucher@amd.com>
+---
+ drivers/gpu/drm/amd/display/dc/dce120/dce120_resource.c | 4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
+
+diff --git a/drivers/gpu/drm/amd/display/dc/dce120/dce120_resource.c b/drivers/gpu/drm/amd/display/dc/dce120/dce120_resource.c
+index e9157583817f..b00d17cade1a 100644
+--- a/drivers/gpu/drm/amd/display/dc/dce120/dce120_resource.c
++++ b/drivers/gpu/drm/amd/display/dc/dce120/dce120_resource.c
+@@ -61,8 +61,8 @@
+ #include "soc15_hw_ip.h"
+ #include "vega10_ip_offset.h"
+ #include "nbio/nbio_6_1_offset.h"
+-#include "mmhub/mmhub_9_4_0_offset.h"
+-#include "mmhub/mmhub_9_4_0_sh_mask.h"
++#include "mmhub/mmhub_1_0_offset.h"
++#include "mmhub/mmhub_1_0_sh_mask.h"
+ #include "reg_helper.h"
+ 
+ #include "dce100/dce100_resource.h"
+-- 
+2.17.1
+

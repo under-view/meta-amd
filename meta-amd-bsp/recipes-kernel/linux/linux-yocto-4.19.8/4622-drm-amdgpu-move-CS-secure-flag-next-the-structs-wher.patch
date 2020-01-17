@@ -1,0 +1,45 @@
+From bfdfc240899956bb60f4c096e24245cb6f065974 Mon Sep 17 00:00:00 2001
+From: Alex Deucher <alexander.deucher@amd.com>
+Date: Wed, 27 Nov 2019 15:55:35 -0500
+Subject: [PATCH 4622/4736] drm/amdgpu: move CS secure flag next the structs
+ where it's used
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+So it's not mixed up with the CTX stuff.
+
+Reviewed-by: Zhan Liu <zhan.liu@amd.com>
+Reviewed-by: Christian König <christian.koenig@amd.com>
+Signed-off-by: Alex Deucher <alexander.deucher@amd.com>
+---
+ include/uapi/drm/amdgpu_drm.h | 6 +++---
+ 1 file changed, 3 insertions(+), 3 deletions(-)
+
+diff --git a/include/uapi/drm/amdgpu_drm.h b/include/uapi/drm/amdgpu_drm.h
+index 989afacefb92..78f155da2105 100644
+--- a/include/uapi/drm/amdgpu_drm.h
++++ b/include/uapi/drm/amdgpu_drm.h
+@@ -224,9 +224,6 @@ union drm_amdgpu_bo_list {
+ #define AMDGPU_CTX_OP_QUERY_STATE	3
+ #define AMDGPU_CTX_OP_QUERY_STATE2	4
+ 
+-/* Flag the command submission as secure */
+-#define AMDGPU_CS_FLAGS_SECURE          (1 << 0)
+-
+ /* GPU reset status */
+ #define AMDGPU_CTX_NO_RESET		0
+ /* this the context caused it */
+@@ -615,6 +612,9 @@ struct drm_amdgpu_cs_chunk {
+ 	__u64		chunk_data;
+ };
+ 
++/* Flag the command submission as secure */
++#define AMDGPU_CS_FLAGS_SECURE          (1 << 0)
++
+ struct drm_amdgpu_cs_in {
+ 	/** Rendering context id */
+ 	__u32		ctx_id;
+-- 
+2.17.1
+

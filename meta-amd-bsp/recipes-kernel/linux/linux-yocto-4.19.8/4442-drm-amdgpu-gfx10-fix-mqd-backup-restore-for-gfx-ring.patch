@@ -1,0 +1,61 @@
+From fcba8e7d0b5d92ad1455239d3f4f1ca4f973f888 Mon Sep 17 00:00:00 2001
+From: Xiaojie Yuan <xiaojie.yuan@amd.com>
+Date: Tue, 29 Oct 2019 16:59:09 +0800
+Subject: [PATCH 4442/4736] drm/amdgpu/gfx10: fix mqd backup/restore for gfx
+ rings
+
+1. no need to allocate an extra member for 'mqd_backup' array
+2. backup/restore mqd to/from the correct 'mqd_backup' array slot
+
+Signed-off-by: Xiaojie Yuan <xiaojie.yuan@amd.com>
+Acked-by: Alex Deucher <alexander.deucher@amd.com>
+---
+ drivers/gpu/drm/amd/amdgpu/amdgpu_gfx.h | 2 +-
+ drivers/gpu/drm/amd/amdgpu/gfx_v10_0.c  | 9 +++++----
+ 2 files changed, 6 insertions(+), 5 deletions(-)
+
+diff --git a/drivers/gpu/drm/amd/amdgpu/amdgpu_gfx.h b/drivers/gpu/drm/amd/amdgpu/amdgpu_gfx.h
+index a74ecd449775..0ae0a2715b0d 100644
+--- a/drivers/gpu/drm/amd/amdgpu/amdgpu_gfx.h
++++ b/drivers/gpu/drm/amd/amdgpu/amdgpu_gfx.h
+@@ -225,7 +225,7 @@ struct amdgpu_me {
+ 	uint32_t			num_me;
+ 	uint32_t			num_pipe_per_me;
+ 	uint32_t			num_queue_per_pipe;
+-	void				*mqd_backup[AMDGPU_MAX_GFX_RINGS + 1];
++	void				*mqd_backup[AMDGPU_MAX_GFX_RINGS];
+ 
+ 	/* These are the resources for which amdgpu takes ownership */
+ 	DECLARE_BITMAP(queue_bitmap, AMDGPU_MAX_GFX_QUEUES);
+diff --git a/drivers/gpu/drm/amd/amdgpu/gfx_v10_0.c b/drivers/gpu/drm/amd/amdgpu/gfx_v10_0.c
+index e4b4f4b09329..9274bd4b6c68 100644
+--- a/drivers/gpu/drm/amd/amdgpu/gfx_v10_0.c
++++ b/drivers/gpu/drm/amd/amdgpu/gfx_v10_0.c
+@@ -3118,6 +3118,7 @@ static int gfx_v10_0_gfx_init_queue(struct amdgpu_ring *ring)
+ {
+ 	struct amdgpu_device *adev = ring->adev;
+ 	struct v10_gfx_mqd *mqd = ring->mqd_ptr;
++	int mqd_idx = ring - &adev->gfx.gfx_ring[0];
+ 
+ 	if (!adev->in_gpu_reset && !adev->in_suspend) {
+ 		memset((void *)mqd, 0, sizeof(*mqd));
+@@ -3129,12 +3130,12 @@ static int gfx_v10_0_gfx_init_queue(struct amdgpu_ring *ring)
+ #endif
+ 		nv_grbm_select(adev, 0, 0, 0, 0);
+ 		mutex_unlock(&adev->srbm_mutex);
+-		if (adev->gfx.me.mqd_backup[AMDGPU_MAX_GFX_RINGS])
+-			memcpy(adev->gfx.me.mqd_backup[AMDGPU_MAX_GFX_RINGS], mqd, sizeof(*mqd));
++		if (adev->gfx.me.mqd_backup[mqd_idx])
++			memcpy(adev->gfx.me.mqd_backup[mqd_idx], mqd, sizeof(*mqd));
+ 	} else if (adev->in_gpu_reset) {
+ 		/* reset mqd with the backup copy */
+-		if (adev->gfx.me.mqd_backup[AMDGPU_MAX_GFX_RINGS])
+-			memcpy(mqd, adev->gfx.me.mqd_backup[AMDGPU_MAX_GFX_RINGS], sizeof(*mqd));
++		if (adev->gfx.me.mqd_backup[mqd_idx])
++			memcpy(mqd, adev->gfx.me.mqd_backup[mqd_idx], sizeof(*mqd));
+ 		/* reset the ring */
+ 		ring->wptr = 0;
+ 		adev->wb.wb[ring->wptr_offs] = 0;
+-- 
+2.17.1
+

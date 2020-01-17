@@ -1,0 +1,133 @@
+From f9cb85904d432a3edfa96931060e86ed1c06c741 Mon Sep 17 00:00:00 2001
+From: Andrey Grodzovsky <andrey.grodzovsky@amd.com>
+Date: Mon, 4 Nov 2019 16:30:05 -0500
+Subject: [PATCH 4391/4736] drm/sched: Use completion to wait for sched->thread
+ idle v2.
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+Removes thread park/unpark hack from drm_sched_entity_fini and
+by this fixes reactivation of scheduler thread while the thread
+is supposed to be stopped.
+
+v2: Per sched entity completion.
+
+Change-Id: I9d1eca2ddcfaf3c1e4ed455e02358a0a396d822d
+Signed-off-by: Andrey Grodzovsky <andrey.grodzovsky@amd.com>
+Suggested-by: Christian König <christian.koenig@amd.com>
+Reviewed-by: Christian König <christian.koenig@amd.com>
+Signed-off-by: Rahul Kumar <rahul.kumar1@amd.com>
+---
+ drivers/gpu/drm/scheduler/sched_entity.c | 12 ++++++++----
+ drivers/gpu/drm/scheduler/sched_main.c   |  6 ++++++
+ include/drm/gpu_scheduler.h              |  3 +++
+ 3 files changed, 17 insertions(+), 4 deletions(-)
+
+diff --git a/drivers/gpu/drm/scheduler/sched_entity.c b/drivers/gpu/drm/scheduler/sched_entity.c
+index 671c90f34ede..797e8ba9bafb 100644
+--- a/drivers/gpu/drm/scheduler/sched_entity.c
++++ b/drivers/gpu/drm/scheduler/sched_entity.c
+@@ -22,6 +22,7 @@
+  */
+ 
+ #include <linux/kthread.h>
++#include <linux/completion.h>
+ #include <drm/gpu_scheduler.h>
+ 
+ #include "gpu_scheduler_trace.h"
+@@ -65,6 +66,8 @@ int drm_sched_entity_init(struct drm_sched_entity *entity,
+ 	if (!entity->rq_list)
+ 		return -ENOMEM;
+ 
++	init_completion(&entity->entity_idle);
++
+ 	for (i = 0; i < num_rq_list; ++i)
+ 		entity->rq_list[i] = rq_list[i];
+ 
+@@ -283,11 +286,12 @@ void drm_sched_entity_fini(struct drm_sched_entity *entity)
+ 	 */
+ 	if (spsc_queue_count(&entity->job_queue)) {
+ 		if (sched) {
+-			/* Park the kernel for a moment to make sure it isn't processing
+-			 * our enity.
++			/*
++			 * Wait for thread to idle to make sure it isn't processing
++			 * this entity.
+ 			 */
+-			kthread_park(sched->thread);
+-			kthread_unpark(sched->thread);
++			wait_for_completion(&entity->entity_idle);
++
+ 		}
+ 		if (entity->dependency) {
+ 			dma_fence_remove_callback(entity->dependency,
+diff --git a/drivers/gpu/drm/scheduler/sched_main.c b/drivers/gpu/drm/scheduler/sched_main.c
+index 007abab5dae6..108bac88dedb 100644
+--- a/drivers/gpu/drm/scheduler/sched_main.c
++++ b/drivers/gpu/drm/scheduler/sched_main.c
+@@ -47,6 +47,7 @@
+ #include <linux/kthread.h>
+ #include <linux/wait.h>
+ #include <linux/sched.h>
++#include <linux/completion.h>
+ #include <uapi/linux/sched/types.h>
+ #include <drm/drmP.h>
+ #include <drm/gpu_scheduler.h>
+@@ -135,6 +136,7 @@ drm_sched_rq_select_entity(struct drm_sched_rq *rq)
+ 		list_for_each_entry_continue(entity, &rq->entities, list) {
+ 			if (drm_sched_entity_is_ready(entity)) {
+ 				rq->current_entity = entity;
++				reinit_completion(&entity->entity_idle);
+ 				spin_unlock(&rq->lock);
+ 				return entity;
+ 			}
+@@ -145,6 +147,7 @@ drm_sched_rq_select_entity(struct drm_sched_rq *rq)
+ 
+ 		if (drm_sched_entity_is_ready(entity)) {
+ 			rq->current_entity = entity;
++			reinit_completion(&entity->entity_idle);
+ 			spin_unlock(&rq->lock);
+ 			return entity;
+ 		}
+@@ -721,6 +724,9 @@ static int drm_sched_main(void *param)
+ 			continue;
+ 
+ 		sched_job = drm_sched_entity_pop_job(entity);
++
++		complete(&entity->entity_idle);
++
+ 		if (!sched_job)
+ 			continue;
+ 
+diff --git a/include/drm/gpu_scheduler.h b/include/drm/gpu_scheduler.h
+index 4d877441145e..3dca3c8bced6 100644
+--- a/include/drm/gpu_scheduler.h
++++ b/include/drm/gpu_scheduler.h
+@@ -26,6 +26,7 @@
+ 
+ #include <drm/spsc_queue.h>
+ #include <linux/dma-fence.h>
++#include <linux/completion.h>
+ 
+ #define MAX_WAIT_SCHED_ENTITY_Q_EMPTY msecs_to_jiffies(1000)
+ 
+@@ -68,6 +69,7 @@ enum drm_sched_priority {
+  * @last_scheduled: points to the finished fence of the last scheduled job.
+  * @last_user: last group leader pushing a job into the entity.
+  * @stopped: Marks the enity as removed from rq and destined for termination.
++ * @entity_idle: Signals when enityt is not in use
+  *
+  * Entities will emit jobs in order to their corresponding hardware
+  * ring, and the scheduler will alternate between entities based on
+@@ -91,6 +93,7 @@ struct drm_sched_entity {
+ 	struct dma_fence                *last_scheduled;
+ 	struct task_struct		*last_user;
+ 	bool 				stopped;
++	struct completion		entity_idle;
+ };
+ 
+ /**
+-- 
+2.17.1
+

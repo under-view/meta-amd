@@ -1,0 +1,81 @@
+From 7db20f1d3760858814739b32f1e033c809123da6 Mon Sep 17 00:00:00 2001
+From: Yong Zhao <Yong.Zhao@amd.com>
+Date: Fri, 25 Oct 2019 17:09:35 -0400
+Subject: [PATCH 4304/4736] drm/amdkfd: Delete unnecessary pr_fmt switch
+
+Given amdkfd.ko has been merged into amdgpu.ko, this switch is no
+longer useful.
+
+Change-Id: If56b80e086f4ea26f347c70b620b3892afc24ddf
+Signed-off-by: Yong Zhao <Yong.Zhao@amd.com>
+Reviewed-by: Alex Deucher <alexander.deucher@amd.com>
+Signed-off-by: Rahul Kumar <rahul.kumar1@amd.com>
+---
+ drivers/gpu/drm/amd/amdgpu/amdgpu_amdkfd_arcturus.c | 4 ----
+ drivers/gpu/drm/amd/amdgpu/amdgpu_amdkfd_gfx_v10.c  | 3 ---
+ drivers/gpu/drm/amd/amdgpu/amdgpu_amdkfd_gfx_v9.c   | 4 ----
+ drivers/gpu/drm/amd/amdgpu/amdgpu_amdkfd_gpuvm.c    | 4 ----
+ 4 files changed, 15 deletions(-)
+
+diff --git a/drivers/gpu/drm/amd/amdgpu/amdgpu_amdkfd_arcturus.c b/drivers/gpu/drm/amd/amdgpu/amdgpu_amdkfd_arcturus.c
+index 7288810e0df5..b91a9be32317 100644
+--- a/drivers/gpu/drm/amd/amdgpu/amdgpu_amdkfd_arcturus.c
++++ b/drivers/gpu/drm/amd/amdgpu/amdgpu_amdkfd_arcturus.c
+@@ -19,10 +19,6 @@
+  * ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR
+  * OTHER DEALINGS IN THE SOFTWARE.
+  */
+-
+-#undef pr_fmt
+-#define pr_fmt(fmt) "kfd2kgd: " fmt
+-
+ #include <linux/module.h>
+ #include <linux/fdtable.h>
+ #include <linux/uaccess.h>
+diff --git a/drivers/gpu/drm/amd/amdgpu/amdgpu_amdkfd_gfx_v10.c b/drivers/gpu/drm/amd/amdgpu/amdgpu_amdkfd_gfx_v10.c
+index b5091e31c83f..5eb289e887b3 100644
+--- a/drivers/gpu/drm/amd/amdgpu/amdgpu_amdkfd_gfx_v10.c
++++ b/drivers/gpu/drm/amd/amdgpu/amdgpu_amdkfd_gfx_v10.c
+@@ -19,9 +19,6 @@
+  * ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR
+  * OTHER DEALINGS IN THE SOFTWARE.
+  */
+-#undef pr_fmt
+-#define pr_fmt(fmt) "kfd2kgd: " fmt
+-
+ #include <linux/mmu_context.h>
+ #include <drm/drmP.h>
+ #include "amdgpu.h"
+diff --git a/drivers/gpu/drm/amd/amdgpu/amdgpu_amdkfd_gfx_v9.c b/drivers/gpu/drm/amd/amdgpu/amdgpu_amdkfd_gfx_v9.c
+index dae572c776cc..f1884b3941e2 100644
+--- a/drivers/gpu/drm/amd/amdgpu/amdgpu_amdkfd_gfx_v9.c
++++ b/drivers/gpu/drm/amd/amdgpu/amdgpu_amdkfd_gfx_v9.c
+@@ -19,10 +19,6 @@
+  * ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR
+  * OTHER DEALINGS IN THE SOFTWARE.
+  */
+-
+-#undef pr_fmt
+-#define pr_fmt(fmt) "kfd2kgd: " fmt
+-
+ #include <linux/mmu_context.h>
+ #include <drm/drmP.h>
+ #include "amdgpu.h"
+diff --git a/drivers/gpu/drm/amd/amdgpu/amdgpu_amdkfd_gpuvm.c b/drivers/gpu/drm/amd/amdgpu/amdgpu_amdkfd_gpuvm.c
+index 3e13f3e9097a..9ce17867fac7 100644
+--- a/drivers/gpu/drm/amd/amdgpu/amdgpu_amdkfd_gpuvm.c
++++ b/drivers/gpu/drm/amd/amdgpu/amdgpu_amdkfd_gpuvm.c
+@@ -19,10 +19,6 @@
+  * ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR
+  * OTHER DEALINGS IN THE SOFTWARE.
+  */
+-
+-#undef pr_fmt
+-#define pr_fmt(fmt) "kfd2kgd: " fmt
+-
+ #include <linux/list.h>
+ #include <linux/pagemap.h>
+ #include <linux/sched/mm.h>
+-- 
+2.17.1
+

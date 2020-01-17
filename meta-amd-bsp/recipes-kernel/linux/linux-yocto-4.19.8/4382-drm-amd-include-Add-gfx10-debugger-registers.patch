@@ -1,0 +1,148 @@
+From cc5c59647d0ced3f36d32ea1142806c376e3ab72 Mon Sep 17 00:00:00 2001
+From: Philip Cox <Philip.Cox@amd.com>
+Date: Wed, 16 Oct 2019 07:12:32 -0400
+Subject: [PATCH 4382/4736] drm/amd/include: Add gfx10 debugger registers
+
+Add kfd debugger registers:
+    mmSPI_GDBG_WAVE_CNTL
+    mmSPI_GDBG_TRAP_CONFIG
+    mmSPI_GDBG_TRAP_MASK
+    mmSPI_GDBG_WAVE_CNTL2
+    mmSPI_GDBG_WAVE_CNTL3
+    mmSPI_GDBG_TRAP_DATA0
+    mmSPI_GDBG_TRAP_DATA1
+
+Change-Id: Idd2f0260e6801cf1785c33c0667c4332320fcd2d
+Signed-off-by: Philip Cox <Philip.Cox@amd.com>
+---
+ .../include/asic_reg/gc/gc_10_1_0_default.h   |  7 ++
+ .../include/asic_reg/gc/gc_10_1_0_offset.h    | 14 ++++
+ .../include/asic_reg/gc/gc_10_1_0_sh_mask.h   | 69 +++++++++++++++++++
+ 3 files changed, 90 insertions(+)
+
+diff --git a/drivers/gpu/drm/amd/include/asic_reg/gc/gc_10_1_0_default.h b/drivers/gpu/drm/amd/include/asic_reg/gc/gc_10_1_0_default.h
+index 320e1ee5df1a..2050888f7ec6 100644
+--- a/drivers/gpu/drm/amd/include/asic_reg/gc/gc_10_1_0_default.h
++++ b/drivers/gpu/drm/amd/include/asic_reg/gc/gc_10_1_0_default.h
+@@ -2616,6 +2616,13 @@
+ #define mmSPI_WCL_PIPE_PERCENT_CS5_DEFAULT                                       0x0000007f
+ #define mmSPI_WCL_PIPE_PERCENT_CS6_DEFAULT                                       0x0000007f
+ #define mmSPI_WCL_PIPE_PERCENT_CS7_DEFAULT                                       0x0000007f
++#define mmSPI_GDBG_WAVE_CNTL_DEFAULT                                             0x00000000
++#define mmSPI_GDBG_TRAP_CONFIG_DEFAULT                                           0x00000000
++#define mmSPI_GDBG_TRAP_MASK_DEFAULT                                             0x00000000
++#define mmSPI_GDBG_WAVE_CNTL2_DEFAULT                                            0x00000000
++#define mmSPI_GDBG_WAVE_CNTL3_DEFAULT                                            0x00000000
++#define mmSPI_GDBG_TRAP_DATA0_DEFAULT                                            0x00000000
++#define mmSPI_GDBG_TRAP_DATA1_DEFAULT                                            0x00000000
+ #define mmSPI_COMPUTE_QUEUE_RESET_DEFAULT                                        0x00000000
+ #define mmSPI_RESOURCE_RESERVE_CU_0_DEFAULT                                      0x00000000
+ #define mmSPI_RESOURCE_RESERVE_CU_1_DEFAULT                                      0x00000000
+diff --git a/drivers/gpu/drm/amd/include/asic_reg/gc/gc_10_1_0_offset.h b/drivers/gpu/drm/amd/include/asic_reg/gc/gc_10_1_0_offset.h
+index 075867d4b1da..7dd32b10d23f 100644
+--- a/drivers/gpu/drm/amd/include/asic_reg/gc/gc_10_1_0_offset.h
++++ b/drivers/gpu/drm/amd/include/asic_reg/gc/gc_10_1_0_offset.h
+@@ -5187,6 +5187,20 @@
+ #define mmSPI_WCL_PIPE_PERCENT_CS6_BASE_IDX                                                            0
+ #define mmSPI_WCL_PIPE_PERCENT_CS7                                                                     0x1f70
+ #define mmSPI_WCL_PIPE_PERCENT_CS7_BASE_IDX                                                            0
++#define mmSPI_GDBG_WAVE_CNTL                                                                           0x11d1
++#define mmSPI_GDBG_WAVE_CNTL_BASE_IDX                                                                  0
++#define mmSPI_GDBG_TRAP_CONFIG                                                                         0x11d2
++#define mmSPI_GDBG_TRAP_CONFIG_BASE_IDX                                                                0
++#define mmSPI_GDBG_TRAP_MASK                                                                           0x11d3
++#define mmSPI_GDBG_TRAP_MASK_BASE_IDX                                                                  0
++#define mmSPI_GDBG_WAVE_CNTL2                                                                          0x11d4
++#define mmSPI_GDBG_WAVE_CNTL2_BASE_IDX                                                                 0
++#define mmSPI_GDBG_WAVE_CNTL3                                                                          0x11d5
++#define mmSPI_GDBG_WAVE_CNTL3_BASE_IDX                                                                 0
++#define mmSPI_GDBG_TRAP_DATA0                                                                          0x11d8
++#define mmSPI_GDBG_TRAP_DATA0_BASE_IDX                                                                 0
++#define mmSPI_GDBG_TRAP_DATA1                                                                          0x11d9
++#define mmSPI_GDBG_TRAP_DATA1_BASE_IDX                                                                 0
+ #define mmSPI_COMPUTE_QUEUE_RESET                                                                      0x1f7b
+ #define mmSPI_COMPUTE_QUEUE_RESET_BASE_IDX                                                             0
+ #define mmSPI_RESOURCE_RESERVE_CU_0                                                                    0x1f7c
+diff --git a/drivers/gpu/drm/amd/include/asic_reg/gc/gc_10_1_0_sh_mask.h b/drivers/gpu/drm/amd/include/asic_reg/gc/gc_10_1_0_sh_mask.h
+index e7db6f9f9c86..c81cfa018738 100644
+--- a/drivers/gpu/drm/amd/include/asic_reg/gc/gc_10_1_0_sh_mask.h
++++ b/drivers/gpu/drm/amd/include/asic_reg/gc/gc_10_1_0_sh_mask.h
+@@ -19642,6 +19642,75 @@
+ //SPI_WCL_PIPE_PERCENT_CS7
+ #define SPI_WCL_PIPE_PERCENT_CS7__VALUE__SHIFT                                                                0x0
+ #define SPI_WCL_PIPE_PERCENT_CS7__VALUE_MASK                                                                  0x7FL
++//SPI_GDBG_WAVE_CNTL
++#define SPI_GDBG_WAVE_CNTL__STALL_RA__SHIFT                                                                   0x0
++#define SPI_GDBG_WAVE_CNTL__STALL_VMID__SHIFT                                                                 0x1
++#define SPI_GDBG_WAVE_CNTL__STALL_RA_MASK                                                                     0x00000001L
++#define SPI_GDBG_WAVE_CNTL__STALL_VMID_MASK                                                                   0x0001FFFEL
++//SPI_GDBG_TRAP_CONFIG
++#define SPI_GDBG_TRAP_CONFIG__ME_SEL__SHIFT                                                                   0x0
++#define SPI_GDBG_TRAP_CONFIG__PIPE_SEL__SHIFT                                                                 0x2
++#define SPI_GDBG_TRAP_CONFIG__QUEUE_SEL__SHIFT                                                                0x4
++#define SPI_GDBG_TRAP_CONFIG__ME_MATCH__SHIFT                                                                 0x7
++#define SPI_GDBG_TRAP_CONFIG__PIPE_MATCH__SHIFT                                                               0x8
++#define SPI_GDBG_TRAP_CONFIG__QUEUE_MATCH__SHIFT                                                              0x9
++#define SPI_GDBG_TRAP_CONFIG__TRAP_EN__SHIFT                                                                  0xf
++#define SPI_GDBG_TRAP_CONFIG__VMID_SEL__SHIFT                                                                 0x10
++#define SPI_GDBG_TRAP_CONFIG__ME_SEL_MASK                                                                     0x00000003L
++#define SPI_GDBG_TRAP_CONFIG__PIPE_SEL_MASK                                                                   0x0000000CL
++#define SPI_GDBG_TRAP_CONFIG__QUEUE_SEL_MASK                                                                  0x00000070L
++#define SPI_GDBG_TRAP_CONFIG__ME_MATCH_MASK                                                                   0x00000080L
++#define SPI_GDBG_TRAP_CONFIG__PIPE_MATCH_MASK                                                                 0x00000100L
++#define SPI_GDBG_TRAP_CONFIG__QUEUE_MATCH_MASK                                                                0x00000200L
++#define SPI_GDBG_TRAP_CONFIG__TRAP_EN_MASK                                                                    0x00008000L
++#define SPI_GDBG_TRAP_CONFIG__VMID_SEL_MASK                                                                   0xFFFF0000L
++//SPI_GDBG_TRAP_MASK
++#define SPI_GDBG_TRAP_MASK__EXCP_EN__SHIFT                                                                    0x0
++#define SPI_GDBG_TRAP_MASK__REPLACE__SHIFT                                                                    0x9
++#define SPI_GDBG_TRAP_MASK__EXCP_EN_MASK                                                                      0x01FFL
++#define SPI_GDBG_TRAP_MASK__REPLACE_MASK                                                                      0x0200L
++//SPI_GDBG_WAVE_CNTL2
++#define SPI_GDBG_WAVE_CNTL2__VMID_MASK__SHIFT                                                                 0x0
++#define SPI_GDBG_WAVE_CNTL2__MODE__SHIFT                                                                      0x10
++#define SPI_GDBG_WAVE_CNTL2__VMID_MASK_MASK                                                                   0x0000FFFFL
++#define SPI_GDBG_WAVE_CNTL2__MODE_MASK                                                                        0x00030000L
++//SPI_GDBG_WAVE_CNTL3
++#define SPI_GDBG_WAVE_CNTL3__STALL_PS__SHIFT                                                                  0x0
++#define SPI_GDBG_WAVE_CNTL3__STALL_VS__SHIFT                                                                  0x1
++#define SPI_GDBG_WAVE_CNTL3__STALL_GS__SHIFT                                                                  0x2
++#define SPI_GDBG_WAVE_CNTL3__STALL_HS__SHIFT                                                                  0x3
++#define SPI_GDBG_WAVE_CNTL3__STALL_CSG__SHIFT                                                                 0x4
++#define SPI_GDBG_WAVE_CNTL3__STALL_CS0__SHIFT                                                                 0x5
++#define SPI_GDBG_WAVE_CNTL3__STALL_CS1__SHIFT                                                                 0x6
++#define SPI_GDBG_WAVE_CNTL3__STALL_CS2__SHIFT                                                                 0x7
++#define SPI_GDBG_WAVE_CNTL3__STALL_CS3__SHIFT                                                                 0x8
++#define SPI_GDBG_WAVE_CNTL3__STALL_CS4__SHIFT                                                                 0x9
++#define SPI_GDBG_WAVE_CNTL3__STALL_CS5__SHIFT                                                                 0xa
++#define SPI_GDBG_WAVE_CNTL3__STALL_CS6__SHIFT                                                                 0xb
++#define SPI_GDBG_WAVE_CNTL3__STALL_CS7__SHIFT                                                                 0xc
++#define SPI_GDBG_WAVE_CNTL3__STALL_DURATION__SHIFT                                                            0xd
++#define SPI_GDBG_WAVE_CNTL3__STALL_MULT__SHIFT                                                                0x1c
++#define SPI_GDBG_WAVE_CNTL3__STALL_PS_MASK                                                                    0x00000001L
++#define SPI_GDBG_WAVE_CNTL3__STALL_VS_MASK                                                                    0x00000002L
++#define SPI_GDBG_WAVE_CNTL3__STALL_GS_MASK                                                                    0x00000004L
++#define SPI_GDBG_WAVE_CNTL3__STALL_HS_MASK                                                                    0x00000008L
++#define SPI_GDBG_WAVE_CNTL3__STALL_CSG_MASK                                                                   0x00000010L
++#define SPI_GDBG_WAVE_CNTL3__STALL_CS0_MASK                                                                   0x00000020L
++#define SPI_GDBG_WAVE_CNTL3__STALL_CS1_MASK                                                                   0x00000040L
++#define SPI_GDBG_WAVE_CNTL3__STALL_CS2_MASK                                                                   0x00000080L
++#define SPI_GDBG_WAVE_CNTL3__STALL_CS3_MASK                                                                   0x00000100L
++#define SPI_GDBG_WAVE_CNTL3__STALL_CS4_MASK                                                                   0x00000200L
++#define SPI_GDBG_WAVE_CNTL3__STALL_CS5_MASK                                                                   0x00000400L
++#define SPI_GDBG_WAVE_CNTL3__STALL_CS6_MASK                                                                   0x00000800L
++#define SPI_GDBG_WAVE_CNTL3__STALL_CS7_MASK                                                                   0x00001000L
++#define SPI_GDBG_WAVE_CNTL3__STALL_DURATION_MASK                                                              0x0FFFE000L
++#define SPI_GDBG_WAVE_CNTL3__STALL_MULT_MASK                                                                  0x10000000L
++//SPI_GDBG_TRAP_DATA0
++#define SPI_GDBG_TRAP_DATA0__DATA__SHIFT                                                                      0x0
++#define SPI_GDBG_TRAP_DATA0__DATA_MASK                                                                        0xFFFFFFFFL
++//SPI_GDBG_TRAP_DATA1
++#define SPI_GDBG_TRAP_DATA1__DATA__SHIFT                                                                      0x0
++#define SPI_GDBG_TRAP_DATA1__DATA_MASK                                                                        0xFFFFFFFFL
+ //SPI_COMPUTE_QUEUE_RESET
+ #define SPI_COMPUTE_QUEUE_RESET__RESET__SHIFT                                                                 0x0
+ #define SPI_COMPUTE_QUEUE_RESET__RESET_MASK                                                                   0x01L
+-- 
+2.17.1
+

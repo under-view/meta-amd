@@ -1,0 +1,106 @@
+From f98544ea9af75cdf57211c6a55b63dcf1ffeb999 Mon Sep 17 00:00:00 2001
+From: Alex Deucher <alexander.deucher@amd.com>
+Date: Fri, 4 Oct 2019 12:33:09 -0500
+Subject: [PATCH 4548/4736] drm/amdgpu: add helpers for baco entry and exit
+
+BACO - Bus Active, Chip Off
+
+Will be used for runtime pm.  Entry will enter the BACO
+state (chip off).  Exit will exit the BACO state (chip on).
+
+Change-Id: I051a4b9996af9ee7c7639be65fbd5009a4379ab3
+Reviewed-by: Evan Quan <evan.quan@amd.com>
+Signed-off-by: Alex Deucher <alexander.deucher@amd.com>
+Signed-off-by: Rahul Kumar <rahul.kumar1@amd.com>
+---
+ drivers/gpu/drm/amd/amdgpu/amdgpu.h        |  3 +-
+ drivers/gpu/drm/amd/amdgpu/amdgpu_device.c | 62 ++++++++++++++++++++++
+ 2 files changed, 64 insertions(+), 1 deletion(-)
+
+diff --git a/drivers/gpu/drm/amd/amdgpu/amdgpu.h b/drivers/gpu/drm/amd/amdgpu/amdgpu.h
+index e0423a9efe14..9679649082cb 100644
+--- a/drivers/gpu/drm/amd/amdgpu/amdgpu.h
++++ b/drivers/gpu/drm/amd/amdgpu/amdgpu.h
+@@ -1192,7 +1192,8 @@ bool amdgpu_device_supports_boco(struct drm_device *dev);
+ bool amdgpu_device_supports_baco(struct drm_device *dev);
+ bool amdgpu_device_is_peer_accessible(struct amdgpu_device *adev,
+                                       struct amdgpu_device *peer_adev);
+-
++int amdgpu_device_baco_enter(struct drm_device *dev);
++int amdgpu_device_baco_exit(struct drm_device *dev);
+ /* atpx handler */
+ #if defined(CONFIG_VGA_SWITCHEROO)
+ void amdgpu_register_atpx_handler(void);
+diff --git a/drivers/gpu/drm/amd/amdgpu/amdgpu_device.c b/drivers/gpu/drm/amd/amdgpu/amdgpu_device.c
+index ac0dd28ca0a1..ebdf775ab9b0 100644
+--- a/drivers/gpu/drm/amd/amdgpu/amdgpu_device.c
++++ b/drivers/gpu/drm/amd/amdgpu/amdgpu_device.c
+@@ -4333,3 +4333,65 @@ bool amdgpu_device_is_peer_accessible(struct amdgpu_device *adev,
+ 		!(adev->gmc.aper_base & address_mask ||
+ 		  aper_limit & address_mask);
+ }
++
++int amdgpu_device_baco_enter(struct drm_device *dev)
++{
++	struct amdgpu_device *adev = dev->dev_private;
++
++	if (!amdgpu_device_supports_baco(adev->ddev))
++		return -ENOTSUPP;
++
++	if (is_support_sw_smu(adev)) {
++		struct smu_context *smu = &adev->smu;
++		int ret;
++
++		ret = smu_baco_enter(smu);
++		if (ret)
++			return ret;
++
++		return 0;
++	} else {
++		void *pp_handle = adev->powerplay.pp_handle;
++		const struct amd_pm_funcs *pp_funcs = adev->powerplay.pp_funcs;
++
++		if (!pp_funcs ||!pp_funcs->get_asic_baco_state ||!pp_funcs->set_asic_baco_state)
++			return -ENOENT;
++
++		/* enter BACO state */
++		if (pp_funcs->set_asic_baco_state(pp_handle, 1))
++			return -EIO;
++
++		return 0;
++	}
++}
++
++int amdgpu_device_baco_exit(struct drm_device *dev)
++{
++	struct amdgpu_device *adev = dev->dev_private;
++
++	if (!amdgpu_device_supports_baco(adev->ddev))
++		return -ENOTSUPP;
++
++	if (is_support_sw_smu(adev)) {
++		struct smu_context *smu = &adev->smu;
++		int ret;
++
++		ret = smu_baco_exit(smu);
++		if (ret)
++			return ret;
++
++		return 0;
++	} else {
++		void *pp_handle = adev->powerplay.pp_handle;
++		const struct amd_pm_funcs *pp_funcs = adev->powerplay.pp_funcs;
++
++		if (!pp_funcs ||!pp_funcs->get_asic_baco_state ||!pp_funcs->set_asic_baco_state)
++			return -ENOENT;
++
++		/* exit BACO state */
++		if (pp_funcs->set_asic_baco_state(pp_handle, 0))
++			return -EIO;
++
++		return 0;
++	}
++}
+-- 
+2.17.1
+
