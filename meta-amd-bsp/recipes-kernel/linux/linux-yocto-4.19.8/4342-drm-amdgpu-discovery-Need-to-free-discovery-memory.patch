@@ -1,0 +1,41 @@
+From 9c80bfb3b3f3e6cc8a69b9abc5b6e245653ebe0d Mon Sep 17 00:00:00 2001
+From: Emily Deng <Emily.Deng@amd.com>
+Date: Mon, 4 Nov 2019 12:45:09 +0800
+Subject: [PATCH 4342/4736] drm/amdgpu/discovery: Need to free discovery memory
+
+When unloading driver, need to free discovery memory.
+
+Signed-off-by: Emily Deng <Emily.Deng@amd.com>
+Reviewed-by: Xiaojie Yuan <xiaojie.yuan@amd.com>
+---
+ drivers/gpu/drm/amd/amdgpu/amdgpu_ttm.c | 6 +++---
+ 1 file changed, 3 insertions(+), 3 deletions(-)
+
+diff --git a/drivers/gpu/drm/amd/amdgpu/amdgpu_ttm.c b/drivers/gpu/drm/amd/amdgpu/amdgpu_ttm.c
+index 9a094e118d96..b5028af50cc2 100644
+--- a/drivers/gpu/drm/amd/amdgpu/amdgpu_ttm.c
++++ b/drivers/gpu/drm/amd/amdgpu/amdgpu_ttm.c
+@@ -2216,9 +2216,6 @@ void amdgpu_ttm_late_init(struct amdgpu_device *adev)
+ 	void *stolen_vga_buf;
+ 	/* return the VGA stolen memory (if any) back to VRAM */
+ 	amdgpu_bo_free_kernel(&adev->stolen_vga_memory, NULL, &stolen_vga_buf);
+-
+-	/* return the IP Discovery TMR memory back to VRAM */
+-	amdgpu_bo_free_kernel(&adev->discovery_memory, NULL, NULL);
+ }
+ 
+ /**
+@@ -2231,7 +2228,10 @@ void amdgpu_ttm_fini(struct amdgpu_device *adev)
+ 
+ 	amdgpu_ttm_debugfs_fini(adev);
+ 	amdgpu_ttm_training_reserve_vram_fini(adev);
++	/* return the IP Discovery TMR memory back to VRAM */
++	amdgpu_bo_free_kernel(&adev->discovery_memory, NULL, NULL);
+ 	amdgpu_ttm_fw_reserve_vram_fini(adev);
++
+ 	if (adev->mman.aper_base_kaddr)
+ 		iounmap(adev->mman.aper_base_kaddr);
+ 	adev->mman.aper_base_kaddr = NULL;
+-- 
+2.17.1
+

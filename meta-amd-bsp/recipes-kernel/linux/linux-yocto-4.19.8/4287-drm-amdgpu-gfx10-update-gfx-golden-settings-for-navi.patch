@@ -1,0 +1,31 @@
+From 7a16930d26ded51f6ee263a4f73cfd3e11b0fb8b Mon Sep 17 00:00:00 2001
+From: "Tianci.Yin" <tianci.yin@amd.com>
+Date: Thu, 24 Oct 2019 18:04:52 +0800
+Subject: [PATCH 4287/4736] drm/amdgpu/gfx10: update gfx golden settings for
+ navi14
+
+update registers: mmCGTT_SPI_CLK_CTRL
+
+Change-Id: Ib2539aae1fb0d001278b7f89c90ad6296f9fb85f
+Reviewed-by: Feifei Xu <Feifei.Xu@amd.com>
+Signed-off-by: Tianci.Yin <tianci.yin@amd.com>
+---
+ drivers/gpu/drm/amd/amdgpu/gfx_v10_0.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/drivers/gpu/drm/amd/amdgpu/gfx_v10_0.c b/drivers/gpu/drm/amd/amdgpu/gfx_v10_0.c
+index aea9e8b9b07a..dd879ebca1c1 100644
+--- a/drivers/gpu/drm/amd/amdgpu/gfx_v10_0.c
++++ b/drivers/gpu/drm/amd/amdgpu/gfx_v10_0.c
+@@ -136,7 +136,7 @@ static const struct soc15_reg_golden golden_settings_gc_10_1_1[] =
+ 	SOC15_REG_GOLDEN_VALUE(GC, 0, mmCB_HW_CONTROL_4, 0xffffffff, 0x003c0014),
+ 	SOC15_REG_GOLDEN_VALUE(GC, 0, mmCGTT_GS_NGG_CLK_CTRL, 0xffff8fff, 0xffff8100),
+ 	SOC15_REG_GOLDEN_VALUE(GC, 0, mmCGTT_IA_CLK_CTRL, 0xffff0fff, 0xffff0100),
+-	SOC15_REG_GOLDEN_VALUE(GC, 0, mmCGTT_SPI_CLK_CTRL, 0xc0000000, 0xc0000100),
++	SOC15_REG_GOLDEN_VALUE(GC, 0, mmCGTT_SPI_CLK_CTRL, 0xcd000000, 0x0d000100),
+ 	SOC15_REG_GOLDEN_VALUE(GC, 0, mmCGTT_SQ_CLK_CTRL, 0xf8ff0fff, 0x60000100),
+ 	SOC15_REG_GOLDEN_VALUE(GC, 0, mmCGTT_SQG_CLK_CTRL, 0x40000ff0, 0x40000100),
+ 	SOC15_REG_GOLDEN_VALUE(GC, 0, mmCGTT_VGT_CLK_CTRL, 0xffff8fff, 0xffff8100),
+-- 
+2.17.1
+

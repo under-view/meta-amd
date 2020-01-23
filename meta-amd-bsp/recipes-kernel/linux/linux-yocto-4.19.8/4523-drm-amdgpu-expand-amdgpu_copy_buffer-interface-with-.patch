@@ -1,0 +1,117 @@
+From a9b88b455e2bcdfd22776bb1de9ed8345bc615d9 Mon Sep 17 00:00:00 2001
+From: Aaron Liu <aaron.liu@amd.com>
+Date: Tue, 15 Oct 2019 15:45:23 +0800
+Subject: [PATCH 4523/4736] drm/amdgpu: expand amdgpu_copy_buffer interface
+ with tmz parameter
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+This patch expands amdgpu_copy_buffer interface with tmz parameter.
+
+Signed-off-by: Aaron Liu <aaron.liu@amd.com>
+Reviewed-by: Christian König <christian.koenig@amd.com>
+Reviewed-by: Huang Rui <ray.huang@amd.com>
+---
+ drivers/gpu/drm/amd/amdgpu/amdgpu_benchmark.c | 2 +-
+ drivers/gpu/drm/amd/amdgpu/amdgpu_object.c    | 2 +-
+ drivers/gpu/drm/amd/amdgpu/amdgpu_test.c      | 4 ++--
+ drivers/gpu/drm/amd/amdgpu/amdgpu_ttm.c       | 6 +++---
+ drivers/gpu/drm/amd/amdgpu/amdgpu_ttm.h       | 2 +-
+ 5 files changed, 8 insertions(+), 8 deletions(-)
+
+diff --git a/drivers/gpu/drm/amd/amdgpu/amdgpu_benchmark.c b/drivers/gpu/drm/amd/amdgpu/amdgpu_benchmark.c
+index 0f2aeb41e5c8..3ac31e1febb7 100644
+--- a/drivers/gpu/drm/amd/amdgpu/amdgpu_benchmark.c
++++ b/drivers/gpu/drm/amd/amdgpu/amdgpu_benchmark.c
+@@ -40,7 +40,7 @@ static int amdgpu_benchmark_do_move(struct amdgpu_device *adev, unsigned size,
+ 	for (i = 0; i < n; i++) {
+ 		struct amdgpu_ring *ring = adev->mman.buffer_funcs_ring;
+ 		r = amdgpu_copy_buffer(ring, saddr, daddr, size, NULL, &fence,
+-				       false, false);
++				       false, false, false);
+ 		if (r)
+ 			goto exit_do_move;
+ 		r = dma_fence_wait(fence, false);
+diff --git a/drivers/gpu/drm/amd/amdgpu/amdgpu_object.c b/drivers/gpu/drm/amd/amdgpu/amdgpu_object.c
+index 1350666355e0..aaccf287141c 100644
+--- a/drivers/gpu/drm/amd/amdgpu/amdgpu_object.c
++++ b/drivers/gpu/drm/amd/amdgpu/amdgpu_object.c
+@@ -785,7 +785,7 @@ int amdgpu_bo_restore_shadow(struct amdgpu_bo *shadow, struct dma_fence **fence)
+ 
+ 	return amdgpu_copy_buffer(ring, shadow_addr, parent_addr,
+ 				  amdgpu_bo_size(shadow), NULL, fence,
+-				  true, false);
++				  true, false, false);
+ }
+ 
+ /**
+diff --git a/drivers/gpu/drm/amd/amdgpu/amdgpu_test.c b/drivers/gpu/drm/amd/amdgpu/amdgpu_test.c
+index 41d3142ef3cf..a8828570a526 100644
+--- a/drivers/gpu/drm/amd/amdgpu/amdgpu_test.c
++++ b/drivers/gpu/drm/amd/amdgpu/amdgpu_test.c
+@@ -124,7 +124,7 @@ static void amdgpu_do_test_moves(struct amdgpu_device *adev)
+ 		amdgpu_bo_kunmap(gtt_obj[i]);
+ 
+ 		r = amdgpu_copy_buffer(ring, gart_addr, vram_addr,
+-				       size, NULL, &fence, false, false);
++				       size, NULL, &fence, false, false, false);
+ 
+ 		if (r) {
+ 			DRM_ERROR("Failed GTT->VRAM copy %d\n", i);
+@@ -170,7 +170,7 @@ static void amdgpu_do_test_moves(struct amdgpu_device *adev)
+ 		amdgpu_bo_kunmap(vram_obj);
+ 
+ 		r = amdgpu_copy_buffer(ring, vram_addr, gart_addr,
+-				       size, NULL, &fence, false, false);
++				       size, NULL, &fence, false, false, false);
+ 
+ 		if (r) {
+ 			DRM_ERROR("Failed VRAM->GTT copy %d\n", i);
+diff --git a/drivers/gpu/drm/amd/amdgpu/amdgpu_ttm.c b/drivers/gpu/drm/amd/amdgpu/amdgpu_ttm.c
+index ee5c8fec9375..d93bfaca5daf 100644
+--- a/drivers/gpu/drm/amd/amdgpu/amdgpu_ttm.c
++++ b/drivers/gpu/drm/amd/amdgpu/amdgpu_ttm.c
+@@ -487,7 +487,7 @@ int amdgpu_ttm_copy_mem_to_mem(struct amdgpu_device *adev,
+ 		}
+ 
+ 		r = amdgpu_copy_buffer(ring, from, to, cur_size,
+-				       resv, &next, false, true);
++				       resv, &next, false, true, false);
+ 		if (r)
+ 			goto error;
+ 
+@@ -2373,7 +2373,7 @@ int amdgpu_copy_buffer(struct amdgpu_ring *ring, uint64_t src_offset,
+ 		       uint64_t dst_offset, uint32_t byte_count,
+ 		       struct reservation_object *resv,
+ 		       struct dma_fence **fence, bool direct_submit,
+-		       bool vm_needs_flush)
++		       bool vm_needs_flush, bool tmz)
+ {
+ 	struct amdgpu_device *adev = ring->adev;
+ 	struct amdgpu_job *job;
+@@ -2414,7 +2414,7 @@ int amdgpu_copy_buffer(struct amdgpu_ring *ring, uint64_t src_offset,
+ 		uint32_t cur_size_in_bytes = min(byte_count, max_bytes);
+ 
+ 		amdgpu_emit_copy_buffer(adev, &job->ibs[0], src_offset,
+-					dst_offset, cur_size_in_bytes, false);
++					dst_offset, cur_size_in_bytes, tmz);
+ 
+ 		src_offset += cur_size_in_bytes;
+ 		dst_offset += cur_size_in_bytes;
+diff --git a/drivers/gpu/drm/amd/amdgpu/amdgpu_ttm.h b/drivers/gpu/drm/amd/amdgpu/amdgpu_ttm.h
+index b92297987138..f8cd8adb3337 100644
+--- a/drivers/gpu/drm/amd/amdgpu/amdgpu_ttm.h
++++ b/drivers/gpu/drm/amd/amdgpu/amdgpu_ttm.h
+@@ -93,7 +93,7 @@ int amdgpu_copy_buffer(struct amdgpu_ring *ring, uint64_t src_offset,
+ 		       uint64_t dst_offset, uint32_t byte_count,
+ 		       struct reservation_object *resv,
+ 		       struct dma_fence **fence, bool direct_submit,
+-		       bool vm_needs_flush);
++		       bool vm_needs_flush, bool tmz);
+ int amdgpu_ttm_copy_mem_to_mem(struct amdgpu_device *adev,
+ 			       struct amdgpu_copy_mem *src,
+ 			       struct amdgpu_copy_mem *dst,
+-- 
+2.17.1
+

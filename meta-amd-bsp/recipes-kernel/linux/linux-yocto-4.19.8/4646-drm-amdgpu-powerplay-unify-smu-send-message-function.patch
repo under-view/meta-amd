@@ -1,0 +1,244 @@
+From a7f8bf4e09c82148aa690d2dc58212dd7af468a9 Mon Sep 17 00:00:00 2001
+From: Likun Gao <Likun.Gao@amd.com>
+Date: Mon, 2 Dec 2019 15:04:35 +0800
+Subject: [PATCH 4646/4736] drm/amdgpu/powerplay: unify smu send message
+ function
+
+Drop smu_send_smc_msg function from ASIC specify structure.
+Reuse smu_send_smc_msg_with_param function for smu_send_smc_msg.
+Set paramer to 0 for smu_send_msg function, otherwise it will send
+with previous paramer value (Not a certain value).
+Materialize msg type for smu send message function definition.
+
+Signed-off-by: Likun Gao <Likun.Gao@amd.com>
+Reviewed-by: Kevin Wang <kevin1.wang@amd.com>
+Reviewed-by: Evan Quan <evan.quan@amd.com>
+---
+ drivers/gpu/drm/amd/powerplay/amdgpu_smu.c    |  9 ++++++
+ drivers/gpu/drm/amd/powerplay/arcturus_ppt.c  |  1 -
+ .../gpu/drm/amd/powerplay/inc/amdgpu_smu.h    |  4 +--
+ drivers/gpu/drm/amd/powerplay/inc/smu_v11_0.h |  5 ++--
+ drivers/gpu/drm/amd/powerplay/inc/smu_v12_0.h |  5 ++--
+ drivers/gpu/drm/amd/powerplay/navi10_ppt.c    |  1 -
+ drivers/gpu/drm/amd/powerplay/renoir_ppt.c    |  1 -
+ drivers/gpu/drm/amd/powerplay/smu_internal.h  |  4 +--
+ drivers/gpu/drm/amd/powerplay/smu_v11_0.c     | 29 ++-----------------
+ drivers/gpu/drm/amd/powerplay/smu_v12_0.c     | 28 ++----------------
+ drivers/gpu/drm/amd/powerplay/vega20_ppt.c    |  1 -
+ 11 files changed, 21 insertions(+), 67 deletions(-)
+
+diff --git a/drivers/gpu/drm/amd/powerplay/amdgpu_smu.c b/drivers/gpu/drm/amd/powerplay/amdgpu_smu.c
+index 42656628de90..2dd960e85a24 100644
+--- a/drivers/gpu/drm/amd/powerplay/amdgpu_smu.c
++++ b/drivers/gpu/drm/amd/powerplay/amdgpu_smu.c
+@@ -2568,3 +2568,12 @@ uint32_t smu_get_pptable_power_limit(struct smu_context *smu)
+ 
+ 	return ret;
+ }
++
++int smu_send_smc_msg(struct smu_context *smu,
++		     enum smu_message_type msg)
++{
++	int ret;
++
++	ret = smu_send_smc_msg_with_param(smu, msg, 0);
++	return ret;
++}
+diff --git a/drivers/gpu/drm/amd/powerplay/arcturus_ppt.c b/drivers/gpu/drm/amd/powerplay/arcturus_ppt.c
+index cf3c31b0524c..b87be39c9a3b 100644
+--- a/drivers/gpu/drm/amd/powerplay/arcturus_ppt.c
++++ b/drivers/gpu/drm/amd/powerplay/arcturus_ppt.c
+@@ -2137,7 +2137,6 @@ static const struct pptable_funcs arcturus_ppt_funcs = {
+ 	.set_tool_table_location = smu_v11_0_set_tool_table_location,
+ 	.notify_memory_pool_location = smu_v11_0_notify_memory_pool_location,
+ 	.system_features_control = smu_v11_0_system_features_control,
+-	.send_smc_msg = smu_v11_0_send_msg,
+ 	.send_smc_msg_with_param = smu_v11_0_send_msg_with_param,
+ 	.read_smc_arg = smu_v11_0_read_arg,
+ 	.init_display_count = smu_v11_0_init_display_count,
+diff --git a/drivers/gpu/drm/amd/powerplay/inc/amdgpu_smu.h b/drivers/gpu/drm/amd/powerplay/inc/amdgpu_smu.h
+index ada4a8dc4112..ca3fdc6777cf 100644
+--- a/drivers/gpu/drm/amd/powerplay/inc/amdgpu_smu.h
++++ b/drivers/gpu/drm/amd/powerplay/inc/amdgpu_smu.h
+@@ -500,8 +500,8 @@ struct pptable_funcs {
+ 	int (*notify_memory_pool_location)(struct smu_context *smu);
+ 	int (*set_last_dcef_min_deep_sleep_clk)(struct smu_context *smu);
+ 	int (*system_features_control)(struct smu_context *smu, bool en);
+-	int (*send_smc_msg)(struct smu_context *smu, uint16_t msg);
+-	int (*send_smc_msg_with_param)(struct smu_context *smu, uint16_t msg, uint32_t param);
++	int (*send_smc_msg_with_param)(struct smu_context *smu,
++				       enum smu_message_type msg, uint32_t param);
+ 	int (*read_smc_arg)(struct smu_context *smu, uint32_t *arg);
+ 	int (*init_display_count)(struct smu_context *smu, uint32_t count);
+ 	int (*set_allowed_mask)(struct smu_context *smu);
+diff --git a/drivers/gpu/drm/amd/powerplay/inc/smu_v11_0.h b/drivers/gpu/drm/amd/powerplay/inc/smu_v11_0.h
+index 716fcb274191..610e301a5fce 100644
+--- a/drivers/gpu/drm/amd/powerplay/inc/smu_v11_0.h
++++ b/drivers/gpu/drm/amd/powerplay/inc/smu_v11_0.h
+@@ -178,10 +178,9 @@ int smu_v11_0_notify_memory_pool_location(struct smu_context *smu);
+ int smu_v11_0_system_features_control(struct smu_context *smu,
+ 					     bool en);
+ 
+-int smu_v11_0_send_msg(struct smu_context *smu, uint16_t msg);
+-
+ int
+-smu_v11_0_send_msg_with_param(struct smu_context *smu, uint16_t msg,
++smu_v11_0_send_msg_with_param(struct smu_context *smu,
++			      enum smu_message_type msg,
+ 			      uint32_t param);
+ 
+ int smu_v11_0_read_arg(struct smu_context *smu, uint32_t *arg);
+diff --git a/drivers/gpu/drm/amd/powerplay/inc/smu_v12_0.h b/drivers/gpu/drm/amd/powerplay/inc/smu_v12_0.h
+index 44c65dd8850d..922973b7e29f 100644
+--- a/drivers/gpu/drm/amd/powerplay/inc/smu_v12_0.h
++++ b/drivers/gpu/drm/amd/powerplay/inc/smu_v12_0.h
+@@ -44,10 +44,9 @@ int smu_v12_0_read_arg(struct smu_context *smu, uint32_t *arg);
+ 
+ int smu_v12_0_wait_for_response(struct smu_context *smu);
+ 
+-int smu_v12_0_send_msg(struct smu_context *smu, uint16_t msg);
+-
+ int
+-smu_v12_0_send_msg_with_param(struct smu_context *smu, uint16_t msg,
++smu_v12_0_send_msg_with_param(struct smu_context *smu,
++			      enum smu_message_type msg,
+ 			      uint32_t param);
+ 
+ int smu_v12_0_check_fw_status(struct smu_context *smu);
+diff --git a/drivers/gpu/drm/amd/powerplay/navi10_ppt.c b/drivers/gpu/drm/amd/powerplay/navi10_ppt.c
+index c94c2b67c309..cd8798610ed3 100644
+--- a/drivers/gpu/drm/amd/powerplay/navi10_ppt.c
++++ b/drivers/gpu/drm/amd/powerplay/navi10_ppt.c
+@@ -2082,7 +2082,6 @@ static const struct pptable_funcs navi10_ppt_funcs = {
+ 	.set_tool_table_location = smu_v11_0_set_tool_table_location,
+ 	.notify_memory_pool_location = smu_v11_0_notify_memory_pool_location,
+ 	.system_features_control = smu_v11_0_system_features_control,
+-	.send_smc_msg = smu_v11_0_send_msg,
+ 	.send_smc_msg_with_param = smu_v11_0_send_msg_with_param,
+ 	.read_smc_arg = smu_v11_0_read_arg,
+ 	.init_display_count = smu_v11_0_init_display_count,
+diff --git a/drivers/gpu/drm/amd/powerplay/renoir_ppt.c b/drivers/gpu/drm/amd/powerplay/renoir_ppt.c
+index e5ff08820658..c982f69065ae 100644
+--- a/drivers/gpu/drm/amd/powerplay/renoir_ppt.c
++++ b/drivers/gpu/drm/amd/powerplay/renoir_ppt.c
+@@ -801,7 +801,6 @@ static const struct pptable_funcs renoir_ppt_funcs = {
+ 	.powergate_sdma = smu_v12_0_powergate_sdma,
+ 	.powergate_vcn = smu_v12_0_powergate_vcn,
+ 	.powergate_jpeg = smu_v12_0_powergate_jpeg,
+-	.send_smc_msg = smu_v12_0_send_msg,
+ 	.send_smc_msg_with_param = smu_v12_0_send_msg_with_param,
+ 	.read_smc_arg = smu_v12_0_read_arg,
+ 	.set_gfx_cgpg = smu_v12_0_set_gfx_cgpg,
+diff --git a/drivers/gpu/drm/amd/powerplay/smu_internal.h b/drivers/gpu/drm/amd/powerplay/smu_internal.h
+index b2d81d3490cd..60ce1fccaeb5 100644
+--- a/drivers/gpu/drm/amd/powerplay/smu_internal.h
++++ b/drivers/gpu/drm/amd/powerplay/smu_internal.h
+@@ -77,8 +77,8 @@
+ #define smu_set_default_od_settings(smu, initialize) \
+ 	((smu)->ppt_funcs->set_default_od_settings ? (smu)->ppt_funcs->set_default_od_settings((smu), (initialize)) : 0)
+ 
+-#define smu_send_smc_msg(smu, msg) \
+-	((smu)->ppt_funcs->send_smc_msg? (smu)->ppt_funcs->send_smc_msg((smu), (msg)) : 0)
++int smu_send_smc_msg(struct smu_context *smu, enum smu_message_type msg);
++
+ #define smu_send_smc_msg_with_param(smu, msg, param) \
+ 	((smu)->ppt_funcs->send_smc_msg_with_param? (smu)->ppt_funcs->send_smc_msg_with_param((smu), (msg), (param)) : 0)
+ #define smu_read_smc_arg(smu, arg) \
+diff --git a/drivers/gpu/drm/amd/powerplay/smu_v11_0.c b/drivers/gpu/drm/amd/powerplay/smu_v11_0.c
+index dd4437a9b3d0..9e405a60ee6e 100644
+--- a/drivers/gpu/drm/amd/powerplay/smu_v11_0.c
++++ b/drivers/gpu/drm/amd/powerplay/smu_v11_0.c
+@@ -88,36 +88,11 @@ static int smu_v11_0_wait_for_response(struct smu_context *smu)
+ 	return RREG32_SOC15(MP1, 0, mmMP1_SMN_C2PMSG_90) == 0x1 ? 0 : -EIO;
+ }
+ 
+-int smu_v11_0_send_msg(struct smu_context *smu, uint16_t msg)
+-{
+-	struct amdgpu_device *adev = smu->adev;
+-	int ret = 0, index = 0;
+-
+-	index = smu_msg_get_index(smu, msg);
+-	if (index < 0)
+-		return index;
+-
+-	smu_v11_0_wait_for_response(smu);
+-
+-	WREG32_SOC15(MP1, 0, mmMP1_SMN_C2PMSG_90, 0);
+-
+-	smu_v11_0_send_msg_without_waiting(smu, (uint16_t)index);
+-
+-	ret = smu_v11_0_wait_for_response(smu);
+-
+-	if (ret)
+-		pr_err("failed send message: %10s (%d) response %#x\n",
+-		       smu_get_message_name(smu, msg), index, ret);
+-
+-	return ret;
+-
+-}
+-
+ int
+-smu_v11_0_send_msg_with_param(struct smu_context *smu, uint16_t msg,
++smu_v11_0_send_msg_with_param(struct smu_context *smu,
++			      enum smu_message_type msg,
+ 			      uint32_t param)
+ {
+-
+ 	struct amdgpu_device *adev = smu->adev;
+ 	int ret = 0, index = 0;
+ 
+diff --git a/drivers/gpu/drm/amd/powerplay/smu_v12_0.c b/drivers/gpu/drm/amd/powerplay/smu_v12_0.c
+index 045167311ae8..269a7d73b58d 100644
+--- a/drivers/gpu/drm/amd/powerplay/smu_v12_0.c
++++ b/drivers/gpu/drm/amd/powerplay/smu_v12_0.c
+@@ -77,33 +77,9 @@ int smu_v12_0_wait_for_response(struct smu_context *smu)
+ 	return RREG32_SOC15(MP1, 0, mmMP1_SMN_C2PMSG_90) == 0x1 ? 0 : -EIO;
+ }
+ 
+-int smu_v12_0_send_msg(struct smu_context *smu, uint16_t msg)
+-{
+-	struct amdgpu_device *adev = smu->adev;
+-	int ret = 0, index = 0;
+-
+-	index = smu_msg_get_index(smu, msg);
+-	if (index < 0)
+-		return index;
+-
+-	smu_v12_0_wait_for_response(smu);
+-
+-	WREG32_SOC15(MP1, 0, mmMP1_SMN_C2PMSG_90, 0);
+-
+-	smu_v12_0_send_msg_without_waiting(smu, (uint16_t)index);
+-
+-	ret = smu_v12_0_wait_for_response(smu);
+-
+-	if (ret)
+-		pr_err("Failed to send message 0x%x, response 0x%x\n", index,
+-		       ret);
+-
+-	return ret;
+-
+-}
+-
+ int
+-smu_v12_0_send_msg_with_param(struct smu_context *smu, uint16_t msg,
++smu_v12_0_send_msg_with_param(struct smu_context *smu,
++			      enum smu_message_type msg,
+ 			      uint32_t param)
+ {
+ 	struct amdgpu_device *adev = smu->adev;
+diff --git a/drivers/gpu/drm/amd/powerplay/vega20_ppt.c b/drivers/gpu/drm/amd/powerplay/vega20_ppt.c
+index 83862544a45c..a371a0da427e 100644
+--- a/drivers/gpu/drm/amd/powerplay/vega20_ppt.c
++++ b/drivers/gpu/drm/amd/powerplay/vega20_ppt.c
+@@ -3231,7 +3231,6 @@ static const struct pptable_funcs vega20_ppt_funcs = {
+ 	.set_tool_table_location = smu_v11_0_set_tool_table_location,
+ 	.notify_memory_pool_location = smu_v11_0_notify_memory_pool_location,
+ 	.system_features_control = smu_v11_0_system_features_control,
+-	.send_smc_msg = smu_v11_0_send_msg,
+ 	.send_smc_msg_with_param = smu_v11_0_send_msg_with_param,
+ 	.read_smc_arg = smu_v11_0_read_arg,
+ 	.init_display_count = smu_v11_0_init_display_count,
+-- 
+2.17.1
+

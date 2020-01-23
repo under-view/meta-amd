@@ -1,0 +1,119 @@
+From dc7226855bf797ba95a3b5c90bfc06a68b2af5c9 Mon Sep 17 00:00:00 2001
+From: =?UTF-8?q?Marek=20Ol=C5=A1=C3=A1k?= <marek.olsak@amd.com>
+Date: Thu, 12 Dec 2019 10:34:08 +0530
+Subject: [PATCH 4282/4736] drm/amdgpu: Allow reading more status registers on
+ si/cik
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+Allow userspace to read the same status registers for every family.
+Based on commit c7890fea, added any of these registers if defined in
+the include files of each architecture.
+
+Signed-off-by: Marek Olšák <marek.olsak@amd.com>
+Reviewed-by: Alex Deucher <alexander.deucher@amd.com>
+Signed-off-by: Rahul Kumar <rahul.kumar1@amd.com>
+---
+ drivers/gpu/drm/amd/amdgpu/amdgpu_drv.c |  3 ++-
+ drivers/gpu/drm/amd/amdgpu/cik.c        | 19 +++++++++++++++++++
+ drivers/gpu/drm/amd/amdgpu/nv.c         |  1 +
+ drivers/gpu/drm/amd/amdgpu/si.c         | 11 +++++++++++
+ drivers/gpu/drm/amd/amdgpu/soc15.c      |  1 +
+ 5 files changed, 34 insertions(+), 1 deletion(-)
+
+diff --git a/drivers/gpu/drm/amd/amdgpu/amdgpu_drv.c b/drivers/gpu/drm/amd/amdgpu/amdgpu_drv.c
+index 699cab407158..131dd2e91bf0 100644
+--- a/drivers/gpu/drm/amd/amdgpu/amdgpu_drv.c
++++ b/drivers/gpu/drm/amd/amdgpu/amdgpu_drv.c
+@@ -81,9 +81,10 @@
+  * - 3.33.0 - Fixes for GDS ENOMEM failures in AMDGPU_CS.
+  * - 3.34.0 - Non-DC can flip correctly between buffers with different pitches
+  * - 3.35.0 - Add drm_amdgpu_info_device::tcc_disabled_mask
++ * - 3.36.0 - Allow reading more status registers on si/cik
+  */
+ #define KMS_DRIVER_MAJOR	3
+-#define KMS_DRIVER_MINOR	35
++#define KMS_DRIVER_MINOR	36
+ #define KMS_DRIVER_PATCHLEVEL	0
+ 
+ int amdgpu_vram_limit = 0;
+diff --git a/drivers/gpu/drm/amd/amdgpu/cik.c b/drivers/gpu/drm/amd/amdgpu/cik.c
+index e3c524c8926a..cc3d9f91a769 100644
+--- a/drivers/gpu/drm/amd/amdgpu/cik.c
++++ b/drivers/gpu/drm/amd/amdgpu/cik.c
+@@ -965,6 +965,25 @@ static bool cik_read_bios_from_rom(struct amdgpu_device *adev,
+ 
+ static const struct amdgpu_allowed_register_entry cik_allowed_read_registers[] = {
+ 	{mmGRBM_STATUS},
++	{mmGRBM_STATUS2},
++	{mmGRBM_STATUS_SE0},
++	{mmGRBM_STATUS_SE1},
++	{mmGRBM_STATUS_SE2},
++	{mmGRBM_STATUS_SE3},
++	{mmSRBM_STATUS},
++	{mmSRBM_STATUS2},
++	{mmSDMA0_STATUS_REG + SDMA0_REGISTER_OFFSET},
++	{mmSDMA0_STATUS_REG + SDMA1_REGISTER_OFFSET},
++	{mmCP_STAT},
++	{mmCP_STALLED_STAT1},
++	{mmCP_STALLED_STAT2},
++	{mmCP_STALLED_STAT3},
++	{mmCP_CPF_BUSY_STAT},
++	{mmCP_CPF_STALLED_STAT1},
++	{mmCP_CPF_STATUS},
++	{mmCP_CPC_BUSY_STAT},
++	{mmCP_CPC_STALLED_STAT1},
++	{mmCP_CPC_STATUS},
+ 	{mmGB_ADDR_CONFIG},
+ 	{mmMC_ARB_RAMCFG},
+ 	{mmGB_TILE_MODE0},
+diff --git a/drivers/gpu/drm/amd/amdgpu/nv.c b/drivers/gpu/drm/amd/amdgpu/nv.c
+index 55a6ed09a953..ebbf7712f8c8 100644
+--- a/drivers/gpu/drm/amd/amdgpu/nv.c
++++ b/drivers/gpu/drm/amd/amdgpu/nv.c
+@@ -177,6 +177,7 @@ static struct soc15_allowed_register_entry nv_allowed_read_registers[] = {
+ 	{ SOC15_REG_ENTRY(GC, 0, mmCP_CPF_BUSY_STAT)},
+ 	{ SOC15_REG_ENTRY(GC, 0, mmCP_CPF_STALLED_STAT1)},
+ 	{ SOC15_REG_ENTRY(GC, 0, mmCP_CPF_STATUS)},
++	{ SOC15_REG_ENTRY(GC, 0, mmCP_CPC_BUSY_STAT)},
+ 	{ SOC15_REG_ENTRY(GC, 0, mmCP_CPC_STALLED_STAT1)},
+ 	{ SOC15_REG_ENTRY(GC, 0, mmCP_CPC_STATUS)},
+ 	{ SOC15_REG_ENTRY(GC, 0, mmGB_ADDR_CONFIG)},
+diff --git a/drivers/gpu/drm/amd/amdgpu/si.c b/drivers/gpu/drm/amd/amdgpu/si.c
+index 0d2533025227..c8d645e45821 100644
+--- a/drivers/gpu/drm/amd/amdgpu/si.c
++++ b/drivers/gpu/drm/amd/amdgpu/si.c
+@@ -974,6 +974,17 @@ static void si_smc_wreg(struct amdgpu_device *adev, u32 reg, u32 v)
+ 
+ static struct amdgpu_allowed_register_entry si_allowed_read_registers[] = {
+ 	{GRBM_STATUS},
++	{mmGRBM_STATUS2},
++	{mmGRBM_STATUS_SE0},
++	{mmGRBM_STATUS_SE1},
++	{mmSRBM_STATUS},
++	{mmSRBM_STATUS2},
++	{DMA_STATUS_REG + DMA0_REGISTER_OFFSET},
++	{DMA_STATUS_REG + DMA1_REGISTER_OFFSET},
++	{mmCP_STAT},
++	{mmCP_STALLED_STAT1},
++	{mmCP_STALLED_STAT2},
++	{mmCP_STALLED_STAT3},
+ 	{GB_ADDR_CONFIG},
+ 	{MC_ARB_RAMCFG},
+ 	{GB_TILE_MODE0},
+diff --git a/drivers/gpu/drm/amd/amdgpu/soc15.c b/drivers/gpu/drm/amd/amdgpu/soc15.c
+index 9457502a9909..d3083bd2c5ae 100644
+--- a/drivers/gpu/drm/amd/amdgpu/soc15.c
++++ b/drivers/gpu/drm/amd/amdgpu/soc15.c
+@@ -338,6 +338,7 @@ static struct soc15_allowed_register_entry soc15_allowed_read_registers[] = {
+ 	{ SOC15_REG_ENTRY(GC, 0, mmCP_CPF_BUSY_STAT)},
+ 	{ SOC15_REG_ENTRY(GC, 0, mmCP_CPF_STALLED_STAT1)},
+ 	{ SOC15_REG_ENTRY(GC, 0, mmCP_CPF_STATUS)},
++	{ SOC15_REG_ENTRY(GC, 0, mmCP_CPC_BUSY_STAT)},
+ 	{ SOC15_REG_ENTRY(GC, 0, mmCP_CPC_STALLED_STAT1)},
+ 	{ SOC15_REG_ENTRY(GC, 0, mmCP_CPC_STATUS)},
+ 	{ SOC15_REG_ENTRY(GC, 0, mmGB_ADDR_CONFIG)},
+-- 
+2.17.1
+

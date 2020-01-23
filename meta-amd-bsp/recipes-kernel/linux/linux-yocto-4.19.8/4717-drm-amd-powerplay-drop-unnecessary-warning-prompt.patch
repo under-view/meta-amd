@@ -1,0 +1,34 @@
+From 50044c3bd38a50919359d7ed31b2a9eec299170c Mon Sep 17 00:00:00 2001
+From: Evan Quan <evan.quan@amd.com>
+Date: Tue, 26 Nov 2019 15:05:07 +0800
+Subject: [PATCH 4717/4736] drm/amd/powerplay: drop unnecessary warning prompt
+
+As the check may be done with purpose and the warning
+output will be confusing.
+
+Change-Id: Ie0928c324a8161d44068f8ce648d56f6d9e8cd3d
+Signed-off-by: Evan Quan <evan.quan@amd.com>
+Acked-by: Alex Deucher <alexander.deucher@amd.com>
+---
+ drivers/gpu/drm/amd/powerplay/arcturus_ppt.c | 4 +---
+ 1 file changed, 1 insertion(+), 3 deletions(-)
+
+diff --git a/drivers/gpu/drm/amd/powerplay/arcturus_ppt.c b/drivers/gpu/drm/amd/powerplay/arcturus_ppt.c
+index 3a793c6ccbf0..42a7478964eb 100644
+--- a/drivers/gpu/drm/amd/powerplay/arcturus_ppt.c
++++ b/drivers/gpu/drm/amd/powerplay/arcturus_ppt.c
+@@ -280,10 +280,8 @@ static int arcturus_get_workload_type(struct smu_context *smu, enum PP_SMC_POWER
+ 		return -EINVAL;
+ 
+ 	mapping = arcturus_workload_map[profile];
+-	if (!(mapping.valid_mapping)) {
+-		pr_warn("Unsupported SMU power source: %d\n", profile);
++	if (!(mapping.valid_mapping))
+ 		return -EINVAL;
+-	}
+ 
+ 	return mapping.map_to;
+ }
+-- 
+2.17.1
+
