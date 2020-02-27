@@ -48,7 +48,7 @@ git checkout --quiet a24acf94d48d635eca668ea34598c6e5c857e3f8
 cd ../meta-dpdk
 git checkout --quiet c8c30c2c4e2f36b4a55a69a475fe774015423705
 cd ../meta-amd
-git checkout --quiet HEAD
+git checkout --quiet tags/warrior-r1000-ga-202002
 cd ..
 ```
 
