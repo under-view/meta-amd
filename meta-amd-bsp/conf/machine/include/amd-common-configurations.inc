@@ -13,8 +13,8 @@ PREFERRED_PROVIDER_llvm ?= "llvm9.0.1"
 
 # Components that depend on LLVM should set versions here
 # so we know what needs to be changed/validated as LLVM moves
-MESA_LLVM_RELEASE_amd = "9.0.0"
-CLAMAV_LLVM_RELEASE_amd = "9.0.0"
+MESA_LLVM_RELEASE_amd = "9.0.1"
+CLAMAV_LLVM_RELEASE_amd = "9.0.1"
 
 MULTILIBS ?= ""
 require conf/multilib.conf
