@@ -1,0 +1,47 @@
+From 6f110828854e327b49da8fd84846facc3d2e87f8 Mon Sep 17 00:00:00 2001
+From: Kevin Wang <kevin1.wang@amd.com>
+Date: Tue, 5 Nov 2019 18:53:30 +0800
+Subject: [PATCH 4385/4736] drm/amdgpu: fix sysfs interface pcie_replay_count
+ error on navi asic
+
+the asic callback function of get_pcie_replay_count is not implement on navi asic,
+it will cause null pinter error when read this interface.
+
+Signed-off-by: Kevin Wang <kevin1.wang@amd.com>
+Reviewed-by: Kent Russell <kent.russell@amd.com>
+---
+ drivers/gpu/drm/amd/amdgpu/nv.c | 11 +++++++++++
+ 1 file changed, 11 insertions(+)
+
+diff --git a/drivers/gpu/drm/amd/amdgpu/nv.c b/drivers/gpu/drm/amd/amdgpu/nv.c
+index 88e3665f7b09..b33da33214eb 100644
+--- a/drivers/gpu/drm/amd/amdgpu/nv.c
++++ b/drivers/gpu/drm/amd/amdgpu/nv.c
+@@ -538,6 +538,16 @@ static bool nv_need_reset_on_init(struct amdgpu_device *adev)
+ 	return false;
+ }
+ 
++static uint64_t nv_get_pcie_replay_count(struct amdgpu_device *adev)
++{
++
++	/* TODO
++	 * dummy implement for pcie_replay_count sysfs interface
++	 * */
++
++	return 0;
++}
++
+ static void nv_init_doorbell_index(struct amdgpu_device *adev)
+ {
+ 	adev->doorbell_index.kiq = AMDGPU_NAVI10_DOORBELL_KIQ;
+@@ -585,6 +595,7 @@ static const struct amdgpu_asic_funcs nv_asic_funcs =
+ 	.need_full_reset = &nv_need_full_reset,
+ 	.get_pcie_usage = &nv_get_pcie_usage,
+ 	.need_reset_on_init = &nv_need_reset_on_init,
++	.get_pcie_replay_count = &nv_get_pcie_replay_count,
+ };
+ 
+ static int nv_common_early_init(void *handle)
+-- 
+2.17.1
+

@@ -1,0 +1,118 @@
+From a54a55ca5ec95676e24f1dd63c048760e4f1174e Mon Sep 17 00:00:00 2001
+From: Yong Zhao <Yong.Zhao@amd.com>
+Date: Sat, 9 Nov 2019 01:16:05 -0500
+Subject: [PATCH 4579/4736] drm/amdkfd: Remove duplicate functions
+ update_mqd_hiq()
+
+The functions are the same as update_mqd().
+
+Signed-off-by: Yong Zhao <Yong.Zhao@amd.com>
+Reviewed-by: Zhan Liu <zhan.liu@amd.com>
+Signed-off-by: Alex Deucher <alexander.deucher@amd.com>
+---
+ drivers/gpu/drm/amd/amdkfd/kfd_mqd_manager_v10.c | 16 ++--------------
+ drivers/gpu/drm/amd/amdkfd/kfd_mqd_manager_v9.c  | 16 ++--------------
+ drivers/gpu/drm/amd/amdkfd/kfd_mqd_manager_vi.c  |  4 ----
+ 3 files changed, 4 insertions(+), 32 deletions(-)
+
+diff --git a/drivers/gpu/drm/amd/amdkfd/kfd_mqd_manager_v10.c b/drivers/gpu/drm/amd/amdkfd/kfd_mqd_manager_v10.c
+index 65a03d1d79db..0487ddcbfa00 100644
+--- a/drivers/gpu/drm/amd/amdkfd/kfd_mqd_manager_v10.c
++++ b/drivers/gpu/drm/amd/amdkfd/kfd_mqd_manager_v10.c
+@@ -282,18 +282,6 @@ static void init_mqd_hiq(struct mqd_manager *mm, void **mqd,
+ 			1 << CP_HQD_PQ_CONTROL__KMD_QUEUE__SHIFT;
+ }
+ 
+-static void update_mqd_hiq(struct mqd_manager *mm, void *mqd,
+-			struct queue_properties *q)
+-{
+-	struct v10_compute_mqd *m;
+-
+-	update_mqd(mm, mqd, q);
+-
+-	/* TODO: what's the point? update_mqd already does this. */
+-	m = get_mqd(mqd);
+-	m->cp_hqd_vmid = q->vmid;
+-}
+-
+ static void init_mqd_sdma(struct mqd_manager *mm, void **mqd,
+ 		struct kfd_mem_obj *mqd_mem_obj, uint64_t *gart_addr,
+ 		struct queue_properties *q)
+@@ -423,7 +411,7 @@ struct mqd_manager *mqd_manager_init_v10(enum KFD_MQD_TYPE type,
+ 		mqd->init_mqd = init_mqd_hiq;
+ 		mqd->free_mqd = free_mqd_hiq_sdma;
+ 		mqd->load_mqd = load_mqd;
+-		mqd->update_mqd = update_mqd_hiq;
++		mqd->update_mqd = update_mqd;
+ 		mqd->destroy_mqd = destroy_mqd;
+ 		mqd->is_occupied = is_occupied;
+ 		mqd->mqd_size = sizeof(struct v10_compute_mqd);
+@@ -437,7 +425,7 @@ struct mqd_manager *mqd_manager_init_v10(enum KFD_MQD_TYPE type,
+ 		mqd->init_mqd = init_mqd_hiq;
+ 		mqd->free_mqd = free_mqd;
+ 		mqd->load_mqd = load_mqd;
+-		mqd->update_mqd = update_mqd_hiq;
++		mqd->update_mqd = update_mqd;
+ 		mqd->destroy_mqd = destroy_mqd;
+ 		mqd->is_occupied = is_occupied;
+ 		mqd->mqd_size = sizeof(struct v10_compute_mqd);
+diff --git a/drivers/gpu/drm/amd/amdkfd/kfd_mqd_manager_v9.c b/drivers/gpu/drm/amd/amdkfd/kfd_mqd_manager_v9.c
+index 822747377c28..d8fd332c7b14 100644
+--- a/drivers/gpu/drm/amd/amdkfd/kfd_mqd_manager_v9.c
++++ b/drivers/gpu/drm/amd/amdkfd/kfd_mqd_manager_v9.c
+@@ -409,18 +409,6 @@ static void init_mqd_hiq(struct mqd_manager *mm, void **mqd,
+ 			1 << CP_HQD_PQ_CONTROL__KMD_QUEUE__SHIFT;
+ }
+ 
+-static void update_mqd_hiq(struct mqd_manager *mm, void *mqd,
+-			struct queue_properties *q)
+-{
+-	struct v9_mqd *m;
+-
+-	update_mqd(mm, mqd, q);
+-
+-	/* TODO: what's the point? update_mqd already does this. */
+-	m = get_mqd(mqd);
+-	m->cp_hqd_vmid = q->vmid;
+-}
+-
+ static void init_mqd_sdma(struct mqd_manager *mm, void **mqd,
+ 		struct kfd_mem_obj *mqd_mem_obj, uint64_t *gart_addr,
+ 		struct queue_properties *q)
+@@ -548,7 +536,7 @@ struct mqd_manager *mqd_manager_init_v9(enum KFD_MQD_TYPE type,
+ 		mqd->init_mqd = init_mqd_hiq;
+ 		mqd->free_mqd = free_mqd_hiq_sdma;
+ 		mqd->load_mqd = load_mqd;
+-		mqd->update_mqd = update_mqd_hiq;
++		mqd->update_mqd = update_mqd;
+ 		mqd->destroy_mqd = destroy_mqd;
+ 		mqd->is_occupied = is_occupied;
+ 		mqd->check_queue_active = check_queue_active;
+@@ -562,7 +550,7 @@ struct mqd_manager *mqd_manager_init_v9(enum KFD_MQD_TYPE type,
+ 		mqd->init_mqd = init_mqd_hiq;
+ 		mqd->free_mqd = free_mqd;
+ 		mqd->load_mqd = load_mqd;
+-		mqd->update_mqd = update_mqd_hiq;
++		mqd->update_mqd = update_mqd;
+ 		mqd->destroy_mqd = destroy_mqd;
+ 		mqd->is_occupied = is_occupied;
+ 		mqd->check_queue_active = check_queue_active;
+diff --git a/drivers/gpu/drm/amd/amdkfd/kfd_mqd_manager_vi.c b/drivers/gpu/drm/amd/amdkfd/kfd_mqd_manager_vi.c
+index 39c9b470e227..6909b79361a7 100644
+--- a/drivers/gpu/drm/amd/amdkfd/kfd_mqd_manager_vi.c
++++ b/drivers/gpu/drm/amd/amdkfd/kfd_mqd_manager_vi.c
+@@ -353,11 +353,7 @@ static void init_mqd_hiq(struct mqd_manager *mm, void **mqd,
+ static void update_mqd_hiq(struct mqd_manager *mm, void *mqd,
+ 			struct queue_properties *q)
+ {
+-	struct vi_mqd *m;
+ 	__update_mqd(mm, mqd, q, MTYPE_UC, 0);
+-
+-	m = get_mqd(mqd);
+-	m->cp_hqd_vmid = q->vmid;
+ }
+ 
+ static void init_mqd_sdma(struct mqd_manager *mm, void **mqd,
+-- 
+2.17.1
+

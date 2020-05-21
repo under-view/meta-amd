@@ -1,0 +1,160 @@
+From 506545d6735e47440c4278813370ba79079e27ed Mon Sep 17 00:00:00 2001
+From: Christophe JAILLET <christophe.jaillet@wanadoo.fr>
+Date: Fri, 9 Aug 2019 22:12:19 +0200
+Subject: [PATCH 3367/4256] drm/amd/display: Fix a typo - dce_aduio_mask -->
+ dce_audio_mask
+
+This should be 'dce_audio_mask', not 'dce_aduio_mask'.
+
+Signed-off-by: Christophe JAILLET <christophe.jaillet@wanadoo.fr>
+Signed-off-by: Alex Deucher <alexander.deucher@amd.com>
+---
+ drivers/gpu/drm/amd/display/dc/dce/dce_audio.c          | 2 +-
+ drivers/gpu/drm/amd/display/dc/dce/dce_audio.h          | 6 +++---
+ drivers/gpu/drm/amd/display/dc/dce100/dce100_resource.c | 2 +-
+ drivers/gpu/drm/amd/display/dc/dce110/dce110_resource.c | 2 +-
+ drivers/gpu/drm/amd/display/dc/dce112/dce112_resource.c | 2 +-
+ drivers/gpu/drm/amd/display/dc/dce120/dce120_resource.c | 2 +-
+ drivers/gpu/drm/amd/display/dc/dce80/dce80_resource.c   | 2 +-
+ drivers/gpu/drm/amd/display/dc/dcn10/dcn10_resource.c   | 2 +-
+ drivers/gpu/drm/amd/display/dc/dcn20/dcn20_resource.c   | 2 +-
+ 9 files changed, 11 insertions(+), 11 deletions(-)
+
+diff --git a/drivers/gpu/drm/amd/display/dc/dce/dce_audio.c b/drivers/gpu/drm/amd/display/dc/dce/dce_audio.c
+index ad7bc7d44268..b7d63ca126df 100644
+--- a/drivers/gpu/drm/amd/display/dc/dce/dce_audio.c
++++ b/drivers/gpu/drm/amd/display/dc/dce/dce_audio.c
+@@ -934,7 +934,7 @@ struct audio *dce_audio_create(
+ 		unsigned int inst,
+ 		const struct dce_audio_registers *reg,
+ 		const struct dce_audio_shift *shifts,
+-		const struct dce_aduio_mask *masks
++		const struct dce_audio_mask *masks
+ 		)
+ {
+ 	struct dce_audio *audio = kzalloc(sizeof(*audio), GFP_KERNEL);
+diff --git a/drivers/gpu/drm/amd/display/dc/dce/dce_audio.h b/drivers/gpu/drm/amd/display/dc/dce/dce_audio.h
+index a0d5724aab31..1392fab0860b 100644
+--- a/drivers/gpu/drm/amd/display/dc/dce/dce_audio.h
++++ b/drivers/gpu/drm/amd/display/dc/dce/dce_audio.h
+@@ -101,7 +101,7 @@ struct dce_audio_shift {
+ 	uint32_t DCCG_AUDIO_DTO1_USE_512FBR_DTO;
+ };
+ 
+-struct dce_aduio_mask {
++struct dce_audio_mask {
+ 	uint32_t AZALIA_ENDPOINT_REG_INDEX;
+ 	uint32_t AZALIA_ENDPOINT_REG_DATA;
+ 
+@@ -125,7 +125,7 @@ struct dce_audio {
+ 	struct audio base;
+ 	const struct dce_audio_registers *regs;
+ 	const struct dce_audio_shift *shifts;
+-	const struct dce_aduio_mask *masks;
++	const struct dce_audio_mask *masks;
+ };
+ 
+ struct audio *dce_audio_create(
+@@ -133,7 +133,7 @@ struct audio *dce_audio_create(
+ 		unsigned int inst,
+ 		const struct dce_audio_registers *reg,
+ 		const struct dce_audio_shift *shifts,
+-		const struct dce_aduio_mask *masks);
++		const struct dce_audio_mask *masks);
+ 
+ void dce_aud_destroy(struct audio **audio);
+ 
+diff --git a/drivers/gpu/drm/amd/display/dc/dce100/dce100_resource.c b/drivers/gpu/drm/amd/display/dc/dce100/dce100_resource.c
+index ae87c5017756..bb199534ea3b 100644
+--- a/drivers/gpu/drm/amd/display/dc/dce100/dce100_resource.c
++++ b/drivers/gpu/drm/amd/display/dc/dce100/dce100_resource.c
+@@ -301,7 +301,7 @@ static const struct dce_audio_shift audio_shift = {
+ 		AUD_COMMON_MASK_SH_LIST(__SHIFT)
+ };
+ 
+-static const struct dce_aduio_mask audio_mask = {
++static const struct dce_audio_mask audio_mask = {
+ 		AUD_COMMON_MASK_SH_LIST(_MASK)
+ };
+ 
+diff --git a/drivers/gpu/drm/amd/display/dc/dce110/dce110_resource.c b/drivers/gpu/drm/amd/display/dc/dce110/dce110_resource.c
+index 113cfb3d972c..ae89721c3a99 100644
+--- a/drivers/gpu/drm/amd/display/dc/dce110/dce110_resource.c
++++ b/drivers/gpu/drm/amd/display/dc/dce110/dce110_resource.c
+@@ -329,7 +329,7 @@ static const struct dce_audio_shift audio_shift = {
+ 		AUD_COMMON_MASK_SH_LIST(__SHIFT)
+ };
+ 
+-static const struct dce_aduio_mask audio_mask = {
++static const struct dce_audio_mask audio_mask = {
+ 		AUD_COMMON_MASK_SH_LIST(_MASK)
+ };
+ 
+diff --git a/drivers/gpu/drm/amd/display/dc/dce112/dce112_resource.c b/drivers/gpu/drm/amd/display/dc/dce112/dce112_resource.c
+index 1c3e8939696a..e327d98b54ca 100644
+--- a/drivers/gpu/drm/amd/display/dc/dce112/dce112_resource.c
++++ b/drivers/gpu/drm/amd/display/dc/dce112/dce112_resource.c
+@@ -335,7 +335,7 @@ static const struct dce_audio_shift audio_shift = {
+ 		AUD_COMMON_MASK_SH_LIST(__SHIFT)
+ };
+ 
+-static const struct dce_aduio_mask audio_mask = {
++static const struct dce_audio_mask audio_mask = {
+ 		AUD_COMMON_MASK_SH_LIST(_MASK)
+ };
+ 
+diff --git a/drivers/gpu/drm/amd/display/dc/dce120/dce120_resource.c b/drivers/gpu/drm/amd/display/dc/dce120/dce120_resource.c
+index 719c020cc1f7..c4588d6462a4 100644
+--- a/drivers/gpu/drm/amd/display/dc/dce120/dce120_resource.c
++++ b/drivers/gpu/drm/amd/display/dc/dce120/dce120_resource.c
+@@ -350,7 +350,7 @@ static const struct dce_audio_shift audio_shift = {
+ 		DCE120_AUD_COMMON_MASK_SH_LIST(__SHIFT)
+ };
+ 
+-static const struct dce_aduio_mask audio_mask = {
++static const struct dce_audio_mask audio_mask = {
+ 		DCE120_AUD_COMMON_MASK_SH_LIST(_MASK)
+ };
+ 
+diff --git a/drivers/gpu/drm/amd/display/dc/dce80/dce80_resource.c b/drivers/gpu/drm/amd/display/dc/dce80/dce80_resource.c
+index 69e9325e0f74..2f224e1ae5f2 100644
+--- a/drivers/gpu/drm/amd/display/dc/dce80/dce80_resource.c
++++ b/drivers/gpu/drm/amd/display/dc/dce80/dce80_resource.c
+@@ -323,7 +323,7 @@ static const struct dce_audio_shift audio_shift = {
+ 		AUD_COMMON_MASK_SH_LIST(__SHIFT)
+ };
+ 
+-static const struct dce_aduio_mask audio_mask = {
++static const struct dce_audio_mask audio_mask = {
+ 		AUD_COMMON_MASK_SH_LIST(_MASK)
+ };
+ 
+diff --git a/drivers/gpu/drm/amd/display/dc/dcn10/dcn10_resource.c b/drivers/gpu/drm/amd/display/dc/dcn10/dcn10_resource.c
+index 2a01645c4bfd..cd223603a0a8 100644
+--- a/drivers/gpu/drm/amd/display/dc/dcn10/dcn10_resource.c
++++ b/drivers/gpu/drm/amd/display/dc/dcn10/dcn10_resource.c
+@@ -268,7 +268,7 @@ static const struct dce_audio_shift audio_shift = {
+ 		DCE120_AUD_COMMON_MASK_SH_LIST(__SHIFT)
+ };
+ 
+-static const struct dce_aduio_mask audio_mask = {
++static const struct dce_audio_mask audio_mask = {
+ 		DCE120_AUD_COMMON_MASK_SH_LIST(_MASK)
+ };
+ 
+diff --git a/drivers/gpu/drm/amd/display/dc/dcn20/dcn20_resource.c b/drivers/gpu/drm/amd/display/dc/dcn20/dcn20_resource.c
+index 42d3666f2037..291846cc4f21 100644
+--- a/drivers/gpu/drm/amd/display/dc/dcn20/dcn20_resource.c
++++ b/drivers/gpu/drm/amd/display/dc/dcn20/dcn20_resource.c
+@@ -422,7 +422,7 @@ static const struct dce_audio_shift audio_shift = {
+ 		DCE120_AUD_COMMON_MASK_SH_LIST(__SHIFT)
+ };
+ 
+-static const struct dce_aduio_mask audio_mask = {
++static const struct dce_audio_mask audio_mask = {
+ 		DCE120_AUD_COMMON_MASK_SH_LIST(_MASK)
+ };
+ 
+-- 
+2.17.1
+

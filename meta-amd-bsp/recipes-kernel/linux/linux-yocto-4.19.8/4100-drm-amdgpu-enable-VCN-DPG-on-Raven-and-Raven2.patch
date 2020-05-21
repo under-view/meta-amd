@@ -1,0 +1,43 @@
+From 9c3d1f83e057cf2f27ed772ecc793e79a808b198 Mon Sep 17 00:00:00 2001
+From: Alex Deucher <alexander.deucher@amd.com>
+Date: Thu, 31 Oct 2019 10:37:02 -0400
+Subject: [PATCH 4100/4103] drm/amdgpu: enable VCN DPG on Raven and Raven2
+
+It's safe to enable dynamic VCN powergating on raven and
+raven2 for increased power savings.
+
+Reviewed-by: James Zhu <James.Zhu@amd.com>
+Signed-off-by: Alex Deucher <alexander.deucher@amd.com>
+---
+ drivers/gpu/drm/amd/amdgpu/soc15.c | 8 ++++++--
+ 1 file changed, 6 insertions(+), 2 deletions(-)
+
+diff --git a/drivers/gpu/drm/amd/amdgpu/soc15.c b/drivers/gpu/drm/amd/amdgpu/soc15.c
+index a77f9b708f7f..3acfdc1e2bfd 100644
+--- a/drivers/gpu/drm/amd/amdgpu/soc15.c
++++ b/drivers/gpu/drm/amd/amdgpu/soc15.c
+@@ -1121,7 +1121,9 @@ static int soc15_common_early_init(void *handle)
+ 				AMD_CG_SUPPORT_SDMA_LS |
+ 				AMD_CG_SUPPORT_VCN_MGCG;
+ 
+-			adev->pg_flags = AMD_PG_SUPPORT_SDMA | AMD_PG_SUPPORT_VCN;
++			adev->pg_flags = AMD_PG_SUPPORT_SDMA |
++				AMD_PG_SUPPORT_VCN |
++				AMD_PG_SUPPORT_VCN_DPG;
+ 		} else if (adev->pdev->device == 0x15d8) {
+ 			adev->cg_flags = AMD_CG_SUPPORT_GFX_MGCG |
+ 				AMD_CG_SUPPORT_GFX_MGLS |
+@@ -1164,7 +1166,9 @@ static int soc15_common_early_init(void *handle)
+ 				AMD_CG_SUPPORT_SDMA_LS |
+ 				AMD_CG_SUPPORT_VCN_MGCG;
+ 
+-			adev->pg_flags = AMD_PG_SUPPORT_SDMA | AMD_PG_SUPPORT_VCN;
++			adev->pg_flags = AMD_PG_SUPPORT_SDMA |
++				AMD_PG_SUPPORT_VCN |
++				AMD_PG_SUPPORT_VCN_DPG;
+ 		}
+ 		break;
+ 	case CHIP_ARCTURUS:
+-- 
+2.17.1
+

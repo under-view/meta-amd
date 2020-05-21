@@ -1,0 +1,103 @@
+From 1880194a969a309d0591171b910a4cbfaaf035bf Mon Sep 17 00:00:00 2001
+From: Jack Zhang <Jack.Zhang1@amd.com>
+Date: Thu, 21 Nov 2019 13:59:28 +0800
+Subject: [PATCH 4576/4736] drm/amd/amdgpu/sriov temporarily skip ras,dtm,hdcp
+ for arcturus VF
+
+Temporarily skip ras,dtm,hdcp initialize and terminate for arcturus VF
+Currently the three features haven't been enabled at SRIOV, it would
+trigger guest driver load fail with the bare-metal path of the three
+features.
+
+Signed-off-by: Jack Zhang <Jack.Zhang1@amd.com>
+Reviewed-by: Alex Deucher <alexander.deucher@amd.com>
+Signed-off-by: Alex Deucher <alexander.deucher@amd.com>
+---
+ drivers/gpu/drm/amd/amdgpu/amdgpu_psp.c | 36 +++++++++++++++++++++++++
+ 1 file changed, 36 insertions(+)
+
+diff --git a/drivers/gpu/drm/amd/amdgpu/amdgpu_psp.c b/drivers/gpu/drm/amd/amdgpu/amdgpu_psp.c
+index b9922a5f6890..0f903c4bab2e 100644
+--- a/drivers/gpu/drm/amd/amdgpu/amdgpu_psp.c
++++ b/drivers/gpu/drm/amd/amdgpu/amdgpu_psp.c
+@@ -760,6 +760,12 @@ static int psp_ras_terminate(struct psp_context *psp)
+ {
+ 	int ret;
+ 
++	/*
++	 * TODO: bypass the terminate in sriov for now
++	 */
++	if (amdgpu_sriov_vf(psp->adev))
++		return 0;
++
+ 	if (!psp->ras.ras_initialized)
+ 		return 0;
+ 
+@@ -781,6 +787,12 @@ static int psp_ras_initialize(struct psp_context *psp)
+ {
+ 	int ret;
+ 
++	/*
++	 * TODO: bypass the initialize in sriov for now
++	 */
++	if (amdgpu_sriov_vf(psp->adev))
++		return 0;
++
+ 	if (!psp->adev->psp.ta_ras_ucode_size ||
+ 	    !psp->adev->psp.ta_ras_start_addr) {
+ 		dev_warn(psp->adev->dev, "RAS: ras ta ucode is not available\n");
+@@ -876,6 +888,12 @@ static int psp_hdcp_initialize(struct psp_context *psp)
+ {
+ 	int ret;
+ 
++	/*
++	 * TODO: bypass the initialize in sriov for now
++	 */
++	if (amdgpu_sriov_vf(psp->adev))
++		return 0;
++
+ 	if (!psp->adev->psp.ta_hdcp_ucode_size ||
+ 	    !psp->adev->psp.ta_hdcp_start_addr) {
+ 		dev_warn(psp->adev->dev, "HDCP: hdcp ta ucode is not available\n");
+@@ -964,6 +982,12 @@ static int psp_hdcp_terminate(struct psp_context *psp)
+ {
+ 	int ret;
+ 
++	/*
++	 * TODO: bypass the terminate in sriov for now
++	 */
++	if (amdgpu_sriov_vf(psp->adev))
++		return 0;
++
+ 	if (!psp->hdcp_context.hdcp_initialized)
+ 		return 0;
+ 
+@@ -1055,6 +1079,12 @@ static int psp_dtm_initialize(struct psp_context *psp)
+ {
+ 	int ret;
+ 
++	/*
++	 * TODO: bypass the initialize in sriov for now
++	 */
++	if (amdgpu_sriov_vf(psp->adev))
++		return 0;
++
+ 	if (!psp->adev->psp.ta_dtm_ucode_size ||
+ 	    !psp->adev->psp.ta_dtm_start_addr) {
+ 		dev_warn(psp->adev->dev, "DTM: dtm ta ucode is not available\n");
+@@ -1113,6 +1143,12 @@ static int psp_dtm_terminate(struct psp_context *psp)
+ {
+ 	int ret;
+ 
++	/*
++	 * TODO: bypass the terminate in sriov for now
++	 */
++	if (amdgpu_sriov_vf(psp->adev))
++		return 0;
++
+ 	if (!psp->dtm_context.dtm_initialized)
+ 		return 0;
+ 
+-- 
+2.17.1
+

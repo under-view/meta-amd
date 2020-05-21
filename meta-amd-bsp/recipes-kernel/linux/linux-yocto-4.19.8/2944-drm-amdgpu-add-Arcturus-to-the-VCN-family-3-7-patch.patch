@@ -1,0 +1,47 @@
+From a01697b7ccb7ed4ab4ac2400a57a0316fcdfb4ca Mon Sep 17 00:00:00 2001
+From: Leo Liu <leo.liu@amd.com>
+Date: Tue, 9 Jul 2019 10:09:06 -0500
+Subject: [PATCH 2944/4256] drm/amdgpu: add Arcturus to the VCN family 3/7
+ patch
+
+including firmware support etc.
+
+Signed-off-by: Leo Liu <leo.liu@amd.com>
+Reviewed-by: Alex Deucher <alexander.deucher@amd.com>
+Signed-off-by: Alex Deucher <alexander.deucher@amd.com>
+---
+ drivers/gpu/drm/amd/amdgpu/amdgpu_vcn.c | 5 +++++
+ 1 file changed, 5 insertions(+)
+
+diff --git a/drivers/gpu/drm/amd/amdgpu/amdgpu_vcn.c b/drivers/gpu/drm/amd/amdgpu/amdgpu_vcn.c
+index 8a162bdad79e..bb0d1ef50c9c 100644
+--- a/drivers/gpu/drm/amd/amdgpu/amdgpu_vcn.c
++++ b/drivers/gpu/drm/amd/amdgpu/amdgpu_vcn.c
+@@ -45,12 +45,14 @@
+ #define FIRMWARE_RAVEN		"amdgpu/raven_vcn.bin"
+ #define FIRMWARE_PICASSO	"amdgpu/picasso_vcn.bin"
+ #define FIRMWARE_RAVEN2		"amdgpu/raven2_vcn.bin"
++#define FIRMWARE_ARCTURUS 	"amdgpu/arcturus_vcn.bin"
+ #define FIRMWARE_NAVI10 	"amdgpu/navi10_vcn.bin"
+ #define FIRMWARE_NAVI14 	"amdgpu/navi14_vcn.bin"
+ 
+ MODULE_FIRMWARE(FIRMWARE_RAVEN);
+ MODULE_FIRMWARE(FIRMWARE_PICASSO);
+ MODULE_FIRMWARE(FIRMWARE_RAVEN2);
++MODULE_FIRMWARE(FIRMWARE_ARCTURUS);
+ MODULE_FIRMWARE(FIRMWARE_NAVI10);
+ MODULE_FIRMWARE(FIRMWARE_NAVI14);
+ 
+@@ -75,6 +77,9 @@ int amdgpu_vcn_sw_init(struct amdgpu_device *adev)
+ 		else
+ 			fw_name = FIRMWARE_RAVEN;
+ 		break;
++	case CHIP_ARCTURUS:
++		fw_name = FIRMWARE_ARCTURUS;
++		break;
+ 	case CHIP_NAVI10:
+ 		fw_name = FIRMWARE_NAVI10;
+ 		if ((adev->firmware.load_type == AMDGPU_FW_LOAD_PSP) &&
+-- 
+2.17.1
+

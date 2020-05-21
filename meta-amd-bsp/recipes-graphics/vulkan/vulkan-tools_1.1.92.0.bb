@@ -15,10 +15,10 @@ S = "${WORKDIR}/git"
 
 REQUIRED_DISTRO_FEATURES = "vulkan"
 
-inherit cmake python3native distro_features_check
+inherit cmake python3native features_check
 ANY_OF_DISTRO_FEATURES = "x11 wayland"
 
-DEPENDS += "vulkan vulkan-headers"
+DEPENDS += "vulkan-loader vulkan-headers"
 
 EXTRA_OECMAKE = "-DBUILD_CUBE=OFF -DBUILD_ICD=OFF"
 

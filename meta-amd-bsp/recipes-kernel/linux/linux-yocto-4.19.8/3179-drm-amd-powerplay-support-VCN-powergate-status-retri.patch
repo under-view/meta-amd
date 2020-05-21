@@ -1,0 +1,33 @@
+From 3888f3b78967de759444b11d3aa332ea2c949c3b Mon Sep 17 00:00:00 2001
+From: Evan Quan <evan.quan@amd.com>
+Date: Mon, 22 Jul 2019 09:57:27 +0800
+Subject: [PATCH 3179/4256] drm/amd/powerplay: support VCN powergate status
+ retrieval for SW SMU
+
+Commonly used for VCN powergate status retrieval for SW SMU.
+
+Signed-off-by: Evan Quan <evan.quan@amd.com>
+Reviewed-by: Kenneth Feng <kenneth.feng@amd.com>
+Signed-off-by: Alex Deucher <alexander.deucher@amd.com>
+---
+ drivers/gpu/drm/amd/powerplay/amdgpu_smu.c | 4 ++++
+ 1 file changed, 4 insertions(+)
+
+diff --git a/drivers/gpu/drm/amd/powerplay/amdgpu_smu.c b/drivers/gpu/drm/amd/powerplay/amdgpu_smu.c
+index 8ebfe41a4dc9..3f615d4624c7 100644
+--- a/drivers/gpu/drm/amd/powerplay/amdgpu_smu.c
++++ b/drivers/gpu/drm/amd/powerplay/amdgpu_smu.c
+@@ -424,6 +424,10 @@ int smu_common_read_sensor(struct smu_context *smu, enum amd_pp_sensors sensor,
+ 		*(uint32_t *)data = smu_feature_is_enabled(smu, SMU_FEATURE_DPM_VCE_BIT) ? 1 : 0;
+ 		*size = 4;
+ 		break;
++	case AMDGPU_PP_SENSOR_VCN_POWER_STATE:
++		*(uint32_t *)data = smu_feature_is_enabled(smu, SMU_FEATURE_VCN_PG_BIT) ? 1 : 0;
++		*size = 4;
++		break;
+ 	default:
+ 		ret = -EINVAL;
+ 		break;
+-- 
+2.17.1
+

@@ -1,0 +1,30 @@
+From 422e0ecc4fa87e81e570be45cee5471d1ffaaf00 Mon Sep 17 00:00:00 2001
+From: Hawking Zhang <Hawking.Zhang@amd.com>
+Date: Sat, 31 Aug 2019 13:18:40 +0800
+Subject: [PATCH 3696/4256] drm/amdgpu: check mmhub_funcs pointer before
+ refering to it
+
+mmhub callback functions are not initialized for all the ASICs
+
+Signed-off-by: Hawking Zhang <Hawking.Zhang@amd.com>
+Reviewed-by: Tao Zhou <tao.zhou1@amd.com>
+---
+ drivers/gpu/drm/amd/amdgpu/gmc_v9_0.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/drivers/gpu/drm/amd/amdgpu/gmc_v9_0.c b/drivers/gpu/drm/amd/amdgpu/gmc_v9_0.c
+index baefc8a3a2bb..81352d01fbee 100644
+--- a/drivers/gpu/drm/amd/amdgpu/gmc_v9_0.c
++++ b/drivers/gpu/drm/amd/amdgpu/gmc_v9_0.c
+@@ -795,7 +795,7 @@ static int gmc_v9_0_ecc_late_init(void *handle)
+ 			goto umc_late_fini;
+ 	}
+ 
+-	if (adev->mmhub_funcs->ras_late_init) {
++	if (adev->mmhub_funcs && adev->mmhub_funcs->ras_late_init) {
+ 		r = adev->mmhub_funcs->ras_late_init(adev);
+ 		if (r)
+ 			return r;
+-- 
+2.17.1
+

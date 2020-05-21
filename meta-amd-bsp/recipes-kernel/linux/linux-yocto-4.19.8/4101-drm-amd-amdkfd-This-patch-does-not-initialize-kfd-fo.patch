@@ -1,0 +1,266 @@
+From 924825f097f4bfa2cae17a6a14a53117a9de3e9b Mon Sep 17 00:00:00 2001
+From: kalyan alle <Kalyan.Alle@amd.com>
+Date: Sat, 2 Nov 2019 16:30:31 +0530
+Subject: [PATCH 4101/4103] drm/amd/amdkfd:This patch does not initialize kfd
+ for
+
+only for raven2.
+
+Initializing kfd (rocm) for raven2(Bilby R1000) is causing S3 to fail after very few
+iterations(less than 10). With kfd disabled, we could see the S3 getting
+passed. This patch disables kfd based on the device id. If the device id
+ is 15d8(raven2), kfd does not get initialized. This patch does not have
+any impact on the rocm functionality on Bilby V1000.Also it makes sense
+to disable kfd/rocm on Bilby R1000 as Rocm is not supported on it.
+
+Signed-off-by: Kalyan Alle <kalyan.alle@amd.com>
+---
+ drivers/gpu/drm/amd/amdgpu/amdgpu.h           |  1 +
+ .../gpu/drm/amd/amdgpu/amdgpu_amdkfd_fence.c  |  7 +++++
+ .../gpu/drm/amd/amdgpu/amdgpu_amdkfd_gpuvm.c  | 10 +++++++
+ drivers/gpu/drm/amd/amdgpu/amdgpu_device.c    |  4 +++
+ drivers/gpu/drm/amd/amdgpu/amdgpu_drv.c       |  1 +
+ drivers/gpu/drm/amd/amdkfd/kfd_device.c       | 28 +++++++++++++++++++
+ drivers/gpu/drm/amd/amdkfd/kfd_module.c       |  4 +++
+ 7 files changed, 55 insertions(+)
+
+diff --git a/drivers/gpu/drm/amd/amdgpu/amdgpu.h b/drivers/gpu/drm/amd/amdgpu/amdgpu.h
+index 3e9b286d3f9e..3bb4b7c6a42d 100644
+--- a/drivers/gpu/drm/amd/amdgpu/amdgpu.h
++++ b/drivers/gpu/drm/amd/amdgpu/amdgpu.h
+@@ -114,6 +114,7 @@ struct amdgpu_mgpu_info
+ /*
+  * Modules parameters.
+  */
++extern int kfd_flag_for_rv2;
+ extern int amdgpu_modeset;
+ extern int amdgpu_vram_limit;
+ extern int amdgpu_vis_vram_limit;
+diff --git a/drivers/gpu/drm/amd/amdgpu/amdgpu_amdkfd_fence.c b/drivers/gpu/drm/amd/amdgpu/amdgpu_amdkfd_fence.c
+index 24d2a623d9f0..4abc39ed8f75 100644
+--- a/drivers/gpu/drm/amd/amdgpu/amdgpu_amdkfd_fence.c
++++ b/drivers/gpu/drm/amd/amdgpu/amdgpu_amdkfd_fence.c
+@@ -28,6 +28,7 @@
+ #include <linux/slab.h>
+ #include <linux/sched/mm.h>
+ #include "amdgpu_amdkfd.h"
++#include "amdgpu.h"
+ 
+ static const struct dma_fence_ops amdkfd_fence_ops;
+ static atomic_t fence_seq = ATOMIC_INIT(0);
+@@ -83,6 +84,9 @@ struct amdgpu_amdkfd_fence *amdgpu_amdkfd_fence_create(u64 context,
+ #ifdef CONFIG_HSA_AMD
+ struct amdgpu_amdkfd_fence *to_amdgpu_amdkfd_fence(struct dma_fence *f)
+ {
++	if (kfd_flag_for_rv2)
++		return NULL;
++
+ 	struct amdgpu_amdkfd_fence *fence;
+ 
+ 	if (!f)
+@@ -161,6 +165,9 @@ static void amdkfd_fence_release(struct dma_fence *f)
+  */
+ bool amdkfd_fence_check_mm(struct dma_fence *f, struct mm_struct *mm)
+ {
++	if (kfd_flag_for_rv2)
++		return false;
++
+ 	struct amdgpu_amdkfd_fence *fence = to_amdgpu_amdkfd_fence(f);
+ 
+ 	if (!fence)
+diff --git a/drivers/gpu/drm/amd/amdgpu/amdgpu_amdkfd_gpuvm.c b/drivers/gpu/drm/amd/amdgpu/amdgpu_amdkfd_gpuvm.c
+index 9ffe63377c99..3e13f3e9097a 100644
+--- a/drivers/gpu/drm/amd/amdgpu/amdgpu_amdkfd_gpuvm.c
++++ b/drivers/gpu/drm/amd/amdgpu/amdgpu_amdkfd_gpuvm.c
+@@ -32,6 +32,7 @@
+ #include "amdgpu_vm.h"
+ #include "amdgpu_amdkfd.h"
+ #include "amdgpu_dma_buf.h"
++#include "amdgpu.h"
+ 
+ /* BO flag to indicate a KFD userptr BO */
+ #define AMDGPU_AMDKFD_USERPTR_BO (1ULL << 63)
+@@ -188,6 +189,9 @@ static void unreserve_mem_limit(struct amdgpu_device *adev,
+ 
+ void amdgpu_amdkfd_unreserve_memory_limit(struct amdgpu_bo *bo)
+ {
++	if (kfd_flag_for_rv2)
++		return;
++
+ 	struct amdgpu_device *adev = amdgpu_ttm_adev(bo->tbo.bdev);
+ 	u32 domain = bo->preferred_domains;
+ 	bool sg = (bo->preferred_domains == AMDGPU_GEM_DOMAIN_CPU);
+@@ -1077,6 +1081,9 @@ int amdgpu_amdkfd_gpuvm_acquire_process_vm(struct kgd_dev *kgd,
+ void amdgpu_amdkfd_gpuvm_destroy_cb(struct amdgpu_device *adev,
+ 				    struct amdgpu_vm *vm)
+ {
++	if (kfd_flag_for_rv2)
++		return;
++
+ 	struct amdkfd_process_info *process_info = vm->process_info;
+ 	struct amdgpu_bo *pd = vm->root.base.bo;
+ 
+@@ -1919,6 +1926,9 @@ int amdgpu_amdkfd_gpuvm_export_dmabuf(struct kgd_dev *kgd, void *vm,
+ int amdgpu_amdkfd_evict_userptr(struct kgd_mem *mem,
+ 				struct mm_struct *mm)
+ {
++	if (kfd_flag_for_rv2)
++		return 0;
++
+ 	struct amdkfd_process_info *process_info = mem->process_info;
+ 	int invalid, evicted_bos;
+ 	int r = 0;
+diff --git a/drivers/gpu/drm/amd/amdgpu/amdgpu_device.c b/drivers/gpu/drm/amd/amdgpu/amdgpu_device.c
+index 39ccf6855efb..1b972f531740 100644
+--- a/drivers/gpu/drm/amd/amdgpu/amdgpu_device.c
++++ b/drivers/gpu/drm/amd/amdgpu/amdgpu_device.c
+@@ -1624,6 +1624,10 @@ static int amdgpu_device_ip_early_init(struct amdgpu_device *adev)
+ 	if (amdgpu_discovery && adev->asic_type >= CHIP_NAVI10)
+ 		amdgpu_discovery_get_gfx_info(adev);
+ 
++	if ((adev->asic_type == CHIP_RAVEN) &&
++            (adev->pdev->device == 0x15d8))
++		kfd_flag_for_rv2 = 1;
++
+ 	amdgpu_amdkfd_device_probe(adev);
+ 
+ 	if (amdgpu_sriov_vf(adev)) {
+diff --git a/drivers/gpu/drm/amd/amdgpu/amdgpu_drv.c b/drivers/gpu/drm/amd/amdgpu/amdgpu_drv.c
+index 29cf16edbb10..50927cd86cc9 100644
+--- a/drivers/gpu/drm/amd/amdgpu/amdgpu_drv.c
++++ b/drivers/gpu/drm/amd/amdgpu/amdgpu_drv.c
+@@ -119,6 +119,7 @@ int amdgpu_sched_hw_submission = 2;
+ int amdgpu_no_evict = 0;
+ int amdgpu_direct_gma_size = 0;
+ int amdgpu_ssg_enabled = 0;
++int kfd_flag_for_rv2 = 0;
+ uint amdgpu_pcie_gen_cap = 0;
+ uint amdgpu_pcie_lane_cap = 0;
+ uint amdgpu_cg_mask = 0xffffffff;
+diff --git a/drivers/gpu/drm/amd/amdkfd/kfd_device.c b/drivers/gpu/drm/amd/amdkfd/kfd_device.c
+index 24728e70e871..ee9b9a6968bd 100644
+--- a/drivers/gpu/drm/amd/amdkfd/kfd_device.c
++++ b/drivers/gpu/drm/amd/amdkfd/kfd_device.c
+@@ -29,6 +29,7 @@
+ #include "cwsr_trap_handler.h"
+ #include "kfd_iommu.h"
+ #include "amdgpu_amdkfd.h"
++#include "amdgpu.h"
+ 
+ #define MQD_SIZE_ALIGNED 768
+ 
+@@ -491,6 +492,9 @@ static int kfd_resume(struct kfd_dev *kfd);
+ struct kfd_dev *kgd2kfd_probe(struct kgd_dev *kgd,
+ 	struct pci_dev *pdev, unsigned int asic_type, bool vf)
+ {
++	if (kfd_flag_for_rv2)
++		return NULL;
++
+ 	struct kfd_dev *kfd;
+ 	const struct kfd_device_info *device_info;
+ 	const struct kfd2kgd_calls *f2g;
+@@ -574,6 +578,9 @@ bool kgd2kfd_device_init(struct kfd_dev *kfd,
+ 			 struct drm_device *ddev,
+ 			 const struct kgd2kfd_shared_resources *gpu_resources)
+ {
++	if (kfd_flag_for_rv2)
++		return false;
++
+ 	unsigned int size;
+ 
+ 	kfd->ddev = ddev;
+@@ -710,6 +717,9 @@ bool kgd2kfd_device_init(struct kfd_dev *kfd,
+ 
+ void kgd2kfd_device_exit(struct kfd_dev *kfd)
+ {
++	if (kfd_flag_for_rv2)
++		return;
++
+ 	if (kfd->init_complete) {
+ 		kgd2kfd_suspend(kfd);
+ 		device_queue_manager_uninit(kfd->dqm);
+@@ -727,6 +737,9 @@ void kgd2kfd_device_exit(struct kfd_dev *kfd)
+ 
+ int kgd2kfd_pre_reset(struct kfd_dev *kfd)
+ {
++	if (kfd_flag_for_rv2)
++		return 0;
++
+ 	if (!kfd->init_complete)
+ 		return 0;
+ 	kgd2kfd_suspend(kfd);
+@@ -746,6 +759,9 @@ int kgd2kfd_pre_reset(struct kfd_dev *kfd)
+ 
+ int kgd2kfd_post_reset(struct kfd_dev *kfd)
+ {
++	if (kfd_flag_for_rv2)
++		return 0;
++
+ 	int ret, count;
+ 
+ 	if (!kfd->init_complete)
+@@ -772,6 +788,9 @@ bool kfd_is_locked(void)
+ #ifdef CONFIG_HSA_AMD
+ void kgd2kfd_suspend(struct kfd_dev *kfd)
+ {
++	if (kfd_flag_for_rv2)
++		return;
++
+ 	if (!kfd->init_complete)
+ 		return;
+ 
+@@ -786,6 +805,9 @@ void kgd2kfd_suspend(struct kfd_dev *kfd)
+ 
+ int kgd2kfd_resume(struct kfd_dev *kfd)
+ {
++	if (kfd_flag_for_rv2)
++		return 0;
++
+ 	int ret, count;
+ 
+ 	if (!kfd->init_complete)
+@@ -835,6 +857,9 @@ static int kfd_resume(struct kfd_dev *kfd)
+ /* This is called directly from KGD at ISR. */
+ void kgd2kfd_interrupt(struct kfd_dev *kfd, const void *ih_ring_entry)
+ {
++	if (kfd_flag_for_rv2)
++		return;
++
+ 	uint32_t patched_ihre[KFD_MAX_RING_ENTRY_SIZE];
+ 	bool is_patched = false;
+ 	unsigned long flags;
+@@ -1130,6 +1155,9 @@ int kfd_gtt_sa_free(struct kfd_dev *kfd, struct kfd_mem_obj *mem_obj)
+ 
+ void kgd2kfd_set_sram_ecc_flag(struct kfd_dev *kfd)
+ {
++	if (kfd_flag_for_rv2)
++		return NULL;
++
+ 	if (kfd)
+ 		atomic_inc(&kfd->sram_ecc_flag);
+ }
+diff --git a/drivers/gpu/drm/amd/amdkfd/kfd_module.c b/drivers/gpu/drm/amd/amdkfd/kfd_module.c
+index c7b857b542e8..3b6896effdc9 100644
+--- a/drivers/gpu/drm/amd/amdkfd/kfd_module.c
++++ b/drivers/gpu/drm/amd/amdkfd/kfd_module.c
+@@ -24,6 +24,7 @@
+ #include <linux/device.h>
+ #include "kfd_priv.h"
+ #include "amdgpu_amdkfd.h"
++#include "amdgpu.h"
+ 
+ static int kfd_init(void)
+ {
+@@ -98,6 +99,9 @@ int kgd2kfd_init(void)
+ #ifdef CONFIG_HSA_AMD
+ void kgd2kfd_exit(void)
+ {
++	if (kfd_flag_for_rv2)
++		return NULL;
++
+ 	kfd_exit();
+ }
+ #endif
+-- 
+2.17.1
+

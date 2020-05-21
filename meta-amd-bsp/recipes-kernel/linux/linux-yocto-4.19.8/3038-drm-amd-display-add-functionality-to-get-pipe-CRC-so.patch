@@ -1,0 +1,123 @@
+From 6d3236dab95ff312959904f7876c10df3b2cf218 Mon Sep 17 00:00:00 2001
+From: Dingchen Zhang <dingchen.zhang@amd.com>
+Date: Wed, 29 May 2019 18:52:52 -0400
+Subject: [PATCH 3038/4256] drm/amd/display: add functionality to get pipe CRC
+ source.
+
+[Why]
+We need to check the pipe crc source through debugfs for bypass mode test.
+
+[How]
+add implementation of amdgpu_dm_crtc_get_crc_sources and hook into drm_crtc
+callback get_crc_sources.
+
+Change-Id: Ib2b74295fda878eca3a304d4691d2228e43a6afe
+Signed-off-by: Dingchen Zhang <dingchen.zhang@amd.com>
+Reviewed-by: Nicholas Kazlauskas <Nicholas.Kazlauskas@amd.com>
+Acked-by: Leo Li <sunpeng.li@amd.com>
+---
+ .../gpu/drm/amd/display/amdgpu_dm/amdgpu_dm.c |  1 +
+ .../drm/amd/display/amdgpu_dm/amdgpu_dm_crc.c | 14 +++++++++++
+ .../drm/amd/display/amdgpu_dm/amdgpu_dm_crc.h |  3 +++
+ include/drm/drm_crtc.h                        | 23 +++++++++++++++++++
+ 4 files changed, 41 insertions(+)
+
+diff --git a/drivers/gpu/drm/amd/display/amdgpu_dm/amdgpu_dm.c b/drivers/gpu/drm/amd/display/amdgpu_dm/amdgpu_dm.c
+index 2dbf11563476..844e9442449f 100644
+--- a/drivers/gpu/drm/amd/display/amdgpu_dm/amdgpu_dm.c
++++ b/drivers/gpu/drm/amd/display/amdgpu_dm/amdgpu_dm.c
+@@ -3817,6 +3817,7 @@ static const struct drm_crtc_funcs amdgpu_dm_crtc_funcs = {
+ 	.atomic_destroy_state = dm_crtc_destroy_state,
+ 	.set_crc_source = amdgpu_dm_crtc_set_crc_source,
+ 	.verify_crc_source = amdgpu_dm_crtc_verify_crc_source,
++	.get_crc_sources = amdgpu_dm_crtc_get_crc_sources,
+ 	.enable_vblank = dm_enable_vblank,
+ 	.disable_vblank = dm_disable_vblank,
+ };
+diff --git a/drivers/gpu/drm/amd/display/amdgpu_dm/amdgpu_dm_crc.c b/drivers/gpu/drm/amd/display/amdgpu_dm/amdgpu_dm_crc.c
+index 54dc86e4d6bf..609f1fdc10b3 100644
+--- a/drivers/gpu/drm/amd/display/amdgpu_dm/amdgpu_dm_crc.c
++++ b/drivers/gpu/drm/amd/display/amdgpu_dm/amdgpu_dm_crc.c
+@@ -29,6 +29,13 @@
+ #include "amdgpu_dm.h"
+ #include "dc.h"
+ 
++static const char *const pipe_crc_sources[] = {
++	"none",
++	"crtc",
++	"dprx",
++	"auto",
++};
++
+ static enum amdgpu_dm_pipe_crc_source dm_parse_crc_source(const char *source)
+ {
+ 	if (!source || !strcmp(source, "none"))
+@@ -41,6 +48,13 @@ static enum amdgpu_dm_pipe_crc_source dm_parse_crc_source(const char *source)
+ 	return AMDGPU_DM_PIPE_CRC_SOURCE_INVALID;
+ }
+ 
++const char *const *amdgpu_dm_crtc_get_crc_sources(struct drm_crtc *crtc,
++                                                  size_t *count)
++{
++        *count = ARRAY_SIZE(pipe_crc_sources);
++        return pipe_crc_sources;
++}
++
+ int
+ amdgpu_dm_crtc_verify_crc_source(struct drm_crtc *crtc, const char *src_name,
+ 				 size_t *values_cnt)
+diff --git a/drivers/gpu/drm/amd/display/amdgpu_dm/amdgpu_dm_crc.h b/drivers/gpu/drm/amd/display/amdgpu_dm/amdgpu_dm_crc.h
+index 3793dc872436..b63a9011f511 100644
+--- a/drivers/gpu/drm/amd/display/amdgpu_dm/amdgpu_dm_crc.h
++++ b/drivers/gpu/drm/amd/display/amdgpu_dm/amdgpu_dm_crc.h
+@@ -46,10 +46,13 @@ int amdgpu_dm_crtc_set_crc_source(struct drm_crtc *crtc, const char *src_name);
+ int amdgpu_dm_crtc_verify_crc_source(struct drm_crtc *crtc,
+ 				     const char *src_name,
+ 				     size_t *values_cnt);
++const char *const *amdgpu_dm_crtc_get_crc_sources(struct drm_crtc *crtc,
++						  size_t *count);
+ void amdgpu_dm_crtc_handle_crc_irq(struct drm_crtc *crtc);
+ #else
+ #define amdgpu_dm_crtc_set_crc_source NULL
+ #define amdgpu_dm_crtc_verify_crc_source NULL
++#define amdgpu_dm_crtc_get_crc_sources NULL
+ #define amdgpu_dm_crtc_handle_crc_irq(x)
+ #endif
+ 
+diff --git a/include/drm/drm_crtc.h b/include/drm/drm_crtc.h
+index a92f548502c8..2cf8ca1ae594 100644
+--- a/include/drm/drm_crtc.h
++++ b/include/drm/drm_crtc.h
+@@ -772,6 +772,29 @@ struct drm_crtc_funcs {
+         int (*verify_crc_source)(struct drm_crtc *crtc, const char *source,
+                                  size_t *values_cnt);
+ 
++	/**
++         * @get_crc_sources:
++         *
++         * Driver callback for getting a list of all the available sources for
++         * CRC generation. This callback depends upon verify_crc_source, So
++         * verify_crc_source callback should be implemented before implementing
++         * this. Driver can pass full list of available crc sources, this
++         * callback does the verification on each crc-source before passing it
++         * to userspace.
++         *
++         * This callback is optional if the driver does not support exporting of
++         * possible CRC sources list.
++         *
++         * RETURNS:
++         *
++         * a constant character pointer to the list of all the available CRC
++         * sources. On failure driver should return NULL. count should be
++         * updated with number of sources in list. if zero we don't process any
++         * source from the list.
++         */
++        const char *const *(*get_crc_sources)(struct drm_crtc *crtc,
++                                              size_t *count);
++
+ 	/**
+ 	 * @atomic_print_state:
+ 	 *
+-- 
+2.17.1
+

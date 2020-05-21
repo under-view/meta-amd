@@ -1,0 +1,69 @@
+From 30ae76ab833a101e957e324e22865d58f5cfd418 Mon Sep 17 00:00:00 2001
+From: Tao Zhou <tao.zhou1@amd.com>
+Date: Thu, 12 Sep 2019 17:12:21 +0800
+Subject: [PATCH 3934/4256] drm/amdgpu: replace mmhub_funcs with mmhub.funcs
+
+remove mmhub_funcs in adev
+
+Signed-off-by: Tao Zhou <tao.zhou1@amd.com>
+Reviewed-by: Guchun Chen <guchun.chen@amd.com>
+---
+ drivers/gpu/drm/amd/amdgpu/amdgpu.h     | 1 -
+ drivers/gpu/drm/amd/amdgpu/amdgpu_ras.c | 4 ++--
+ drivers/gpu/drm/amd/amdgpu/gmc_v9_0.c   | 6 +++---
+ 3 files changed, 5 insertions(+), 6 deletions(-)
+
+diff --git a/drivers/gpu/drm/amd/amdgpu/amdgpu.h b/drivers/gpu/drm/amd/amdgpu/amdgpu.h
+index 483e747ff316..59e465ad4abf 100644
+--- a/drivers/gpu/drm/amd/amdgpu/amdgpu.h
++++ b/drivers/gpu/drm/amd/amdgpu/amdgpu.h
+@@ -966,7 +966,6 @@ struct amdgpu_device {
+ 	uint32_t 		*reg_offset[MAX_HWIP][HWIP_MAX_INSTANCE];
+ 
+ 	const struct amdgpu_df_funcs	*df_funcs;
+-	const struct amdgpu_mmhub_funcs	*mmhub_funcs;
+ 
+ 	/* delayed work_func for deferring clockgating during resume */
+ 	struct delayed_work     delayed_init_work;
+diff --git a/drivers/gpu/drm/amd/amdgpu/amdgpu_ras.c b/drivers/gpu/drm/amd/amdgpu/amdgpu_ras.c
+index 48541adb12fb..f0dd1c3c928c 100644
+--- a/drivers/gpu/drm/amd/amdgpu/amdgpu_ras.c
++++ b/drivers/gpu/drm/amd/amdgpu/amdgpu_ras.c
+@@ -691,8 +691,8 @@ int amdgpu_ras_error_query(struct amdgpu_device *adev,
+ 			adev->gfx.funcs->query_ras_error_count(adev, &err_data);
+ 		break;
+ 	case AMDGPU_RAS_BLOCK__MMHUB:
+-		if (adev->mmhub_funcs->query_ras_error_count)
+-			adev->mmhub_funcs->query_ras_error_count(adev, &err_data);
++		if (adev->mmhub.funcs->query_ras_error_count)
++			adev->mmhub.funcs->query_ras_error_count(adev, &err_data);
+ 		break;
+ 	case AMDGPU_RAS_BLOCK__PCIE_BIF:
+ 		if (adev->nbio.funcs->query_ras_error_count)
+diff --git a/drivers/gpu/drm/amd/amdgpu/gmc_v9_0.c b/drivers/gpu/drm/amd/amdgpu/gmc_v9_0.c
+index 307b153e42c1..8f9373d57c48 100644
+--- a/drivers/gpu/drm/amd/amdgpu/gmc_v9_0.c
++++ b/drivers/gpu/drm/amd/amdgpu/gmc_v9_0.c
+@@ -651,7 +651,7 @@ static void gmc_v9_0_set_mmhub_funcs(struct amdgpu_device *adev)
+ {
+ 	switch (adev->asic_type) {
+ 	case CHIP_VEGA20:
+-		adev->mmhub_funcs = &mmhub_v1_0_funcs;
++		adev->mmhub.funcs = &mmhub_v1_0_funcs;
+ 		break;
+ 	default:
+ 		break;
+@@ -746,8 +746,8 @@ static int gmc_v9_0_ecc_late_init(void *handle)
+ 			return r;
+ 	}
+ 
+-	if (adev->mmhub_funcs && adev->mmhub_funcs->ras_late_init) {
+-		r = adev->mmhub_funcs->ras_late_init(adev);
++	if (adev->mmhub.funcs && adev->mmhub.funcs->ras_late_init) {
++		r = adev->mmhub.funcs->ras_late_init(adev);
+ 		if (r)
+ 			return r;
+ 	}
+-- 
+2.17.1
+

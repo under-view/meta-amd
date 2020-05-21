@@ -1,0 +1,71 @@
+From 499be98ea6291638c72dd9b1e00f0e63ce6ccd2d Mon Sep 17 00:00:00 2001
+From: Huang Rui <ray.huang@amd.com>
+Date: Sun, 4 Aug 2019 16:33:16 +0800
+Subject: [PATCH 4089/4256] drm/amdgpu: add tmz feature parameter (v2)
+
+This patch adds tmz parameter to enable/disable
+the feature in the amdgpu kernel module. Nomally,
+by default, it should be auto (rely on the
+hardware capability).
+
+But right now, it need to set "off" to avoid
+breaking other developers' work because it's not
+totally completed.
+
+Will set "auto" till the feature is stable and
+completely verified.
+
+v2: add "auto" option for future use.
+
+Signed-off-by: Huang Rui <ray.huang@amd.com>
+Reviewed-by: Alex Deucher <alexander.deucher@amd.com>
+---
+ drivers/gpu/drm/amd/amdgpu/amdgpu.h     |  2 ++
+ drivers/gpu/drm/amd/amdgpu/amdgpu_drv.c | 11 +++++++++++
+ 2 files changed, 13 insertions(+)
+
+diff --git a/drivers/gpu/drm/amd/amdgpu/amdgpu.h b/drivers/gpu/drm/amd/amdgpu/amdgpu.h
+index 3149eb06e774..3e9b286d3f9e 100644
+--- a/drivers/gpu/drm/amd/amdgpu/amdgpu.h
++++ b/drivers/gpu/drm/amd/amdgpu/amdgpu.h
+@@ -178,6 +178,8 @@ extern int sched_policy;
+ static const int sched_policy = KFD_SCHED_POLICY_HWS;
+ #endif
+ 
++extern int amdgpu_tmz;
++
+ #ifdef CONFIG_DRM_AMDGPU_SI
+ extern int amdgpu_si_support;
+ #endif
+diff --git a/drivers/gpu/drm/amd/amdgpu/amdgpu_drv.c b/drivers/gpu/drm/amd/amdgpu/amdgpu_drv.c
+index 08c4405ad1d6..02f6fae0bbee 100644
+--- a/drivers/gpu/drm/amd/amdgpu/amdgpu_drv.c
++++ b/drivers/gpu/drm/amd/amdgpu/amdgpu_drv.c
+@@ -144,6 +144,7 @@ int amdgpu_discovery = -1;
+ int amdgpu_mes = 0;
+ int amdgpu_noretry = 1;
+ int amdgpu_force_asic_type = -1;
++int amdgpu_tmz = 0;
+ 
+ struct amdgpu_mgpu_info mgpu_info = {
+ 	.mutex = __MUTEX_INITIALIZER(mgpu_info.mutex),
+@@ -751,6 +752,16 @@ uint amdgpu_dm_abm_level = 0;
+ MODULE_PARM_DESC(abmlevel, "ABM level (0 = off (default), 1-4 = backlight reduction level) ");
+ module_param_named(abmlevel, amdgpu_dm_abm_level, uint, 0444);
+ 
++/**
++ * DOC: tmz (int)
++ * Trusted Memory Zone (TMZ) is a method to protect data being written
++ * to or read from memory.
++ *
++ * The default value: 0 (off).  TODO: change to auto till it is completed.
++ */
++MODULE_PARM_DESC(tmz, "Enable TMZ feature (-1 = auto, 0 = off (default), 1 = on)");
++module_param_named(tmz, amdgpu_tmz, int, 0444);
++
+ static const struct pci_device_id pciidlist[] = {
+ #ifdef  CONFIG_DRM_AMDGPU_SI
+ 	{0x1002, 0x6780, PCI_ANY_ID, PCI_ANY_ID, 0, 0, CHIP_TAHITI},
+-- 
+2.17.1
+

@@ -1,0 +1,52 @@
+From 1fe99c96453be6dabdbe0e495a19f24ba7c436bf Mon Sep 17 00:00:00 2001
+From: Evan Quan <evan.quan@amd.com>
+Date: Wed, 21 Aug 2019 16:35:12 +0800
+Subject: [PATCH 3605/4256] drm/amd/powerplay: correct the pp_feature output on
+ Arcturus
+
+Fix for the commit below:
+drm/amd/powerplay: implment sysfs feature status function in smu
+
+Change-Id: Id9a373f8d8866b97450be0aef0ba19d0835d40d8
+Signed-off-by: Evan Quan <evan.quan@amd.com>
+Reviewed-by: Kevin Wang <kevin1.wang@amd.com>
+---
+ drivers/gpu/drm/amd/powerplay/arcturus_ppt.c  | 2 ++
+ drivers/gpu/drm/amd/powerplay/inc/smu_types.h | 1 +
+ 2 files changed, 3 insertions(+)
+
+diff --git a/drivers/gpu/drm/amd/powerplay/arcturus_ppt.c b/drivers/gpu/drm/amd/powerplay/arcturus_ppt.c
+index 9e2c1ce7df1f..595b1365c008 100644
+--- a/drivers/gpu/drm/amd/powerplay/arcturus_ppt.c
++++ b/drivers/gpu/drm/amd/powerplay/arcturus_ppt.c
+@@ -141,6 +141,7 @@ static struct smu_11_0_cmn2aisc_mapping arcturus_feature_mask_map[SMU_FEATURE_CO
+ 	FEA_MAP(DPM_SOCCLK),
+ 	FEA_MAP(DPM_FCLK),
+ 	FEA_MAP(DPM_MP0CLK),
++	ARCTURUS_FEA_MAP(SMU_FEATURE_XGMI_BIT, FEATURE_DPM_XGMI_BIT),
+ 	FEA_MAP(DS_GFXCLK),
+ 	FEA_MAP(DS_SOCCLK),
+ 	FEA_MAP(DS_LCLK),
+@@ -149,6 +150,7 @@ static struct smu_11_0_cmn2aisc_mapping arcturus_feature_mask_map[SMU_FEATURE_CO
+ 	FEA_MAP(GFX_ULV),
+ 	ARCTURUS_FEA_MAP(SMU_FEATURE_VCN_PG_BIT, FEATURE_DPM_VCN_BIT),
+ 	FEA_MAP(RSMU_SMN_CG),
++	FEA_MAP(WAFL_CG),
+ 	FEA_MAP(PPT),
+ 	FEA_MAP(TDC),
+ 	FEA_MAP(APCC_PLUS),
+diff --git a/drivers/gpu/drm/amd/powerplay/inc/smu_types.h b/drivers/gpu/drm/amd/powerplay/inc/smu_types.h
+index 052aecc2827a..b0dd05d431dd 100644
+--- a/drivers/gpu/drm/amd/powerplay/inc/smu_types.h
++++ b/drivers/gpu/drm/amd/powerplay/inc/smu_types.h
+@@ -251,6 +251,7 @@ enum smu_clk_type {
+        __SMU_DUMMY_MAP(TEMP_DEPENDENT_VMIN),           	\
+        __SMU_DUMMY_MAP(MMHUB_PG),                      	\
+        __SMU_DUMMY_MAP(ATHUB_PG),                      	\
++       __SMU_DUMMY_MAP(WAFL_CG),
+ 
+ #undef __SMU_DUMMY_MAP
+ #define __SMU_DUMMY_MAP(feature)	SMU_FEATURE_##feature##_BIT
+-- 
+2.17.1
+

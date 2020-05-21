@@ -1,0 +1,40 @@
+From e966a78c81855195a1b694d262a3f95a5efe0594 Mon Sep 17 00:00:00 2001
+From: Alex Deucher <alexander.deucher@amd.com>
+Date: Wed, 30 Oct 2019 13:29:52 -0400
+Subject: [PATCH 4319/4736] drm/amdgpu/arcturus: properly set BANK_SELECT and
+ FRAGMENT_SIZE
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+These were not aligned for optimal performance for GPUVM.
+
+Reviewed-by: Christian König <christian.koenig@amd.com>
+Signed-off-by: Alex Deucher <alexander.deucher@amd.com>
+---
+ drivers/gpu/drm/amd/amdgpu/mmhub_v9_4.c | 9 +++++++++
+ 1 file changed, 9 insertions(+)
+
+diff --git a/drivers/gpu/drm/amd/amdgpu/mmhub_v9_4.c b/drivers/gpu/drm/amd/amdgpu/mmhub_v9_4.c
+index 657970f9ebfb..2c5adfe803a2 100644
+--- a/drivers/gpu/drm/amd/amdgpu/mmhub_v9_4.c
++++ b/drivers/gpu/drm/amd/amdgpu/mmhub_v9_4.c
+@@ -219,6 +219,15 @@ static void mmhub_v9_4_init_cache_regs(struct amdgpu_device *adev, int hubid)
+ 			    hubid * MMHUB_INSTANCE_REGISTER_OFFSET, tmp);
+ 
+ 	tmp = mmVML2PF0_VM_L2_CNTL3_DEFAULT;
++	if (adev->gmc.translate_further) {
++		tmp = REG_SET_FIELD(tmp, VML2PF0_VM_L2_CNTL3, BANK_SELECT, 12);
++		tmp = REG_SET_FIELD(tmp, VML2PF0_VM_L2_CNTL3,
++				    L2_CACHE_BIGK_FRAGMENT_SIZE, 9);
++	} else {
++		tmp = REG_SET_FIELD(tmp, VML2PF0_VM_L2_CNTL3, BANK_SELECT, 9);
++		tmp = REG_SET_FIELD(tmp, VML2PF0_VM_L2_CNTL3,
++				    L2_CACHE_BIGK_FRAGMENT_SIZE, 6);
++	}
+ 	WREG32_SOC15_OFFSET(MMHUB, 0, mmVML2PF0_VM_L2_CNTL3,
+ 			    hubid * MMHUB_INSTANCE_REGISTER_OFFSET, tmp);
+ 
+-- 
+2.17.1
+

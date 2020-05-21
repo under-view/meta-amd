@@ -1,0 +1,132 @@
+From 4e9661a52ce93392c3dd05cc013b3536c5e886df Mon Sep 17 00:00:00 2001
+From: Yong Zhao <Yong.Zhao@amd.com>
+Date: Tue, 13 Aug 2019 17:13:27 -0400
+Subject: [PATCH 3725/4256] drm/amdkfd: Support Navi14 in KFD
+
+Initial support of Navi14 in KFD. The device IDs will be added later.
+
+Change-Id: Ie2c6226022ff4d389eaa05b1c84afa7ae4cea0aa
+Signed-off-by: Yong Zhao <Yong.Zhao@amd.com>
+Reviewed-by: Felix Kuehling <Felix.Kuehling@amd.com>
+---
+ drivers/gpu/drm/amd/amdkfd/kfd_crat.c         |  1 +
+ drivers/gpu/drm/amd/amdkfd/kfd_device.c       | 19 +++++++++++++++++++
+ .../drm/amd/amdkfd/kfd_device_queue_manager.c |  1 +
+ drivers/gpu/drm/amd/amdkfd/kfd_flat_memory.c  |  1 +
+ drivers/gpu/drm/amd/amdkfd/kfd_kernel_queue.c |  1 +
+ .../gpu/drm/amd/amdkfd/kfd_packet_manager.c   |  1 +
+ drivers/gpu/drm/amd/amdkfd/kfd_topology.c     |  1 +
+ 7 files changed, 25 insertions(+)
+
+diff --git a/drivers/gpu/drm/amd/amdkfd/kfd_crat.c b/drivers/gpu/drm/amd/amdkfd/kfd_crat.c
+index 4d6427440758..a95e6bc2f7f9 100644
+--- a/drivers/gpu/drm/amd/amdkfd/kfd_crat.c
++++ b/drivers/gpu/drm/amd/amdkfd/kfd_crat.c
+@@ -671,6 +671,7 @@ static int kfd_fill_gpu_cache_info(struct kfd_dev *kdev,
+ 		num_of_cache_types = ARRAY_SIZE(raven_cache_info);
+ 		break;
+ 	case CHIP_NAVI10:
++	case CHIP_NAVI14:
+ 		pcache_info = navi10_cache_info;
+ 		num_of_cache_types = ARRAY_SIZE(navi10_cache_info);
+ 		break;
+diff --git a/drivers/gpu/drm/amd/amdkfd/kfd_device.c b/drivers/gpu/drm/amd/amdkfd/kfd_device.c
+index cf8fb7dcaccf..63dbe5fe20f0 100644
+--- a/drivers/gpu/drm/amd/amdkfd/kfd_device.c
++++ b/drivers/gpu/drm/amd/amdkfd/kfd_device.c
+@@ -369,6 +369,24 @@ static const struct kfd_device_info navi10_device_info = {
+ 	.num_sdma_queues_per_engine = 8,
+ };
+ 
++static const struct kfd_device_info navi14_device_info = {
++	.asic_family = CHIP_NAVI14,
++	.asic_name = "navi14",
++	.max_pasid_bits = 16,
++	.max_no_of_hqd  = 24,
++	.doorbell_size  = 8,
++	.ih_ring_entry_size = 8 * sizeof(uint32_t),
++	.event_interrupt_class = &event_interrupt_class_v9,
++	.num_of_watch_points = 4,
++	.mqd_size_aligned = MQD_SIZE_ALIGNED,
++	.needs_iommu_device = false,
++	.supports_cwsr = true,
++	.needs_pci_atomics = false,
++	.num_sdma_engines = 2,
++	.num_xgmi_sdma_engines = 0,
++	.num_sdma_queues_per_engine = 8,
++};
++
+ /* For each entry, [0] is regular and [1] is virtualisation device. */
+ static const struct kfd_device_info *kfd_supported_devices[][2] = {
+ #ifdef KFD_SUPPORT_IOMMU_V2
+@@ -388,6 +406,7 @@ static const struct kfd_device_info *kfd_supported_devices[][2] = {
+ 	[CHIP_VEGA20] = {&vega20_device_info, NULL},
+ 	[CHIP_ARCTURUS] = {&arcturus_device_info, &arcturus_device_info},
+ 	[CHIP_NAVI10] = {&navi10_device_info, NULL},
++	[CHIP_NAVI14] = {&navi14_device_info, NULL},
+ };
+ 
+ static int kfd_gtt_sa_init(struct kfd_dev *kfd, unsigned int buf_size,
+diff --git a/drivers/gpu/drm/amd/amdkfd/kfd_device_queue_manager.c b/drivers/gpu/drm/amd/amdkfd/kfd_device_queue_manager.c
+index 53862d66d065..35dc1d1e0413 100644
+--- a/drivers/gpu/drm/amd/amdkfd/kfd_device_queue_manager.c
++++ b/drivers/gpu/drm/amd/amdkfd/kfd_device_queue_manager.c
+@@ -1883,6 +1883,7 @@ struct device_queue_manager *device_queue_manager_init(struct kfd_dev *dev)
+ 		device_queue_manager_init_v9(&dqm->asic_ops);
+ 		break;
+ 	case CHIP_NAVI10:
++	case CHIP_NAVI14:
+ 		device_queue_manager_init_v10_navi10(&dqm->asic_ops);
+ 		break;
+ 	default:
+diff --git a/drivers/gpu/drm/amd/amdkfd/kfd_flat_memory.c b/drivers/gpu/drm/amd/amdkfd/kfd_flat_memory.c
+index ee7ff6b0541b..ed4efab0a190 100644
+--- a/drivers/gpu/drm/amd/amdkfd/kfd_flat_memory.c
++++ b/drivers/gpu/drm/amd/amdkfd/kfd_flat_memory.c
+@@ -412,6 +412,7 @@ int kfd_init_apertures(struct kfd_process *process)
+ 			case CHIP_RAVEN:
+ 			case CHIP_ARCTURUS:
+ 			case CHIP_NAVI10:
++			case CHIP_NAVI14:
+ 				kfd_init_apertures_v9(pdd, id);
+ 				break;
+ 			default:
+diff --git a/drivers/gpu/drm/amd/amdkfd/kfd_kernel_queue.c b/drivers/gpu/drm/amd/amdkfd/kfd_kernel_queue.c
+index 7a3b0482ab1a..1097e047b4bb 100644
+--- a/drivers/gpu/drm/amd/amdkfd/kfd_kernel_queue.c
++++ b/drivers/gpu/drm/amd/amdkfd/kfd_kernel_queue.c
+@@ -368,6 +368,7 @@ struct kernel_queue *kernel_queue_init(struct kfd_dev *dev,
+ 		kernel_queue_init_v9(&kq->ops_asic_specific);
+ 		break;
+ 	case CHIP_NAVI10:
++	case CHIP_NAVI14:
+ 		kernel_queue_init_v10(&kq->ops_asic_specific);
+ 		break;
+ 	default:
+diff --git a/drivers/gpu/drm/amd/amdkfd/kfd_packet_manager.c b/drivers/gpu/drm/amd/amdkfd/kfd_packet_manager.c
+index 6cf12422a7d8..b7828a241981 100644
+--- a/drivers/gpu/drm/amd/amdkfd/kfd_packet_manager.c
++++ b/drivers/gpu/drm/amd/amdkfd/kfd_packet_manager.c
+@@ -243,6 +243,7 @@ int pm_init(struct packet_manager *pm, struct device_queue_manager *dqm)
+ 		pm->pmf = &kfd_v9_pm_funcs;
+ 		break;
+ 	case CHIP_NAVI10:
++	case CHIP_NAVI14:
+ 		pm->pmf = &kfd_v10_pm_funcs;
+ 		break;
+ 	default:
+diff --git a/drivers/gpu/drm/amd/amdkfd/kfd_topology.c b/drivers/gpu/drm/amd/amdkfd/kfd_topology.c
+index c618c5595c4c..e235e4074ce3 100644
+--- a/drivers/gpu/drm/amd/amdkfd/kfd_topology.c
++++ b/drivers/gpu/drm/amd/amdkfd/kfd_topology.c
+@@ -1395,6 +1395,7 @@ int kfd_topology_add_device(struct kfd_dev *gpu)
+ 	case CHIP_RAVEN:
+ 	case CHIP_ARCTURUS:
+ 	case CHIP_NAVI10:
++	case CHIP_NAVI14:
+ 		dev->node_props.capability |= ((HSA_CAP_DOORBELL_TYPE_2_0 <<
+ 			HSA_CAP_DOORBELL_TYPE_TOTALBITS_SHIFT) &
+ 			HSA_CAP_DOORBELL_TYPE_TOTALBITS_MASK);
+-- 
+2.17.1
+

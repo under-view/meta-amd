@@ -1,0 +1,67 @@
+From dda67852f76e087cf094ea0bed8610f27a6adbfc Mon Sep 17 00:00:00 2001
+From: Leo Liu <leo.liu@amd.com>
+Date: Fri, 8 Nov 2019 15:00:58 -0500
+Subject: [PATCH 4459/4736] drm/amdgpu: add driver support for JPEG2.0 and
+ above
+
+By using JPEG IP block type
+
+Signed-off-by: Leo Liu <leo.liu@amd.com>
+Reviewed-by: Alex Deucher <alexander.deucher@amd.com>
+---
+ drivers/gpu/drm/amd/amdgpu/amdgpu_device.c | 2 ++
+ drivers/gpu/drm/amd/amdgpu/amdgpu_kms.c    | 9 +++++++--
+ 2 files changed, 9 insertions(+), 2 deletions(-)
+
+diff --git a/drivers/gpu/drm/amd/amdgpu/amdgpu_device.c b/drivers/gpu/drm/amd/amdgpu/amdgpu_device.c
+index 8bfbcbcb7f2e..7ccc9518c173 100644
+--- a/drivers/gpu/drm/amd/amdgpu/amdgpu_device.c
++++ b/drivers/gpu/drm/amd/amdgpu/amdgpu_device.c
+@@ -1963,6 +1963,7 @@ static int amdgpu_device_set_cg_state(struct amdgpu_device *adev,
+ 		if (adev->ip_blocks[i].version->type != AMD_IP_BLOCK_TYPE_UVD &&
+ 		    adev->ip_blocks[i].version->type != AMD_IP_BLOCK_TYPE_VCE &&
+ 		    adev->ip_blocks[i].version->type != AMD_IP_BLOCK_TYPE_VCN &&
++		    adev->ip_blocks[i].version->type != AMD_IP_BLOCK_TYPE_JPEG &&
+ 		    adev->ip_blocks[i].version->funcs->set_clockgating_state) {
+ 			/* enable clockgating to save power */
+ 			r = adev->ip_blocks[i].version->funcs->set_clockgating_state((void *)adev,
+@@ -1993,6 +1994,7 @@ static int amdgpu_device_set_pg_state(struct amdgpu_device *adev, enum amd_power
+ 		if (adev->ip_blocks[i].version->type != AMD_IP_BLOCK_TYPE_UVD &&
+ 		    adev->ip_blocks[i].version->type != AMD_IP_BLOCK_TYPE_VCE &&
+ 		    adev->ip_blocks[i].version->type != AMD_IP_BLOCK_TYPE_VCN &&
++		    adev->ip_blocks[i].version->type != AMD_IP_BLOCK_TYPE_JPEG &&
+ 		    adev->ip_blocks[i].version->funcs->set_powergating_state) {
+ 			/* enable powergating to save power */
+ 			r = adev->ip_blocks[i].version->funcs->set_powergating_state((void *)adev,
+diff --git a/drivers/gpu/drm/amd/amdgpu/amdgpu_kms.c b/drivers/gpu/drm/amd/amdgpu/amdgpu_kms.c
+index ab6e0fc5800f..3a7ea8e953f8 100644
+--- a/drivers/gpu/drm/amd/amdgpu/amdgpu_kms.c
++++ b/drivers/gpu/drm/amd/amdgpu/amdgpu_kms.c
+@@ -397,7 +397,9 @@ static int amdgpu_hw_ip_info(struct amdgpu_device *adev,
+ 		ib_size_alignment = 1;
+ 		break;
+ 	case AMDGPU_HW_IP_VCN_JPEG:
+-		type = AMD_IP_BLOCK_TYPE_VCN;
++		type = (amdgpu_device_ip_get_ip_block(adev, AMD_IP_BLOCK_TYPE_JPEG)) ?
++			AMD_IP_BLOCK_TYPE_JPEG : AMD_IP_BLOCK_TYPE_VCN;
++
+ 		for (i = 0; i < adev->jpeg.num_jpeg_inst; i++) {
+ 			if (adev->jpeg.harvest_config & (1 << i))
+ 				continue;
+@@ -535,9 +537,12 @@ static int amdgpu_info_ioctl(struct drm_device *dev, void *data, struct drm_file
+ 			break;
+ 		case AMDGPU_HW_IP_VCN_DEC:
+ 		case AMDGPU_HW_IP_VCN_ENC:
+-		case AMDGPU_HW_IP_VCN_JPEG:
+ 			type = AMD_IP_BLOCK_TYPE_VCN;
+ 			break;
++		case AMDGPU_HW_IP_VCN_JPEG:
++			type = (amdgpu_device_ip_get_ip_block(adev, AMD_IP_BLOCK_TYPE_JPEG)) ?
++				AMD_IP_BLOCK_TYPE_JPEG : AMD_IP_BLOCK_TYPE_VCN;
++			break;
+ 		default:
+ 			return -EINVAL;
+ 		}
+-- 
+2.17.1
+

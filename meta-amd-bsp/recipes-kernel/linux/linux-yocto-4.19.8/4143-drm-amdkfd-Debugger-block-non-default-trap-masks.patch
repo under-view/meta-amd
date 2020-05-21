@@ -1,0 +1,40 @@
+From 572c9105eb8273143b2327887ef08c9c06362ed0 Mon Sep 17 00:00:00 2001
+From: Philip Cox <Philip.Cox@amd.com>
+Date: Wed, 14 Aug 2019 09:32:55 -0400
+Subject: [PATCH 4143/4736] drm/amdkfd: Debugger: block non default trap masks
+
+On the current hardware, we only support the default trap mask,
+so we need to block non default values until supported in by
+future hardware.
+
+Change-Id: Iad94057bb33564b972cc3e7e0f401340f215c8ba
+Signed-off-by: Philip Cox <Philip.Cox@amd.com>
+---
+ drivers/gpu/drm/amd/amdkfd/kfd_chardev.c | 11 +++++++++++
+ 1 file changed, 11 insertions(+)
+
+diff --git a/drivers/gpu/drm/amd/amdkfd/kfd_chardev.c b/drivers/gpu/drm/amd/amdkfd/kfd_chardev.c
+index 52acb0064939..22f7aa576c7e 100644
+--- a/drivers/gpu/drm/amd/amdkfd/kfd_chardev.c
++++ b/drivers/gpu/drm/amd/amdkfd/kfd_chardev.c
+@@ -2764,6 +2764,17 @@ static int kfd_ioctl_dbg_set_debug_trap(struct file *filep,
+ 		break;
+ 
+ 	case KFD_IOC_DBG_TRAP_SET_WAVE_LAUNCH_OVERRIDE:
++		if (data2 != 0) {
++			/* On current hardware, we only support a trap
++			 * mask value of 0.  This is because the debug
++			 * trap mask is global and shared by all processes
++			 * on current hardware.
++			 */
++			pr_err("Invalid trap override option: %i\n",
++					data2);
++			r = -EINVAL;
++			goto unlock_out;
++		}
+ 		r = dev->kfd2kgd->set_wave_launch_trap_override(
+ 				dev->kgd,
+ 				data1,
+-- 
+2.17.1
+

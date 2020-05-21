@@ -1,0 +1,33 @@
+From e5c038ce34f2cd91d0451a52ed930af85474c49f Mon Sep 17 00:00:00 2001
+From: Thong Thai <thong.thai@amd.com>
+Date: Thu, 15 Aug 2019 14:00:30 -0400
+Subject: [PATCH 3540/4256] drm/amdgpu: enable VCN DPG for Renoir
+
+This will enable indirect SRAM loading for VCN DPG mode initialization.
+
+Signed-off-by: Thong Thai <thong.thai@amd.com>
+Reviewed-by: Leo Liu <leo.liu@amd.com>
+Reviewed-by: Prike Liang <Prike.Liang@amd.com>
+Signed-off-by: Alex Deucher <alexander.deucher@amd.com>
+---
+ drivers/gpu/drm/amd/amdgpu/soc15.c | 4 +++-
+ 1 file changed, 3 insertions(+), 1 deletion(-)
+
+diff --git a/drivers/gpu/drm/amd/amdgpu/soc15.c b/drivers/gpu/drm/amd/amdgpu/soc15.c
+index 5c211fa03328..fe2212df12a3 100644
+--- a/drivers/gpu/drm/amd/amdgpu/soc15.c
++++ b/drivers/gpu/drm/amd/amdgpu/soc15.c
+@@ -1173,7 +1173,9 @@ static int soc15_common_early_init(void *handle)
+ 				 AMD_CG_SUPPORT_ATHUB_LS |
+ 				 AMD_CG_SUPPORT_ATHUB_MGCG |
+ 				 AMD_CG_SUPPORT_DF_MGCG;
+-		adev->pg_flags = AMD_PG_SUPPORT_SDMA;
++		adev->pg_flags = AMD_PG_SUPPORT_SDMA |
++				 AMD_PG_SUPPORT_VCN |
++				 AMD_PG_SUPPORT_VCN_DPG;
+ 		adev->external_rev_id = adev->rev_id + 0x91;
+ 
+ 		if (adev->pm.pp_feature & PP_GFXOFF_MASK)
+-- 
+2.17.1
+

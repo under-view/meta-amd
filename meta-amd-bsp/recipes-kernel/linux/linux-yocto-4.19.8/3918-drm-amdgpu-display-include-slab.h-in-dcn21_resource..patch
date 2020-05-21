@@ -1,0 +1,30 @@
+From 2e91e081298a56a6456963c0c0d23cad8905631b Mon Sep 17 00:00:00 2001
+From: Alex Deucher <alexander.deucher@amd.com>
+Date: Mon, 23 Sep 2019 15:56:25 -0500
+Subject: [PATCH 3918/4256] drm/amdgpu/display: include slab.h in
+ dcn21_resource.c
+
+It's apparently needed in some configurations.
+
+Signed-off-by: Alex Deucher <alexander.deucher@amd.com>
+Reviewed-by: Harry Wentland <harry.wentland@amd.com>
+---
+ drivers/gpu/drm/amd/display/dc/dcn21/dcn21_resource.c | 2 ++
+ 1 file changed, 2 insertions(+)
+
+diff --git a/drivers/gpu/drm/amd/display/dc/dcn21/dcn21_resource.c b/drivers/gpu/drm/amd/display/dc/dcn21/dcn21_resource.c
+index 3ca5139f1273..de182185fe1f 100644
+--- a/drivers/gpu/drm/amd/display/dc/dcn21/dcn21_resource.c
++++ b/drivers/gpu/drm/amd/display/dc/dcn21/dcn21_resource.c
+@@ -23,6 +23,8 @@
+  *
+  */
+ 
++#include <linux/slab.h>
++
+ #include "dm_services.h"
+ #include "dc.h"
+ 
+-- 
+2.17.1
+

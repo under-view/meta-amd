@@ -1,0 +1,35 @@
+From d4080f0c35aa04fd1fd837071c4beb2c96135913 Mon Sep 17 00:00:00 2001
+From: Le Ma <le.ma@amd.com>
+Date: Tue, 29 Oct 2019 20:39:13 +0800
+Subject: [PATCH 4314/4736] drm/amdgpu: add missing amdgpu_ras.h header include
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+Fix compilation error.
+
+Change-Id: I461c558778f9a52378269324dc41b8d639f3ccbe
+Signed-off-by: Le Ma <le.ma@amd.com>
+Acked-by: Alex Deucher <alexander.deucher@amd.com>
+Acked-by: Christian K«Ónig <christian.koenig@amd.com>
+Tested-by: Tom St Denis <tom.stdenis@amd.com>
+---
+ drivers/gpu/drm/amd/amdgpu/amdgpu_psp.c | 2 ++
+ 1 file changed, 2 insertions(+)
+
+diff --git a/drivers/gpu/drm/amd/amdgpu/amdgpu_psp.c b/drivers/gpu/drm/amd/amdgpu/amdgpu_psp.c
+index 4aa21bc1e0b9..8a1960106004 100644
+--- a/drivers/gpu/drm/amd/amdgpu/amdgpu_psp.c
++++ b/drivers/gpu/drm/amd/amdgpu/amdgpu_psp.c
+@@ -34,6 +34,8 @@
+ #include "psp_v11_0.h"
+ #include "psp_v12_0.h"
+ 
++#include "amdgpu_ras.h"
++
+ static void psp_set_funcs(struct amdgpu_device *adev);
+ 
+ static int psp_early_init(void *handle)
+-- 
+2.17.1
+

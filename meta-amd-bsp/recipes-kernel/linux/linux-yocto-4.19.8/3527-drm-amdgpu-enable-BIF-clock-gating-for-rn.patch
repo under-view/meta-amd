@@ -1,0 +1,31 @@
+From 47266aa4ffae12e94bbe7822eb5368973375d566 Mon Sep 17 00:00:00 2001
+From: Prike Liang <Prike.Liang@amd.com>
+Date: Fri, 2 Aug 2019 15:14:54 +0800
+Subject: [PATCH 3527/4256] drm/amdgpu: enable BIF clock gating for rn
+
+Enable BIF light sleep clock gating.
+
+Signed-off-by: Prike Liang <Prike.Liang@amd.com>
+Reviewed-by: Alex Deucher <alexander.deucher@amd.com>
+Signed-off-by: Alex Deucher <alexander.deucher@amd.com>
+---
+ drivers/gpu/drm/amd/amdgpu/soc15.c | 3 ++-
+ 1 file changed, 2 insertions(+), 1 deletion(-)
+
+diff --git a/drivers/gpu/drm/amd/amdgpu/soc15.c b/drivers/gpu/drm/amd/amdgpu/soc15.c
+index 6751c5f57913..25f55c793feb 100644
+--- a/drivers/gpu/drm/amd/amdgpu/soc15.c
++++ b/drivers/gpu/drm/amd/amdgpu/soc15.c
+@@ -1164,7 +1164,8 @@ static int soc15_common_early_init(void *handle)
+ 				 AMD_CG_SUPPORT_MC_MGCG |
+ 				 AMD_CG_SUPPORT_MC_LS |
+ 				 AMD_CG_SUPPORT_SDMA_MGCG |
+-				 AMD_CG_SUPPORT_SDMA_LS;
++				 AMD_CG_SUPPORT_SDMA_LS |
++				 AMD_CG_SUPPORT_BIF_LS;
+ 		adev->pg_flags = 0;
+ 		adev->external_rev_id = adev->rev_id + 0x91;
+ 
+-- 
+2.17.1
+

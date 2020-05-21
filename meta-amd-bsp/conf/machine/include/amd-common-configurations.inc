@@ -3,16 +3,18 @@ require conf/machine/include/amd-multimedia.inc
 
 POKY_DEFAULT_DISTRO_FEATURES_remove = "wayland"
 
+PREFERRED_VERSION_grub-efi ?= "2.02"
+PREFERRED_VERSION_grub ?= "2.02"
 PREFERRED_PROVIDER_jpeg ?= "jpeg"
 PREFERRED_PROVIDER_jpeg-native ?= "jpeg-native"
-PREFERRED_VERSION_linux-yocto ?= "4.14%"
+PREFERRED_VERSION_linux-yocto ?= "5.4%"
 PREFERRED_VERSION_libav ?= "9.18"
-PREFERRED_PROVIDER_llvm ?= "llvm9.0.0"
+PREFERRED_PROVIDER_llvm ?= "llvm9.0.1"
 
 # Components that depend on LLVM should set versions here
 # so we know what needs to be changed/validated as LLVM moves
-MESA_LLVM_RELEASE_amd = "9.0.0"
-CLAMAV_LLVM_RELEASE_amd = "9.0.0"
+MESA_LLVM_RELEASE_amd = "9.0.1"
+CLAMAV_LLVM_RELEASE_amd = "9.0.1"
 
 MULTILIBS ?= ""
 require conf/multilib.conf
@@ -25,8 +27,9 @@ MACHINE_FEATURES_remove = "qemu-usermode"
 
 MACHINE_EXTRA_RRECOMMENDS += "kernel-modules alsa-utils"
 MACHINE_EXTRA_RRECOMMENDS += "grub parted util-linux-blkid"
-MACHINE_EXTRA_RRECOMMENDS += "rtc-test watchdog-test spi-test smbus-test gpio-test"
-MACHINE_EXTRA_RRECOMMENDS += "amd-wdt amd-spi"
+MACHINE_EXTRA_RRECOMMENDS += "rtc-test smbus-test gpio-test"
+MACHINE_EXTRA_RRECOMMENDS += "amd-wdt watchdog-test"
+#MACHINE_EXTRA_RRECOMMENDS += "amd-spi spi-test"
 
 # Add serial consoles to kernel commandline, these should occur before the tty0
 KERNEL_SERIAL_CONSOLE ??= ""
