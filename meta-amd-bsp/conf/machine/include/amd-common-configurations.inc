@@ -3,6 +3,8 @@ require conf/machine/include/amd-multimedia.inc
 
 POKY_DEFAULT_DISTRO_FEATURES_remove = "wayland"
 
+PREFERRED_VERSION_grub-efi ?= "2.02"
+PREFERRED_VERSION_grub ?= "2.02"
 PREFERRED_PROVIDER_jpeg ?= "jpeg"
 PREFERRED_PROVIDER_jpeg-native ?= "jpeg-native"
 PREFERRED_VERSION_linux-yocto ?= "4.14%"
