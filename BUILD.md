@@ -19,7 +19,7 @@ MACHINE="<machine-name>"
 
 Source the *oe-init-build-env* script:
 ```sh
-source ./oe-init-build-env build-${MACHINE}-warrior
+source ./oe-init-build-env build-${MACHINE}-${YOCTO_BRANCH}
 ```
 
 Set the `MACHINE` and `DISTRO` bitbake environment variables in the
