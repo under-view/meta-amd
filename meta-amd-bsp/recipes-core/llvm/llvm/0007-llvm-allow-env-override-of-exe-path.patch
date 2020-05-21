@@ -17,13 +17,13 @@ Signed-off-by: Martin Kelly <mkelly@xevo.com>
 Signed-off-by: Khem Raj <raj.khem@gmail.com>
 Signed-off-by: Arsalan H. Awan <Arsalan_Awan@mentor.com>
 ---
- tools/llvm-config/llvm-config.cpp | 35 ++++++++++++++++++++++---------
+ llvm/tools/llvm-config/llvm-config.cpp | 35 ++++++++++++++++++++++---------
  1 file changed, 25 insertions(+), 10 deletions(-)
 
-diff --git a/tools/llvm-config/llvm-config.cpp b/tools/llvm-config/llvm-config.cpp
+diff --git a/llvm/tools/llvm-config/llvm-config.cpp b/llvm/tools/llvm-config/llvm-config.cpp
 index bec89fef98c..91b4d6e4c43 100644
---- a/tools/llvm-config/llvm-config.cpp
-+++ b/tools/llvm-config/llvm-config.cpp
+--- a/llvm/tools/llvm-config/llvm-config.cpp
++++ b/llvm/tools/llvm-config/llvm-config.cpp
 @@ -226,6 +226,13 @@ Typical components:\n\
  
  /// Compute the path to the main executable.
@@ -52,7 +52,7 @@ index bec89fef98c..91b4d6e4c43 100644
      ActiveObjRoot = LLVM_OBJ_ROOT;
    } else if (sys::fs::equivalent(CurrentExecPrefix,
 -                                 Twine(LLVM_OBJ_ROOT) + "/bin")) {
-+                                 Twine(LLVM_OBJ_ROOT) + "/bin/llvm9.0.0")) {
++                                 Twine(LLVM_OBJ_ROOT) + "/bin/llvm9.0.1")) {
      IsInDevelopmentTree = true;
      DevelopmentTreeLayout = CMakeBuildModeStyle;
      ActiveObjRoot = LLVM_OBJ_ROOT;
@@ -64,12 +64,12 @@ index bec89fef98c..91b4d6e4c43 100644
 +  // llvm-config from within a target sysroot.
 +  std::string Multilibdir = std::getenv("YOCTO_ALTERNATE_MULTILIB_NAME");
 +  if (Multilibdir.empty()) {
-+    Multilibdir = "/lib/llvm9.0.0" LLVM_LIBDIR_SUFFIX;
++    Multilibdir = "/lib/llvm9.0.1" LLVM_LIBDIR_SUFFIX;
 +  }
 +
    if (IsInDevelopmentTree) {
 -    ActiveIncludeDir = std::string(LLVM_SRC_ROOT) + "/include";
-+    ActiveIncludeDir = std::string(LLVM_SRC_ROOT) + "/include/llvm9.0.0";
++    ActiveIncludeDir = std::string(LLVM_SRC_ROOT) + "/include/llvm9.0.1";
      ActivePrefix = CurrentExecPrefix;
  
      // CMake organizes the products differently than a normal prefix style
@@ -79,17 +79,17 @@ index bec89fef98c..91b4d6e4c43 100644
      case CMakeStyle:
 -      ActiveBinDir = ActiveObjRoot + "/bin";
 -      ActiveLibDir = ActiveObjRoot + "/lib" + LLVM_LIBDIR_SUFFIX;
-+      ActiveBinDir = ActiveObjRoot + "/bin/llvm9.0.0";
-+      ActiveLibDir = ActiveObjRoot + "/lib/llvm9.0.0" + LLVM_LIBDIR_SUFFIX;
++      ActiveBinDir = ActiveObjRoot + "/bin/llvm9.0.1";
++      ActiveLibDir = ActiveObjRoot + "/lib/llvm9.0.1" + LLVM_LIBDIR_SUFFIX;
        ActiveCMakeDir = ActiveLibDir + "/cmake/llvm";
        break;
      case CMakeBuildModeStyle:
        ActivePrefix = ActiveObjRoot;
 -      ActiveBinDir = ActiveObjRoot + "/bin/" + build_mode;
-+      ActiveBinDir = ActiveObjRoot + "/bin/llvm9.0.0/" + build_mode;
++      ActiveBinDir = ActiveObjRoot + "/bin/llvm9.0.1/" + build_mode;
        ActiveLibDir =
 -          ActiveObjRoot + "/lib" + LLVM_LIBDIR_SUFFIX + "/" + build_mode;
-+          ActiveObjRoot + "/lib/llvm9.0.0" + LLVM_LIBDIR_SUFFIX + "/" + build_mode;
++          ActiveObjRoot + "/lib/llvm9.0.1" + LLVM_LIBDIR_SUFFIX + "/" + build_mode;
        ActiveCMakeDir = ActiveLibDir + "/cmake/llvm";
        break;
      }
@@ -97,11 +97,11 @@ index bec89fef98c..91b4d6e4c43 100644
      // We need to include files from both the source and object trees.
      ActiveIncludeOption =
 -        ("-I" + ActiveIncludeDir + " " + "-I" + ActiveObjRoot + "/include");
-+        ("-I" + ActiveIncludeDir + " " + "-I" + ActiveObjRoot + "/include/llvm9.0.0");
++        ("-I" + ActiveIncludeDir + " " + "-I" + ActiveObjRoot + "/include/llvm9.0.1");
    } else {
      ActivePrefix = CurrentExecPrefix;
 -    ActiveIncludeDir = ActivePrefix + "/include";
-+    ActiveIncludeDir = ActivePrefix + "/include/llvm9.0.0";
++    ActiveIncludeDir = ActivePrefix + "/include/llvm9.0.1";
      SmallString<256> path(StringRef(LLVM_TOOLS_INSTALL_DIR));
      sys::fs::make_absolute(ActivePrefix, path);
      ActiveBinDir = path.str();
