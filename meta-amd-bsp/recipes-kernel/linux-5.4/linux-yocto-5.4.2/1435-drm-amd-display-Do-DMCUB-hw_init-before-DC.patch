@@ -1,0 +1,47 @@
+From ad1988989b2df74b1807b4b06c932bdc80cb3093 Mon Sep 17 00:00:00 2001
+From: Nicholas Kazlauskas <nicholas.kazlauskas@amd.com>
+Date: Fri, 10 Jan 2020 09:17:58 -0500
+Subject: [PATCH 1435/1453] drm/amd/display: Do DMCUB hw_init before DC
+
+[Why]
+For DMCUB enabled hardware DC has a dependency on DMCUB already being
+running.
+
+Command table offloading will fail on first modeset if DMCUB isn't
+initialized first.
+
+[How]
+Perform DMCUB hardware initialization before DC.
+
+Signed-off-by: Nicholas Kazlauskas <nicholas.kazlauskas@amd.com>
+Reviewed-by: Hersen Wu <hersenxs.wu@amd.com>
+Reviewed-by: Tony Cheng <Tony.Cheng@amd.com>
+Acked-by: Bhawanpreet Lakha <Bhawanpreet.Lakha@amd.com>
+---
+ drivers/gpu/drm/amd/display/amdgpu_dm/amdgpu_dm.c | 4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
+
+diff --git a/drivers/gpu/drm/amd/display/amdgpu_dm/amdgpu_dm.c b/drivers/gpu/drm/amd/display/amdgpu_dm/amdgpu_dm.c
+index d41cdb6d0660..0be3e1d73b6f 100755
+--- a/drivers/gpu/drm/amd/display/amdgpu_dm/amdgpu_dm.c
++++ b/drivers/gpu/drm/amd/display/amdgpu_dm/amdgpu_dm.c
+@@ -945,14 +945,14 @@ static int amdgpu_dm_init(struct amdgpu_device *adev)
+ 		goto error;
+ 	}
+ 
+-	dc_hardware_init(adev->dm.dc);
+-
+ 	r = dm_dmub_hw_init(adev);
+ 	if (r) {
+ 		DRM_ERROR("DMUB interface failed to initialize: status=%d\n", r);
+ 		goto error;
+ 	}
+ 
++	dc_hardware_init(adev->dm.dc);
++
+ 	adev->dm.freesync_module = mod_freesync_create(adev->dm.dc);
+ 	if (!adev->dm.freesync_module) {
+ 		DRM_ERROR(
+-- 
+2.17.1
+

@@ -1,0 +1,30 @@
+From a707a9e072dbdd17db6590e2c2db8ee698985779 Mon Sep 17 00:00:00 2001
+From: John Clements <john.clements@amd.com>
+Date: Tue, 31 Dec 2019 16:24:55 +0800
+Subject: [PATCH 1188/1453] drm/amdgpu: Enable GFX RAS support by default
+
+Updated default amdgpu_ras_mask=0xffffffff
+
+Change-Id: I742140d261929471bace76f19f37ab1c58cadfc7
+Reviewed-by: Hawking Zhang <Hawking.Zhang@amd.com>
+Signed-off-by: John Clements <john.clements@amd.com>
+---
+ drivers/gpu/drm/amd/amdgpu/amdgpu_drv.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/drivers/gpu/drm/amd/amdgpu/amdgpu_drv.c b/drivers/gpu/drm/amd/amdgpu/amdgpu_drv.c
+index 75fe6b8a11b8..62ada7d1d5f7 100755
+--- a/drivers/gpu/drm/amd/amdgpu/amdgpu_drv.c
++++ b/drivers/gpu/drm/amd/amdgpu/amdgpu_drv.c
+@@ -154,7 +154,7 @@ struct amdgpu_mgpu_info mgpu_info = {
+ 	.mutex = __MUTEX_INITIALIZER(mgpu_info.mutex),
+ };
+ int amdgpu_ras_enable = -1;
+-uint amdgpu_ras_mask = 0xfffffffb;
++uint amdgpu_ras_mask = 0xffffffff;
+ 
+ /**
+  * DOC: vramlimit (int)
+-- 
+2.17.1
+

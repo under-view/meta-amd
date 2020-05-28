@@ -1,0 +1,140 @@
+From c752e42bf825a8a16f06bc9a3c1f66b4c2c5f0ff Mon Sep 17 00:00:00 2001
+From: Felix Kuehling <Felix.Kuehling@amd.com>
+Date: Wed, 29 May 2019 00:00:35 -0400
+Subject: [PATCH 0178/1453] drm/amdkfd: Handle unmapping of doorbell VMAs
+ correctly
+
+KFDTest with --gtest_repeat will unmap and map doorbells for each
+test. When the doorbells are unmapped, we need to forget the doorbell
+VMA. The next time they are mapped, a new VMA is created.
+
+If the process is evicted during unmap, we need to remember that the
+doorbells are supposed to be zapped so they can be zapped on the next
+map.
+
+Whether or not queues exist shouldn't matter for the purposes of
+zapping and remapping doorbells. Only the existence of a VMA matters.
+
+Change-Id: I885f5b386997cfdc5e2f95ae43c9d6f4e13c5d0d
+Signed-off-by: Felix Kuehling <Felix.Kuehling@amd.com>
+---
+ drivers/gpu/drm/amd/amdkfd/kfd_doorbell.c | 46 +++++++++++++++++++----
+ drivers/gpu/drm/amd/amdkfd/kfd_process.c  |  9 ++++-
+ 2 files changed, 46 insertions(+), 9 deletions(-)
+
+diff --git a/drivers/gpu/drm/amd/amdkfd/kfd_doorbell.c b/drivers/gpu/drm/amd/amdkfd/kfd_doorbell.c
+index 419b57726f8e..6ad0a7bc5175 100755
+--- a/drivers/gpu/drm/amd/amdkfd/kfd_doorbell.c
++++ b/drivers/gpu/drm/amd/amdkfd/kfd_doorbell.c
+@@ -126,20 +126,50 @@ void kfd_doorbell_fini(struct kfd_dev *kfd)
+ 		iounmap(kfd->doorbell_kernel_ptr);
+ }
+ 
++static void kfd_doorbell_open(struct vm_area_struct *vma)
++{
++	/* Don't track the parent's PDD in a child process. We do set
++	 * VM_DONTCOPY, but that can be overridden from user mode.
++	 */
++	vma->vm_private_data = NULL;
++}
++
++static void kfd_doorbell_close(struct vm_area_struct *vma)
++{
++	struct kfd_process_device *pdd = vma->vm_private_data;
++
++	if (!pdd)
++		return;
++
++	mutex_lock(&pdd->qpd.doorbell_lock);
++	pdd->qpd.doorbell_vma = NULL;
++	/* Remember if the process was evicted without doorbells
++	 * mapped to user mode.
++	 */
++	if (pdd->qpd.doorbell_mapped == 0)
++		pdd->qpd.doorbell_mapped = -1;
++	mutex_unlock(&pdd->qpd.doorbell_lock);
++}
++
+ static vm_fault_t kfd_doorbell_vm_fault(struct vm_fault *vmf)
+ {
+-	struct kfd_process *process = vmf->vma->vm_private_data;
++	struct kfd_process_device *pdd = vmf->vma->vm_private_data;
++
++	if (!pdd)
++		return VM_FAULT_SIGBUS;
+ 
+-	pr_debug("Process %d doorbell vm page fault\n", process->pasid);
++	pr_debug("Process %d doorbell vm page fault\n", pdd->process->pasid);
+ 
+-	kfd_process_remap_doorbells_locked(process);
++	kfd_process_remap_doorbells_locked(pdd->process);
+ 
+-	kfd_process_schedule_restore(process);
++	kfd_process_schedule_restore(pdd->process);
+ 
+ 	return VM_FAULT_NOPAGE;
+ }
+ 
+ static const struct vm_operations_struct kfd_doorbell_vm_ops = {
++	.open = kfd_doorbell_open,
++	.close = kfd_doorbell_close,
+ 	.fault = kfd_doorbell_vm_fault,
+ };
+ 
+@@ -150,10 +180,10 @@ void kfd_doorbell_unmap_locked(struct kfd_process_device *pdd)
+ 	size_t size;
+ 
+ 	vma = pdd->qpd.doorbell_vma;
+-	/* If process is evicted before queue is created
+-	 * doorbell is not mapped to user space yet
++	/* Remember if the process was evicted without doorbells
++	 * mapped to user mode.
+ 	 */
+-	if (!vma || !pdd->qpd.queue_count) {
++	if (!vma) {
+ 		pdd->qpd.doorbell_mapped = -1;
+ 		return;
+ 	}
+@@ -249,7 +279,7 @@ int kfd_doorbell_mmap(struct kfd_dev *dev, struct kfd_process *process,
+ 
+ 	if (!ret && keep_idle_process_evicted) {
+ 		vma->vm_ops = &kfd_doorbell_vm_ops;
+-		vma->vm_private_data = process;
++		vma->vm_private_data = pdd;
+ 		pdd->qpd.doorbell_vma = vma;
+ 
+ 		/* If process is evicted before the first queue is created,
+diff --git a/drivers/gpu/drm/amd/amdkfd/kfd_process.c b/drivers/gpu/drm/amd/amdkfd/kfd_process.c
+index 4cc2a7c49dbe..fb6251a0e0f4 100755
+--- a/drivers/gpu/drm/amd/amdkfd/kfd_process.c
++++ b/drivers/gpu/drm/amd/amdkfd/kfd_process.c
+@@ -468,6 +468,7 @@ static void kfd_process_destroy_pdds(struct kfd_process *p)
+ 		kfree(pdd->qpd.doorbell_bitmap);
+ 		idr_destroy(&pdd->alloc_idr);
+ 		mutex_destroy(&pdd->qpd.doorbell_lock);
++
+ 		kfree(pdd);
+ 	}
+ }
+@@ -550,11 +551,17 @@ static void kfd_process_notifier_release(struct mmu_notifier *mn,
+ 
+ 	/* Iterate over all process device data structures and if the
+ 	 * pdd is in debug mode, we should first force unregistration,
+-	 * then we will be able to destroy the queues
++	 * then we will be able to destroy the queues. Also invalidate
++	 * doorbell_vma private data because the pdds are about to be
++	 * destroyed, which can race with the kfd_doorbell_close
++	 * vm_ops callback.
+ 	 */
+ 	list_for_each_entry(pdd, &p->per_device_data, per_device_list) {
+ 		struct kfd_dev *dev = pdd->dev;
+ 
++		if (pdd->qpd.doorbell_vma)
++			pdd->qpd.doorbell_vma->vm_private_data = NULL;
++
+ 		/* Old (deprecated) debugger for GFXv8 and older */
+ 		mutex_lock(kfd_get_dbgmgr_mutex());
+ 		if (dev && dev->dbgmgr && dev->dbgmgr->pasid == p->pasid) {
+-- 
+2.17.1
+

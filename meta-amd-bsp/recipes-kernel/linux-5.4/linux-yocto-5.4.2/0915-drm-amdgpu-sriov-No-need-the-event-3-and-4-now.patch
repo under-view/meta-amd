@@ -1,0 +1,30 @@
+From c61e7e8cf1172d468821e808f833fed6f770b68f Mon Sep 17 00:00:00 2001
+From: Emily Deng <Emily.Deng@amd.com>
+Date: Tue, 3 Dec 2019 01:53:10 +0800
+Subject: [PATCH 0915/1453] drm/amdgpu/sriov: No need the event 3 and 4 now
+
+As will call unload kms when initialize fail, and the unload kms will
+send event 3 and 4, so don't need event 3 and 4 in device init.
+
+Signed-off-by: Emily Deng <Emily.Deng@amd.com>
+Reviewed-by: Zhan Liu <zhan.liu@amd.com>
+---
+ drivers/gpu/drm/amd/amdgpu/amdgpu_device.c | 2 --
+ 1 file changed, 2 deletions(-)
+
+diff --git a/drivers/gpu/drm/amd/amdgpu/amdgpu_device.c b/drivers/gpu/drm/amd/amdgpu/amdgpu_device.c
+index 3c4197443fde..11ef3c273c00 100644
+--- a/drivers/gpu/drm/amd/amdgpu/amdgpu_device.c
++++ b/drivers/gpu/drm/amd/amdgpu/amdgpu_device.c
+@@ -3030,8 +3030,6 @@ int amdgpu_device_init(struct amdgpu_device *adev,
+ 		}
+ 		dev_err(adev->dev, "amdgpu_device_ip_init failed\n");
+ 		amdgpu_vf_error_put(adev, AMDGIM_ERROR_VF_AMDGPU_INIT_FAIL, 0, 0);
+-		if (amdgpu_virt_request_full_gpu(adev, false))
+-			amdgpu_virt_release_full_gpu(adev, false);
+ 		goto failed;
+ 	}
+ 
+-- 
+2.17.1
+

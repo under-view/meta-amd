@@ -1,0 +1,65 @@
+From 890f6a8b9165c9d5c840a3f205ad90a3172ce401 Mon Sep 17 00:00:00 2001
+From: Flora Cui <flora.cui@amd.com>
+Date: Mon, 25 Nov 2019 13:41:00 +0800
+Subject: [PATCH 0858/1453] drm/amdkfd: add kfd missing patch
+
+from commit 99ac52a3dd189 - Merge amd-staging-drm-next into
+amd-kfd-staging
+
+Signed-off-by: Flora Cui <flora.cui@amd.com>
+Acked-by: Feifei Xu <Feifei.Xu@amd.com>
+---
+ .../drm/amd/amdkfd/kfd_device_queue_manager.c    | 16 ++++++++--------
+ 1 file changed, 8 insertions(+), 8 deletions(-)
+
+diff --git a/drivers/gpu/drm/amd/amdkfd/kfd_device_queue_manager.c b/drivers/gpu/drm/amd/amdkfd/kfd_device_queue_manager.c
+index 3c9d24ce47bc..1e810df21c23 100755
+--- a/drivers/gpu/drm/amd/amdkfd/kfd_device_queue_manager.c
++++ b/drivers/gpu/drm/amd/amdkfd/kfd_device_queue_manager.c
+@@ -736,6 +736,10 @@ static int evict_process_queues_nocpsch(struct device_queue_manager *dqm,
+ 				q->properties.type)];
+ 		q->properties.is_active = false;
+ 		dqm->queue_count--;
++		if (q->properties.is_gws) {
++			dqm->gws_queue_count--;
++			qpd->mapped_gws_queue = false;
++		}
+ 
+ 		if (WARN_ONCE(!dqm->sched_running, "Evict when stopped\n"))
+ 			continue;
+@@ -748,10 +752,6 @@ static int evict_process_queues_nocpsch(struct device_queue_manager *dqm,
+ 			 * maintain a consistent eviction state
+ 			 */
+ 			ret = retval;
+-		if (q->properties.is_gws) {
+-			dqm->gws_queue_count--;
+-			qpd->mapped_gws_queue = false;
+-		}
+ 	}
+ 
+ out:
+@@ -858,6 +858,10 @@ static int restore_process_queues_nocpsch(struct device_queue_manager *dqm,
+ 				q->properties.type)];
+ 		q->properties.is_active = true;
+ 		dqm->queue_count++;
++		if (q->properties.is_gws) {
++			dqm->gws_queue_count++;
++			qpd->mapped_gws_queue = true;
++		}
+ 
+ 		if (WARN_ONCE(!dqm->sched_running, "Restore when stopped\n"))
+ 			continue;
+@@ -869,10 +873,6 @@ static int restore_process_queues_nocpsch(struct device_queue_manager *dqm,
+ 			 * maintain a consistent eviction state
+ 			 */
+ 			ret = retval;
+-		if (q->properties.is_gws) {
+-			dqm->gws_queue_count++;
+-			qpd->mapped_gws_queue = true;
+-		}
+ 	}
+ 	qpd->evicted = 0;
+ out:
+-- 
+2.17.1
+

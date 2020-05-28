@@ -1,0 +1,66 @@
+From 188b884c344d411da91190b50cac20670811ca2c Mon Sep 17 00:00:00 2001
+From: Joshua Aberback <joshua.aberback@amd.com>
+Date: Tue, 19 Nov 2019 18:46:26 -0500
+Subject: [PATCH 1073/1453] drm/amd/display: Add interface to adjust DSC max
+ target bpp limit
+
+[Why]
+For some use cases we need to be able to adjust the maximum target bpp
+allowed by DSC policy.
+
+[How]
+New interface dc_dsc_policy_set_max_target_bpp_limit
+
+Signed-off-by: Joshua Aberback <joshua.aberback@amd.com>
+Reviewed-by: Nikola Cornij <Nikola.Cornij@amd.com>
+Acked-by: Rodrigo Siqueira <Rodrigo.Siqueira@amd.com>
+Signed-off-by: Kalyan Alle <kalyan.alle@amd.com>
+---
+ drivers/gpu/drm/amd/display/dc/dc_dsc.h     |  1 +
+ drivers/gpu/drm/amd/display/dc/dsc/dc_dsc.c | 14 +++++++++++---
+ 2 files changed, 12 insertions(+), 3 deletions(-)
+
+diff --git a/drivers/gpu/drm/amd/display/dc/dc_dsc.h b/drivers/gpu/drm/amd/display/dc/dc_dsc.h
+index aaabc5f52e5c..47cc1f0a120b 100644
+--- a/drivers/gpu/drm/amd/display/dc/dc_dsc.h
++++ b/drivers/gpu/drm/amd/display/dc/dc_dsc.h
+@@ -81,4 +81,5 @@ bool dc_dsc_get_bpp_range_for_pixel_encoding(enum dc_pixel_encoding pixel_enc,
+ void dc_dsc_get_policy_for_timing(const struct dc_crtc_timing *timing,
+ 		struct dc_dsc_policy *policy);
+ 
++void dc_dsc_policy_set_max_target_bpp_limit(uint32_t limit);
+ #endif
+diff --git a/drivers/gpu/drm/amd/display/dc/dsc/dc_dsc.c b/drivers/gpu/drm/amd/display/dc/dsc/dc_dsc.c
+index d75b8315c688..201077ee96ac 100755
+--- a/drivers/gpu/drm/amd/display/dc/dsc/dc_dsc.c
++++ b/drivers/gpu/drm/amd/display/dc/dsc/dc_dsc.c
+@@ -30,6 +30,9 @@
+ 
+ /* This module's internal functions */
+ 
++/* default DSC policy target bitrate limit is 16bpp */
++static uint32_t dsc_policy_max_target_bpp_limit = 16;
++
+ static uint32_t dc_dsc_bandwidth_in_kbps_from_timing(
+ 	const struct dc_crtc_timing *timing)
+ {
+@@ -952,8 +955,13 @@ void dc_dsc_get_policy_for_timing(const struct dc_crtc_timing *timing, struct dc
+ 	default:
+ 		return;
+ 	}
+-	/* internal upper limit to 16 bpp */
+-	if (policy->max_target_bpp > 16)
+-		policy->max_target_bpp = 16;
++	/* internal upper limit, default 16 bpp */
++	if (policy->max_target_bpp > dsc_policy_max_target_bpp_limit)
++		policy->max_target_bpp = dsc_policy_max_target_bpp_limit;
++}
++
++void dc_dsc_policy_set_max_target_bpp_limit(uint32_t limit)
++{
++	dsc_policy_max_target_bpp_limit = limit;
+ }
+ #endif /* CONFIG_DRM_AMD_DC_DSC_SUPPORT */
+-- 
+2.17.1
+

@@ -1,0 +1,28 @@
+From 2588a4178ec275f161e661caaed72e3befad2ede Mon Sep 17 00:00:00 2001
+From: Zhifeng Liu <Zhifeng.Liu@amd.com>
+Date: Tue, 17 Dec 2019 13:40:59 +0000
+Subject: [PATCH 1066/1453] Bump AMDGPU version to 5.4.0
+
+Signed-off-by: Zhifeng Liu <Zhifeng.Liu@amd.com>
+Reviewed-by: Alvin Huan <Alvin.huan@amd.com>
+Signed-off-by: Kalyan Alle <kalyan.alle@amd.com>
+---
+ drivers/gpu/drm/amd/amdgpu/amdgpu_drv.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/drivers/gpu/drm/amd/amdgpu/amdgpu_drv.c b/drivers/gpu/drm/amd/amdgpu/amdgpu_drv.c
+index d1699c9d7fe3..fcf0f7d85fee 100755
+--- a/drivers/gpu/drm/amd/amdgpu/amdgpu_drv.c
++++ b/drivers/gpu/drm/amd/amdgpu/amdgpu_drv.c
+@@ -89,7 +89,7 @@
+ #define KMS_DRIVER_MINOR	35
+ #define KMS_DRIVER_PATCHLEVEL	0
+ 
+-#define AMDGPU_VERSION         "19.10.9.418"
++#define AMDGPU_VERSION         "5.4.0"
+ 
+ int amdgpu_vram_limit = 0;
+ int amdgpu_vis_vram_limit = 0;
+-- 
+2.17.1
+

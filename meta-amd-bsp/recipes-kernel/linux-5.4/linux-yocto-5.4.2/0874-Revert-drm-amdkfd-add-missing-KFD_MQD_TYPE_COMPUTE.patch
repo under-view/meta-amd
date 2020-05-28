@@ -1,0 +1,122 @@
+From cd81b9fd3280e6ee7b2999d900ea469669fa4399 Mon Sep 17 00:00:00 2001
+From: Flora Cui <flora.cui@amd.com>
+Date: Tue, 26 Nov 2019 13:10:51 +0800
+Subject: [PATCH 0874/1453] Revert "drm/amdkfd: add missing
+ KFD_MQD_TYPE_COMPUTE"
+
+This reverts commit ab30ae4ff91d3fbaffdee54985ce1b0624222bff.
+Signed-off-by: Flora Cui <flora.cui@amd.com>
+---
+ drivers/gpu/drm/amd/amdkfd/kfd_device_queue_manager.c | 4 ++--
+ drivers/gpu/drm/amd/amdkfd/kfd_mqd_manager_cik.c      | 3 +--
+ drivers/gpu/drm/amd/amdkfd/kfd_mqd_manager_v10.c      | 1 -
+ drivers/gpu/drm/amd/amdkfd/kfd_mqd_manager_v9.c       | 1 -
+ drivers/gpu/drm/amd/amdkfd/kfd_mqd_manager_vi.c       | 3 +--
+ drivers/gpu/drm/amd/amdkfd/kfd_priv.h                 | 3 +--
+ 6 files changed, 5 insertions(+), 10 deletions(-)
+
+diff --git a/drivers/gpu/drm/amd/amdkfd/kfd_device_queue_manager.c b/drivers/gpu/drm/amd/amdkfd/kfd_device_queue_manager.c
+index edc393300ba1..1e810df21c23 100755
+--- a/drivers/gpu/drm/amd/amdkfd/kfd_device_queue_manager.c
++++ b/drivers/gpu/drm/amd/amdkfd/kfd_device_queue_manager.c
+@@ -1762,7 +1762,7 @@ static int get_wave_state(struct device_queue_manager *dqm,
+ 		goto dqm_unlock;
+ 	}
+ 
+-	mqd_mgr = dqm->mqd_mgrs[KFD_MQD_TYPE_COMPUTE];
++	mqd_mgr = dqm->mqd_mgrs[KFD_MQD_TYPE_CP];
+ 
+ 	if (!mqd_mgr->get_wave_state) {
+ 		r = -EINVAL;
+@@ -2209,7 +2209,7 @@ void copy_context_work_handler (struct work_struct *work)
+ 
+ 
+ 		list_for_each_entry(q, &qpd->queues_list, list) {
+-			mqd_mgr = dqm->mqd_mgrs[KFD_MQD_TYPE_COMPUTE];
++			mqd_mgr = dqm->mqd_mgrs[KFD_MQD_TYPE_CP];
+ 
+ 			/* We ignore the return value from get_wave_state
+ 			 * because
+diff --git a/drivers/gpu/drm/amd/amdkfd/kfd_mqd_manager_cik.c b/drivers/gpu/drm/amd/amdkfd/kfd_mqd_manager_cik.c
+index c8561c3283b2..37ce9571a175 100755
+--- a/drivers/gpu/drm/amd/amdkfd/kfd_mqd_manager_cik.c
++++ b/drivers/gpu/drm/amd/amdkfd/kfd_mqd_manager_cik.c
+@@ -403,7 +403,6 @@ struct mqd_manager *mqd_manager_init_cik(enum KFD_MQD_TYPE type,
+ 
+ 	switch (type) {
+ 	case KFD_MQD_TYPE_CP:
+-	case KFD_MQD_TYPE_COMPUTE:
+ 		mqd->allocate_mqd = allocate_mqd;
+ 		mqd->init_mqd = init_mqd;
+ 		mqd->free_mqd = free_mqd;
+@@ -475,7 +474,7 @@ struct mqd_manager *mqd_manager_init_cik_hawaii(enum KFD_MQD_TYPE type,
+ 	mqd = mqd_manager_init_cik(type, dev);
+ 	if (!mqd)
+ 		return NULL;
+-	if ((type == KFD_MQD_TYPE_CP) || (type == KFD_MQD_TYPE_COMPUTE))
++	if (type == KFD_MQD_TYPE_CP)
+ 		mqd->update_mqd = update_mqd_hawaii;
+ 	return mqd;
+ }
+diff --git a/drivers/gpu/drm/amd/amdkfd/kfd_mqd_manager_v10.c b/drivers/gpu/drm/amd/amdkfd/kfd_mqd_manager_v10.c
+index 3c3fe346d63f..7832ec6e480b 100644
+--- a/drivers/gpu/drm/amd/amdkfd/kfd_mqd_manager_v10.c
++++ b/drivers/gpu/drm/amd/amdkfd/kfd_mqd_manager_v10.c
+@@ -389,7 +389,6 @@ struct mqd_manager *mqd_manager_init_v10(enum KFD_MQD_TYPE type,
+ 
+ 	switch (type) {
+ 	case KFD_MQD_TYPE_CP:
+-	case KFD_MQD_TYPE_COMPUTE:
+ 		pr_debug("%s@%i\n", __func__, __LINE__);
+ 		mqd->allocate_mqd = allocate_mqd;
+ 		mqd->init_mqd = init_mqd;
+diff --git a/drivers/gpu/drm/amd/amdkfd/kfd_mqd_manager_v9.c b/drivers/gpu/drm/amd/amdkfd/kfd_mqd_manager_v9.c
+index 5d691d36599f..f9ee530774bf 100755
+--- a/drivers/gpu/drm/amd/amdkfd/kfd_mqd_manager_v9.c
++++ b/drivers/gpu/drm/amd/amdkfd/kfd_mqd_manager_v9.c
+@@ -516,7 +516,6 @@ struct mqd_manager *mqd_manager_init_v9(enum KFD_MQD_TYPE type,
+ 
+ 	switch (type) {
+ 	case KFD_MQD_TYPE_CP:
+-	case KFD_MQD_TYPE_COMPUTE:
+ 		mqd->allocate_mqd = allocate_mqd;
+ 		mqd->init_mqd = init_mqd;
+ 		mqd->free_mqd = free_mqd;
+diff --git a/drivers/gpu/drm/amd/amdkfd/kfd_mqd_manager_vi.c b/drivers/gpu/drm/amd/amdkfd/kfd_mqd_manager_vi.c
+index 7c56b850b00f..2aeba387d7d6 100755
+--- a/drivers/gpu/drm/amd/amdkfd/kfd_mqd_manager_vi.c
++++ b/drivers/gpu/drm/amd/amdkfd/kfd_mqd_manager_vi.c
+@@ -462,7 +462,6 @@ struct mqd_manager *mqd_manager_init_vi(enum KFD_MQD_TYPE type,
+ 
+ 	switch (type) {
+ 	case KFD_MQD_TYPE_CP:
+-	case KFD_MQD_TYPE_COMPUTE:
+ 		mqd->allocate_mqd = allocate_mqd;
+ 		mqd->init_mqd = init_mqd;
+ 		mqd->free_mqd = free_mqd;
+@@ -535,7 +534,7 @@ struct mqd_manager *mqd_manager_init_vi_tonga(enum KFD_MQD_TYPE type,
+ 	mqd = mqd_manager_init_vi(type, dev);
+ 	if (!mqd)
+ 		return NULL;
+-	if ((type == KFD_MQD_TYPE_CP) || (type == KFD_MQD_TYPE_COMPUTE))
++	if (type == KFD_MQD_TYPE_CP)
+ 		mqd->update_mqd = update_mqd_tonga;
+ 	return mqd;
+ }
+diff --git a/drivers/gpu/drm/amd/amdkfd/kfd_priv.h b/drivers/gpu/drm/amd/amdkfd/kfd_priv.h
+index 16f7ba6db1ec..a92be933bc53 100755
+--- a/drivers/gpu/drm/amd/amdkfd/kfd_priv.h
++++ b/drivers/gpu/drm/amd/amdkfd/kfd_priv.h
+@@ -575,8 +575,7 @@ struct queue {
+  * Please read the kfd_mqd_manager.h description.
+  */
+ enum KFD_MQD_TYPE {
+-	KFD_MQD_TYPE_COMPUTE = 0,	/* for no cp scheduling */
+-	KFD_MQD_TYPE_HIQ,		/* for hiq */
++	KFD_MQD_TYPE_HIQ = 0,		/* for hiq */
+ 	KFD_MQD_TYPE_CP,		/* for cp queues and diq */
+ 	KFD_MQD_TYPE_SDMA,		/* for sdma queues */
+ 	KFD_MQD_TYPE_DIQ,		/* for diq */
+-- 
+2.17.1
+

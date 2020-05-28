@@ -1,0 +1,38 @@
+From edff935421cbcafab9eb4e550acdd0442af4d765 Mon Sep 17 00:00:00 2001
+From: James Zhu <James.Zhu@amd.com>
+Date: Tue, 26 Nov 2019 14:27:46 -0500
+Subject: [PATCH 0903/1453] drm/amdgpu/gfx: Increase dispatch packet number
+
+For Arcturus, increase dispatch packet number to stress scheduler.
+
+Signed-off-by: James Zhu <James.Zhu@amd.com>
+Reviewed-by: Hawking Zhang <Hawking.Zhang@amd.com>
+---
+ drivers/gpu/drm/amd/amdgpu/gfx_v9_0.c | 4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
+
+diff --git a/drivers/gpu/drm/amd/amdgpu/gfx_v9_0.c b/drivers/gpu/drm/amd/amdgpu/gfx_v9_0.c
+index 3c3948c597eb..d554c7202c43 100644
+--- a/drivers/gpu/drm/amd/amdgpu/gfx_v9_0.c
++++ b/drivers/gpu/drm/amd/amdgpu/gfx_v9_0.c
+@@ -4154,7 +4154,7 @@ static int gfx_v9_0_do_edc_gpr_workarounds(struct amdgpu_device *adev)
+ 
+ 	/* write dispatch packet */
+ 	ib.ptr[ib.length_dw++] = PACKET3(PACKET3_DISPATCH_DIRECT, 3);
+-	ib.ptr[ib.length_dw++] = 128; /* x */
++	ib.ptr[ib.length_dw++] = 256; /* x */
+ 	ib.ptr[ib.length_dw++] = 1; /* y */
+ 	ib.ptr[ib.length_dw++] = 1; /* z */
+ 	ib.ptr[ib.length_dw++] =
+@@ -4182,7 +4182,7 @@ static int gfx_v9_0_do_edc_gpr_workarounds(struct amdgpu_device *adev)
+ 
+ 	/* write dispatch packet */
+ 	ib.ptr[ib.length_dw++] = PACKET3(PACKET3_DISPATCH_DIRECT, 3);
+-	ib.ptr[ib.length_dw++] = 128; /* x */
++	ib.ptr[ib.length_dw++] = 256; /* x */
+ 	ib.ptr[ib.length_dw++] = 1; /* y */
+ 	ib.ptr[ib.length_dw++] = 1; /* z */
+ 	ib.ptr[ib.length_dw++] =
+-- 
+2.17.1
+

@@ -1,0 +1,46 @@
+From dae86f6c011b75016016446b5840b4f9d9b4cd4e Mon Sep 17 00:00:00 2001
+From: David Francis <David.Francis@amd.com>
+Date: Thu, 25 Jul 2019 11:47:46 -0400
+Subject: [PATCH 1235/1453] drm/dp_mst: Fill branch->num_ports
+
+This field on drm_dp_mst_branch was never filled
+
+It is initialized to zero when the port is kzallocced.
+When a port is added to the list, increment num_ports,
+and when a port is removed from the list, decrement num_ports.
+
+v2: remember to decrement on port removal
+v3: don't explicitly init to 0
+v4: move decrement of num_ports to unlink_port function
+
+Reviewed-by: Lyude Paul <lyude@redhat.com>
+Reviewed-by: Harry Wentland <harry.wentland@amd.com>
+Signed-off-by: David Francis <David.Francis@amd.com>
+Signed-off-by: Mikita Lipski <mikita.lipski@amd.com>
+---
+ drivers/gpu/drm/drm_dp_mst_topology.c | 2 ++
+ 1 file changed, 2 insertions(+)
+
+diff --git a/drivers/gpu/drm/drm_dp_mst_topology.c b/drivers/gpu/drm/drm_dp_mst_topology.c
+index 42f6304f59af..d35033fbaf82 100644
+--- a/drivers/gpu/drm/drm_dp_mst_topology.c
++++ b/drivers/gpu/drm/drm_dp_mst_topology.c
+@@ -2157,6 +2157,7 @@ drm_dp_mst_topology_unlink_port(struct drm_dp_mst_topology_mgr *mgr,
+ 				struct drm_dp_mst_port *port)
+ {
+ 	mutex_lock(&mgr->lock);
++	port->parent->num_ports--;
+ 	list_del(&port->next);
+ 	mutex_unlock(&mgr->lock);
+ 	drm_dp_mst_topology_put_port(port);
+@@ -2256,6 +2257,7 @@ drm_dp_mst_handle_link_address_port(struct drm_dp_mst_branch *mstb,
+ 		mutex_lock(&mgr->lock);
+ 		drm_dp_mst_topology_get_port(port);
+ 		list_add(&port->next, &mstb->ports);
++		mstb->num_ports++;
+ 		mutex_unlock(&mgr->lock);
+ 	}
+ 
+-- 
+2.17.1
+

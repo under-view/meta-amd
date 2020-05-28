@@ -1,0 +1,30 @@
+From 8f03e0445b0cbf4d0b7a438b0a93ee75e73a19d8 Mon Sep 17 00:00:00 2001
+From: Alex Deucher <alexander.deucher@amd.com>
+Date: Wed, 8 Jan 2020 22:21:30 -0500
+Subject: [PATCH 1306/1453] drm/dp_mst: fix documentation of
+ drm_dp_mst_add_affected_dsc_crtcs
+
+the parameter is the mst manager, not the port.
+
+Reviewed-by: Mikita Lipski <mikita.lipski@amd.com>
+Signed-off-by: Alex Deucher <alexander.deucher@amd.com>
+---
+ drivers/gpu/drm/drm_dp_mst_topology.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/drivers/gpu/drm/drm_dp_mst_topology.c b/drivers/gpu/drm/drm_dp_mst_topology.c
+index 5582c48a5cb9..71f985e83a99 100644
+--- a/drivers/gpu/drm/drm_dp_mst_topology.c
++++ b/drivers/gpu/drm/drm_dp_mst_topology.c
+@@ -4778,7 +4778,7 @@ drm_dp_mst_atomic_check_vcpi_alloc_limit(struct drm_dp_mst_topology_mgr *mgr,
+ /**
+  * drm_dp_mst_add_affected_dsc_crtcs
+  * @state: Pointer to the new struct drm_dp_mst_topology_state
+- * @port: Port pointer of connector with new state
++ * @mgr: MST topology manager
+  *
+  * Whenever there is a change in mst topology
+  * DSC configuration would have to be recalculated
+-- 
+2.17.1
+

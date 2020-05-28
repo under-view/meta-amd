@@ -1,0 +1,942 @@
+From 90362f68af6f2d74b639fdd8ddf6ac3790ef8bf3 Mon Sep 17 00:00:00 2001
+From: Rui Teng <rui.teng@amd.com>
+Date: Sat, 12 Oct 2019 13:11:53 +0800
+Subject: [PATCH 0407/1453] Revert 8 patches to sync up with drm-next rebase
+
+Revert "drm/amdgpu/psp: add psp memory training implementation"
+This reverts commit 0a1d10777ee74fe8b5a53608c570bfe57128f4f2.
+
+Revert "drm/amdgpu: reserve vram for memory training"
+This reverts commit 405d1059f3406cafff046722e290f877532ab1f9.
+
+Revert "drm/amdgpu: add psp memory training callbacks and macro"
+This reverts commit ffb562b90ae8aaec09e5d011f8cd0111dc9818f1.
+
+Revert "drm/amdgpu/atomfirmware: add memory training related helper functions"
+This reverts commit be0d086163f367dee3fb7de0c71face438d750f3.
+
+Revert "drm/amdgpu: update atomfirmware header with memory training related members"
+This reverts commit 7f7f091adbe4682e007079e900944af7db6a8dca.
+
+Revert "drm/amdgpu: introduce psp_v11_0_is_sos_alive interface"
+This reverts commit 318f38ae69c329cfae7e09174e98497e70f61f3e.
+
+Revert "drm/amdgpu: add a generic fb accessing helper function"
+This reverts commit 30890280264a9561fc2734e209c7b525dcee8553.
+
+Revert "drm/amdgpu: update amdgpu_discovery to handle revision"
+This reverts commit 51a6d66aa5dbf14bd292cc375147e960562e5f1e.
+
+Signed-off-by: Rui Teng <rui.teng@amd.com>
+---
+ drivers/gpu/drm/amd/amdgpu/amdgpu.h           |  10 -
+ drivers/gpu/drm/amd/amdgpu/amdgpu_atombios.c  |   5 -
+ .../gpu/drm/amd/amdgpu/amdgpu_atomfirmware.c  | 130 ------------
+ .../gpu/drm/amd/amdgpu/amdgpu_atomfirmware.h  |   1 -
+ drivers/gpu/drm/amd/amdgpu/amdgpu_device.c    |  42 ----
+ drivers/gpu/drm/amd/amdgpu/amdgpu_discovery.c |  17 +-
+ drivers/gpu/drm/amd/amdgpu/amdgpu_discovery.h |   2 +-
+ drivers/gpu/drm/amd/amdgpu/amdgpu_drv.c       |   9 -
+ drivers/gpu/drm/amd/amdgpu/amdgpu_psp.c       |  18 --
+ drivers/gpu/drm/amd/amdgpu/amdgpu_psp.h       |  55 -----
+ drivers/gpu/drm/amd/amdgpu/amdgpu_ttm.c       |  96 ---------
+ drivers/gpu/drm/amd/amdgpu/psp_v11_0.c        | 193 +-----------------
+ drivers/gpu/drm/amd/include/atomfirmware.h    |  15 --
+ 13 files changed, 23 insertions(+), 570 deletions(-)
+
+diff --git a/drivers/gpu/drm/amd/amdgpu/amdgpu.h b/drivers/gpu/drm/amd/amdgpu/amdgpu.h
+index 1ec28e79bf31..6d9ba2474d7b 100644
+--- a/drivers/gpu/drm/amd/amdgpu/amdgpu.h
++++ b/drivers/gpu/drm/amd/amdgpu/amdgpu.h
+@@ -154,7 +154,6 @@ extern char *amdgpu_disable_cu;
+ extern char *amdgpu_virtual_display;
+ extern uint amdgpu_pp_feature_mask;
+ extern int amdgpu_ssg_enabled;
+-extern uint amdgpu_force_long_training;
+ extern int amdgpu_job_hang_limit;
+ extern int amdgpu_lbpw;
+ extern int amdgpu_compute_multipipe;
+@@ -293,9 +292,6 @@ struct amdgpu_ip_block_version {
+ 	const struct amd_ip_funcs *funcs;
+ };
+ 
+-#define hw_revision(major, minor, revision) \
+-	((((uint32_t) major) << 16) | ((uint32_t) minor << 8) | ((uint32_t) revision))
+-
+ struct amdgpu_ip_block {
+ 	struct amdgpu_ip_block_status status;
+ 	const struct amdgpu_ip_block_version *version;
+@@ -643,10 +639,6 @@ struct amdgpu_fw_vram_usage {
+ 	u64 size;
+ 	struct amdgpu_bo *reserved_bo;
+ 	void *va;
+-
+-	/*offset on the top of vram, used as c2p write buffer*/
+-	u64 mem_train_fb_loc;
+-	bool mem_train_support;
+ };
+ 
+ /*
+@@ -1028,8 +1020,6 @@ int amdgpu_device_init(struct amdgpu_device *adev,
+ void amdgpu_device_fini(struct amdgpu_device *adev);
+ int amdgpu_gpu_wait_for_idle(struct amdgpu_device *adev);
+ 
+-int amdgpu_device_vram_access(struct amdgpu_device *adev, loff_t pos,
+-		       uint32_t *buf, size_t size, bool write);
+ uint32_t amdgpu_mm_rreg(struct amdgpu_device *adev, uint32_t reg,
+ 			uint32_t acc_flags);
+ void amdgpu_mm_wreg(struct amdgpu_device *adev, uint32_t reg, uint32_t v,
+diff --git a/drivers/gpu/drm/amd/amdgpu/amdgpu_atombios.c b/drivers/gpu/drm/amd/amdgpu/amdgpu_atombios.c
+index 5f5a2d3fff9b..1c9d40f97a9b 100644
+--- a/drivers/gpu/drm/amd/amdgpu/amdgpu_atombios.c
++++ b/drivers/gpu/drm/amd/amdgpu/amdgpu_atombios.c
+@@ -2038,11 +2038,6 @@ int amdgpu_atombios_init(struct amdgpu_device *adev)
+ 	if (adev->is_atom_fw) {
+ 		amdgpu_atomfirmware_scratch_regs_init(adev);
+ 		amdgpu_atomfirmware_allocate_fb_scratch(adev);
+-		ret = amdgpu_atomfirmware_get_mem_train_fb_loc(adev);
+-		if(ret) {
+-			DRM_ERROR("Failed to get mem train fb location.\n");
+-			return ret;
+-		}
+ 	} else {
+ 		amdgpu_atombios_scratch_regs_init(adev);
+ 		amdgpu_atombios_allocate_fb_scratch(adev);
+diff --git a/drivers/gpu/drm/amd/amdgpu/amdgpu_atomfirmware.c b/drivers/gpu/drm/amd/amdgpu/amdgpu_atomfirmware.c
+index dfaebd929332..39fd8ae5a822 100644
+--- a/drivers/gpu/drm/amd/amdgpu/amdgpu_atomfirmware.c
++++ b/drivers/gpu/drm/amd/amdgpu/amdgpu_atomfirmware.c
+@@ -27,7 +27,6 @@
+ #include "amdgpu_atomfirmware.h"
+ #include "atom.h"
+ #include "atombios.h"
+-#include "soc15_hw_ip.h"
+ 
+ bool amdgpu_atomfirmware_gpu_supports_virtualization(struct amdgpu_device *adev)
+ {
+@@ -463,132 +462,3 @@ int amdgpu_atomfirmware_get_gfx_info(struct amdgpu_device *adev)
+ 	}
+ 	return -EINVAL;
+ }
+-
+-/*
+- * Check if VBIOS supports GDDR6 training data save/restore
+- */
+-static bool gddr6_mem_train_vbios_support(struct amdgpu_device *adev)
+-{
+-	uint16_t data_offset;
+-	int index;
+-
+-	index = get_index_into_master_table(atom_master_list_of_data_tables_v2_1,
+-					    firmwareinfo);
+-	if (amdgpu_atom_parse_data_header(adev->mode_info.atom_context, index, NULL,
+-					  NULL, NULL, &data_offset)) {
+-		struct atom_firmware_info_v3_1 *firmware_info =
+-			(struct atom_firmware_info_v3_1 *)(adev->mode_info.atom_context->bios +
+-							   data_offset);
+-
+-		DRM_DEBUG("atom firmware capability:0x%08x.\n",
+-			  le32_to_cpu(firmware_info->firmware_capability));
+-
+-		if (le32_to_cpu(firmware_info->firmware_capability) &
+-		    ATOM_FIRMWARE_CAP_ENABLE_2STAGE_BIST_TRAINING)
+-			return true;
+-	}
+-
+-	return false;
+-}
+-
+-static int gddr6_mem_train_support(struct amdgpu_device *adev)
+-{
+-	int ret = 0;
+-	bool vbios_support = false;
+-	uint32_t major, minor, revision, hw_v;
+-
+-	if (!amdgpu_sriov_vf(adev) &&
+-	    gddr6_mem_train_vbios_support(adev)) {
+-		vbios_support = true;
+-	}
+-
+-	amdgpu_discovery_get_ip_version(adev, MP0_HWID, &major, &minor, &revision);
+-	hw_v = hw_revision(major, minor, revision);
+-	/*
+-	 * treat 0 revision as a special case since register for MP0 and MMHUB is missing
+-	 * for some Navi10 A0, preventing driver from discovering the hwip information since
+-	 * none of the functions will be initialized, it should not cause any problems
+-	 */
+-	switch(hw_v) {
+-	case hw_revision(11, 0, 0):
+-	case hw_revision(11, 0, 5):
+-		ret = vbios_support;
+-		break;
+-	default:
+-		if (vbios_support) {
+-			DRM_ERROR("memory training vbios supports but psp hw(%08x)"
+-				  " doesn't support!\n", hw_v);
+-			ret = -1;
+-		}
+-		break;
+-	}
+-
+-	DRM_DEBUG("mp0 hw_v %08x, ret:%d.\n", hw_v, ret);
+-	return ret;
+-}
+-
+-int amdgpu_atomfirmware_get_mem_train_fb_loc(struct amdgpu_device *adev)
+-{
+-	struct atom_context *ctx = adev->mode_info.atom_context;
+-	unsigned char *bios = ctx->bios;
+-	struct vram_reserve_block *reserved_block;
+-	int index, block_number;
+-	uint8_t frev, crev;
+-	uint16_t data_offset, size;
+-	uint32_t start_address_in_kb = 0;
+-	uint64_t offset;
+-	int ret = 0;
+-
+-	adev->fw_vram_usage.mem_train_support = false;
+-	ret = gddr6_mem_train_support(adev);
+-	if (ret == -1)
+-		return -EINVAL;
+-	else if (ret == 0)
+-		return 0;
+-
+-	index = get_index_into_master_table(atom_master_list_of_data_tables_v2_1,
+-					    vram_usagebyfirmware);
+-	ret = amdgpu_atom_parse_data_header(ctx, index, &size, &frev, &crev,
+-					    &data_offset);
+-	if (!ret) {
+-		DRM_ERROR("parse data header failed.\n");
+-		return -EINVAL;
+-	}
+-
+-	DRM_DEBUG("atom firmware common table header size:0x%04x, frev:0x%02x,"
+-		  " crev:0x%02x, data_offset:0x%04x.\n", size, frev, crev, data_offset);
+-	/* only support 2.1+ */
+-	if (((uint16_t)frev << 8 | crev) < 0x0201) {
+-		DRM_ERROR("frev:0x%02x, crev:0x%02x < 2.1 !\n", frev, crev);
+-		return -EINVAL;
+-	}
+-
+-	reserved_block = (struct vram_reserve_block *)
+-		(bios + data_offset + sizeof(struct atom_common_table_header));
+-	block_number = ((unsigned int)size - sizeof(struct atom_common_table_header))
+-		/ sizeof(struct vram_reserve_block);
+-	reserved_block += (block_number > 0) ? block_number-1 : 0;
+-	DRM_DEBUG("block_number:0x%04x, last block: 0x%08xkb sz, %dkb fw, %dkb drv.\n",
+-		  block_number,
+-		  le32_to_cpu(reserved_block->start_address_in_kb),
+-		  le16_to_cpu(reserved_block->used_by_firmware_in_kb),
+-		  le16_to_cpu(reserved_block->used_by_driver_in_kb));
+-	if (reserved_block->used_by_firmware_in_kb > 0) {
+-		start_address_in_kb = le32_to_cpu(reserved_block->start_address_in_kb);
+-		offset = (uint64_t)start_address_in_kb * ONE_K;
+-		if ((offset & (ONE_MEG - 1)) < (4 * ONE_K + 1) ) {
+-			offset -= ONE_MEG;
+-		}
+-
+-		offset &= ~(ONE_MEG - 1);
+-		adev->fw_vram_usage.mem_train_fb_loc = offset;
+-		adev->fw_vram_usage.mem_train_support = true;
+-		DRM_DEBUG("mem_train_fb_loc:0x%09llx.\n", offset);
+-		ret = 0;
+-	} else {
+-		DRM_ERROR("used_by_firmware_in_kb is 0!\n");
+-		ret = -EINVAL;
+-	}
+-
+-	return ret;
+-}
+diff --git a/drivers/gpu/drm/amd/amdgpu/amdgpu_atomfirmware.h b/drivers/gpu/drm/amd/amdgpu/amdgpu_atomfirmware.h
+index f871af5ea6f3..53449fc7baf4 100644
+--- a/drivers/gpu/drm/amd/amdgpu/amdgpu_atomfirmware.h
++++ b/drivers/gpu/drm/amd/amdgpu/amdgpu_atomfirmware.h
+@@ -31,7 +31,6 @@ void amdgpu_atomfirmware_scratch_regs_init(struct amdgpu_device *adev);
+ int amdgpu_atomfirmware_allocate_fb_scratch(struct amdgpu_device *adev);
+ int amdgpu_atomfirmware_get_vram_info(struct amdgpu_device *adev,
+ 	int *vram_width, int *vram_type, int *vram_vendor);
+-int amdgpu_atomfirmware_get_mem_train_fb_loc(struct amdgpu_device *adev);
+ int amdgpu_atomfirmware_get_clock_info(struct amdgpu_device *adev);
+ int amdgpu_atomfirmware_get_gfx_info(struct amdgpu_device *adev);
+ bool amdgpu_atomfirmware_mem_ecc_supported(struct amdgpu_device *adev);
+diff --git a/drivers/gpu/drm/amd/amdgpu/amdgpu_device.c b/drivers/gpu/drm/amd/amdgpu/amdgpu_device.c
+index f4e2e506c1e5..6991c5293fb2 100644
+--- a/drivers/gpu/drm/amd/amdgpu/amdgpu_device.c
++++ b/drivers/gpu/drm/amd/amdgpu/amdgpu_device.c
+@@ -153,48 +153,6 @@ bool amdgpu_device_is_px(struct drm_device *dev)
+ 	return false;
+ }
+ 
+-/**
+- * VRAM access helper functions.
+- *
+- * amdgpu_device_vram_access - read/write a buffer in vram
+- *
+- * @adev: amdgpu_device pointer
+- * @pos: offset of the buffer in vram
+- * @buf: virtual address of the buffer in system memory
+- * @size: read/write size, sizeof(@buf) must > @size
+- * @write: true - write to vram, otherwise - read from vram
+- *
+- * Returns 0 on success or an -error on failure.
+- */
+-int amdgpu_device_vram_access(struct amdgpu_device *adev, loff_t pos,
+-		       uint32_t *buf, size_t size, bool write)
+-{
+-	uint64_t end = pos + size;
+-	unsigned long flags;
+-
+-	if (IS_ERR_OR_NULL(buf) ||
+-	    (adev->gmc.mc_vram_size > 0 &&
+-	     end > adev->gmc.mc_vram_size)) {
+-		DRM_ERROR("parameter error! pos:%llx, buf:%llx, size:%zx.\n",
+-			  pos, (u64)buf, size);
+-		return -EINVAL;
+-	}
+-
+-	while (pos < end) {
+-		spin_lock_irqsave(&adev->mmio_idx_lock, flags);
+-		WREG32_NO_KIQ(mmMM_INDEX, ((uint32_t)pos) | 0x80000000);
+-		WREG32_NO_KIQ(mmMM_INDEX_HI, pos >> 31);
+-		if (write)
+-			WREG32_NO_KIQ(mmMM_DATA, *buf++);
+-		else
+-			*buf++ = RREG32_NO_KIQ(mmMM_DATA);
+-		spin_unlock_irqrestore(&adev->mmio_idx_lock, flags);
+-		pos += 4;
+-	}
+-
+-	return 0;
+-}
+-
+ /*
+  * MMIO register access helper functions.
+  */
+diff --git a/drivers/gpu/drm/amd/amdgpu/amdgpu_discovery.c b/drivers/gpu/drm/amd/amdgpu/amdgpu_discovery.c
+index 324c2d605f54..1481899f86c1 100644
+--- a/drivers/gpu/drm/amd/amdgpu/amdgpu_discovery.c
++++ b/drivers/gpu/drm/amd/amdgpu/amdgpu_discovery.c
+@@ -134,10 +134,21 @@ static int hw_id_map[MAX_HWIP] = {
+ 
+ static int amdgpu_discovery_read_binary(struct amdgpu_device *adev, uint8_t *binary)
+ {
++	uint32_t *p = (uint32_t *)binary;
+ 	uint64_t vram_size = (uint64_t)RREG32(mmRCC_CONFIG_MEMSIZE) << 20;
+ 	uint64_t pos = vram_size - BINARY_MAX_SIZE;
++	unsigned long flags;
++
++	while (pos < vram_size) {
++		spin_lock_irqsave(&adev->mmio_idx_lock, flags);
++		WREG32_NO_KIQ(mmMM_INDEX, ((uint32_t)pos) | 0x80000000);
++		WREG32_NO_KIQ(mmMM_INDEX_HI, pos >> 31);
++		*p++ = RREG32_NO_KIQ(mmMM_DATA);
++		spin_unlock_irqrestore(&adev->mmio_idx_lock, flags);
++		pos += 4;
++	}
+ 
+-	return amdgpu_device_vram_access(adev, pos, (uint32_t *)binary, BINARY_MAX_SIZE, false);
++	return 0;
+ }
+ 
+ static uint16_t amdgpu_discovery_calculate_checksum(uint8_t *data, uint32_t size)
+@@ -322,7 +333,7 @@ int amdgpu_discovery_reg_base_init(struct amdgpu_device *adev)
+ }
+ 
+ int amdgpu_discovery_get_ip_version(struct amdgpu_device *adev, int hw_id,
+-				    int *major, int *minor, int *revision)
++				    int *major, int *minor)
+ {
+ 	struct binary_header *bhdr;
+ 	struct ip_discovery_header *ihdr;
+@@ -358,8 +369,6 @@ int amdgpu_discovery_get_ip_version(struct amdgpu_device *adev, int hw_id,
+ 					*major = ip->major;
+ 				if (minor)
+ 					*minor = ip->minor;
+-				if (revision)
+-					*revision = ip->revision;
+ 				return 0;
+ 			}
+ 			ip_offset += sizeof(*ip) + 4 * (ip->num_base_address - 1);
+diff --git a/drivers/gpu/drm/amd/amdgpu/amdgpu_discovery.h b/drivers/gpu/drm/amd/amdgpu/amdgpu_discovery.h
+index ada30cfd9d35..85b8c4d4d576 100644
+--- a/drivers/gpu/drm/amd/amdgpu/amdgpu_discovery.h
++++ b/drivers/gpu/drm/amd/amdgpu/amdgpu_discovery.h
+@@ -28,7 +28,7 @@ int amdgpu_discovery_init(struct amdgpu_device *adev);
+ void amdgpu_discovery_fini(struct amdgpu_device *adev);
+ int amdgpu_discovery_reg_base_init(struct amdgpu_device *adev);
+ int amdgpu_discovery_get_ip_version(struct amdgpu_device *adev, int hw_id,
+-                                    int *major, int *minor, int *revision);
++                                    int *major, int *minor);
+ int amdgpu_discovery_get_gfx_info(struct amdgpu_device *adev);
+ 
+ #endif /* __AMDGPU_DISCOVERY__ */
+diff --git a/drivers/gpu/drm/amd/amdgpu/amdgpu_drv.c b/drivers/gpu/drm/amd/amdgpu/amdgpu_drv.c
+index fa887ad52bf7..fdd78cdb1392 100755
+--- a/drivers/gpu/drm/amd/amdgpu/amdgpu_drv.c
++++ b/drivers/gpu/drm/amd/amdgpu/amdgpu_drv.c
+@@ -133,7 +133,6 @@ char *amdgpu_disable_cu = NULL;
+ char *amdgpu_virtual_display = NULL;
+ /* OverDrive(bit 14) disabled by default*/
+ uint amdgpu_pp_feature_mask = 0xffffbfff;
+-uint amdgpu_force_long_training = 0;
+ int amdgpu_job_hang_limit = 0;
+ int amdgpu_lbpw = -1;
+ int amdgpu_compute_multipipe = -1;
+@@ -405,14 +404,6 @@ module_param_named(direct_gma_size, amdgpu_direct_gma_size, int, 0444);
+ MODULE_PARM_DESC(ssg, "SSG support (1 = enable, 0 = disable (default))");
+ module_param_named(ssg, amdgpu_ssg_enabled, int, 0444);
+ 
+-/**
+- * DOC: forcelongtraining (uint)
+- * Force long memory training in resume.
+- * The default is zero, indicates short training in resume.
+- */
+-MODULE_PARM_DESC(forcelongtraining, "force memory long training");
+-module_param_named(forcelongtraining, amdgpu_force_long_training, uint, 0444);
+-
+ /**
+  * DOC: pcie_gen_cap (uint)
+  * Override PCIE gen speed capabilities. See the CAIL flags in drivers/gpu/drm/amd/include/amd_pcie.h.
+diff --git a/drivers/gpu/drm/amd/amdgpu/amdgpu_psp.c b/drivers/gpu/drm/amd/amdgpu/amdgpu_psp.c
+index b996b5bc5804..37ffed5e2171 100644
+--- a/drivers/gpu/drm/amd/amdgpu/amdgpu_psp.c
++++ b/drivers/gpu/drm/amd/amdgpu/amdgpu_psp.c
+@@ -88,17 +88,6 @@ static int psp_sw_init(void *handle)
+ 		return ret;
+ 	}
+ 
+-	ret = psp_mem_training_init(psp);
+-	if (ret) {
+-		DRM_ERROR("Failed to initliaze memory training!\n");
+-		return ret;
+-	}
+-	ret = psp_mem_training(psp, PSP_MEM_TRAIN_COLD_BOOT);
+-	if (ret) {
+-		DRM_ERROR("Failed to process memory training!\n");
+-		return ret;
+-	}
+-
+ 	return 0;
+ }
+ 
+@@ -106,7 +95,6 @@ static int psp_sw_fini(void *handle)
+ {
+ 	struct amdgpu_device *adev = (struct amdgpu_device *)handle;
+ 
+-	psp_mem_training_fini(&adev->psp);
+ 	release_firmware(adev->psp.sos_fw);
+ 	adev->psp.sos_fw = NULL;
+ 	release_firmware(adev->psp.asd_fw);
+@@ -1620,12 +1608,6 @@ static int psp_resume(void *handle)
+ 
+ 	DRM_INFO("PSP is resuming...\n");
+ 
+-	ret = psp_mem_training(psp, PSP_MEM_TRAIN_RESUME);
+-	if (ret) {
+-		DRM_ERROR("Failed to process memory training!\n");
+-		return ret;
+-	}
+-
+ 	mutex_lock(&adev->firmware.mutex);
+ 
+ 	ret = psp_hw_start(psp);
+diff --git a/drivers/gpu/drm/amd/amdgpu/amdgpu_psp.h b/drivers/gpu/drm/amd/amdgpu/amdgpu_psp.h
+index c6f17d6310d6..7dd9ae7dbbe4 100644
+--- a/drivers/gpu/drm/amd/amdgpu/amdgpu_psp.h
++++ b/drivers/gpu/drm/amd/amdgpu/amdgpu_psp.h
+@@ -49,8 +49,6 @@ enum psp_bootloader_cmd {
+ 	PSP_BL__LOAD_SYSDRV		= 0x10000,
+ 	PSP_BL__LOAD_SOSDRV		= 0x20000,
+ 	PSP_BL__LOAD_KEY_DATABASE	= 0x80000,
+-	PSP_BL__DRAM_LONG_TRAIN		= 0x100000,
+-	PSP_BL__DRAM_SHORT_TRAIN	= 0x200000,
+ };
+ 
+ enum psp_ring_type
+@@ -113,9 +111,6 @@ struct psp_funcs
+ 			struct ta_ras_trigger_error_input *info);
+ 	int (*ras_cure_posion)(struct psp_context *psp, uint64_t *mode_ptr);
+ 	int (*rlc_autoload_start)(struct psp_context *psp);
+-	int (*mem_training_init)(struct psp_context *psp);
+-	int (*mem_training_fini)(struct psp_context *psp);
+-	int (*mem_training)(struct psp_context *psp, uint32_t ops);
+ };
+ 
+ #define AMDGPU_XGMI_MAX_CONNECTED_NODES		64
+@@ -166,49 +161,6 @@ struct psp_dtm_context {
+ 	void			*dtm_shared_buf;
+ };
+ 
+-#define MEM_TRAIN_SYSTEM_SIGNATURE		0x54534942
+-#define GDDR6_MEM_TRAINING_DATA_SIZE_IN_BYTES	0x1000
+-#define GDDR6_MEM_TRAINING_OFFSET		0x8000
+-
+-enum psp_memory_training_init_flag {
+-	PSP_MEM_TRAIN_NOT_SUPPORT	= 0x0,
+-	PSP_MEM_TRAIN_SUPPORT		= 0x1,
+-	PSP_MEM_TRAIN_INIT_FAILED	= 0x2,
+-	PSP_MEM_TRAIN_RESERVE_SUCCESS	= 0x4,
+-	PSP_MEM_TRAIN_INIT_SUCCESS	= 0x8,
+-};
+-
+-enum psp_memory_training_ops {
+-	PSP_MEM_TRAIN_SEND_LONG_MSG	= 0x1,
+-	PSP_MEM_TRAIN_SAVE		= 0x2,
+-	PSP_MEM_TRAIN_RESTORE		= 0x4,
+-	PSP_MEM_TRAIN_SEND_SHORT_MSG	= 0x8,
+-	PSP_MEM_TRAIN_COLD_BOOT		= PSP_MEM_TRAIN_SEND_LONG_MSG,
+-	PSP_MEM_TRAIN_RESUME		= PSP_MEM_TRAIN_SEND_SHORT_MSG,
+-};
+-
+-struct psp_memory_training_context {
+-	/*training data size*/
+-	u64 train_data_size;
+-	/*
+-	 * sys_cache
+-	 * cpu virtual address
+-	 * system memory buffer that used to store the training data.
+-	 */
+-	void *sys_cache;
+-
+-	/*vram offset of the p2c training data*/
+-	u64 p2c_train_data_offset;
+-	struct amdgpu_bo *p2c_bo;
+-
+-	/*vram offset of the c2p training data*/
+-	u64 c2p_train_data_offset;
+-	struct amdgpu_bo *c2p_bo;
+-
+-	enum psp_memory_training_init_flag init;
+-	u32 training_cnt;
+-};
+-
+ struct psp_context
+ {
+ 	struct amdgpu_device            *adev;
+@@ -287,7 +239,6 @@ struct psp_context
+ 	struct psp_hdcp_context 	hdcp_context;
+ 	struct psp_dtm_context		dtm_context;
+ 	struct mutex			mutex;
+-	struct psp_memory_training_context mem_train_ctx;
+ };
+ 
+ struct amdgpu_psp_funcs {
+@@ -330,12 +281,6 @@ struct amdgpu_psp_funcs {
+ 		(psp)->funcs->xgmi_set_topology_info((psp), (num_device), (topology)) : -EINVAL)
+ #define psp_rlc_autoload(psp) \
+ 		((psp)->funcs->rlc_autoload_start ? (psp)->funcs->rlc_autoload_start((psp)) : 0)
+-#define psp_mem_training_init(psp) \
+-	((psp)->funcs->mem_training_init ? (psp)->funcs->mem_training_init((psp)) : 0)
+-#define psp_mem_training_fini(psp) \
+-	((psp)->funcs->mem_training_fini ? (psp)->funcs->mem_training_fini((psp)) : 0)
+-#define psp_mem_training(psp, ops) \
+-	((psp)->funcs->mem_training ? (psp)->funcs->mem_training((psp), (ops)) : 0)
+ 
+ #define amdgpu_psp_check_fw_loading_status(adev, i) (adev)->firmware.funcs->check_fw_loading_status((adev), (i))
+ 
+diff --git a/drivers/gpu/drm/amd/amdgpu/amdgpu_ttm.c b/drivers/gpu/drm/amd/amdgpu/amdgpu_ttm.c
+index 6a9882885c2e..17ebd431396e 100644
+--- a/drivers/gpu/drm/amd/amdgpu/amdgpu_ttm.c
++++ b/drivers/gpu/drm/amd/amdgpu/amdgpu_ttm.c
+@@ -1863,93 +1863,6 @@ static void amdgpu_ssg_fini(struct amdgpu_device *adev)
+ }
+ #endif
+ 
+-/*
+- * Memoy training reservation functions
+- */
+-/**
+- * amdgpu_ttm_training_reserve_vram_fini - free memory training reserved vram
+- *
+- * @adev: amdgpu_device pointer
+- *
+- * free memory training reserved vram if it has been reserved.
+- */
+-static int amdgpu_ttm_training_reserve_vram_fini(struct amdgpu_device *adev)
+-{
+-	int ret = 0;
+-	struct psp_memory_training_context *ctx = &adev->psp.mem_train_ctx;
+-
+-	ctx->init = PSP_MEM_TRAIN_NOT_SUPPORT;
+-	if(ctx->c2p_bo) {
+-		amdgpu_bo_free_kernel(&ctx->c2p_bo, NULL, NULL);
+-		ctx->c2p_bo = NULL;
+-	}
+-	if(ctx->p2c_bo) {
+-		amdgpu_bo_free_kernel(&ctx->p2c_bo, NULL, NULL);
+-		ctx->p2c_bo = NULL;
+-	}
+-
+-	return ret;
+-}
+-
+-/**
+- * amdgpu_ttm_training_reserve_vram_init - create bo vram reservation from memory training
+- *
+- * @adev: amdgpu_device pointer
+- *
+- * create bo vram reservation from memory training.
+- */
+-static int amdgpu_ttm_training_reserve_vram_init(struct amdgpu_device *adev)
+-{
+-	int ret = 0;
+-	struct psp_memory_training_context *ctx = &adev->psp.mem_train_ctx;
+-
+-	memset(ctx, 0, sizeof(*ctx));
+-	if(!adev->fw_vram_usage.mem_train_support) {
+-		DRM_DEBUG("memory training does not support!\n");
+-		return 0;
+-	}
+-
+-	ctx->c2p_train_data_offset = adev->fw_vram_usage.mem_train_fb_loc;
+-	ctx->p2c_train_data_offset = (adev->gmc.mc_vram_size - GDDR6_MEM_TRAINING_OFFSET);
+-	ctx->train_data_size = GDDR6_MEM_TRAINING_DATA_SIZE_IN_BYTES;
+-
+-	DRM_DEBUG("train_data_size:%llx,p2c_train_data_offset:%llx,c2p_train_data_offset:%llx.\n",
+-		  ctx->train_data_size,
+-		  ctx->p2c_train_data_offset,
+-		  ctx->c2p_train_data_offset);
+-
+-	ret = amdgpu_bo_create_kernel_at(adev,
+-					 ctx->p2c_train_data_offset,
+-					 ctx->train_data_size,
+-					 AMDGPU_GEM_DOMAIN_VRAM,
+-					 &ctx->p2c_bo,
+-					 NULL);
+-	if(ret) {
+-		DRM_ERROR("alloc p2c_bo failed(%d)!\n", ret);
+-		ret = -ENOMEM;
+-		goto err_out;
+-	}
+-
+-	ret = amdgpu_bo_create_kernel_at(adev,
+-					 ctx->c2p_train_data_offset,
+-					 ctx->train_data_size,
+-					 AMDGPU_GEM_DOMAIN_VRAM,
+-					 &ctx->c2p_bo,
+-					 NULL);
+-	if(ret) {
+-		DRM_ERROR("alloc c2p_bo failed(%d)!\n", ret);
+-		ret = -ENOMEM;
+-		goto err_out;
+-	}
+-
+-	ctx->init = PSP_MEM_TRAIN_RESERVE_SUCCESS;
+-	return 0;
+-
+-err_out:
+-	amdgpu_ttm_training_reserve_vram_fini(adev);
+-	return ret;
+-}
+-
+ /**
+  * amdgpu_ttm_init - Init the memory management (ttm) as well as various
+  * gtt/vram related fields.
+@@ -2023,14 +1936,6 @@ int amdgpu_ttm_init(struct amdgpu_device *adev)
+ 		return r;
+ 	}
+ 
+-	/*
+-	 *The reserved vram for memory training must be pinned to the specified
+-	 *place on the VRAM, so reserve it early.
+-	 */
+-	r = amdgpu_ttm_training_reserve_vram_init(adev);
+-	if (r)
+-		return r;
+-
+ 	/* allocate memory as required for VGA
+ 	 * This is used for VGA emulation and pre-OS scanout buffers to
+ 	 * avoid display artifacts while transitioning between pre-OS
+@@ -2121,7 +2026,6 @@ void amdgpu_ttm_fini(struct amdgpu_device *adev)
+ 		return;
+ 
+ 	amdgpu_ttm_debugfs_fini(adev);
+-	amdgpu_ttm_training_reserve_vram_fini(adev);
+ 	amdgpu_ttm_fw_reserve_vram_fini(adev);
+ 	if (adev->mman.aper_base_kaddr)
+ 		iounmap(adev->mman.aper_base_kaddr);
+diff --git a/drivers/gpu/drm/amd/amdgpu/psp_v11_0.c b/drivers/gpu/drm/amd/amdgpu/psp_v11_0.c
+index 32651161a9a6..e8e70b74ea5b 100755
+--- a/drivers/gpu/drm/amd/amdgpu/psp_v11_0.c
++++ b/drivers/gpu/drm/amd/amdgpu/psp_v11_0.c
+@@ -204,26 +204,18 @@ static int psp_v11_0_init_microcode(struct psp_context *psp)
+ 	return err;
+ }
+ 
+-static bool psp_v11_0_is_sos_alive(struct psp_context *psp)
+-{
+-	struct amdgpu_device *adev = psp->adev;
+-	uint32_t sol_reg;
+-
+-	sol_reg = RREG32_SOC15(MP0, 0, mmMP0_SMN_C2PMSG_81);
+-
+-	return (sol_reg != 0x0);
+-}
+-
+ static int psp_v11_0_bootloader_load_kdb(struct psp_context *psp)
+ {
+ 	int ret;
+ 	uint32_t psp_gfxdrv_command_reg = 0;
+ 	struct amdgpu_device *adev = psp->adev;
++	uint32_t sol_reg;
+ 
+ 	/* Check tOS sign of life register to confirm sys driver and sOS
+ 	 * are already been loaded.
+ 	 */
+-	if (psp_v11_0_is_sos_alive(psp)) {
++	sol_reg = RREG32_SOC15(MP0, 0, mmMP0_SMN_C2PMSG_81);
++	if (sol_reg) {
+ 		psp->sos_fw_version = RREG32_SOC15(MP0, 0, mmMP0_SMN_C2PMSG_58);
+ 		dev_info(adev->dev, "sos fw version = 0x%x.\n", psp->sos_fw_version);
+ 		return 0;
+@@ -259,11 +251,13 @@ static int psp_v11_0_bootloader_load_sysdrv(struct psp_context *psp)
+ 	int ret;
+ 	uint32_t psp_gfxdrv_command_reg = 0;
+ 	struct amdgpu_device *adev = psp->adev;
++	uint32_t sol_reg;
+ 
+ 	/* Check sOS sign of life register to confirm sys driver and sOS
+ 	 * are already been loaded.
+ 	 */
+-	if (psp_v11_0_is_sos_alive(psp)) {
++	sol_reg = RREG32_SOC15(MP0, 0, mmMP0_SMN_C2PMSG_81);
++	if (sol_reg) {
+ 		psp->sos_fw_version = RREG32_SOC15(MP0, 0, mmMP0_SMN_C2PMSG_58);
+ 		dev_info(adev->dev, "sos fw version = 0x%x.\n", psp->sos_fw_version);
+ 		return 0;
+@@ -301,11 +295,13 @@ static int psp_v11_0_bootloader_load_sos(struct psp_context *psp)
+ 	int ret;
+ 	unsigned int psp_gfxdrv_command_reg = 0;
+ 	struct amdgpu_device *adev = psp->adev;
++	uint32_t sol_reg;
+ 
+ 	/* Check sOS sign of life register to confirm sys driver and sOS
+ 	 * are already been loaded.
+ 	 */
+-	if (psp_v11_0_is_sos_alive(psp))
++	sol_reg = RREG32_SOC15(MP0, 0, mmMP0_SMN_C2PMSG_81);
++	if (sol_reg)
+ 		return 0;
+ 
+ 	/* Wait for bootloader to signify that is ready having bit 31 of C2PMSG_35 set to 1 */
+@@ -900,174 +896,6 @@ static int psp_v11_0_rlc_autoload_start(struct psp_context *psp)
+         return psp_rlc_autoload_start(psp);
+ }
+ 
+-static int psp_v11_0_memory_training_send_msg(struct psp_context *psp, int msg)
+-{
+-	int ret = 0;
+-	int i = 0;
+-	uint32_t data_32 = 0;
+-	struct amdgpu_device *adev = psp->adev;
+-
+-	data_32 = (psp->mem_train_ctx.c2p_train_data_offset >> 20);
+-	WREG32_SOC15(MP0, 0, mmMP0_SMN_C2PMSG_36, data_32);
+-	WREG32_SOC15(MP0, 0, mmMP0_SMN_C2PMSG_35, msg);
+-
+-	/*max 5s*/
+-	while (i < 50) {
+-		ret = psp_wait_for(psp, SOC15_REG_OFFSET(MP0, 0, mmMP0_SMN_C2PMSG_35),
+-				   0x80000000, 0x80000000, false);
+-		if (ret == 0)
+-			break;
+-		i++;
+-	}
+-	DRM_DEBUG("%s training %s, cost %d * %dms.\n",
+-		  (msg == PSP_BL__DRAM_SHORT_TRAIN) ? "short" : "long",
+-		  (ret == 0) ? "succeed" : "failed",
+-		  i, adev->usec_timeout/1000);
+-	return ret;
+-}
+-
+-static int psp_v11_0_memory_training_fini(struct psp_context *psp)
+-{
+-	int ret = 0;
+-	struct psp_memory_training_context *ctx = &psp->mem_train_ctx;
+-
+-	ctx->init = PSP_MEM_TRAIN_NOT_SUPPORT;
+-	if(ctx->sys_cache) {
+-		kfree(ctx->sys_cache);
+-		ctx->sys_cache = NULL;
+-	}
+-
+-	return ret;
+-}
+-
+-static int psp_v11_0_memory_training_init(struct psp_context *psp)
+-{
+-	int ret = 0;
+-	struct psp_memory_training_context *ctx = &psp->mem_train_ctx;
+-
+-	if(ctx->init != PSP_MEM_TRAIN_RESERVE_SUCCESS) {
+-		DRM_DEBUG("memory training does not support!\n");
+-		return 0;
+-	}
+-
+-	ctx->sys_cache = kzalloc(ctx->train_data_size, GFP_KERNEL);
+-	if(ctx->sys_cache == NULL) {
+-		DRM_ERROR("alloc mem_train_ctx.sys_cache failed(%d)!\n", ret);
+-		ret = -ENOMEM;
+-		goto err_out;
+-	}
+-
+-	DRM_DEBUG("train_data_size:%llx,p2c_train_data_offset:%llx,c2p_train_data_offset:%llx.\n",
+-		  ctx->train_data_size,
+-		  ctx->p2c_train_data_offset,
+-		  ctx->c2p_train_data_offset);
+-	ctx->init = PSP_MEM_TRAIN_INIT_SUCCESS;
+-	return 0;
+-
+-err_out:
+-	psp_v11_0_memory_training_fini(psp);
+-	return ret;
+-}
+-
+-/*
+- * save and restore proces
+- */
+-static int psp_v11_0_memory_training(struct psp_context *psp, uint32_t ops)
+-{
+-	int ret = 0;
+-	uint32_t p2c_header[4];
+-	struct psp_memory_training_context *ctx = &psp->mem_train_ctx;
+-	uint32_t *pcache = (uint32_t*)ctx->sys_cache;
+-
+-	if (ctx->init == PSP_MEM_TRAIN_NOT_SUPPORT) {
+-		DRM_DEBUG("Memory training does not support.\n");
+-		return 0;
+-	} else if (ctx->init != PSP_MEM_TRAIN_INIT_SUCCESS) {
+-		DRM_ERROR("Please check initialization failure.\n");
+-		return -EINVAL;
+-	}
+-
+-	if (psp_v11_0_is_sos_alive(psp)) {
+-		DRM_DEBUG("sos is alive, skip memory training.\n");
+-		return 0;
+-	}
+-
+-	ret = amdgpu_device_vram_access(psp->adev, ctx->p2c_train_data_offset, p2c_header, sizeof(p2c_header), false);
+-	if (ret) {
+-		DRM_ERROR("read p2c header failed.\n");
+-		return ret;
+-	}
+-	DRM_DEBUG("sys_cache[%08x,%08x,%08x,%08x] p2c_header[%08x,%08x,%08x,%08x]\n",
+-		  pcache[0], pcache[1], pcache[2], pcache[3],
+-		  p2c_header[0], p2c_header[1], p2c_header[2], p2c_header[3]);
+-
+-	if (ops & PSP_MEM_TRAIN_SEND_SHORT_MSG) {
+-		DRM_DEBUG("short training depend on restore.\n");
+-		ops |= PSP_MEM_TRAIN_RESTORE;
+-	}
+-
+-	if ((ops & PSP_MEM_TRAIN_RESTORE) &&
+-	    pcache[0] != MEM_TRAIN_SYSTEM_SIGNATURE) {
+-		DRM_DEBUG("sys_cache[0] is invalid, restore depend on save.\n");
+-		ops |= PSP_MEM_TRAIN_SAVE;
+-	}
+-
+-	if (p2c_header[0] == MEM_TRAIN_SYSTEM_SIGNATURE &&
+-	    !(pcache[0] == MEM_TRAIN_SYSTEM_SIGNATURE &&
+-	      pcache[3] == p2c_header[3])) {
+-		DRM_DEBUG("sys_cache is invalid or out-of-date, need save training data to sys_cache.\n");
+-		ops |= PSP_MEM_TRAIN_SAVE;
+-	}
+-
+-	if ((ops & PSP_MEM_TRAIN_SAVE) &&
+-	    p2c_header[0] != MEM_TRAIN_SYSTEM_SIGNATURE) {
+-		DRM_DEBUG("p2c_header[0] is invalid, save depend on long training.\n");
+-		ops |= PSP_MEM_TRAIN_SEND_LONG_MSG;
+-	}
+-
+-	if (ops & PSP_MEM_TRAIN_SEND_LONG_MSG) {
+-		ops &= ~PSP_MEM_TRAIN_SEND_SHORT_MSG;
+-		ops |= PSP_MEM_TRAIN_SAVE;
+-	}
+-
+-	DRM_DEBUG("mem training ops:%x.\n", ops);
+-
+-	if (ops & PSP_MEM_TRAIN_SEND_LONG_MSG) {
+-		ret = psp_v11_0_memory_training_send_msg(psp, PSP_BL__DRAM_LONG_TRAIN);
+-		if (ret) {
+-			DRM_ERROR("send long training msg failed.\n");
+-			return ret;
+-		}
+-	}
+-
+-	if (ops & PSP_MEM_TRAIN_SAVE) {
+-		ret = amdgpu_device_vram_access(psp->adev, ctx->p2c_train_data_offset, ctx->sys_cache, ctx->train_data_size, false);
+-		if (ret) {
+-			DRM_ERROR("read training data from vram failed.\n");
+-			return ret;
+-		}
+-	}
+-
+-	if (ops & PSP_MEM_TRAIN_RESTORE) {
+-		ret = amdgpu_device_vram_access(psp->adev, ctx->c2p_train_data_offset, ctx->sys_cache, ctx->train_data_size, true);
+-		if (ret) {
+-			DRM_ERROR("write training data to vram failed.\n");
+-			return ret;
+-		}
+-	}
+-
+-	if (ops & PSP_MEM_TRAIN_SEND_SHORT_MSG) {
+-		ret = psp_v11_0_memory_training_send_msg(psp, (amdgpu_force_long_training > 0) ?
+-							 PSP_BL__DRAM_LONG_TRAIN : PSP_BL__DRAM_SHORT_TRAIN);
+-		if (ret) {
+-			DRM_ERROR("send training msg failed.\n");
+-			return ret;
+-		}
+-	}
+-	ctx->training_cnt++;
+-	return ret;
+-}
+-
+ static const struct psp_funcs psp_v11_0_funcs = {
+ 	.init_microcode = psp_v11_0_init_microcode,
+ 	.bootloader_load_kdb = psp_v11_0_bootloader_load_kdb,
+@@ -1088,9 +916,6 @@ static const struct psp_funcs psp_v11_0_funcs = {
+ 	.ras_trigger_error = psp_v11_0_ras_trigger_error,
+ 	.ras_cure_posion = psp_v11_0_ras_cure_posion,
+ 	.rlc_autoload_start = psp_v11_0_rlc_autoload_start,
+-	.mem_training_init = psp_v11_0_memory_training_init,
+-	.mem_training_fini = psp_v11_0_memory_training_fini,
+-	.mem_training = psp_v11_0_memory_training,
+ };
+ 
+ void psp_v11_0_set_psp_funcs(struct psp_context *psp)
+diff --git a/drivers/gpu/drm/amd/include/atomfirmware.h b/drivers/gpu/drm/amd/include/atomfirmware.h
+index 5196b94097f5..e88541d67aa0 100644
+--- a/drivers/gpu/drm/amd/include/atomfirmware.h
++++ b/drivers/gpu/drm/amd/include/atomfirmware.h
+@@ -498,7 +498,6 @@ enum atombios_firmware_capability
+   ATOM_FIRMWARE_CAP_HWEMU_ENABLE  = 0x00000080,
+   ATOM_FIRMWARE_CAP_HWEMU_UMC_CFG = 0x00000100,
+   ATOM_FIRMWARE_CAP_SRAM_ECC      = 0x00000200,
+-  ATOM_FIRMWARE_CAP_ENABLE_2STAGE_BIST_TRAINING  = 0x00000400,
+ };
+ 
+ enum atom_cooling_solution_id{
+@@ -672,20 +671,6 @@ struct vram_usagebyfirmware_v2_1
+   uint16_t  used_by_driver_in_kb; 
+ };
+ 
+-/* This is part of vram_usagebyfirmware_v2_1 */
+-struct vram_reserve_block
+-{
+-    uint32_t  start_address_in_kb;
+-    uint16_t  used_by_firmware_in_kb;
+-    uint16_t  used_by_driver_in_kb;
+-};
+-
+-/* Definitions for constance */
+-enum atomfirmware_internal_constants {
+-    ONE_K	= 0x400,
+-    ONE_MEG	= 0x100000,
+-    ONE_G	= 0x40000000,
+-};
+ 
+ /* 
+   ***************************************************************************
+-- 
+2.17.1
+

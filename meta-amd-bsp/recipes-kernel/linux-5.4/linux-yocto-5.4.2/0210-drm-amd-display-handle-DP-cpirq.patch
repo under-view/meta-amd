@@ -1,0 +1,63 @@
+From a91f1c077a8d90322b17bd4e3a50ef146849055d Mon Sep 17 00:00:00 2001
+From: Bhawanpreet Lakha <Bhawanpreet.Lakha@amd.com>
+Date: Mon, 10 Jun 2019 16:18:38 -0400
+Subject: [PATCH 0210/1453] drm/amd/display: handle DP cpirq
+
+[Why]
+This is needed for DP as DP can send us info using irq.
+
+[How]
+Check if irq bit is set on short pulse and call the
+function that handles cpirq in amdgpu_dm_hdcp
+
+Signed-off-by: Bhawanpreet Lakha <Bhawanpreet.Lakha@amd.com>
+Reviewed-by: Harry Wentland <harry.wentland@amd.com>
+Signed-off-by: Alex Deucher <alexander.deucher@amd.com>
+---
+ drivers/gpu/drm/amd/display/amdgpu_dm/amdgpu_dm.c | 15 +++++++++++++++
+ 1 file changed, 15 insertions(+)
+
+diff --git a/drivers/gpu/drm/amd/display/amdgpu_dm/amdgpu_dm.c b/drivers/gpu/drm/amd/display/amdgpu_dm/amdgpu_dm.c
+index 7e2fbd91d57c..8177933afcba 100644
+--- a/drivers/gpu/drm/amd/display/amdgpu_dm/amdgpu_dm.c
++++ b/drivers/gpu/drm/amd/display/amdgpu_dm/amdgpu_dm.c
+@@ -1627,6 +1627,12 @@ static void handle_hpd_rx_irq(void *param)
+ 	struct dc_link *dc_link = aconnector->dc_link;
+ 	bool is_mst_root_connector = aconnector->mst_mgr.mst_state;
+ 	enum dc_connection_type new_connection_type = dc_connection_none;
++#ifdef CONFIG_DRM_AMD_DC_HDCP
++	union hpd_irq_data hpd_irq_data;
++	struct amdgpu_device *adev = dev->dev_private;
++
++	memset(&hpd_irq_data, 0, sizeof(hpd_irq_data));
++#endif
+ 
+ 	/*
+ 	 * TODO:Temporary add mutex to protect hpd interrupt not have a gpio
+@@ -1636,7 +1642,12 @@ static void handle_hpd_rx_irq(void *param)
+ 	if (dc_link->type != dc_connection_mst_branch)
+ 		mutex_lock(&aconnector->hpd_lock);
+ 
++
++#ifdef CONFIG_DRM_AMD_DC_HDCP
++	if (dc_link_handle_hpd_rx_irq(dc_link, &hpd_irq_data, NULL) &&
++#else
+ 	if (dc_link_handle_hpd_rx_irq(dc_link, NULL, NULL) &&
++#endif
+ 			!is_mst_root_connector) {
+ 		/* Downstream Port status changed. */
+ 		if (!dc_link_detect_sink(dc_link, &new_connection_type))
+@@ -1671,6 +1682,10 @@ static void handle_hpd_rx_irq(void *param)
+ 			drm_kms_helper_hotplug_event(dev);
+ 		}
+ 	}
++#ifdef CONFIG_DRM_AMD_DC_HDCP
++	if (hpd_irq_data.bytes.device_service_irq.bits.CP_IRQ)
++		hdcp_handle_cpirq(adev->dm.hdcp_workqueue,  aconnector->base.index);
++#endif
+ 	if ((dc_link->cur_link_settings.lane_count != LANE_COUNT_UNKNOWN) ||
+ 	    (dc_link->type == dc_connection_mst_branch))
+ 		dm_handle_hpd_rx_irq(aconnector);
+-- 
+2.17.1
+

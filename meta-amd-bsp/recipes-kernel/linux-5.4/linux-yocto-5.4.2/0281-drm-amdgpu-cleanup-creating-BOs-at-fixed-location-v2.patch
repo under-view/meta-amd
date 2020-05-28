@@ -1,0 +1,79 @@
+From 0da79af68c81fac8e3ea6f18dbb74d85cd5642da Mon Sep 17 00:00:00 2001
+From: =?UTF-8?q?Christian=20K=C3=B6nig?= <christian.koenig@amd.com>
+Date: Fri, 13 Sep 2019 13:43:15 +0200
+Subject: [PATCH 0281/1453] drm/amdgpu: cleanup creating BOs at fixed location
+ (v2)
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+The placement is something TTM/BO internal and the RAS code should
+avoid touching that directly.
+
+Add a helper to create a BO at a fixed location and use that instead.
+
+v2: squash in fixes (Alex)
+
+Signed-off-by: Christian König <christian.koenig@amd.com>
+Reviewed-by: Guchun Chen <guchun.chen@amd.com>
+Reviewed-by: Alex Deucher <alexander.deucher@amd.com>
+Signed-off-by: Alex Deucher <alexander.deucher@amd.com>
+---
+ drivers/gpu/drm/amd/amdgpu/amdgpu_object.c | 4 ++--
+ drivers/gpu/drm/amd/amdgpu/amdgpu_ras.c    | 5 +++--
+ 2 files changed, 5 insertions(+), 4 deletions(-)
+
+diff --git a/drivers/gpu/drm/amd/amdgpu/amdgpu_object.c b/drivers/gpu/drm/amd/amdgpu/amdgpu_object.c
+index 0acf87b73ca3..086e1a70c049 100644
+--- a/drivers/gpu/drm/amd/amdgpu/amdgpu_object.c
++++ b/drivers/gpu/drm/amd/amdgpu/amdgpu_object.c
+@@ -364,7 +364,7 @@ int amdgpu_bo_create_kernel(struct amdgpu_device *adev,
+ }
+ 
+ /**
+- * amdgpu_bo_create_kernel - create BO for kernel use at specific location
++ * amdgpu_bo_create_kernel_at - create BO for kernel use at specific location
+  *
+  * @adev: amdgpu device object
+  * @offset: offset of the BO
+@@ -387,7 +387,7 @@ int amdgpu_bo_create_kernel_at(struct amdgpu_device *adev,
+ 	int r;
+ 
+ 	offset &= PAGE_MASK;
+-	size = ALIGN(offset, PAGE_SIZE);
++	size = ALIGN(size, PAGE_SIZE);
+ 
+ 	r = amdgpu_bo_create_reserved(adev, size, PAGE_SIZE, domain, bo_ptr,
+ 				      NULL, NULL);
+diff --git a/drivers/gpu/drm/amd/amdgpu/amdgpu_ras.c b/drivers/gpu/drm/amd/amdgpu/amdgpu_ras.c
+index 6efccaa299f9..bcc9bfafbd2e 100644
+--- a/drivers/gpu/drm/amd/amdgpu/amdgpu_ras.c
++++ b/drivers/gpu/drm/amd/amdgpu/amdgpu_ras.c
+@@ -1435,7 +1435,7 @@ int amdgpu_ras_reserve_bad_pages(struct amdgpu_device *adev)
+ 	struct amdgpu_ras *con = amdgpu_ras_get_context(adev);
+ 	struct ras_err_handler_data *data;
+ 	uint64_t bp;
+-	struct amdgpu_bo *bo;
++	struct amdgpu_bo *bo = NULL;
+ 	int i, ret = 0;
+ 
+ 	if (!con || !con->eh_data)
+@@ -1449,13 +1449,14 @@ int amdgpu_ras_reserve_bad_pages(struct amdgpu_device *adev)
+ 	for (i = data->last_reserved; i < data->count; i++) {
+ 		bp = data->bps[i].retired_page;
+ 
+-		if (amdgpu_bo_create_kernel_at(adev, bp << PAGE_SIZE, PAGE_SIZE,
++		if (amdgpu_bo_create_kernel_at(adev, bp << PAGE_SHIFT, PAGE_SIZE,
+ 					       AMDGPU_GEM_DOMAIN_VRAM,
+ 					       &bo, NULL))
+ 			DRM_ERROR("RAS ERROR: reserve vram %llx fail\n", bp);
+ 
+ 		data->bps_bo[i] = bo;
+ 		data->last_reserved = i + 1;
++		bo = NULL;
+ 	}
+ 
+ 	/* continue to save bad pages to eeprom even reesrve_vram fails */
+-- 
+2.17.1
+

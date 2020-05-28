@@ -1,0 +1,117 @@
+From 984c52178eb523720ce2a83f1395237f07584fc3 Mon Sep 17 00:00:00 2001
+From: Yong Zhao <Yong.Zhao@amd.com>
+Date: Tue, 15 Jan 2019 13:16:34 -0500
+Subject: [PATCH 0702/1453] drm/amdkfd: Use better name to indicate the offset
+ is in dwords
+
+The doorbell offset could mean the byte offset or the dword offset,
+and the 0 offset place is also different, sometimes the start of PCI
+doorbell bar or the start of process doorbell pages. Use better name
+to avoid confusion.
+
+Change-Id: I75da23bba90231762cf58da3170f5bb77ece45ed
+Signed-off-by: Yong Zhao <Yong.Zhao@amd.com>
+Reviewed-by: Felix Kuehling <Felix.Kuehling@amd.com>
+---
+ .../gpu/drm/amd/amdkfd/kfd_device_queue_manager.c  |  2 +-
+ drivers/gpu/drm/amd/amdkfd/kfd_doorbell.c          | 14 +++++++-------
+ drivers/gpu/drm/amd/amdkfd/kfd_priv.h              |  9 +++++----
+ 3 files changed, 13 insertions(+), 12 deletions(-)
+
+diff --git a/drivers/gpu/drm/amd/amdkfd/kfd_device_queue_manager.c b/drivers/gpu/drm/amd/amdkfd/kfd_device_queue_manager.c
+index faddb3c99504..89c17c8e2070 100755
+--- a/drivers/gpu/drm/amd/amdkfd/kfd_device_queue_manager.c
++++ b/drivers/gpu/drm/amd/amdkfd/kfd_device_queue_manager.c
+@@ -199,7 +199,7 @@ static int allocate_doorbell(struct qcm_process_device *qpd, struct queue *q)
+ 	}
+ 
+ 	q->properties.doorbell_off =
+-		kfd_doorbell_id_to_offset(dev, q->process,
++		kfd_get_doorbell_dw_offset_in_bar(dev, q->process,
+ 					  q->doorbell_id);
+ 
+ 	return 0;
+diff --git a/drivers/gpu/drm/amd/amdkfd/kfd_doorbell.c b/drivers/gpu/drm/amd/amdkfd/kfd_doorbell.c
+index 6ad0a7bc5175..83d48ece0d37 100755
+--- a/drivers/gpu/drm/amd/amdkfd/kfd_doorbell.c
++++ b/drivers/gpu/drm/amd/amdkfd/kfd_doorbell.c
+@@ -91,7 +91,7 @@ int kfd_doorbell_init(struct kfd_dev *kfd)
+ 	kfd->doorbell_base = kfd->shared_resources.doorbell_physical_address +
+ 				doorbell_start_offset;
+ 
+-	kfd->doorbell_id_offset = doorbell_start_offset / sizeof(u32);
++	kfd->doorbell_base_dw_offset = doorbell_start_offset / sizeof(u32);
+ 
+ 	kfd->doorbell_kernel_ptr = ioremap(kfd->doorbell_base,
+ 					   kfd_doorbell_process_slice(kfd));
+@@ -103,8 +103,8 @@ int kfd_doorbell_init(struct kfd_dev *kfd)
+ 	pr_debug("doorbell base           == 0x%08lX\n",
+ 			(uintptr_t)kfd->doorbell_base);
+ 
+-	pr_debug("doorbell_id_offset      == 0x%08lX\n",
+-			kfd->doorbell_id_offset);
++	pr_debug("doorbell_base_dw_offset      == 0x%08lX\n",
++			kfd->doorbell_base_dw_offset);
+ 
+ 	pr_debug("doorbell_process_limit  == 0x%08lX\n",
+ 			doorbell_process_limit);
+@@ -323,7 +323,7 @@ void __iomem *kfd_get_kernel_doorbell(struct kfd_dev *kfd,
+ 	 * Calculating the kernel doorbell offset using the first
+ 	 * doorbell page.
+ 	 */
+-	*doorbell_off = kfd->doorbell_id_offset + inx;
++	*doorbell_off = kfd->doorbell_base_dw_offset + inx;
+ 
+ 	pr_debug("Get kernel queue doorbell\n"
+ 			"     doorbell offset   == 0x%08X\n"
+@@ -363,17 +363,17 @@ void write_kernel_doorbell64(void __iomem *db, u64 value)
+ 	}
+ }
+ 
+-unsigned int kfd_doorbell_id_to_offset(struct kfd_dev *kfd,
++unsigned int kfd_get_doorbell_dw_offset_in_bar(struct kfd_dev *kfd,
+ 					struct kfd_process *process,
+ 					unsigned int doorbell_id)
+ {
+ 	/*
+-	 * doorbell_id_offset accounts for doorbells taken by KGD.
++	 * doorbell_base_dw_offset accounts for doorbells taken by KGD.
+ 	 * index * kfd_doorbell_process_slice/sizeof(u32) adjusts to
+ 	 * the process's doorbells. The offset returned is in dword
+ 	 * units regardless of the ASIC-dependent doorbell size.
+ 	 */
+-	return kfd->doorbell_id_offset +
++	return kfd->doorbell_base_dw_offset +
+ 		process->doorbell_index
+ 		* kfd_doorbell_process_slice(kfd) / sizeof(u32) +
+ 		doorbell_id * kfd->device_info->doorbell_size / sizeof(u32);
+diff --git a/drivers/gpu/drm/amd/amdkfd/kfd_priv.h b/drivers/gpu/drm/amd/amdkfd/kfd_priv.h
+index 8ab29c5d9879..cf369b92202d 100755
+--- a/drivers/gpu/drm/amd/amdkfd/kfd_priv.h
++++ b/drivers/gpu/drm/amd/amdkfd/kfd_priv.h
+@@ -247,9 +247,10 @@ struct kfd_dev {
+ 					 * KFD. It is aligned for mapping
+ 					 * into user mode
+ 					 */
+-	size_t doorbell_id_offset;	/* Doorbell offset (from KFD doorbell
+-					 * to HW doorbell, GFX reserved some
+-					 * at the start)
++	size_t doorbell_base_dw_offset;	/* Offset from the start of the PCI
++					 * doorbell BAR to the first KFD
++					 * doorbell in dwords. GFX reserves
++					 * the segment before this offset.
+ 					 */
+ 	u32 __iomem *doorbell_kernel_ptr; /* This is a pointer for a doorbells
+ 					   * page used by kernel queue
+@@ -956,7 +957,7 @@ void kfd_release_kernel_doorbell(struct kfd_dev *kfd, u32 __iomem *db_addr);
+ u32 read_kernel_doorbell(u32 __iomem *db);
+ void write_kernel_doorbell(void __iomem *db, u32 value);
+ void write_kernel_doorbell64(void __iomem *db, u64 value);
+-unsigned int kfd_doorbell_id_to_offset(struct kfd_dev *kfd,
++unsigned int kfd_get_doorbell_dw_offset_in_bar(struct kfd_dev *kfd,
+ 					struct kfd_process *process,
+ 					unsigned int doorbell_id);
+ phys_addr_t kfd_get_process_doorbells(struct kfd_dev *dev,
+-- 
+2.17.1
+

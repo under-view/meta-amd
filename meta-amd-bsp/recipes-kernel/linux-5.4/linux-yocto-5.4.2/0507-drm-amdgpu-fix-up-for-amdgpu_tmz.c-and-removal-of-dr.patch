@@ -1,0 +1,31 @@
+From 3c356f575a2acfc7ed96f75b166d314fce939f71 Mon Sep 17 00:00:00 2001
+From: Stephen Rothwell <sfr@canb.auug.org.au>
+Date: Wed, 16 Oct 2019 11:22:07 +1100
+Subject: [PATCH 0507/1453] drm/amdgpu: fix up for amdgpu_tmz.c and removal of
+ drm/drmP.h
+
+Signed-off-by: Stephen Rothwell <sfr@canb.auug.org.au>
+Signed-off-by: Alex Deucher <alexander.deucher@amd.com>
+---
+ drivers/gpu/drm/amd/amdgpu/amdgpu_tmz.c | 5 ++++-
+ 1 file changed, 4 insertions(+), 1 deletion(-)
+
+diff --git a/drivers/gpu/drm/amd/amdgpu/amdgpu_tmz.c b/drivers/gpu/drm/amd/amdgpu/amdgpu_tmz.c
+index 14a55003dd81..823527a0fa47 100644
+--- a/drivers/gpu/drm/amd/amdgpu/amdgpu_tmz.c
++++ b/drivers/gpu/drm/amd/amdgpu/amdgpu_tmz.c
+@@ -20,7 +20,10 @@
+  * OTHER DEALINGS IN THE SOFTWARE.
+  */
+ 
+-#include <drm/drmP.h>
++#include <linux/device.h>
++
++#include <drm/amd_asic_type.h>
++
+ #include "amdgpu.h"
+ #include "amdgpu_tmz.h"
+ 
+-- 
+2.17.1
+

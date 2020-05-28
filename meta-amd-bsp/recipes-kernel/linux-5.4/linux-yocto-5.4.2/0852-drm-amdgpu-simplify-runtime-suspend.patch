@@ -1,0 +1,76 @@
+From ff6d1e1c0c387abe1dd4300523eacafe4c55b0a3 Mon Sep 17 00:00:00 2001
+From: Alex Deucher <alexander.deucher@amd.com>
+Date: Wed, 20 Nov 2019 14:20:32 -0500
+Subject: [PATCH 0852/1453] drm/amdgpu: simplify runtime suspend
+
+In the standard _PR3 case, the pci core handles the pci state.
+The driver only needs to handle it in the legacy ATPX case.
+
+This may fix issues with runtime suspend/resume on certain
+hybrid graphics laptops.
+
+Change-Id: Ifa10d4905a885132c9f8d1168eac5bbd550d1ceb
+Acked-by: Evan Quan <evan.quan@amd.com>
+Signed-off-by: Alex Deucher <alexander.deucher@amd.com>
+---
+ drivers/gpu/drm/amd/amdgpu/amdgpu_drv.c | 35 ++++++++++++++++---------
+ 1 file changed, 22 insertions(+), 13 deletions(-)
+
+diff --git a/drivers/gpu/drm/amd/amdgpu/amdgpu_drv.c b/drivers/gpu/drm/amd/amdgpu/amdgpu_drv.c
+index eba60573c0da..7ff96644b57c 100755
+--- a/drivers/gpu/drm/amd/amdgpu/amdgpu_drv.c
++++ b/drivers/gpu/drm/amd/amdgpu/amdgpu_drv.c
+@@ -1261,13 +1261,17 @@ static int amdgpu_pmops_runtime_suspend(struct device *dev)
+ 
+ 	ret = amdgpu_device_suspend(drm_dev, false, false);
+ 	if (amdgpu_device_supports_boco(drm_dev)) {
+-		pci_save_state(pdev);
+-		pci_disable_device(pdev);
+-		pci_ignore_hotplug(pdev);
+-		if (amdgpu_is_atpx_hybrid())
++		/* Only need to handle PCI state in the driver for ATPX
++		 * PCI core handles it for _PR3.
++		 */
++		if (amdgpu_is_atpx_hybrid()) {
++			pci_ignore_hotplug(pdev);
++		} else {
++			pci_save_state(pdev);
++			pci_disable_device(pdev);
++			pci_ignore_hotplug(pdev);
+ 			pci_set_power_state(pdev, PCI_D3cold);
+-		else if (!amdgpu_has_atpx_dgpu_power_cntl())
+-			pci_set_power_state(pdev, PCI_D3hot);
++		}
+ 		drm_dev->switch_power_state = DRM_SWITCH_POWER_DYNAMIC_OFF;
+ 	} else if (amdgpu_device_supports_baco(drm_dev)) {
+ 		amdgpu_device_baco_enter(drm_dev);
+@@ -1289,14 +1293,19 @@ static int amdgpu_pmops_runtime_resume(struct device *dev)
+ 	if (amdgpu_device_supports_boco(drm_dev)) {
+ 		drm_dev->switch_power_state = DRM_SWITCH_POWER_CHANGING;
+ 
+-		if (amdgpu_is_atpx_hybrid() ||
+-		    !amdgpu_has_atpx_dgpu_power_cntl())
++		/* Only need to handle PCI state in the driver for ATPX
++		 * PCI core handles it for _PR3.
++		 */
++		if (amdgpu_is_atpx_hybrid()) {
++			pci_set_master(pdev);
++		} else {
+ 			pci_set_power_state(pdev, PCI_D0);
+-		pci_restore_state(pdev);
+-		ret = pci_enable_device(pdev);
+-		if (ret)
+-			return ret;
+-		pci_set_master(pdev);
++			pci_restore_state(pdev);
++			ret = pci_enable_device(pdev);
++			if (ret)
++				return ret;
++			pci_set_master(pdev);
++		}
+ 	} else if (amdgpu_device_supports_baco(drm_dev)) {
+ 		amdgpu_device_baco_exit(drm_dev);
+ 	}
+-- 
+2.17.1
+

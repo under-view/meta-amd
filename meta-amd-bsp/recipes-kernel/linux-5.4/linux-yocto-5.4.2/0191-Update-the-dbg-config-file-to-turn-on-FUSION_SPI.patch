@@ -1,0 +1,45 @@
+From 9c97aa4bf88d57aa9280acf1fa29e8a3bcd33610 Mon Sep 17 00:00:00 2001
+From: Yong Zhao <Yong.Zhao@amd.com>
+Date: Tue, 17 Sep 2019 19:47:15 -0400
+Subject: [PATCH 0191/1453] Update the dbg config file to turn on FUSION_SPI
+
+This driver is needed on emulators, otherwise the file system won't be
+mounted during system bootup.
+
+Change-Id: I7ad2a4c0ea773ddd15741789bec816df49042c01
+Signed-off-by: Yong Zhao <Yong.Zhao@amd.com>
+---
+ arch/x86/configs/rock-dbg_defconfig | 10 +++++++++-
+ 1 file changed, 9 insertions(+), 1 deletion(-)
+
+diff --git a/arch/x86/configs/rock-dbg_defconfig b/arch/x86/configs/rock-dbg_defconfig
+index 9432c037d6a2..92b27f19aede 100644
+--- a/arch/x86/configs/rock-dbg_defconfig
++++ b/arch/x86/configs/rock-dbg_defconfig
+@@ -1890,7 +1890,12 @@ CONFIG_DM_ZERO=y
+ # CONFIG_DM_LOG_WRITES is not set
+ # CONFIG_DM_INTEGRITY is not set
+ # CONFIG_TARGET_CORE is not set
+-# CONFIG_FUSION is not set
++CONFIG_FUSION=y
++CONFIG_FUSION_SPI=y
++# CONFIG_FUSION_SAS is not set
++CONFIG_FUSION_MAX_SGE=128
++# CONFIG_FUSION_CTL is not set
++# CONFIG_FUSION_LOGGING is not set
+ 
+ #
+ # IEEE 1394 (FireWire) support
+@@ -3004,6 +3009,9 @@ CONFIG_DRM_AMDGPU_USERPTR=y
+ #
+ CONFIG_DRM_AMD_DC=y
+ CONFIG_DRM_AMD_DC_DCN1_0=y
++CONFIG_DRM_AMD_DC_DCN2_0=y
++# CONFIG_DRM_AMD_DC_DCN2_1 is not set
++CONFIG_DRM_AMD_DC_DSC_SUPPORT=y
+ # CONFIG_DEBUG_KERNEL_DC is not set
+ # end of Display Engine Configuration
+ 
+-- 
+2.17.1
+

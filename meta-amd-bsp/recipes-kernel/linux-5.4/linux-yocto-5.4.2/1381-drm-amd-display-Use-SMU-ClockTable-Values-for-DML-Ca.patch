@@ -1,0 +1,40 @@
+From 7346347f43b794729dfc1445e05ebce5566852cc Mon Sep 17 00:00:00 2001
+From: Sung Lee <sung.lee@amd.com>
+Date: Thu, 19 Dec 2019 11:37:49 -0500
+Subject: [PATCH 1381/1453] drm/amd/display: Use SMU ClockTable Values for DML
+ Calculations
+
+[Why]
+DML Initialization was previously done on dcn21_resource initialization.
+This meant that DML soc struct was populated with hardcoded values.
+
+[How]
+Move DML initialization to after updating bounding box, to use clock table
+values from SMU.
+
+Signed-off-by: Sung Lee <sung.lee@amd.com>
+Reviewed-by: Tony Cheng <Tony.Cheng@amd.com>
+Acked-by: Harry Wentland <harry.wentland@amd.com>
+Acked-by: Rodrigo Siqueira <Rodrigo.Siqueira@amd.com>
+---
+ drivers/gpu/drm/amd/display/dc/dcn21/dcn21_resource.c | 4 ++++
+ 1 file changed, 4 insertions(+)
+
+diff --git a/drivers/gpu/drm/amd/display/dc/dcn21/dcn21_resource.c b/drivers/gpu/drm/amd/display/dc/dcn21/dcn21_resource.c
+index 99c2fd0601a3..4dcaa4e3b39b 100755
+--- a/drivers/gpu/drm/amd/display/dc/dcn21/dcn21_resource.c
++++ b/drivers/gpu/drm/amd/display/dc/dcn21/dcn21_resource.c
+@@ -1365,6 +1365,10 @@ static void update_bw_bounding_box(struct dc *dc, struct clk_bw_params *bw_param
+ 	}
+ 	dcn2_1_soc.clock_limits[i] = dcn2_1_soc.clock_limits[i - 1];
+ 	dcn2_1_soc.num_states = i;
++
++	// diags does not retrieve proper values from SMU, do not update DML instance for diags
++	if (!IS_FPGA_MAXIMUS_DC(dc->ctx->dce_environment) && !IS_DIAG_DC(dc->ctx->dce_environment))
++		dml_init_instance(&dc->dml, &dcn2_1_soc, &dcn2_1_ip, DML_PROJECT_DCN21);
+ }
+ 
+ /* Temporary Place holder until we can get them from fuse */
+-- 
+2.17.1
+

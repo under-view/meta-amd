@@ -1,0 +1,28 @@
+From 2c64c0c9106b0497d41e0ed031286ff732014fe8 Mon Sep 17 00:00:00 2001
+From: "Stanley.Yang" <Stanley.Yang@amd.com>
+Date: Wed, 18 Dec 2019 17:02:29 +0800
+Subject: [PATCH 1107/1453] drm/amdkcl: fix a typo
+
+Change-Id: Ia9deaf54269755fcf52f3ee08139414f74357366
+Signed-off-by: Stanley.Yang <Stanley.Yang@amd.com>
+Reviewed-by: Flora Cui <flora.cui@amd.com>
+---
+ drivers/gpu/drm/amd/display/dc/core/dc_link.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/drivers/gpu/drm/amd/display/dc/core/dc_link.c b/drivers/gpu/drm/amd/display/dc/core/dc_link.c
+index 4ef2e27657e0..0591b6c92998 100755
+--- a/drivers/gpu/drm/amd/display/dc/core/dc_link.c
++++ b/drivers/gpu/drm/amd/display/dc/core/dc_link.c
+@@ -2054,7 +2054,7 @@ static void disable_link(struct dc_link *link, enum signal_type signal)
+ 			dp_disable_link_phy(link, signal);
+ 		else
+ 			dp_disable_link_phy_mst(link, signal);
+-#if CONFIG_DRM_AMD_DC_DSC_SUPPORT
++#ifdef CONFIG_DRM_AMD_DC_DSC_SUPPORT
+ 
+ 		if (dc_is_dp_sst_signal(signal) ||
+ 				link->mst_stream_alloc_table.stream_count == 0) {
+-- 
+2.17.1
+

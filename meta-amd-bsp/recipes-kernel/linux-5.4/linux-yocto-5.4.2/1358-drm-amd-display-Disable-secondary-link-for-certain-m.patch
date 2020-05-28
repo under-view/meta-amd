@@ -1,0 +1,83 @@
+From b767540db12d1794974362f1e9b10a88aec02b58 Mon Sep 17 00:00:00 2001
+From: Nikola Cornij <nikola.cornij@amd.com>
+Date: Mon, 9 Dec 2019 18:54:26 -0500
+Subject: [PATCH 1358/1453] drm/amd/display: Disable secondary link for certain
+ monitors
+
+[why]
+If the specific monitor supports DSC, the secondary link should be
+disabled, and the other way around, too: if either that monitor or
+our ASIC doesn't support DSC, the secodary link should be enabled.
+
+[how]
+Add a monitor patch and disable secondary link if that monitor
+is detected and if ASIC supports DSC, or otherwise enable secondary
+link.
+
+Signed-off-by: Nikola Cornij <nikola.cornij@amd.com>
+Reviewed-by: Joshua Aberback <Joshua.Aberback@amd.com>
+Acked-by: Harry Wentland <harry.wentland@amd.com>
+Acked-by: Rodrigo Siqueira <Rodrigo.Siqueira@amd.com>
+---
+ drivers/gpu/drm/amd/display/dc/core/dc_resource.c | 14 +++++++++++---
+ drivers/gpu/drm/amd/display/dc/dc.h               |  2 ++
+ drivers/gpu/drm/amd/display/dc/dc_types.h         |  1 +
+ 3 files changed, 14 insertions(+), 3 deletions(-)
+
+diff --git a/drivers/gpu/drm/amd/display/dc/core/dc_resource.c b/drivers/gpu/drm/amd/display/dc/core/dc_resource.c
+index 9a1c10d5b864..9410614a1cb1 100755
+--- a/drivers/gpu/drm/amd/display/dc/core/dc_resource.c
++++ b/drivers/gpu/drm/amd/display/dc/core/dc_resource.c
+@@ -2078,6 +2078,17 @@ void dc_resource_state_construct(
+ 	dst_ctx->clk_mgr = dc->clk_mgr;
+ }
+ 
++
++bool dc_resource_is_dsc_encoding_supported(const struct dc *dc)
++{
++#ifdef CONFIG_DRM_AMD_DC_DSC_SUPPORT
++	return dc->res_pool->res_cap->num_dsc > 0;
++#else
++	return 0;
++#endif
++}
++
++
+ /**
+  * dc_validate_global_state() - Determine if HW can support a given state
+  * Checks HW resource availability and bandwidth requirement.
+@@ -2909,6 +2920,3 @@ void get_audio_check(struct audio_info *aud_modes,
+ 	}
+ }
+ 
+-
+-
+-
+diff --git a/drivers/gpu/drm/amd/display/dc/dc.h b/drivers/gpu/drm/amd/display/dc/dc.h
+index 2b862c0a24d1..e914ed428f29 100755
+--- a/drivers/gpu/drm/amd/display/dc/dc.h
++++ b/drivers/gpu/drm/amd/display/dc/dc.h
+@@ -942,6 +942,8 @@ void dc_resource_state_copy_construct_current(
+ 
+ void dc_resource_state_destruct(struct dc_state *context);
+ 
++bool dc_resource_is_dsc_encoding_supported(const struct dc *dc);
++
+ /*
+  * TODO update to make it about validation sets
+  * Set up streams and links associated to drive sinks
+diff --git a/drivers/gpu/drm/amd/display/dc/dc_types.h b/drivers/gpu/drm/amd/display/dc/dc_types.h
+index b1a372c8df83..4b5b97520733 100644
+--- a/drivers/gpu/drm/amd/display/dc/dc_types.h
++++ b/drivers/gpu/drm/amd/display/dc/dc_types.h
+@@ -229,6 +229,7 @@ struct dc_panel_patch {
+ 	unsigned int extra_t12_ms;
+ 	unsigned int extra_delay_backlight_off;
+ 	unsigned int extra_t7_ms;
++	unsigned int manage_secondary_link;
+ };
+ 
+ struct dc_edid_caps {
+-- 
+2.17.1
+

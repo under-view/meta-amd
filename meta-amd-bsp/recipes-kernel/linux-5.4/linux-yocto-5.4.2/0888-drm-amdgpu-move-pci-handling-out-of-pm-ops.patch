@@ -1,0 +1,196 @@
+From 495dd4c2b5a1c314b3ae77c0e982274a78f3f9cd Mon Sep 17 00:00:00 2001
+From: Alex Deucher <alexander.deucher@amd.com>
+Date: Wed, 20 Nov 2019 17:31:11 -0500
+Subject: [PATCH 0888/1453] drm/amdgpu: move pci handling out of pm ops
+
+The documentation says the that PCI core handles this
+for you unless you choose to implement it.  Just rely
+on the PCI core to handle the pci specific bits.
+
+Reviewed-by: Zhan Liu <zhan.liu@amd.com>
+Signed-off-by: Alex Deucher <alexander.deucher@amd.com>
+Signed-off-by: Kalyan Alle <kalyan.alle@amd.com>
+---
+ drivers/gpu/drm/amd/amdgpu/amdgpu.h        |  4 +--
+ drivers/gpu/drm/amd/amdgpu/amdgpu_device.c | 33 +++++++++-------------
+ drivers/gpu/drm/amd/amdgpu/amdgpu_drv.c    | 16 +++++------
+ 3 files changed, 24 insertions(+), 29 deletions(-)
+
+diff --git a/drivers/gpu/drm/amd/amdgpu/amdgpu.h b/drivers/gpu/drm/amd/amdgpu/amdgpu.h
+index f973a25edf45..0b5fed11c1cc 100644
+--- a/drivers/gpu/drm/amd/amdgpu/amdgpu.h
++++ b/drivers/gpu/drm/amd/amdgpu/amdgpu.h
+@@ -1229,8 +1229,8 @@ int amdgpu_driver_open_kms(struct drm_device *dev, struct drm_file *file_priv);
+ void amdgpu_driver_postclose_kms(struct drm_device *dev,
+ 				 struct drm_file *file_priv);
+ int amdgpu_device_ip_suspend(struct amdgpu_device *adev);
+-int amdgpu_device_suspend(struct drm_device *dev, bool suspend, bool fbcon);
+-int amdgpu_device_resume(struct drm_device *dev, bool resume, bool fbcon);
++int amdgpu_device_suspend(struct drm_device *dev, bool fbcon);
++int amdgpu_device_resume(struct drm_device *dev, bool fbcon);
+ u32 amdgpu_get_vblank_counter_kms(struct drm_device *dev, unsigned int pipe);
+ int amdgpu_enable_vblank_kms(struct drm_device *dev, unsigned int pipe);
+ void amdgpu_disable_vblank_kms(struct drm_device *dev, unsigned int pipe);
+diff --git a/drivers/gpu/drm/amd/amdgpu/amdgpu_device.c b/drivers/gpu/drm/amd/amdgpu/amdgpu_device.c
+index ced3e06149ef..aee3c034caf3 100644
+--- a/drivers/gpu/drm/amd/amdgpu/amdgpu_device.c
++++ b/drivers/gpu/drm/amd/amdgpu/amdgpu_device.c
+@@ -1114,6 +1114,7 @@ static int amdgpu_device_check_arguments(struct amdgpu_device *adev)
+ static void amdgpu_switcheroo_set_state(struct pci_dev *pdev, enum vga_switcheroo_state state)
+ {
+ 	struct drm_device *dev = pci_get_drvdata(pdev);
++	int r;
+ 
+ 	if (amdgpu_device_supports_boco(dev) && state == VGA_SWITCHEROO_OFF)
+ 		return;
+@@ -1123,7 +1124,12 @@ static void amdgpu_switcheroo_set_state(struct pci_dev *pdev, enum vga_switchero
+ 		/* don't suspend or resume card normally */
+ 		dev->switch_power_state = DRM_SWITCH_POWER_CHANGING;
+ 
+-		amdgpu_device_resume(dev, true, true);
++		pci_set_power_state(dev->pdev, PCI_D0);
++		pci_restore_state(dev->pdev);
++		r = pci_enable_device(dev->pdev);
++		if (r)
++			DRM_WARN("pci_enable_device failed (%d)\n", r);
++		amdgpu_device_resume(dev, true);
+ 
+ 		dev->switch_power_state = DRM_SWITCH_POWER_ON;
+ 		drm_kms_helper_poll_enable(dev);
+@@ -1131,7 +1137,11 @@ static void amdgpu_switcheroo_set_state(struct pci_dev *pdev, enum vga_switchero
+ 		pr_info("amdgpu: switched off\n");
+ 		drm_kms_helper_poll_disable(dev);
+ 		dev->switch_power_state = DRM_SWITCH_POWER_CHANGING;
+-		amdgpu_device_suspend(dev, true, true);
++		amdgpu_device_suspend(dev, true);
++		pci_save_state(dev->pdev);
++		/* Shut down the device */
++		pci_disable_device(dev->pdev);
++		pci_set_power_state(dev->pdev, PCI_D3cold);
+ 		dev->switch_power_state = DRM_SWITCH_POWER_OFF;
+ 	}
+ }
+@@ -3236,7 +3246,7 @@ void amdgpu_device_fini(struct amdgpu_device *adev)
+  * Returns 0 for success or an error on failure.
+  * Called at driver suspend.
+  */
+-int amdgpu_device_suspend(struct drm_device *dev, bool suspend, bool fbcon)
++int amdgpu_device_suspend(struct drm_device *dev, bool fbcon)
+ {
+ 	struct amdgpu_device *adev;
+ 	struct drm_crtc *crtc;
+@@ -3319,13 +3329,6 @@ int amdgpu_device_suspend(struct drm_device *dev, bool suspend, bool fbcon)
+ 	 */
+ 	amdgpu_bo_evict_vram(adev);
+ 
+-	if (suspend) {
+-		pci_save_state(dev->pdev);
+-		/* Shut down the device */
+-		pci_disable_device(dev->pdev);
+-		pci_set_power_state(dev->pdev, PCI_D3hot);
+-	}
+-
+ 	return 0;
+ }
+ 
+@@ -3340,7 +3343,7 @@ int amdgpu_device_suspend(struct drm_device *dev, bool suspend, bool fbcon)
+  * Returns 0 for success or an error on failure.
+  * Called at driver resume.
+  */
+-int amdgpu_device_resume(struct drm_device *dev, bool resume, bool fbcon)
++int amdgpu_device_resume(struct drm_device *dev, bool fbcon)
+ {
+ 	struct drm_connector *connector;
+ 	struct drm_connector_list_iter iter;
+@@ -3351,14 +3354,6 @@ int amdgpu_device_resume(struct drm_device *dev, bool resume, bool fbcon)
+ 	if (dev->switch_power_state == DRM_SWITCH_POWER_OFF)
+ 		return 0;
+ 
+-	if (resume) {
+-		pci_set_power_state(dev->pdev, PCI_D0);
+-		pci_restore_state(dev->pdev);
+-		r = pci_enable_device(dev->pdev);
+-		if (r)
+-			return r;
+-	}
+-
+ 	/* post card */
+ 	if (amdgpu_device_need_post(adev)) {
+ 		r = amdgpu_atom_asic_init(adev->mode_info.atom_context);
+diff --git a/drivers/gpu/drm/amd/amdgpu/amdgpu_drv.c b/drivers/gpu/drm/amd/amdgpu/amdgpu_drv.c
+index 7ff96644b57c..d1699c9d7fe3 100755
+--- a/drivers/gpu/drm/amd/amdgpu/amdgpu_drv.c
++++ b/drivers/gpu/drm/amd/amdgpu/amdgpu_drv.c
+@@ -1192,7 +1192,7 @@ static int amdgpu_pmops_suspend(struct device *dev)
+ {
+ 	struct drm_device *drm_dev = dev_get_drvdata(dev);
+ 
+-	return amdgpu_device_suspend(drm_dev, true, true);
++	return amdgpu_device_suspend(drm_dev, true);
+ }
+ 
+ static int amdgpu_pmops_resume(struct device *dev)
+@@ -1207,7 +1207,7 @@ static int amdgpu_pmops_resume(struct device *dev)
+ 		pm_runtime_enable(dev);
+ 	}
+ 
+-	return amdgpu_device_resume(drm_dev, true, true);
++	return amdgpu_device_resume(drm_dev, true);
+ }
+ 
+ static int amdgpu_pmops_freeze(struct device *dev)
+@@ -1216,7 +1216,7 @@ static int amdgpu_pmops_freeze(struct device *dev)
+ 	struct amdgpu_device *adev = drm_dev->dev_private;
+ 	int r;
+ 
+-	r = amdgpu_device_suspend(drm_dev, false, true);
++	r = amdgpu_device_suspend(drm_dev, true);
+ 	if (r)
+ 		return r;
+ 	return amdgpu_asic_reset(adev);
+@@ -1226,21 +1226,21 @@ static int amdgpu_pmops_thaw(struct device *dev)
+ {
+ 	struct drm_device *drm_dev = dev_get_drvdata(dev);
+ 
+-	return amdgpu_device_resume(drm_dev, false, true);
++	return amdgpu_device_resume(drm_dev, true);
+ }
+ 
+ static int amdgpu_pmops_poweroff(struct device *dev)
+ {
+ 	struct drm_device *drm_dev = dev_get_drvdata(dev);
+ 
+-	return amdgpu_device_suspend(drm_dev, true, true);
++	return amdgpu_device_suspend(drm_dev, true);
+ }
+ 
+ static int amdgpu_pmops_restore(struct device *dev)
+ {
+ 	struct drm_device *drm_dev = dev_get_drvdata(dev);
+ 
+-	return amdgpu_device_resume(drm_dev, false, true);
++	return amdgpu_device_resume(drm_dev, true);
+ }
+ 
+ static int amdgpu_pmops_runtime_suspend(struct device *dev)
+@@ -1259,7 +1259,7 @@ static int amdgpu_pmops_runtime_suspend(struct device *dev)
+ 		drm_dev->switch_power_state = DRM_SWITCH_POWER_CHANGING;
+ 	drm_kms_helper_poll_disable(drm_dev);
+ 
+-	ret = amdgpu_device_suspend(drm_dev, false, false);
++	ret = amdgpu_device_suspend(drm_dev, false);
+ 	if (amdgpu_device_supports_boco(drm_dev)) {
+ 		/* Only need to handle PCI state in the driver for ATPX
+ 		 * PCI core handles it for _PR3.
+@@ -1309,7 +1309,7 @@ static int amdgpu_pmops_runtime_resume(struct device *dev)
+ 	} else if (amdgpu_device_supports_baco(drm_dev)) {
+ 		amdgpu_device_baco_exit(drm_dev);
+ 	}
+-	ret = amdgpu_device_resume(drm_dev, false, false);
++	ret = amdgpu_device_resume(drm_dev, false);
+ 	drm_kms_helper_poll_enable(drm_dev);
+ 	if (amdgpu_device_supports_boco(drm_dev))
+ 		drm_dev->switch_power_state = DRM_SWITCH_POWER_ON;
+-- 
+2.17.1
+

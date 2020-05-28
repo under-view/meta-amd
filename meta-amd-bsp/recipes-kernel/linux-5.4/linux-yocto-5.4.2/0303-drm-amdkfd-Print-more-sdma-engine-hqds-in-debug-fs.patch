@@ -1,0 +1,34 @@
+From ba288aedb7faecd2f3be3b5c5a0e5844c58e776b Mon Sep 17 00:00:00 2001
+From: Oak Zeng <Oak.Zeng@amd.com>
+Date: Fri, 4 Oct 2019 09:34:29 -0500
+Subject: [PATCH 0303/1453] drm/amdkfd: Print more sdma engine hqds in debug fs
+
+Previously only PCIe-optimized SDMA engine hqds were
+exposed in debug fs. Print all SDMA engine hqds.
+
+Change-Id: I03756fc0fa99169d88e265560f505ed186242b02
+Reported-by: Jonathan Kim <Jonathan.Kim@amd.com>
+Signed-off-by: Jonathan Kim <Jonathan.Kim@amd.com>
+Signed-off-by: Oak Zeng <Oak.Zeng@amd.com>
+Reviewed-by: Felix Kuehling <Felix.Kuehling@amd.com>
+---
+ drivers/gpu/drm/amd/amdkfd/kfd_device_queue_manager.c | 3 ++-
+ 1 file changed, 2 insertions(+), 1 deletion(-)
+
+diff --git a/drivers/gpu/drm/amd/amdkfd/kfd_device_queue_manager.c b/drivers/gpu/drm/amd/amdkfd/kfd_device_queue_manager.c
+index 0cceb7d081eb..965226395472 100755
+--- a/drivers/gpu/drm/amd/amdkfd/kfd_device_queue_manager.c
++++ b/drivers/gpu/drm/amd/amdkfd/kfd_device_queue_manager.c
+@@ -2430,7 +2430,8 @@ int dqm_debugfs_hqds(struct seq_file *m, void *data)
+ 		}
+ 	}
+ 
+-	for (pipe = 0; pipe < get_num_sdma_engines(dqm); pipe++) {
++	for (pipe = 0; pipe < get_num_sdma_engines(dqm) +
++			get_num_xgmi_sdma_engines(dqm); pipe++) {
+ 		for (queue = 0;
+ 		     queue < dqm->dev->device_info->num_sdma_queues_per_engine;
+ 		     queue++) {
+-- 
+2.17.1
+

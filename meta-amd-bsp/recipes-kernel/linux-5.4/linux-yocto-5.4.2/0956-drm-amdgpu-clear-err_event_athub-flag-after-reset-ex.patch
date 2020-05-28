@@ -1,0 +1,52 @@
+From 071ad54af9ff99f5505970c0b9aa9cf756e26e3f Mon Sep 17 00:00:00 2001
+From: Le Ma <le.ma@amd.com>
+Date: Fri, 25 Oct 2019 17:19:38 +0800
+Subject: [PATCH 0956/1453] drm/amdgpu: clear err_event_athub flag after reset
+ exit
+
+Otherwise next err_event_athub error cannot call gpu reset. And following
+resume sequence will not be affected by this flag.
+
+v2: create function to clear amdgpu_ras_in_intr for modularity of ras driver
+
+Change-Id: I5cd293f30f23876bf2a1860681bcb50f47713ecd
+Signed-off-by: Le Ma <le.ma@amd.com>
+Reviewed-by: Hawking Zhang <Hawking.Zhang@amd.com>
+---
+ drivers/gpu/drm/amd/amdgpu/amdgpu_device.c | 3 +++
+ drivers/gpu/drm/amd/amdgpu/amdgpu_ras.h    | 5 +++++
+ 2 files changed, 8 insertions(+)
+
+diff --git a/drivers/gpu/drm/amd/amdgpu/amdgpu_device.c b/drivers/gpu/drm/amd/amdgpu/amdgpu_device.c
+index b6f16bef40ae..4607b85da322 100644
+--- a/drivers/gpu/drm/amd/amdgpu/amdgpu_device.c
++++ b/drivers/gpu/drm/amd/amdgpu/amdgpu_device.c
+@@ -3904,6 +3904,9 @@ static int amdgpu_do_asic_reset(struct amdgpu_device *adev,
+ 		}
+ 	}
+ 
++	if (!r && amdgpu_ras_intr_triggered())
++		amdgpu_ras_intr_cleared();
++
+ 	list_for_each_entry(tmp_adev, device_list_handle, gmc.xgmi.head) {
+ 		if (need_full_reset) {
+ 			/* post card */
+diff --git a/drivers/gpu/drm/amd/amdgpu/amdgpu_ras.h b/drivers/gpu/drm/amd/amdgpu/amdgpu_ras.h
+index a2c1ac1b9572..d4ade4739245 100644
+--- a/drivers/gpu/drm/amd/amdgpu/amdgpu_ras.h
++++ b/drivers/gpu/drm/amd/amdgpu/amdgpu_ras.h
+@@ -621,6 +621,11 @@ static inline bool amdgpu_ras_intr_triggered(void)
+ 	return !!atomic_read(&amdgpu_ras_in_intr);
+ }
+ 
++static inline void amdgpu_ras_intr_cleared(void)
++{
++	atomic_set(&amdgpu_ras_in_intr, 0);
++}
++
+ void amdgpu_ras_global_ras_isr(struct amdgpu_device *adev);
+ 
+ #endif
+-- 
+2.17.1
+

@@ -1,0 +1,49 @@
+From e9c1cedb0ee32f25dd9469a3e11541470d43dc0c Mon Sep 17 00:00:00 2001
+From: Zhan Liu <Zhan.Liu@amd.com>
+Date: Mon, 4 Nov 2019 15:46:56 -0400
+Subject: [PATCH 0629/1453] Revert "drm/amd/display: setting the DIG_MODE to
+ the correct value."
+
+This reverts commit 6966609de439ac6ddd4438a468f83ab0a2f36de0.
+
+Reason for revert: Root cause of this issue is found. The workaround is not needed anymore.
+
+Change-Id: I193ea994b8ce5c2828dfc09b36c009546443c7d5
+Signed-off-by: Zhan Liu <Zhan.Liu@amd.com>
+Reviewed-by: Hersen Wu <hersenxs.wu@amd.com>
+---
+ drivers/gpu/drm/amd/display/dc/core/dc_link.c | 18 ------------------
+ 1 file changed, 18 deletions(-)
+
+diff --git a/drivers/gpu/drm/amd/display/dc/core/dc_link.c b/drivers/gpu/drm/amd/display/dc/core/dc_link.c
+index 5e91a650845d..12ba6fdf89b7 100644
+--- a/drivers/gpu/drm/amd/display/dc/core/dc_link.c
++++ b/drivers/gpu/drm/amd/display/dc/core/dc_link.c
+@@ -3027,24 +3027,6 @@ void core_link_enable_stream(
+ 					CONTROLLER_DP_TEST_PATTERN_VIDEOMODE,
+ 					COLOR_DEPTH_UNDEFINED);
+ 
+-		/* This second call is needed to reconfigure the DIG
+-		 * as a workaround for the incorrect value being applied
+-		 * from transmitter control.
+-		 */
+-		if (!dc_is_virtual_signal(pipe_ctx->stream->signal))
+-			stream->link->link_enc->funcs->setup(
+-				stream->link->link_enc,
+-				pipe_ctx->stream->signal);
+-
+-		/* This second call is needed to reconfigure the DIG
+-		 * as a workaround for the incorrect value being applied
+-		 * from transmitter control.
+-		 */
+-		if (!dc_is_virtual_signal(pipe_ctx->stream->signal))
+-			stream->link->link_enc->funcs->setup(
+-				stream->link->link_enc,
+-				pipe_ctx->stream->signal);
+-
+ #ifdef CONFIG_DRM_AMD_DC_DSC_SUPPORT
+ 		if (pipe_ctx->stream->timing.flags.DSC) {
+ 			if (dc_is_dp_signal(pipe_ctx->stream->signal) ||
+-- 
+2.17.1
+

@@ -1,0 +1,117 @@
+From 121212c4621de703b9d73d3f5542f694de04aaab Mon Sep 17 00:00:00 2001
+From: Alex Sierra <alex.sierra@amd.com>
+Date: Thu, 9 Jan 2020 16:16:28 -0600
+Subject: [PATCH 1333/1453] drm/amdgpu: implement tlbs invalidate on gfx9 gfx10
+
+tlbs invalidate pointer function added to kiq_pm4_funcs struct.
+This way, tlb flush can be done through kiq member.
+TLBs invalidatation implemented for gfx9 and gfx10.
+
+Change-Id: I1b77b364f3ae0038ff3e70e869be5f2ef6e6d293
+Signed-off-by: Alex Sierra <alex.sierra@amd.com>
+Reviewed-by: Felix Kuehling <Felix.Kuehling@amd.com>
+---
+ drivers/gpu/drm/amd/amdgpu/amdgpu_gfx.h |  4 ++++
+ drivers/gpu/drm/amd/amdgpu/gfx_v10_0.c  | 15 +++++++++++++++
+ drivers/gpu/drm/amd/amdgpu/gfx_v9_0.c   | 14 ++++++++++++++
+ 3 files changed, 33 insertions(+)
+
+diff --git a/drivers/gpu/drm/amd/amdgpu/amdgpu_gfx.h b/drivers/gpu/drm/amd/amdgpu/amdgpu_gfx.h
+index 0ae0a2715b0d..77f3b840fd59 100644
+--- a/drivers/gpu/drm/amd/amdgpu/amdgpu_gfx.h
++++ b/drivers/gpu/drm/amd/amdgpu/amdgpu_gfx.h
+@@ -76,11 +76,15 @@ struct kiq_pm4_funcs {
+ 					struct amdgpu_ring *ring,
+ 					u64 addr,
+ 					u64 seq);
++	void (*kiq_invalidate_tlbs)(struct amdgpu_ring *kiq_ring,
++				uint16_t pasid, uint32_t flush_type,
++				bool all_hub);
+ 	/* Packet sizes */
+ 	int set_resources_size;
+ 	int map_queues_size;
+ 	int unmap_queues_size;
+ 	int query_status_size;
++	int invalidate_tlbs_size;
+ };
+ 
+ struct amdgpu_kiq {
+diff --git a/drivers/gpu/drm/amd/amdgpu/gfx_v10_0.c b/drivers/gpu/drm/amd/amdgpu/gfx_v10_0.c
+index c9a236624e13..551586de361b 100644
+--- a/drivers/gpu/drm/amd/amdgpu/gfx_v10_0.c
++++ b/drivers/gpu/drm/amd/amdgpu/gfx_v10_0.c
+@@ -40,6 +40,7 @@
+ #include "ivsrcid/gfx/irqsrcs_gfx_10_1.h"
+ 
+ #include "soc15.h"
++#include "soc15d.h"
+ #include "soc15_common.h"
+ #include "clearstate_gfx10.h"
+ #include "v10_structs.h"
+@@ -346,15 +347,29 @@ static void gfx10_kiq_query_status(struct amdgpu_ring *kiq_ring,
+ 	amdgpu_ring_write(kiq_ring, upper_32_bits(seq));
+ }
+ 
++static void gfx10_kiq_invalidate_tlbs(struct amdgpu_ring *kiq_ring,
++				uint16_t pasid, uint32_t flush_type,
++				bool all_hub)
++{
++	amdgpu_ring_write(kiq_ring, PACKET3(PACKET3_INVALIDATE_TLBS, 0));
++	amdgpu_ring_write(kiq_ring,
++			PACKET3_INVALIDATE_TLBS_DST_SEL(1) |
++			PACKET3_INVALIDATE_TLBS_ALL_HUB(all_hub) |
++			PACKET3_INVALIDATE_TLBS_PASID(pasid) |
++			PACKET3_INVALIDATE_TLBS_FLUSH_TYPE(flush_type));
++}
++
+ static const struct kiq_pm4_funcs gfx_v10_0_kiq_pm4_funcs = {
+ 	.kiq_set_resources = gfx10_kiq_set_resources,
+ 	.kiq_map_queues = gfx10_kiq_map_queues,
+ 	.kiq_unmap_queues = gfx10_kiq_unmap_queues,
+ 	.kiq_query_status = gfx10_kiq_query_status,
++	.kiq_invalidate_tlbs = gfx10_kiq_invalidate_tlbs,
+ 	.set_resources_size = 8,
+ 	.map_queues_size = 7,
+ 	.unmap_queues_size = 6,
+ 	.query_status_size = 7,
++	.invalidate_tlbs_size = 12,
+ };
+ 
+ static void gfx_v10_0_set_kiq_pm4_funcs(struct amdgpu_device *adev)
+diff --git a/drivers/gpu/drm/amd/amdgpu/gfx_v9_0.c b/drivers/gpu/drm/amd/amdgpu/gfx_v9_0.c
+index e2e4713361c5..f55f9db56570 100644
+--- a/drivers/gpu/drm/amd/amdgpu/gfx_v9_0.c
++++ b/drivers/gpu/drm/amd/amdgpu/gfx_v9_0.c
+@@ -837,15 +837,29 @@ static void gfx_v9_0_kiq_query_status(struct amdgpu_ring *kiq_ring,
+ 	amdgpu_ring_write(kiq_ring, upper_32_bits(seq));
+ }
+ 
++static void gfx_v9_0_kiq_invalidate_tlbs(struct amdgpu_ring *kiq_ring,
++				uint16_t pasid, uint32_t flush_type,
++				bool all_hub)
++{
++	amdgpu_ring_write(kiq_ring, PACKET3(PACKET3_INVALIDATE_TLBS, 0));
++	amdgpu_ring_write(kiq_ring,
++			PACKET3_INVALIDATE_TLBS_DST_SEL(1) |
++			PACKET3_INVALIDATE_TLBS_ALL_HUB(all_hub) |
++			PACKET3_INVALIDATE_TLBS_PASID(pasid) |
++			PACKET3_INVALIDATE_TLBS_FLUSH_TYPE(flush_type));
++}
++
+ static const struct kiq_pm4_funcs gfx_v9_0_kiq_pm4_funcs = {
+ 	.kiq_set_resources = gfx_v9_0_kiq_set_resources,
+ 	.kiq_map_queues = gfx_v9_0_kiq_map_queues,
+ 	.kiq_unmap_queues = gfx_v9_0_kiq_unmap_queues,
+ 	.kiq_query_status = gfx_v9_0_kiq_query_status,
++	.kiq_invalidate_tlbs = gfx_v9_0_kiq_invalidate_tlbs,
+ 	.set_resources_size = 8,
+ 	.map_queues_size = 7,
+ 	.unmap_queues_size = 6,
+ 	.query_status_size = 7,
++	.invalidate_tlbs_size = 12,
+ };
+ 
+ static void gfx_v9_0_set_kiq_pm4_funcs(struct amdgpu_device *adev)
+-- 
+2.17.1
+

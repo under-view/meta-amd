@@ -1,0 +1,52 @@
+From 932dccd8c88f9f8818a48f82ad5c71617398a198 Mon Sep 17 00:00:00 2001
+From: Evan Quan <evan.quan@amd.com>
+Date: Thu, 31 Oct 2019 14:10:27 +0800
+Subject: [PATCH 0621/1453] drm/amdgpu: change pstate only after all XGMI
+ device initialized
+
+Pstate settings should be performed after all device of the
+XGMI setup get initialized.
+
+Change-Id: I5c4b3f79fbd60a5ccfb4dc6f94d9e1db6faec694
+Signed-off-by: Evan Quan <evan.quan@amd.com>
+Reviewed-by: Alex Deucher <alexander.deucher@amd.com>
+---
+ drivers/gpu/drm/amd/amdgpu/amdgpu_device.c | 15 ++++++++++++---
+ 1 file changed, 12 insertions(+), 3 deletions(-)
+
+diff --git a/drivers/gpu/drm/amd/amdgpu/amdgpu_device.c b/drivers/gpu/drm/amd/amdgpu/amdgpu_device.c
+index f64a0f28bc24..e73635bb0f29 100644
+--- a/drivers/gpu/drm/amd/amdgpu/amdgpu_device.c
++++ b/drivers/gpu/drm/amd/amdgpu/amdgpu_device.c
+@@ -2109,9 +2109,6 @@ static int amdgpu_device_ip_late_init(struct amdgpu_device *adev)
+ 	if (r)
+ 		DRM_ERROR("enable mgpu fan boost failed (%d).\n", r);
+ 
+-	/* set to low pstate by default */
+-	amdgpu_xgmi_set_pstate(adev, 0);
+-
+ 	return 0;
+ }
+ 
+@@ -2224,6 +2221,18 @@ static void amdgpu_device_delayed_init_work_handler(struct work_struct *work)
+ 	r = amdgpu_ib_ring_tests(adev);
+ 	if (r)
+ 		DRM_ERROR("ib ring test failed (%d).\n", r);
++
++	/*
++	 * set to low pstate by default
++	 * This should be performed after all devices from
++	 * XGMI finish their initializations. Thus it's moved
++	 * to here.
++	 * The time delay is 2S. TODO: confirm whether that
++	 * is enough for all possible XGMI setups.
++	 */
++	r = amdgpu_xgmi_set_pstate(adev, 0);
++	if (r)
++		DRM_ERROR("pstate setting failed (%d).\n", r);
+ }
+ 
+ static void amdgpu_device_delay_enable_gfx_off(struct work_struct *work)
+-- 
+2.17.1
+

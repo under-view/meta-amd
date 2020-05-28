@@ -1,0 +1,51 @@
+From 30af8b5d5711fa0aee63eeaa7e2d0ff09b6c8888 Mon Sep 17 00:00:00 2001
+From: "Tianci.Yin" <tianci.yin@amd.com>
+Date: Tue, 8 Oct 2019 13:57:28 +0800
+Subject: [PATCH 0360/1453] drm/amdgpu: update atomfirmware header with memory
+ training related members
+
+add new vram_reserve_block structure and atomfirmware_internal_constants enumeration
+
+Change-Id: I6ba642ecd7ad94250162ae5c322ed8d85de9c35a
+Reviewed-by: Alex Deucher <alexander.deucher@amd.com>
+Signed-off-by: Tianci.Yin <tianci.yin@amd.com>
+---
+ drivers/gpu/drm/amd/include/atomfirmware.h | 15 +++++++++++++++
+ 1 file changed, 15 insertions(+)
+
+diff --git a/drivers/gpu/drm/amd/include/atomfirmware.h b/drivers/gpu/drm/amd/include/atomfirmware.h
+index e88541d67aa0..5196b94097f5 100644
+--- a/drivers/gpu/drm/amd/include/atomfirmware.h
++++ b/drivers/gpu/drm/amd/include/atomfirmware.h
+@@ -498,6 +498,7 @@ enum atombios_firmware_capability
+   ATOM_FIRMWARE_CAP_HWEMU_ENABLE  = 0x00000080,
+   ATOM_FIRMWARE_CAP_HWEMU_UMC_CFG = 0x00000100,
+   ATOM_FIRMWARE_CAP_SRAM_ECC      = 0x00000200,
++  ATOM_FIRMWARE_CAP_ENABLE_2STAGE_BIST_TRAINING  = 0x00000400,
+ };
+ 
+ enum atom_cooling_solution_id{
+@@ -671,6 +672,20 @@ struct vram_usagebyfirmware_v2_1
+   uint16_t  used_by_driver_in_kb; 
+ };
+ 
++/* This is part of vram_usagebyfirmware_v2_1 */
++struct vram_reserve_block
++{
++    uint32_t  start_address_in_kb;
++    uint16_t  used_by_firmware_in_kb;
++    uint16_t  used_by_driver_in_kb;
++};
++
++/* Definitions for constance */
++enum atomfirmware_internal_constants {
++    ONE_K	= 0x400,
++    ONE_MEG	= 0x100000,
++    ONE_G	= 0x40000000,
++};
+ 
+ /* 
+   ***************************************************************************
+-- 
+2.17.1
+

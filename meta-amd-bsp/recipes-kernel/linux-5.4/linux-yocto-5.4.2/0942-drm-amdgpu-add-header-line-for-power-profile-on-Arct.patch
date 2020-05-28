@@ -1,0 +1,39 @@
+From 3f36c20e98116600ba4588c1a382ebea467a7bfb Mon Sep 17 00:00:00 2001
+From: Alex Deucher <alexander.deucher@amd.com>
+Date: Wed, 4 Dec 2019 22:07:49 -0500
+Subject: [PATCH 0942/1453] drm/amdgpu: add header line for power profile on
+ Arcturus
+
+So the output is consistent with other asics.
+
+Reviewed-by: Evan Quan <evan.quan@amd.com>
+Signed-off-by: Alex Deucher <alexander.deucher@amd.com>
+---
+ drivers/gpu/drm/amd/powerplay/arcturus_ppt.c | 5 +++++
+ 1 file changed, 5 insertions(+)
+
+diff --git a/drivers/gpu/drm/amd/powerplay/arcturus_ppt.c b/drivers/gpu/drm/amd/powerplay/arcturus_ppt.c
+index 3f13986d8e50..199c96caa882 100644
+--- a/drivers/gpu/drm/amd/powerplay/arcturus_ppt.c
++++ b/drivers/gpu/drm/amd/powerplay/arcturus_ppt.c
+@@ -1320,12 +1320,17 @@ static int arcturus_get_power_profile_mode(struct smu_context *smu,
+ 					"VR",
+ 					"COMPUTE",
+ 					"CUSTOM"};
++	static const char *title[] = {
++			"PROFILE_INDEX(NAME)"};
+ 	uint32_t i, size = 0;
+ 	int16_t workload_type = 0;
+ 
+ 	if (!smu->pm_enabled || !buf)
+ 		return -EINVAL;
+ 
++	size += sprintf(buf + size, "%16s\n",
++			title[0]);
++
+ 	for (i = 0; i <= PP_SMC_POWER_PROFILE_CUSTOM; i++) {
+ 		/*
+ 		 * Conv PP_SMC_POWER_PROFILE* to WORKLOAD_PPLIB_*_BIT
+-- 
+2.17.1
+

@@ -1,0 +1,123 @@
+From dc1af2b07fff2390e2e6371c3443302acefd50f2 Mon Sep 17 00:00:00 2001
+From: Philip Yang <Philip.Yang@amd.com>
+Date: Tue, 26 Nov 2019 13:26:45 +0800
+Subject: [PATCH 0875/1453] drm/amdkfd: avoid HMM change cause circular lock
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+There is circular lock between gfx and kfd path with HMM change:
+lock(dqm) -> bo::reserve -> amdgpu_mn_lock
+
+To avoid this, move init/unint_mqd() out of lock(dqm), to remove nested
+locking between mmap_sem and bo::reserve. The locking order
+is: bo::reserve -> amdgpu_mn_lock(p->mn)
+
+v2: ported missing change to amd-staging-dkms-5.2
+
+Signed-off-by: Philip Yang <Philip.Yang@amd.com>
+Reviewed-by: Felix Kuehling <Felix.Kuehling@amd.com>
+Acked-by: Christian König <christian.koenig@amd.com>
+Signed-off-by: Alex Deucher <alexander.deucher@amd.com>
+Signed-off-by: Felix Kuehling <Felix.Kuehling@amd.com>
+---
+ .../drm/amd/amdkfd/kfd_device_queue_manager.c | 25 +++++++++----------
+ 1 file changed, 12 insertions(+), 13 deletions(-)
+
+diff --git a/drivers/gpu/drm/amd/amdkfd/kfd_device_queue_manager.c b/drivers/gpu/drm/amd/amdkfd/kfd_device_queue_manager.c
+index 1e810df21c23..c1ec139c547d 100755
+--- a/drivers/gpu/drm/amd/amdkfd/kfd_device_queue_manager.c
++++ b/drivers/gpu/drm/amd/amdkfd/kfd_device_queue_manager.c
+@@ -1325,22 +1325,18 @@ static int create_queue_cpsch(struct device_queue_manager *dqm, struct queue *q,
+ 	int retval;
+ 	struct mqd_manager *mqd_mgr;
+ 
+-	retval = 0;
+-
+-	dqm_lock(dqm);
+-
+ 	if (dqm->total_queue_count >= max_num_of_queues_per_device) {
+ 		pr_warn("Can't create new usermode queue because %d queues were already created\n",
+ 				dqm->total_queue_count);
+ 		retval = -EPERM;
+-		goto out_unlock;
++		goto out;
+ 	}
+ 
+ 	if (q->properties.type == KFD_QUEUE_TYPE_SDMA ||
+ 		q->properties.type == KFD_QUEUE_TYPE_SDMA_XGMI) {
+ 		retval = allocate_sdma_queue(dqm, q);
+ 		if (retval)
+-			goto out_unlock;
++			goto out;
+ 	}
+ 
+ 	retval = allocate_doorbell(qpd, q);
+@@ -1361,6 +1357,7 @@ static int create_queue_cpsch(struct device_queue_manager *dqm, struct queue *q,
+ 		goto out_deallocate_doorbell;
+ 	}
+ 
++	dqm_lock(dqm);
+ 	/*
+ 	 * Eviction state logic: mark all queues as evicted, even ones
+ 	 * not currently active. Restoring inactive queues later only
+@@ -1403,9 +1400,7 @@ static int create_queue_cpsch(struct device_queue_manager *dqm, struct queue *q,
+ 		q->properties.type == KFD_QUEUE_TYPE_SDMA_XGMI) {
+ 		deallocate_sdma_queue(dqm, q);
+ 	}
+-out_unlock:
+-	dqm_unlock(dqm);
+-
++out:
+ 	return retval;
+ }
+ 
+@@ -1594,8 +1589,6 @@ static int destroy_queue_cpsch(struct device_queue_manager *dqm,
+ 		}
+ 	}
+ 
+-	mqd_mgr->free_mqd(mqd_mgr, q->mqd, q->mqd_mem_obj);
+-
+ 	/*
+ 	 * Unconditionally decrement this counter, regardless of the queue's
+ 	 * type
+@@ -1606,6 +1599,9 @@ static int destroy_queue_cpsch(struct device_queue_manager *dqm,
+ 
+ 	dqm_unlock(dqm);
+ 
++	/* Do free_mqd after dqm_unlock(dqm) to avoid circular locking */
++	mqd_mgr->free_mqd(mqd_mgr, q->mqd, q->mqd_mem_obj);
++
+ 	return retval;
+ 
+ failed_try_destroy_debugged_queue:
+@@ -1842,13 +1838,17 @@ static int process_termination_cpsch(struct device_queue_manager *dqm,
+ 		qpd->reset_wavefronts = false;
+ 	}
+ 
++	dqm_unlock(dqm);
++
+ 	/* Outside the DQM lock because under the DQM lock we can't do
+ 	 * reclaim or take other locks that others hold while reclaiming.
+ 	 */
+ 	if (found)
+ 		kfd_dec_compute_active(dqm->dev);
+ 
+-	/* lastly, free mqd resources */
++	/* Lastly, free mqd resources.
++	 * Do free_mqd() after dqm_unlock to avoid circular locking.
++	 */
+ 	list_for_each_entry_safe(q, next, &qpd->queues_list, list) {
+ 		mqd_mgr = dqm->mqd_mgrs[get_mqd_type_from_queue_type(
+ 				q->properties.type)];
+@@ -1857,7 +1857,6 @@ static int process_termination_cpsch(struct device_queue_manager *dqm,
+ 		mqd_mgr->free_mqd(mqd_mgr, q->mqd, q->mqd_mem_obj);
+ 	}
+ 
+-	dqm_unlock(dqm);
+ 	return retval;
+ }
+ 
+-- 
+2.17.1
+

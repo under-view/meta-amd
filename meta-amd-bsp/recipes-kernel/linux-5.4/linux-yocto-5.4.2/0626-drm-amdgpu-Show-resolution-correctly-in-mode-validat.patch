@@ -1,0 +1,29 @@
+From ac20ad0995b79ce96dba037caaa2480e0756ae45 Mon Sep 17 00:00:00 2001
+From: Neil Mayhew <neil@neil.mayhew.name>
+Date: Wed, 30 Oct 2019 12:58:37 -0600
+Subject: [PATCH 0626/1453] drm/amdgpu: Show resolution correctly in mode
+ validation debug output
+
+Reviewed-by: Harry Wentland <harry.wentland@amd.com>
+Signed-off-by: Neil Mayhew <neil@neil.mayhew.name>
+---
+ drivers/gpu/drm/amd/display/amdgpu_dm/amdgpu_dm.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/drivers/gpu/drm/amd/display/amdgpu_dm/amdgpu_dm.c b/drivers/gpu/drm/amd/display/amdgpu_dm/amdgpu_dm.c
+index f6990b83129b..97a2146c04b8 100755
+--- a/drivers/gpu/drm/amd/display/amdgpu_dm/amdgpu_dm.c
++++ b/drivers/gpu/drm/amd/display/amdgpu_dm/amdgpu_dm.c
+@@ -4586,8 +4586,8 @@ enum drm_mode_status amdgpu_dm_connector_mode_valid(struct drm_connector *connec
+ 		result = MODE_OK;
+ 	else
+ 		DRM_DEBUG_KMS("Mode %dx%d (clk %d) failed DC validation with error %d\n",
+-			      mode->vdisplay,
+ 			      mode->hdisplay,
++			      mode->vdisplay,
+ 			      mode->clock,
+ 			      dc_result);
+ 
+-- 
+2.17.1
+

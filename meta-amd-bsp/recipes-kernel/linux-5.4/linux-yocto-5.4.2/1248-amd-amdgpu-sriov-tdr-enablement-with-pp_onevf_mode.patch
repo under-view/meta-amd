@@ -1,0 +1,56 @@
+From f4705d825865a8b463e1a75e119a3de97c9c3e9c Mon Sep 17 00:00:00 2001
+From: Jack Zhang <Jack.Zhang1@amd.com>
+Date: Fri, 27 Dec 2019 14:44:03 +0800
+Subject: [PATCH 1248/1453] amd/amdgpu/sriov tdr enablement with pp_onevf_mode
+
+Under sriov and pp_onevf mode,
+1.take resume instead of hw_init for smc recover to avoid
+potential memory leak.
+
+2.add return condition inside smc resume function for
+sriov_pp_onevf_mode and pm_enabled param.
+
+Signed-off-by: Jack Zhang <Jack.Zhang1@amd.com>
+Acked-by: Evan Quan <evan.quan@amd.com>
+---
+ drivers/gpu/drm/amd/amdgpu/amdgpu_device.c | 6 +++++-
+ drivers/gpu/drm/amd/powerplay/amdgpu_smu.c | 6 ++++++
+ 2 files changed, 11 insertions(+), 1 deletion(-)
+
+diff --git a/drivers/gpu/drm/amd/amdgpu/amdgpu_device.c b/drivers/gpu/drm/amd/amdgpu/amdgpu_device.c
+index c19f016cbc51..c9f17e2eca35 100644
+--- a/drivers/gpu/drm/amd/amdgpu/amdgpu_device.c
++++ b/drivers/gpu/drm/amd/amdgpu/amdgpu_device.c
+@@ -2459,7 +2459,11 @@ static int amdgpu_device_ip_reinit_late_sriov(struct amdgpu_device *adev)
+ 				block->status.hw)
+ 				continue;
+ 
+-			r = block->version->funcs->hw_init(adev);
++			if (block->version->type == AMD_IP_BLOCK_TYPE_SMC)
++				r = block->version->funcs->resume(adev);
++			else
++				r = block->version->funcs->hw_init(adev);
++
+ 			DRM_INFO("RE-INIT-late: %s %s\n", block->version->funcs->name, r?"failed":"succeeded");
+ 			if (r)
+ 				return r;
+diff --git a/drivers/gpu/drm/amd/powerplay/amdgpu_smu.c b/drivers/gpu/drm/amd/powerplay/amdgpu_smu.c
+index 7159e9f10ed5..bdd8ae174645 100644
+--- a/drivers/gpu/drm/amd/powerplay/amdgpu_smu.c
++++ b/drivers/gpu/drm/amd/powerplay/amdgpu_smu.c
+@@ -1443,6 +1443,12 @@ static int smu_resume(void *handle)
+ 	struct amdgpu_device *adev = (struct amdgpu_device *)handle;
+ 	struct smu_context *smu = &adev->smu;
+ 
++	if (amdgpu_sriov_vf(adev)&& !amdgpu_sriov_is_pp_one_vf(adev))
++		return 0;
++
++	if (!smu->pm_enabled)
++		return 0;
++
+ 	pr_info("SMU is resuming...\n");
+ 
+ 	ret = smu_start_smc_engine(smu);
+-- 
+2.17.1
+

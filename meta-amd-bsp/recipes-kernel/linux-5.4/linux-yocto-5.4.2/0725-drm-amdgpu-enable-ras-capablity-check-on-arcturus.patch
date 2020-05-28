@@ -1,0 +1,31 @@
+From 131ef57950866f3d43e19f689614b82756d39771 Mon Sep 17 00:00:00 2001
+From: Hawking Zhang <Hawking.Zhang@amd.com>
+Date: Wed, 13 Nov 2019 22:24:12 +0800
+Subject: [PATCH 0725/1453] drm/amdgpu: enable ras capablity check on arcturus
+
+check hw ras capablity via atomfirmware
+
+Signed-off-by: Hawking Zhang <Hawking.Zhang@amd.com>
+Reviewed-by: Alex Deucher <alexander.deucher@amd.com>
+Reviewed-by: John Clements <John.Clements@amd.com>
+---
+ drivers/gpu/drm/amd/amdgpu/amdgpu_ras.c | 3 ++-
+ 1 file changed, 2 insertions(+), 1 deletion(-)
+
+diff --git a/drivers/gpu/drm/amd/amdgpu/amdgpu_ras.c b/drivers/gpu/drm/amd/amdgpu/amdgpu_ras.c
+index 31f88e638500..e94caca39eea 100644
+--- a/drivers/gpu/drm/amd/amdgpu/amdgpu_ras.c
++++ b/drivers/gpu/drm/amd/amdgpu/amdgpu_ras.c
+@@ -1686,7 +1686,8 @@ static void amdgpu_ras_check_supported(struct amdgpu_device *adev,
+ 	*supported = 0;
+ 
+ 	if (amdgpu_sriov_vf(adev) ||
+-			adev->asic_type != CHIP_VEGA20)
++	    (adev->asic_type != CHIP_VEGA20 &&
++	     adev->asic_type != CHIP_ARCTURUS))
+ 		return;
+ 
+ 	if (adev->is_atom_fw &&
+-- 
+2.17.1
+

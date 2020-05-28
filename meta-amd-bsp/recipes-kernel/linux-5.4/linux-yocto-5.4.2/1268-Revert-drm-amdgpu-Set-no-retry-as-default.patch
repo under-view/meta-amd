@@ -1,0 +1,38 @@
+From 45281ff763a5ed0f8358085d732588080602b9bb Mon Sep 17 00:00:00 2001
+From: "Stanley.Yang" <Stanley.Yang@amd.com>
+Date: Tue, 7 Jan 2020 10:21:00 +0800
+Subject: [PATCH 1268/1453] Revert "drm/amdgpu: Set no-retry as default."
+
+This reverts commit 51bfac71cade386966791a8db87a5912781d249f.
+
+Change-Id: I62ddaa7aee3ef5907816f22815c60228d2dae493
+Signed-off-by: Stanley.Yang <Stanley.Yang@amd.com>
+---
+ drivers/gpu/drm/amd/amdgpu/amdgpu_drv.c | 4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
+
+diff --git a/drivers/gpu/drm/amd/amdgpu/amdgpu_drv.c b/drivers/gpu/drm/amd/amdgpu/amdgpu_drv.c
+index aceb8c0ed040..47de21c2321e 100755
+--- a/drivers/gpu/drm/amd/amdgpu/amdgpu_drv.c
++++ b/drivers/gpu/drm/amd/amdgpu/amdgpu_drv.c
+@@ -144,7 +144,7 @@ int amdgpu_async_gfx_ring = 1;
+ int amdgpu_mcbp = 0;
+ int amdgpu_discovery = -1;
+ int amdgpu_mes = 0;
+-int amdgpu_noretry = 1;
++int amdgpu_noretry;
+ int amdgpu_force_asic_type = -1;
+ int amdgpu_tmz = 0;
+ 
+@@ -598,7 +598,7 @@ MODULE_PARM_DESC(mes,
+ module_param_named(mes, amdgpu_mes, int, 0444);
+ 
+ MODULE_PARM_DESC(noretry,
+-	"Disable retry faults (0 = retry enabled, 1 = retry disabled (default))");
++	"Disable retry faults (0 = retry enabled (default), 1 = retry disabled)");
+ module_param_named(noretry, amdgpu_noretry, int, 0644);
+ 
+ /**
+-- 
+2.17.1
+

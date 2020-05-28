@@ -1,0 +1,43 @@
+From 8cb7d05a88747ea514771f25e7de27a75e166957 Mon Sep 17 00:00:00 2001
+From: Wenjing Liu <Wenjing.Liu@amd.com>
+Date: Tue, 17 Dec 2019 12:38:54 -0500
+Subject: [PATCH 1387/1453] drm/amd/display: wait for test pattern after when
+ all pipes are programmed
+
+[why]
+Currently we wait for test pattern after each pipe is programmed.  For
+ODM combined scenario it will cause test pattern is shown on only half
+screen for 1 frame. This is not desirable.
+
+[how]
+No wait between odm pipe programming, only wait after all pipes are
+programmed.
+
+Signed-off-by: Wenjing Liu <Wenjing.Liu@amd.com>
+Reviewed-by: Tony Cheng <Tony.Cheng@amd.com>
+Acked-by: Harry Wentland <harry.wentland@amd.com>
+Acked-by: Rodrigo Siqueira <Rodrigo.Siqueira@amd.com>
+---
+ drivers/gpu/drm/amd/display/dc/core/dc_link_dp.c | 6 ------
+ 1 file changed, 6 deletions(-)
+
+diff --git a/drivers/gpu/drm/amd/display/dc/core/dc_link_dp.c b/drivers/gpu/drm/amd/display/dc/core/dc_link_dp.c
+index c5229bc7d661..09d4303efab0 100755
+--- a/drivers/gpu/drm/amd/display/dc/core/dc_link_dp.c
++++ b/drivers/gpu/drm/amd/display/dc/core/dc_link_dp.c
+@@ -3676,12 +3676,6 @@ static void set_crtc_test_pattern(struct dc_link *link,
+ 					NULL,
+ 					width,
+ 					height);
+-				/* wait for dpg to blank pixel data with test pattern */
+-				for (count = 0; count < 1000; count++)
+-					if (odm_opp->funcs->dpg_is_blanked(odm_opp))
+-						break;
+-					else
+-						udelay(100);
+ 			}
+ 			opp->funcs->opp_set_disp_pattern_generator(opp,
+ 				controller_test_pattern,
+-- 
+2.17.1
+

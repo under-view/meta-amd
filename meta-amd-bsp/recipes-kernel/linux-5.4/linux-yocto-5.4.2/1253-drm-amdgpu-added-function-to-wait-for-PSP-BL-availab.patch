@@ -1,0 +1,107 @@
+From 3cb562bf4785ad45160fd67da032873c6a13c755 Mon Sep 17 00:00:00 2001
+From: John Clements <john.clements@amd.com>
+Date: Fri, 3 Jan 2020 17:27:04 +0800
+Subject: [PATCH 1253/1453] drm/amdgpu: added function to wait for PSP BL
+ availability
+
+reduced duplicate code
+
+increased wait time for PSP BL readiness
+
+Change-Id: I1a5df106d20bf97e639c2ec24502cfc9341dc5b0
+Signed-off-by: John Clements <john.clements@amd.com>
+---
+ drivers/gpu/drm/amd/amdgpu/psp_v11_0.c | 42 +++++++++++++++++---------
+ 1 file changed, 28 insertions(+), 14 deletions(-)
+
+diff --git a/drivers/gpu/drm/amd/amdgpu/psp_v11_0.c b/drivers/gpu/drm/amd/amdgpu/psp_v11_0.c
+index 8c0c44e68b7e..926e49550227 100755
+--- a/drivers/gpu/drm/amd/amdgpu/psp_v11_0.c
++++ b/drivers/gpu/drm/amd/amdgpu/psp_v11_0.c
+@@ -231,6 +231,29 @@ static int psp_v11_0_init_microcode(struct psp_context *psp)
+ 	return err;
+ }
+ 
++int psp_v11_0_wait_for_bootloader(struct psp_context *psp)
++{
++	struct amdgpu_device *adev = psp->adev;
++
++	int ret;
++	int retry_loop;
++
++	for (retry_loop = 0; retry_loop < 10; retry_loop++) {
++		/* Wait for bootloader to signify that is
++		    ready having bit 31 of C2PMSG_35 set to 1 */
++		ret = psp_wait_for(psp,
++				   SOC15_REG_OFFSET(MP0, 0, mmMP0_SMN_C2PMSG_35),
++				   0x80000000,
++				   0x80000000,
++				   false);
++
++		if (ret == 0)
++			return 0;
++	}
++
++	return ret;
++}
++
+ static bool psp_v11_0_is_sos_alive(struct psp_context *psp)
+ {
+ 	struct amdgpu_device *adev = psp->adev;
+@@ -256,9 +279,7 @@ static int psp_v11_0_bootloader_load_kdb(struct psp_context *psp)
+ 		return 0;
+ 	}
+ 
+-	/* Wait for bootloader to signify that is ready having bit 31 of C2PMSG_35 set to 1 */
+-	ret = psp_wait_for(psp, SOC15_REG_OFFSET(MP0, 0, mmMP0_SMN_C2PMSG_35),
+-			   0x80000000, 0x80000000, false);
++	ret = psp_v11_0_wait_for_bootloader(psp);
+ 	if (ret)
+ 		return ret;
+ 
+@@ -274,9 +295,7 @@ static int psp_v11_0_bootloader_load_kdb(struct psp_context *psp)
+ 	WREG32_SOC15(MP0, 0, mmMP0_SMN_C2PMSG_35,
+ 	       psp_gfxdrv_command_reg);
+ 
+-	/* Wait for bootloader to signify that is ready having  bit 31 of C2PMSG_35 set to 1*/
+-	ret = psp_wait_for(psp, SOC15_REG_OFFSET(MP0, 0, mmMP0_SMN_C2PMSG_35),
+-			   0x80000000, 0x80000000, false);
++	ret = psp_v11_0_wait_for_bootloader(psp);
+ 
+ 	return ret;
+ }
+@@ -296,9 +315,7 @@ static int psp_v11_0_bootloader_load_sysdrv(struct psp_context *psp)
+ 		return 0;
+ 	}
+ 
+-	/* Wait for bootloader to signify that is ready having bit 31 of C2PMSG_35 set to 1 */
+-	ret = psp_wait_for(psp, SOC15_REG_OFFSET(MP0, 0, mmMP0_SMN_C2PMSG_35),
+-			   0x80000000, 0x80000000, false);
++	ret = psp_v11_0_wait_for_bootloader(psp);
+ 	if (ret)
+ 		return ret;
+ 
+@@ -317,8 +334,7 @@ static int psp_v11_0_bootloader_load_sysdrv(struct psp_context *psp)
+ 	/* there might be handshake issue with hardware which needs delay */
+ 	mdelay(20);
+ 
+-	ret = psp_wait_for(psp, SOC15_REG_OFFSET(MP0, 0, mmMP0_SMN_C2PMSG_35),
+-			   0x80000000, 0x80000000, false);
++	ret = psp_v11_0_wait_for_bootloader(psp);
+ 
+ 	return ret;
+ }
+@@ -335,9 +351,7 @@ static int psp_v11_0_bootloader_load_sos(struct psp_context *psp)
+ 	if (psp_v11_0_is_sos_alive(psp))
+ 		return 0;
+ 
+-	/* Wait for bootloader to signify that is ready having bit 31 of C2PMSG_35 set to 1 */
+-	ret = psp_wait_for(psp, SOC15_REG_OFFSET(MP0, 0, mmMP0_SMN_C2PMSG_35),
+-			   0x80000000, 0x80000000, false);
++	ret = psp_v11_0_wait_for_bootloader(psp);
+ 	if (ret)
+ 		return ret;
+ 
+-- 
+2.17.1
+

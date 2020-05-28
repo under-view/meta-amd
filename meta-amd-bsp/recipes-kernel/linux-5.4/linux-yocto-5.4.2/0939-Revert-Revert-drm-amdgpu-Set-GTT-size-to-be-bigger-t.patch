@@ -1,0 +1,39 @@
+From 33960f879fe7c83cf2f137739d2bef916b3f7442 Mon Sep 17 00:00:00 2001
+From: Feifei Xu <Feifei.Xu@amd.com>
+Date: Thu, 5 Dec 2019 11:25:42 +0800
+Subject: [PATCH 0939/1453] Revert "Revert "drm/amdgpu: Set GTT size to be
+ bigger than 3/4 of RAM""
+
+This reverts commit 50fab61ae24facd04e5460b1b92745c893a847b5.
+
+This patch should not be cherry-picked to release branch.
+This is for kfd/rocm performance improvement.
+
+Signed-off-by: Feifei Xu <Feifei.Xu@amd.com>
+---
+ drivers/gpu/drm/amd/amdgpu/amdgpu_ttm.c | 9 ++++-----
+ 1 file changed, 4 insertions(+), 5 deletions(-)
+
+diff --git a/drivers/gpu/drm/amd/amdgpu/amdgpu_ttm.c b/drivers/gpu/drm/amd/amdgpu/amdgpu_ttm.c
+index 0f2aece2b793..e74c270c231d 100644
+--- a/drivers/gpu/drm/amd/amdgpu/amdgpu_ttm.c
++++ b/drivers/gpu/drm/amd/amdgpu/amdgpu_ttm.c
+@@ -2039,11 +2039,10 @@ int amdgpu_ttm_init(struct amdgpu_device *adev)
+ 		struct sysinfo si;
+ 
+ 		si_meminfo(&si);
+-		gtt_size = min(max((AMDGPU_DEFAULT_GTT_SIZE_MB << 20),
+-			       adev->gmc.mc_vram_size),
+-			       ((uint64_t)si.totalram * si.mem_unit * 3/4));
+-	}
+-	else
++		gtt_size = max3((AMDGPU_DEFAULT_GTT_SIZE_MB << 20),
++				adev->gmc.mc_vram_size,
++				((uint64_t)si.totalram * si.mem_unit));
++	} else
+ 		gtt_size = (uint64_t)amdgpu_gtt_size << 20;
+ 
+ 	/* reserve for DGMA import domain */
+-- 
+2.17.1
+

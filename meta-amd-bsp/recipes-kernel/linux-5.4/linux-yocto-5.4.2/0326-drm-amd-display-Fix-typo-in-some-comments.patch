@@ -1,0 +1,39 @@
+From 970d05bb8cb9d8c40e3c058a5bae047b5589c3aa Mon Sep 17 00:00:00 2001
+From: Christophe JAILLET <christophe.jaillet@wanadoo.fr>
+Date: Sat, 5 Oct 2019 13:32:05 +0200
+Subject: [PATCH 0326/1453] drm/amd/display: Fix typo in some comments
+
+p and g are switched in 'amdpgu_dm'
+
+Reviewed-by: Harry Wentland <harry.wentland@amd.com>
+Signed-off-by: Christophe JAILLET <christophe.jaillet@wanadoo.fr>
+Signed-off-by: Alex Deucher <alexander.deucher@amd.com>
+---
+ drivers/gpu/drm/amd/display/amdgpu_dm/amdgpu_dm.c | 4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
+
+diff --git a/drivers/gpu/drm/amd/display/amdgpu_dm/amdgpu_dm.c b/drivers/gpu/drm/amd/display/amdgpu_dm/amdgpu_dm.c
+index 15c54a6a40b7..25d8a9f07947 100644
+--- a/drivers/gpu/drm/amd/display/amdgpu_dm/amdgpu_dm.c
++++ b/drivers/gpu/drm/amd/display/amdgpu_dm/amdgpu_dm.c
+@@ -1044,7 +1044,7 @@ static void s3_handle_mst(struct drm_device *dev, bool suspend)
+ 
+ /**
+  * dm_hw_init() - Initialize DC device
+- * @handle: The base driver device containing the amdpgu_dm device.
++ * @handle: The base driver device containing the amdgpu_dm device.
+  *
+  * Initialize the &struct amdgpu_display_manager device. This involves calling
+  * the initializers of each DM component, then populating the struct with them.
+@@ -1074,7 +1074,7 @@ static int dm_hw_init(void *handle)
+ 
+ /**
+  * dm_hw_fini() - Teardown DC device
+- * @handle: The base driver device containing the amdpgu_dm device.
++ * @handle: The base driver device containing the amdgpu_dm device.
+  *
+  * Teardown components within &struct amdgpu_display_manager that require
+  * cleanup. This involves cleaning up the DRM device, DC, and any modules that
+-- 
+2.17.1
+
