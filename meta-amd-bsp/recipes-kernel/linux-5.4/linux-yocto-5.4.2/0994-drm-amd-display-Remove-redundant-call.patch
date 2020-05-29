@@ -1,0 +1,38 @@
+From e5cd119a37a7fde615a80066aca7613fb4aad25d Mon Sep 17 00:00:00 2001
+From: Noah Abradjian <noah.abradjian@amd.com>
+Date: Wed, 13 Nov 2019 17:06:40 -0500
+Subject: [PATCH 0994/1453] drm/amd/display: Remove redundant call
+
+[Why]
+I was advised that we don't need this call of program_front_end, as
+earlier and later calls in the same sequence are sufficient.
+
+[How]
+Remove first call of program_front_end in dc_commit_state_no_check.
+
+Change-Id: I4a552fdd06c05a4c0ffa243c59f99b45c06a1fdd
+Signed-off-by: Noah Abradjian <noah.abradjian@amd.com>
+Reviewed-by: Yongqiang Sun <yongqiang.sun@amd.com>
+Acked-by: Leo Li <sunpeng.li@amd.com>
+---
+ drivers/gpu/drm/amd/display/dc/core/dc.c | 4 ----
+ 1 file changed, 4 deletions(-)
+
+diff --git a/drivers/gpu/drm/amd/display/dc/core/dc.c b/drivers/gpu/drm/amd/display/dc/core/dc.c
+index a11adedd6fef..a8c3e312f20e 100755
+--- a/drivers/gpu/drm/amd/display/dc/core/dc.c
++++ b/drivers/gpu/drm/amd/display/dc/core/dc.c
+@@ -1183,10 +1183,6 @@ static enum dc_status dc_commit_state_no_check(struct dc *dc, struct dc_state *c
+ 				context->stream_status[i].plane_count,
+ 				context); /* use new pipe config in new context */
+ 		}
+-#if defined(CONFIG_DRM_AMD_DC_DCN2_0)
+-	if (dc->hwss.program_front_end_for_ctx)
+-		dc->hwss.program_front_end_for_ctx(dc, context);
+-#endif
+ 
+ 	/* Program hardware */
+ 	for (i = 0; i < dc->res_pool->pipe_count; i++) {
+-- 
+2.17.1
+

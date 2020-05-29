@@ -1,0 +1,31 @@
+From 81ad058029f15d103b36f8887ca832ddcb4a1977 Mon Sep 17 00:00:00 2001
+From: Xiaojie Yuan <xiaojie.yuan@amd.com>
+Date: Mon, 23 Sep 2019 21:32:05 +0800
+Subject: [PATCH 0194/1453] drm/amdgpu/gmc10: apply the 'invalidation from
+ sdma' workaround for navi12
+
+when gfxoff is enabled, sdma hangs while entering desktop without this
+workaround
+
+Signed-off-by: Xiaojie Yuan <xiaojie.yuan@amd.com>
+Reviewed-by: Evan Quan <evan.quan@amd.com>
+Signed-off-by: Kalyan Alle <kalyan.alle@amd.com>
+---
+ drivers/gpu/drm/amd/amdgpu/gmc_v10_0.c | 1 +
+ 1 file changed, 1 insertion(+)
+
+diff --git a/drivers/gpu/drm/amd/amdgpu/gmc_v10_0.c b/drivers/gpu/drm/amd/amdgpu/gmc_v10_0.c
+index a8d9a3b8e5e7..5d2763e6e3e5 100644
+--- a/drivers/gpu/drm/amd/amdgpu/gmc_v10_0.c
++++ b/drivers/gpu/drm/amd/amdgpu/gmc_v10_0.c
+@@ -292,6 +292,7 @@ static void gmc_v10_0_flush_gpu_tlb(struct amdgpu_device *adev, uint32_t vmid,
+ 
+ 	if (!adev->mman.buffer_funcs_enabled ||
+ 	    !adev->ib_pool_ready ||
++	    !(adev->asic_type >= CHIP_NAVI10 && adev->asic_type <= CHIP_NAVI12) ||
+ 	    adev->in_gpu_reset) {
+ 		gmc_v10_0_flush_vm_hub(adev, vmid, AMDGPU_GFXHUB_0, 0);
+ 		mutex_unlock(&adev->mman.gtt_window_lock);
+-- 
+2.17.1
+

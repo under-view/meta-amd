@@ -1,0 +1,191 @@
+From 5a82d03f53aae9cbe44a995ee82642f0c7cd591f Mon Sep 17 00:00:00 2001
+From: Kent Russell <kent.russell@amd.com>
+Date: Tue, 14 Nov 2017 13:03:12 -0500
+Subject: [PATCH 0176/1453] Copy in non-KFD changes
+
+These include amdgpu changes, as well as any changes we had to make to
+the include files, radeon, etc.
+
+Change-Id: Ic6291c17e4168c757ab172235342e3e407b285a1
+
+ Conflicts[4.14-rc1]:
+        drivers/gpu/drm/amd/amdgpu/amdgpu.h
+        drivers/gpu/drm/amd/amdgpu/amdgpu_ttm.c
+
+ Conflicts[4.15-rc2]:
+        drivers/gpu/drm/amd/amdgpu/amdgpu_sync.h
+        drivers/gpu/drm/amd/amdgpu/amdgpu_ttm.c
+
+ Conflicts[4.15-rc4]:
+        drivers/gpu/drm/amd/amdgpu/amdgpu_prime.c
+        drivers/gpu/drm/amd/amdgpu/amdgpu_ttm.c
+        drivers/gpu/drm/amd/amdgpu/gfx_v7_0.c
+        drivers/gpu/drm/amd/amdgpu/gfx_v8_0.c
+
+ Conflicts[4.16-rc1]:
+        drivers/gpu/drm/amd/amdgpu/amdgpu.h
+        drivers/gpu/drm/amd/amdgpu/amdgpu_object.c
+        drivers/gpu/drm/amd/amdgpu/amdgpu_ttm.c
+        drivers/gpu/drm/amd/amdgpu/gmc_v8_0.c
+        include/linux/pci.h
+        include/uapi/linux/pci_regs.h
+
+ Conflicts[4.16-rc7]:
+        drivers/gpu/drm/amd/amdgpu/amdgpu_object.c
+        drivers/gpu/drm/amd/amdgpu/amdgpu_object.h
+        drivers/gpu/drm/amd/amdgpu/amdgpu_ring.h
+        drivers/gpu/drm/amd/amdgpu/amdgpu_ttm.c
+        drivers/gpu/drm/amd/amdgpu/amdgpu_vm.h
+
+ Conflicts[4.17-rc5]:
+        drivers/gpu/drm/amd/amdgpu/amdgpu_mn.c
+        drivers/gpu/drm/amd/amdgpu/amdgpu_prime.c
+
+ Conflicts[4.18-rc1]:
+        drivers/gpu/drm/amd/amdgpu/amdgpu_vm.c
+
+ Conflicts[4.19-rc1]:
+        drivers/gpu/drm/amd/amdgpu/amdgpu.h
+        drivers/gpu/drm/amd/amdgpu/amdgpu_device.c
+        drivers/gpu/drm/amd/amdgpu/amdgpu_gmc.h
+        drivers/gpu/drm/amd/amdgpu/amdgpu_vm.c
+        drivers/gpu/drm/amd/amdgpu/amdgpu_vm.h
+        drivers/gpu/drm/amd/amdgpu/gmc_v7_0.c
+        drivers/gpu/drm/amd/amdgpu/gmc_v8_0.c
+
+ Conflicts[4.20-rc1]:
+        drivers/gpu/drm/amd/amdgpu/amdgpu.h
+
+ Conflicts[5.2-rc1]:
+        drivers/gpu/drm/amd/amdgpu/amdgpu_vm.c
+---
+ drivers/gpu/drm/amd/amdgpu/amdgpu_device.c | 23 ++++++++++++++++++++++
+ drivers/gpu/drm/amd/amdgpu/amdgpu_vm.c     | 12 +++++++++++
+ drivers/gpu/drm/amd/amdgpu/gfx_v9_0.c      |  4 ++--
+ drivers/gpu/drm/amd/amdgpu/gmc_v7_0.c      |  1 +
+ drivers/gpu/drm/amd/amdgpu/gmc_v8_0.c      |  6 ++++++
+ drivers/gpu/drm/amd/amdgpu/vid.h           |  3 +++
+ 6 files changed, 47 insertions(+), 2 deletions(-)
+
+diff --git a/drivers/gpu/drm/amd/amdgpu/amdgpu_device.c b/drivers/gpu/drm/amd/amdgpu/amdgpu_device.c
+index da8aa6b830eb..f65b96cb4670 100644
+--- a/drivers/gpu/drm/amd/amdgpu/amdgpu_device.c
++++ b/drivers/gpu/drm/amd/amdgpu/amdgpu_device.c
+@@ -4143,3 +4143,26 @@ static void amdgpu_device_get_pcie_info(struct amdgpu_device *adev)
+ 	}
+ }
+ 
++/**
++ * amdgpu_device_is_peer_accessible - Check peer access through PCIe BAR
++ *
++ * @adev: amdgpu_device pointer
++ * @peer_adev: amdgpu_device pointer for peer device trying to access @adev
++ *
++ * Return true if @peer_adev can access (DMA) @adev through the PCIe
++ * BAR, i.e. @adev is "large BAR" and the BAR matches the DMA mask of
++ * @peer_adev.
++ */
++bool amdgpu_device_is_peer_accessible(struct amdgpu_device *adev,
++				      struct amdgpu_device *peer_adev)
++{
++	uint64_t address_mask = peer_adev->dev->dma_mask ?
++		~*peer_adev->dev->dma_mask : ~((1ULL << 32) - 1);
++	resource_size_t aper_limit =
++		adev->gmc.aper_base + adev->gmc.aper_size - 1;
++
++	return adev->gmc.visible_vram_size &&
++		adev->gmc.real_vram_size == adev->gmc.visible_vram_size &&
++		!(adev->gmc.aper_base & address_mask ||
++		  aper_limit & address_mask);
++}
+diff --git a/drivers/gpu/drm/amd/amdgpu/amdgpu_vm.c b/drivers/gpu/drm/amd/amdgpu/amdgpu_vm.c
+index 9224d0e08805..4e1801fe03a8 100644
+--- a/drivers/gpu/drm/amd/amdgpu/amdgpu_vm.c
++++ b/drivers/gpu/drm/amd/amdgpu/amdgpu_vm.c
+@@ -1601,6 +1601,18 @@ static int amdgpu_vm_bo_split_mapping(struct amdgpu_device *adev,
+ 	/* Apply ASIC specific mapping flags */
+ 	amdgpu_gmc_get_vm_pte(adev, mapping, &flags);
+ 
++	if (adev != bo_adev &&
++	    !mapping->bo_va->is_xgmi &&
++	    !pages_addr) {
++		if (amdgpu_device_is_peer_accessible(bo_adev, adev)) {
++			flags |= AMDGPU_PTE_SYSTEM;
++			vram_base_offset = bo_adev->gmc.aper_base;
++		} else {
++			DRM_DEBUG_DRIVER("Failed to map the VRAM for peer device access.\n");
++			return -EINVAL;
++		}
++	}
++
+ 	trace_amdgpu_vm_bo_update(mapping);
+ 
+ 	pfn = mapping->offset >> PAGE_SHIFT;
+diff --git a/drivers/gpu/drm/amd/amdgpu/gfx_v9_0.c b/drivers/gpu/drm/amd/amdgpu/gfx_v9_0.c
+index 2004ef34f327..50852ed4cc65 100644
+--- a/drivers/gpu/drm/amd/amdgpu/gfx_v9_0.c
++++ b/drivers/gpu/drm/amd/amdgpu/gfx_v9_0.c
+@@ -509,8 +509,8 @@ static const struct soc15_reg_golden golden_settings_gc_9_0[] =
+ 	SOC15_REG_GOLDEN_VALUE(GC, 0, mmSH_MEM_CONFIG, 0x00001000, 0x00001000),
+ 	SOC15_REG_GOLDEN_VALUE(GC, 0, mmSPI_RESOURCE_RESERVE_CU_0, 0x0007ffff, 0x00000800),
+ 	SOC15_REG_GOLDEN_VALUE(GC, 0, mmSPI_RESOURCE_RESERVE_CU_1, 0x0007ffff, 0x00000800),
+-	SOC15_REG_GOLDEN_VALUE(GC, 0, mmSPI_RESOURCE_RESERVE_EN_CU_0, 0x01ffffff, 0x0000ff87),
+-	SOC15_REG_GOLDEN_VALUE(GC, 0, mmSPI_RESOURCE_RESERVE_EN_CU_1, 0x01ffffff, 0x0000ff8f),
++	SOC15_REG_GOLDEN_VALUE(GC, 0, mmSPI_RESOURCE_RESERVE_EN_CU_0, 0x01ffffff, 0x00ffff87),
++	SOC15_REG_GOLDEN_VALUE(GC, 0, mmSPI_RESOURCE_RESERVE_EN_CU_1, 0x01ffffff, 0x00ffff8f),
+ 	SOC15_REG_GOLDEN_VALUE(GC, 0, mmSQC_CONFIG, 0x03000000, 0x020a2000),
+ 	SOC15_REG_GOLDEN_VALUE(GC, 0, mmTA_CNTL_AUX, 0xfffffeef, 0x010b0000),
+ 	SOC15_REG_GOLDEN_VALUE(GC, 0, mmTCP_CHAN_STEER_HI, 0xffffffff, 0x4a2c0e68),
+diff --git a/drivers/gpu/drm/amd/amdgpu/gmc_v7_0.c b/drivers/gpu/drm/amd/amdgpu/gmc_v7_0.c
+index f08e5330642d..c69ff856fd03 100644
+--- a/drivers/gpu/drm/amd/amdgpu/gmc_v7_0.c
++++ b/drivers/gpu/drm/amd/amdgpu/gmc_v7_0.c
+@@ -729,6 +729,7 @@ static void gmc_v7_0_gart_disable(struct amdgpu_device *adev)
+  * @adev: amdgpu_device pointer
+  * @status: VM_CONTEXT1_PROTECTION_FAULT_STATUS register value
+  * @addr: VM_CONTEXT1_PROTECTION_FAULT_ADDR register value
++ * @mc_client: VM_CONTEXT1_PROTECTION_FAULT_MCCLIENT register value
+  *
+  * Print human readable fault information (CIK).
+  */
+diff --git a/drivers/gpu/drm/amd/amdgpu/gmc_v8_0.c b/drivers/gpu/drm/amd/amdgpu/gmc_v8_0.c
+index 6d96d40fbcb8..74fafa850735 100644
+--- a/drivers/gpu/drm/amd/amdgpu/gmc_v8_0.c
++++ b/drivers/gpu/drm/amd/amdgpu/gmc_v8_0.c
+@@ -569,6 +569,11 @@ static int gmc_v8_0_mc_init(struct amdgpu_device *adev)
+ 			break;
+ 		}
+ 		adev->gmc.vram_width = numchan * chansize;
++		/* FIXME: The above calculation is outdated.
++		 * For HBM provide a temporary fix
++		 */
++		if (adev->gmc.vram_type == AMDGPU_VRAM_TYPE_HBM)
++			adev->gmc.vram_width = AMDGPU_VRAM_TYPE_HBM_WIDTH;
+ 	}
+ 	/* size in MB on si */
+ 	adev->gmc.mc_vram_size = RREG32(mmCONFIG_MEMSIZE) * 1024ULL * 1024ULL;
+@@ -972,6 +977,7 @@ static void gmc_v8_0_gart_disable(struct amdgpu_device *adev)
+  * @adev: amdgpu_device pointer
+  * @status: VM_CONTEXT1_PROTECTION_FAULT_STATUS register value
+  * @addr: VM_CONTEXT1_PROTECTION_FAULT_ADDR register value
++ * @mc_client: VM_CONTEXT1_PROTECTION_FAULT_MCCLIENT register value
+  *
+  * Print human readable fault information (VI).
+  */
+diff --git a/drivers/gpu/drm/amd/amdgpu/vid.h b/drivers/gpu/drm/amd/amdgpu/vid.h
+index 19ddd2312e00..6c81b0d819bf 100644
+--- a/drivers/gpu/drm/amd/amdgpu/vid.h
++++ b/drivers/gpu/drm/amd/amdgpu/vid.h
+@@ -369,6 +369,9 @@
+ 			 * x=0: tmz_begin
+ 			 * x=1: tmz_end
+ 			 */
++#define	PACKET3_INVALIDATE_TLBS				0x98
++#              define PACKET3_INVALIDATE_TLBS_DST_SEL(x)     ((x) << 0)
++#              define PACKET3_INVALIDATE_TLBS_PASID(x)       ((x) << 5)
+ #define	PACKET3_SET_RESOURCES				0xA0
+ /* 1. header
+  * 2. CONTROL
+-- 
+2.17.1
+

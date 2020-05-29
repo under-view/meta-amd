@@ -1,0 +1,54 @@
+From bd131bf4d0db7ca7ec48f453d0d2ffe3a493b66c Mon Sep 17 00:00:00 2001
+From: Flora Cui <flora.cui@amd.com>
+Date: Fri, 18 Oct 2019 12:20:30 +0800
+Subject: [PATCH 0470/1453] drm/amdkfd: copy in missing parts in kfd patch
+
+Signed-off-by: Flora Cui <flora.cui@amd.com>
+---
+ .../gpu/drm/amd/amdgpu/amdgpu_amdkfd_arcturus.c |  6 ++++++
+ .../gpu/drm/amd/amdgpu/amdgpu_amdkfd_gfx_v9.h   | 17 +++++++++++++++++
+ 2 files changed, 23 insertions(+)
+
+diff --git a/drivers/gpu/drm/amd/amdgpu/amdgpu_amdkfd_arcturus.c b/drivers/gpu/drm/amd/amdgpu/amdgpu_amdkfd_arcturus.c
+index e1fbbebce4fd..a66801ba7121 100644
+--- a/drivers/gpu/drm/amd/amdgpu/amdgpu_amdkfd_arcturus.c
++++ b/drivers/gpu/drm/amd/amdgpu/amdgpu_amdkfd_arcturus.c
+@@ -285,4 +285,10 @@ const struct kfd2kgd_calls arcturus_kfd2kgd = {
+ 	.invalidate_tlbs = kgd_gfx_v9_invalidate_tlbs,
+ 	.invalidate_tlbs_vmid = kgd_gfx_v9_invalidate_tlbs_vmid,
+ 	.get_hive_id = amdgpu_amdkfd_get_hive_id,
++	.enable_debug_trap = kgd_gfx_v9_enable_debug_trap,
++	.disable_debug_trap = kgd_gfx_v9_disable_debug_trap,
++	.set_wave_launch_trap_override = kgd_gfx_v9_set_wave_launch_trap_override,
++	.set_wave_launch_mode = kgd_gfx_v9_set_wave_launch_mode,
++	.get_iq_wait_times = kgd_gfx_v9_get_iq_wait_times,
++	.build_grace_period_packet_info = kgd_gfx_v9_build_grace_period_packet_info,
+ };
+diff --git a/drivers/gpu/drm/amd/amdgpu/amdgpu_amdkfd_gfx_v9.h b/drivers/gpu/drm/amd/amdgpu/amdgpu_amdkfd_gfx_v9.h
+index d9e9ad22b2bd..2b41d810c68e 100644
+--- a/drivers/gpu/drm/amd/amdgpu/amdgpu_amdkfd_gfx_v9.h
++++ b/drivers/gpu/drm/amd/amdgpu/amdgpu_amdkfd_gfx_v9.h
+@@ -63,3 +63,20 @@ int kgd_gfx_v9_invalidate_tlbs(struct kgd_dev *kgd, uint16_t pasid);
+ int kgd_gfx_v9_invalidate_tlbs_vmid(struct kgd_dev *kgd, uint16_t vmid);
+ int kgd_gfx_v9_get_tile_config(struct kgd_dev *kgd,
+ 		struct tile_config *config);
++uint32_t kgd_gfx_v9_enable_debug_trap(struct kgd_dev *kgd,
++									  uint32_t trap_debug_wave_launch_mode,
++									  uint32_t vmid);
++uint32_t kgd_gfx_v9_disable_debug_trap(struct kgd_dev *kgd);
++uint32_t kgd_gfx_v9_set_wave_launch_trap_override(struct kgd_dev *kgd,
++												  uint32_t trap_override,
++												  uint32_t trap_mask);
++uint32_t kgd_gfx_v9_set_wave_launch_mode(struct kgd_dev *kgd,
++										 uint8_t wave_launch_mode,
++										 uint32_t vmid);
++void kgd_gfx_v9_get_iq_wait_times(struct kgd_dev *kgd,
++								  uint32_t *wait_times);
++void kgd_gfx_v9_build_grace_period_packet_info(struct kgd_dev *kgd,
++											   uint32_t wait_times,
++											   uint32_t grace_period,
++											   uint32_t *reg_offset,
++											   uint32_t *reg_data);
+-- 
+2.17.1
+

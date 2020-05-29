@@ -1,0 +1,38 @@
+From d32e5f6ee2189c8db23c2a797c5c2c4f9f6018e5 Mon Sep 17 00:00:00 2001
+From: Yong Zhao <Yong.Zhao@amd.com>
+Date: Thu, 24 Oct 2019 17:05:57 -0400
+Subject: [PATCH 0597/1453] drm/amdkfd: Delete duplicated queue bit map
+ reservation
+
+The KIQ is on the second MEC and its reservation is covered in the
+latter logic, so no need to reserve its bit twice.
+
+Change-Id: Ieee390953a60c7d43de5a9aec38803f1f583a4a9
+Signed-off-by: Yong Zhao <Yong.Zhao@amd.com>
+Reviewed-by: Felix Kuehling <Felix.Kuehling@amd.com>
+---
+ drivers/gpu/drm/amd/amdgpu/amdgpu_amdkfd.c | 8 --------
+ 1 file changed, 8 deletions(-)
+
+diff --git a/drivers/gpu/drm/amd/amdgpu/amdgpu_amdkfd.c b/drivers/gpu/drm/amd/amdgpu/amdgpu_amdkfd.c
+index 3e647ce7d14f..ad278be73876 100755
+--- a/drivers/gpu/drm/amd/amdgpu/amdgpu_amdkfd.c
++++ b/drivers/gpu/drm/amd/amdgpu/amdgpu_amdkfd.c
+@@ -134,14 +134,6 @@ void amdgpu_amdkfd_device_init(struct amdgpu_device *adev)
+ 				  adev->gfx.mec.queue_bitmap,
+ 				  KGD_MAX_QUEUES);
+ 
+-		/* remove the KIQ bit as well */
+-		if (adev->gfx.kiq.ring.sched.ready)
+-			clear_bit(amdgpu_gfx_mec_queue_to_bit(adev,
+-							  adev->gfx.kiq.ring.me - 1,
+-							  adev->gfx.kiq.ring.pipe,
+-							  adev->gfx.kiq.ring.queue),
+-				  gpu_resources.queue_bitmap);
+-
+ 		/* According to linux/bitmap.h we shouldn't use bitmap_clear if
+ 		 * nbits is not compile time constant
+ 		 */
+-- 
+2.17.1
+

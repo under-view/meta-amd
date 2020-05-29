@@ -1,0 +1,31 @@
+From 84fe4ad42a2c5e9776a1cea0f793eebcdce715ff Mon Sep 17 00:00:00 2001
+From: John Clements <john.clements@amd.com>
+Date: Fri, 10 Jan 2020 17:38:31 +0800
+Subject: [PATCH 1309/1453] drm/amdgpu: preserve RSMU UMC index mode state
+
+between UMC RAS err register access restore previous RSMU UMC index mode state
+
+Change-Id: I37e8789b351ad50117f2ae465e4f96355c2851ab
+Reviewed-by: Hawking Zhang <Hawking.Zhang@amd.com>
+Signed-off-by: John Clements <john.clements@amd.com>
+---
+ drivers/gpu/drm/amd/amdgpu/umc_v6_1.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/drivers/gpu/drm/amd/amdgpu/umc_v6_1.c b/drivers/gpu/drm/amd/amdgpu/umc_v6_1.c
+index e6866f038209..793bf70e64b1 100644
+--- a/drivers/gpu/drm/amd/amdgpu/umc_v6_1.c
++++ b/drivers/gpu/drm/amd/amdgpu/umc_v6_1.c
+@@ -242,8 +242,8 @@ static void umc_v6_1_query_error_address(struct amdgpu_device *adev,
+ 	if (REG_GET_FIELD(mc_umc_status, MCA_UMC_UMC0_MCUMC_STATUST0, Val) == 1 &&
+ 	    (REG_GET_FIELD(mc_umc_status, MCA_UMC_UMC0_MCUMC_STATUST0, UECC) == 1 ||
+ 	    REG_GET_FIELD(mc_umc_status, MCA_UMC_UMC0_MCUMC_STATUST0, CECC) == 1)) {
+-		err_addr = RREG64_PCIE((mc_umc_addrt0 + umc_reg_offset) * 4);
+ 
++		err_addr = RREG64_PCIE((mc_umc_addrt0 + umc_reg_offset) * 4);
+ 		/* the lowest lsb bits should be ignored */
+ 		lsb = REG_GET_FIELD(err_addr, MCA_UMC_UMC0_MCUMC_ADDRT0, LSB);
+ 		err_addr = REG_GET_FIELD(err_addr, MCA_UMC_UMC0_MCUMC_ADDRT0, ErrorAddr);
+-- 
+2.17.1
+

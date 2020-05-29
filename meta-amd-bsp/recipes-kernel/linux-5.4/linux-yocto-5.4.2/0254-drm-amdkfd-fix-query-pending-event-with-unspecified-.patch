@@ -1,0 +1,35 @@
+From e499f7248f8b81632b82beae46ffc01b4b56940a Mon Sep 17 00:00:00 2001
+From: Jonathan Kim <jonathan.kim@amd.com>
+Date: Fri, 27 Sep 2019 04:03:42 -0400
+Subject: [PATCH 0254/1453] drm/amdkfd: fix query pending event with
+ unspecified queue id
+
+query pending event failed to return queue with both trap and vmfault pending
+event status when queue id is not specified.
+
+Change-Id: If18b8a34b14965d9dcd7c62ca568a82f2ee47c97
+Signed-off-by: Jonathan Kim <jonathan.kim@amd.com>
+Reviewed-by: Felix Kuehling <Felix.Kuehling@amd.com>
+---
+ drivers/gpu/drm/amd/amdkfd/kfd_debug_events.c | 5 ++---
+ 1 file changed, 2 insertions(+), 3 deletions(-)
+
+diff --git a/drivers/gpu/drm/amd/amdkfd/kfd_debug_events.c b/drivers/gpu/drm/amd/amdkfd/kfd_debug_events.c
+index 1108f8624b8b..f549f1d8f6ef 100644
+--- a/drivers/gpu/drm/amd/amdkfd/kfd_debug_events.c
++++ b/drivers/gpu/drm/amd/amdkfd/kfd_debug_events.c
+@@ -152,9 +152,8 @@ int kfd_dbg_ev_query_debug_event(struct kfd_process_device *pdd,
+ 		list_for_each_entry(pqn, &pqm->queues, process_queue_list) {
+ 			if (pqn->q &&
+ 				 (pqn->q->properties.debug_event_type
+-					== KFD_DBG_EV_STATUS_TRAP
+-				|| pqn->q->properties.debug_event_type
+-					== KFD_DBG_EV_STATUS_VMFAULT)) {
++					& (KFD_DBG_EV_STATUS_TRAP
++					| KFD_DBG_EV_STATUS_VMFAULT))) {
+ 				*queue_id = pqn->q->properties.queue_id;
+ 				*event_status =
+ 					kfd_dbg_get_queue_status_word(pqn->q,
+-- 
+2.17.1
+

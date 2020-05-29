@@ -1,0 +1,31 @@
+From ea7391171166cbff042d95d27fd5268c718e25b2 Mon Sep 17 00:00:00 2001
+From: Qiang Yu <Qiang.Yu@amd.com>
+Date: Fri, 17 Mar 2017 18:18:14 +0800
+Subject: [PATCH 0167/1453] drm/amdgpu: [hybrid] disable DC when virtual
+ display is enabled
+
+Host OS can also enable virtual display when needed.
+
+Change-Id: I28375f2637c56ce42439c3026f495f987fc134d1
+Signed-off-by: Qiang Yu <Qiang.Yu@amd.com>
+Reviewed-by: Junwei Zhang <Jerry.Zhang@amd.com>
+---
+ drivers/gpu/drm/amd/amdgpu/amdgpu_device.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/drivers/gpu/drm/amd/amdgpu/amdgpu_device.c b/drivers/gpu/drm/amd/amdgpu/amdgpu_device.c
+index 93f058964622..9cb84aa97dad 100644
+--- a/drivers/gpu/drm/amd/amdgpu/amdgpu_device.c
++++ b/drivers/gpu/drm/amd/amdgpu/amdgpu_device.c
+@@ -2540,7 +2540,7 @@ bool amdgpu_device_asic_has_dc_support(enum amd_asic_type asic_type)
+  */
+ bool amdgpu_device_has_dc_support(struct amdgpu_device *adev)
+ {
+-	if (amdgpu_sriov_vf(adev))
++	if (adev->enable_virtual_display)
+ 		return false;
+ 
+ 	return amdgpu_device_asic_has_dc_support(adev->asic_type);
+-- 
+2.17.1
+

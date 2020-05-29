@@ -1,0 +1,79 @@
+From 320fa95a7e81ed72c18d0afd48c11d4832d80031 Mon Sep 17 00:00:00 2001
+From: Evan Quan <evan.quan@amd.com>
+Date: Thu, 6 Jul 2017 14:45:08 +0800
+Subject: [PATCH 0168/1453] drm/amdgpu: [hybrid] always to use amdgpu to
+ support CI/SI asics on hybrid
+
+  - this patch is needed only by hybrid staging
+  - we may update packing script to add cik_support system config in future.
+    Then this commit will be not needed.
+
+Signed-off-by: Kent Russell <kent.russell@amd.com>
+Signed-off-by: Flora Cui <flora.cui@amd.com>
+Signed-off-by: Evan Quan <evan.quan@amd.com>
+Reviewed-by: Junwei Zhang <Jerry.Zhang@amd.com>
+Signed-off-by: Kalyan Alle <kalyan.alle@amd.com>
+---
+ drivers/gpu/drm/amd/amdgpu/Kconfig      | 8 ++++----
+ drivers/gpu/drm/amd/amdgpu/amdgpu_drv.c | 8 +++-----
+ 2 files changed, 7 insertions(+), 9 deletions(-)
+
+diff --git a/drivers/gpu/drm/amd/amdgpu/Kconfig b/drivers/gpu/drm/amd/amdgpu/Kconfig
+index b12b880663e5..aa66d56e4589 100644
+--- a/drivers/gpu/drm/amd/amdgpu/Kconfig
++++ b/drivers/gpu/drm/amd/amdgpu/Kconfig
+@@ -18,11 +18,11 @@ config DRM_AMDGPU_CIK
+ 	help
+ 	  Choose this option if you want to enable support for CIK asics.
+ 
+-	  CIK is already supported in radeon. Support for CIK in amdgpu
+-	  will be disabled by default and is still provided by radeon.
+-	  Use module options to override this:
++	  CIK is already supported in radeon. If you enable this option,
++	  support for CIK will be provided by amdgpu and disabled in
++	  radeon by default. Use module options to override this:
+ 
+-	  radeon.cik_support=0 amdgpu.cik_support=1
++	  radeon.cik_support=1 amdgpu.cik_support=0
+ 
+ config DRM_AMDGPU_USERPTR
+ 	bool "Always enable userptr write support"
+diff --git a/drivers/gpu/drm/amd/amdgpu/amdgpu_drv.c b/drivers/gpu/drm/amd/amdgpu/amdgpu_drv.c
+index 2f28b7435918..098dd40d543d 100644
+--- a/drivers/gpu/drm/amd/amdgpu/amdgpu_drv.c
++++ b/drivers/gpu/drm/amd/amdgpu/amdgpu_drv.c
+@@ -545,13 +545,12 @@ module_param_named(ras_mask, amdgpu_ras_mask, uint, 0444);
+ #ifdef CONFIG_DRM_AMDGPU_SI
+ 
+ #if defined(CONFIG_DRM_RADEON) || defined(CONFIG_DRM_RADEON_MODULE)
+-int amdgpu_si_support = 0;
+-MODULE_PARM_DESC(si_support, "SI support (1 = enabled, 0 = disabled (default))");
++int amdgpu_si_support = 1;
++MODULE_PARM_DESC(si_support, "SI support (1 = enabled (default), 0 = disabled)");
+ #else
+ int amdgpu_si_support = 1;
+ MODULE_PARM_DESC(si_support, "SI support (1 = enabled (default), 0 = disabled)");
+ #endif
+-
+ module_param_named(si_support, amdgpu_si_support, int, 0444);
+ #endif
+ 
+@@ -563,14 +562,13 @@ module_param_named(si_support, amdgpu_si_support, int, 0444);
+  */
+ #ifdef CONFIG_DRM_AMDGPU_CIK
+ 
+-#if defined(CONFIG_DRM_RADEON) || defined(CONFIG_DRM_RADEON_MODULE)
++#if (0 && (defined(CONFIG_DRM_RADEON) || defined(CONFIG_DRM_RADEON_MODULE)))
+ int amdgpu_cik_support = 0;
+ MODULE_PARM_DESC(cik_support, "CIK support (1 = enabled, 0 = disabled (default))");
+ #else
+ int amdgpu_cik_support = 1;
+ MODULE_PARM_DESC(cik_support, "CIK support (1 = enabled (default), 0 = disabled)");
+ #endif
+-
+ module_param_named(cik_support, amdgpu_cik_support, int, 0444);
+ #endif
+ 
+-- 
+2.17.1
+

@@ -1,0 +1,35 @@
+From d453d776ac716cb6e8f474deb98eb45e9b9bfaaa Mon Sep 17 00:00:00 2001
+From: Kent Russell <kent.russell@amd.com>
+Date: Fri, 23 Feb 2018 11:37:12 -0500
+Subject: [PATCH 0177/1453] drm/amdgpu: Set GTT size to be bigger than 3/4 of
+ RAM
+
+Change-Id: I1299df0889049983ad03bcf35e2bedf7f860dda9
+Signed-off-by: Kent Russell <kent.russell@amd.com>
+---
+ drivers/gpu/drm/amd/amdgpu/amdgpu_ttm.c | 9 ++++-----
+ 1 file changed, 4 insertions(+), 5 deletions(-)
+
+diff --git a/drivers/gpu/drm/amd/amdgpu/amdgpu_ttm.c b/drivers/gpu/drm/amd/amdgpu/amdgpu_ttm.c
+index 732a44185fe2..2e75ad1f7aa5 100644
+--- a/drivers/gpu/drm/amd/amdgpu/amdgpu_ttm.c
++++ b/drivers/gpu/drm/amd/amdgpu/amdgpu_ttm.c
+@@ -1957,11 +1957,10 @@ int amdgpu_ttm_init(struct amdgpu_device *adev)
+ 		struct sysinfo si;
+ 
+ 		si_meminfo(&si);
+-		gtt_size = min(max((AMDGPU_DEFAULT_GTT_SIZE_MB << 20),
+-			       adev->gmc.mc_vram_size),
+-			       ((uint64_t)si.totalram * si.mem_unit * 3/4));
+-	}
+-	else
++		gtt_size = max3((AMDGPU_DEFAULT_GTT_SIZE_MB << 20),
++				adev->gmc.mc_vram_size,
++				((uint64_t)si.totalram * si.mem_unit));
++	} else
+ 		gtt_size = (uint64_t)amdgpu_gtt_size << 20;
+ 
+ 	/* reserve for DGMA import domain */
+-- 
+2.17.1
+

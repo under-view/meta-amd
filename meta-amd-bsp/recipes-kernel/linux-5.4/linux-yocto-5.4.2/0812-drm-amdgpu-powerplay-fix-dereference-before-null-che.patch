@@ -1,0 +1,43 @@
+From 93fb2f1c17d9496f9f16c0f87f7760c2e443e32d Mon Sep 17 00:00:00 2001
+From: Colin Ian King <colin.king@canonical.com>
+Date: Fri, 15 Nov 2019 09:47:54 +0000
+Subject: [PATCH 0812/1453] drm/amdgpu/powerplay: fix dereference before null
+ check of pointer hwmgr
+
+The assignment of adev dereferences pointer hwmgr before hwmgr is null
+checked, hence there is a potential null pointer deference issue. Fix
+this by assigning adev after the null check.
+
+Addresses-Coverity: ("Dereference before null check")
+Reviewed-by: Evan Quan <evan.quan@amd.com>
+Signed-off-by: Colin Ian King <colin.king@canonical.com>
+Signed-off-by: Alex Deucher <alexander.deucher@amd.com>
+---
+ drivers/gpu/drm/amd/powerplay/hwmgr/hwmgr.c | 4 +++-
+ 1 file changed, 3 insertions(+), 1 deletion(-)
+
+diff --git a/drivers/gpu/drm/amd/powerplay/hwmgr/hwmgr.c b/drivers/gpu/drm/amd/powerplay/hwmgr/hwmgr.c
+index 443625c83ec9..d2909c91d65b 100644
+--- a/drivers/gpu/drm/amd/powerplay/hwmgr/hwmgr.c
++++ b/drivers/gpu/drm/amd/powerplay/hwmgr/hwmgr.c
+@@ -81,7 +81,7 @@ static void hwmgr_init_workload_prority(struct pp_hwmgr *hwmgr)
+ 
+ int hwmgr_early_init(struct pp_hwmgr *hwmgr)
+ {
+-	struct amdgpu_device *adev = hwmgr->adev;
++	struct amdgpu_device *adev;
+ 
+ 	if (!hwmgr)
+ 		return -EINVAL;
+@@ -96,6 +96,8 @@ int hwmgr_early_init(struct pp_hwmgr *hwmgr)
+ 	hwmgr_init_workload_prority(hwmgr);
+ 	hwmgr->gfxoff_state_changed_by_workload = false;
+ 
++	adev = hwmgr->adev;
++
+ 	switch (hwmgr->chip_family) {
+ 	case AMDGPU_FAMILY_CI:
+ 		adev->pm.pp_feature &= ~PP_GFXOFF_MASK;
+-- 
+2.17.1
+

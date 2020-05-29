@@ -1,0 +1,49 @@
+From 6d988d03e4d13102bf544e0af648a7cc48e8fa88 Mon Sep 17 00:00:00 2001
+From: Leo Liu <leo.liu@amd.com>
+Date: Wed, 15 Jan 2020 19:27:18 -0500
+Subject: [PATCH 1351/1453] drm/amdgpu/vcn1.0: add 1_0 to Macro and fix build
+ warning
+
+Fixes: 2f60d5f2bc4 "drm/amdgpu/vcn: move macro from vcn2.0 to share amdgpu_vcn"
+
+Signed-off-by: Leo Liu <leo.liu@amd.com>
+Reviewed-by: James Zhu <James.Zhu@amd.com>
+---
+ drivers/gpu/drm/amd/amdgpu/vcn_v1_0.c | 14 +++++++-------
+ 1 file changed, 7 insertions(+), 7 deletions(-)
+
+diff --git a/drivers/gpu/drm/amd/amdgpu/vcn_v1_0.c b/drivers/gpu/drm/amd/amdgpu/vcn_v1_0.c
+index a70351f2740c..e654938f6cca 100644
+--- a/drivers/gpu/drm/amd/amdgpu/vcn_v1_0.c
++++ b/drivers/gpu/drm/amd/amdgpu/vcn_v1_0.c
+@@ -39,10 +39,10 @@
+ #include "ivsrcid/vcn/irqsrcs_vcn_1_0.h"
+ #include "jpeg_v1_0.h"
+ 
+-#define mmUVD_RBC_XX_IB_REG_CHECK				0x05ab
+-#define mmUVD_RBC_XX_IB_REG_CHECK_BASE_IDX	1
+-#define mmUVD_REG_XX_MASK							0x05ac
+-#define mmUVD_REG_XX_MASK_BASE_IDX				1
++#define mmUVD_RBC_XX_IB_REG_CHECK_1_0		0x05ab
++#define mmUVD_RBC_XX_IB_REG_CHECK_1_0_BASE_IDX	1
++#define mmUVD_REG_XX_MASK_1_0			0x05ac
++#define mmUVD_REG_XX_MASK_1_0_BASE_IDX		1
+ 
+ static int vcn_v1_0_stop(struct amdgpu_device *adev);
+ static void vcn_v1_0_set_dec_ring_funcs(struct amdgpu_device *adev);
+@@ -835,9 +835,9 @@ static int vcn_v1_0_start_spg_mode(struct amdgpu_device *adev)
+ 
+ 	vcn_v1_0_mc_resume_spg_mode(adev);
+ 
+-	WREG32_SOC15(UVD, 0, mmUVD_REG_XX_MASK, 0x10);
+-	WREG32_SOC15(UVD, 0, mmUVD_RBC_XX_IB_REG_CHECK,
+-		RREG32_SOC15(UVD, 0, mmUVD_RBC_XX_IB_REG_CHECK) | 0x3);
++	WREG32_SOC15(UVD, 0, mmUVD_REG_XX_MASK_1_0, 0x10);
++	WREG32_SOC15(UVD, 0, mmUVD_RBC_XX_IB_REG_CHECK_1_0,
++		RREG32_SOC15(UVD, 0, mmUVD_RBC_XX_IB_REG_CHECK_1_0) | 0x3);
+ 
+ 	/* enable VCPU clock */
+ 	WREG32_SOC15(UVD, 0, mmUVD_VCPU_CNTL, UVD_VCPU_CNTL__CLK_EN_MASK);
+-- 
+2.17.1
+

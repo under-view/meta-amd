@@ -1,0 +1,32 @@
+From 766b522c9d5607db4e081582c259c7457b221037 Mon Sep 17 00:00:00 2001
+From: Emily Deng <Emily.Deng@amd.com>
+Date: Thu, 7 Nov 2019 10:26:43 +0800
+Subject: [PATCH 0664/1453] drm/amdgpu: Need to disable msix when unloading
+ driver
+
+For driver reload test, it will report "can't enable
+MSI (MSI-X already enabled)".
+
+Change-Id: I939294f06c74a6bb998ce3c7bb55d1d4e8555faf
+Signed-off-by: Emily Deng <Emily.Deng@amd.com>
+Reviewed-by: Alex Deucher <alexander.deucher@amd.com>
+---
+ drivers/gpu/drm/amd/amdgpu/amdgpu_irq.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/drivers/gpu/drm/amd/amdgpu/amdgpu_irq.c b/drivers/gpu/drm/amd/amdgpu/amdgpu_irq.c
+index 6f3b03f6224f..30d540d23b77 100644
+--- a/drivers/gpu/drm/amd/amdgpu/amdgpu_irq.c
++++ b/drivers/gpu/drm/amd/amdgpu/amdgpu_irq.c
+@@ -311,7 +311,7 @@ void amdgpu_irq_fini(struct amdgpu_device *adev)
+ 		drm_irq_uninstall(adev->ddev);
+ 		adev->irq.installed = false;
+ 		if (adev->irq.msi_enabled)
+-			pci_disable_msi(adev->pdev);
++			pci_free_irq_vectors(adev->pdev);
+ 		if (!amdgpu_device_has_dc_support(adev))
+ 			flush_work(&adev->hotplug_work);
+ 	}
+-- 
+2.17.1
+

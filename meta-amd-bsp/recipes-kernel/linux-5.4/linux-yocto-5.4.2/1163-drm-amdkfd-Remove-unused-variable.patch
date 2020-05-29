@@ -1,0 +1,41 @@
+From 0ed40afc92b3152b4f351008adb6ebb9dc99cb78 Mon Sep 17 00:00:00 2001
+From: Felix Kuehling <Felix.Kuehling@amd.com>
+Date: Fri, 20 Dec 2019 02:01:24 -0500
+Subject: [PATCH 1163/1453] drm/amdkfd: Remove unused variable
+
+dqm->pipeline_mem wasn't used anywhere.
+
+Signed-off-by: Felix Kuehling <Felix.Kuehling@amd.com>
+Reviewed-by: shaoyunl  <shaoyun.liu@amd.com>
+---
+ drivers/gpu/drm/amd/amdkfd/kfd_device_queue_manager.c | 1 -
+ drivers/gpu/drm/amd/amdkfd/kfd_device_queue_manager.h | 1 -
+ 2 files changed, 2 deletions(-)
+
+diff --git a/drivers/gpu/drm/amd/amdkfd/kfd_device_queue_manager.c b/drivers/gpu/drm/amd/amdkfd/kfd_device_queue_manager.c
+index 4f8c55842726..7d754a2be48a 100755
+--- a/drivers/gpu/drm/amd/amdkfd/kfd_device_queue_manager.c
++++ b/drivers/gpu/drm/amd/amdkfd/kfd_device_queue_manager.c
+@@ -1067,7 +1067,6 @@ static void uninitialize(struct device_queue_manager *dqm)
+ 	for (i = 0 ; i < KFD_MQD_TYPE_MAX ; i++)
+ 		kfree(dqm->mqd_mgrs[i]);
+ 	mutex_destroy(&dqm->lock_hidden);
+-	kfd_gtt_sa_free(dqm->dev, dqm->pipeline_mem);
+ }
+ 
+ static int start_nocpsch(struct device_queue_manager *dqm)
+diff --git a/drivers/gpu/drm/amd/amdkfd/kfd_device_queue_manager.h b/drivers/gpu/drm/amd/amdkfd/kfd_device_queue_manager.h
+index a5e045206fb7..9f3bf9e7a656 100755
+--- a/drivers/gpu/drm/amd/amdkfd/kfd_device_queue_manager.h
++++ b/drivers/gpu/drm/amd/amdkfd/kfd_device_queue_manager.h
+@@ -192,7 +192,6 @@ struct device_queue_manager {
+ 	/* the pasid mapping for each kfd vmid */
+ 	uint16_t		vmid_pasid[VMID_NUM];
+ 	uint64_t		pipelines_addr;
+-	struct kfd_mem_obj	*pipeline_mem;
+ 	uint64_t		fence_gpu_addr;
+ 	unsigned int		*fence_addr;
+ 	struct kfd_mem_obj	*fence_mem;
+-- 
+2.17.1
+

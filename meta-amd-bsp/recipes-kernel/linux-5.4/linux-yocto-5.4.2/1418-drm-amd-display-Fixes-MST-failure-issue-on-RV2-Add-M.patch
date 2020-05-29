@@ -1,0 +1,117 @@
+From 1f258fc372f5d2d2dafcd7aa0dfa56f7a92cc8d6 Mon Sep 17 00:00:00 2001
+From: Mikita Lipski <mikita.lipski@amd.com>
+Date: Wed, 6 Nov 2019 14:23:55 -0500
+Subject: [PATCH 1418/1453] drm/amd/display: Fixes MST failure issue on RV2 -
+ Add MST atomic routines
+
+- Adding encoder atomic check to find vcpi slots for a connector
+- Adding connector atomic check to release vcpi slots if connector
+  loses CRTC
+- moved vcpi_slots and pbn properties to dm_crtc_state and dc_stream_state
+- updates stream's vcpi_slots and pbn on commit
+- separated patch from the DSC MST series
+
+Reviewed-by: Lyude Paul <lyude@redhat.com>
+Reviewed-by: Nicholas Kazlauskas <nicholas.kazlauskas@amd.com>
+Signed-off-by: Mikita Lipski <mikita.lipski@amd.com>
+Signed-off-by: Alex Deucher <alexander.deucher@amd.com>
+Signed-off-by: Kalyan Alle <kalyan.alle@amd.com>
+---
+ .../amd/display/amdgpu_dm/amdgpu_dm_helpers.c | 12 ++++++---
+ .../display/amdgpu_dm/amdgpu_dm_mst_types.c   | 25 -------------------
+ 2 files changed, 9 insertions(+), 28 deletions(-)
+ mode change 100644 => 100755 drivers/gpu/drm/amd/display/amdgpu_dm/amdgpu_dm_helpers.c
+
+diff --git a/drivers/gpu/drm/amd/display/amdgpu_dm/amdgpu_dm_helpers.c b/drivers/gpu/drm/amd/display/amdgpu_dm/amdgpu_dm_helpers.c
+old mode 100644
+new mode 100755
+index e725250bb99b..7e98c12bdcba
+--- a/drivers/gpu/drm/amd/display/amdgpu_dm/amdgpu_dm_helpers.c
++++ b/drivers/gpu/drm/amd/display/amdgpu_dm/amdgpu_dm_helpers.c
+@@ -185,8 +185,10 @@ bool dm_helpers_dp_mst_write_payload_allocation_table(
+ 	struct drm_dp_mst_topology_mgr *mst_mgr;
+ 	struct drm_dp_mst_port *mst_port;
+ 	bool ret;
+-	int slots = 0;
++	int clock;
++	int bpp = 0;
+ 	int pbn = 0;
++
+ 	aconnector = (struct amdgpu_dm_connector *)stream->dm_stream_context;
+ 	/* Accessing the connector state is required for vcpi_slots allocation
+ 	 * and directly relies on behaviour in commit check
+@@ -196,6 +198,7 @@ bool dm_helpers_dp_mst_write_payload_allocation_table(
+ 	if (!aconnector || !aconnector->mst_port)
+ 		return false;
+ 
++	dm_conn_state = to_dm_connector_state(aconnector->base.state);
+ 	mst_mgr = &aconnector->mst_port->mst_mgr;
+ 
+ 	if (!mst_mgr->mst_state)
+@@ -204,8 +207,9 @@ bool dm_helpers_dp_mst_write_payload_allocation_table(
+ 	mst_port = aconnector->port;
+ 
+ 	if (enable) {
+-		ret = drm_dp_mst_allocate_vcpi(mst_mgr, mst_port, pbn, slots);
+-
++		ret = drm_dp_mst_allocate_vcpi(mst_mgr, mst_port,
++					       dm_conn_state->pbn,
++					       dm_conn_state->vcpi_slots);
+ 		if (!ret)
+ 			return false;
+ 
+@@ -507,6 +511,7 @@ bool dm_helpers_submit_i2c(
+ 
+ 	return result;
+ }
++#ifdef CONFIG_DRM_AMD_DC_DSC_SUPPORT
+ bool dm_helpers_dp_write_dsc_enable(
+ 		struct dc_context *ctx,
+ 		const struct dc_stream_state *stream,
+@@ -533,6 +538,7 @@ bool dm_helpers_dp_write_dsc_enable(
+ 
+ 	return false;
+ }
++#endif
+ 
+ bool dm_helpers_is_dp_sink_present(struct dc_link *link)
+ {
+diff --git a/drivers/gpu/drm/amd/display/amdgpu_dm/amdgpu_dm_mst_types.c b/drivers/gpu/drm/amd/display/amdgpu_dm/amdgpu_dm_mst_types.c
+index 04f06dd4f19a..713ae587a920 100755
+--- a/drivers/gpu/drm/amd/display/amdgpu_dm/amdgpu_dm_mst_types.c
++++ b/drivers/gpu/drm/amd/display/amdgpu_dm/amdgpu_dm_mst_types.c
+@@ -151,31 +151,6 @@ dm_dp_mst_connector_destroy(struct drm_connector *connector)
+ 	kfree(amdgpu_dm_connector);
+ }
+ 
+-static int
+-amdgpu_dm_mst_connector_late_register(struct drm_connector *connector)
+-{
+-	struct amdgpu_dm_connector *amdgpu_dm_connector =
+-		to_amdgpu_dm_connector(connector);
+-	struct drm_dp_mst_port *port = amdgpu_dm_connector->port;
+-
+-#if defined(CONFIG_DEBUG_FS)
+-	connector_debugfs_init(amdgpu_dm_connector);
+-	amdgpu_dm_connector->debugfs_dpcd_address = 0;
+-	amdgpu_dm_connector->debugfs_dpcd_size = 0;
+-#endif
+-
+-	return drm_dp_mst_connector_late_register(connector, port);
+-}
+-
+-static void
+-amdgpu_dm_mst_connector_early_unregister(struct drm_connector *connector)
+-{
+-	struct amdgpu_dm_connector *amdgpu_dm_connector =
+-		to_amdgpu_dm_connector(connector);
+-	struct drm_dp_mst_port *port = amdgpu_dm_connector->port;
+-
+-	drm_dp_mst_connector_early_unregister(connector, port);
+-}
+ static const struct drm_connector_funcs dm_dp_mst_connector_funcs = {
+ /*
+  * Need to add support for DRM < 4.14 as DP1.1 does
+-- 
+2.17.1
+

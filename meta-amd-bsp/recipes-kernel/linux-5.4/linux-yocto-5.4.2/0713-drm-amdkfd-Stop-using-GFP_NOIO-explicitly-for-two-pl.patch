@@ -1,0 +1,52 @@
+From caa3350c3942d9253f3f3e25a9a404efe81610f7 Mon Sep 17 00:00:00 2001
+From: Yong Zhao <Yong.Zhao@amd.com>
+Date: Fri, 8 Nov 2019 22:06:37 -0500
+Subject: [PATCH 0713/1453] drm/amdkfd: Stop using GFP_NOIO explicitly for two
+ places
+
+Adapt the change from 1cd106ecfc1f04
+
+The change is:
+
+    drm/amdkfd: Stop using GFP_NOIO explicitly
+
+    This is no longer needed with the memalloc_nofs_save/restore in
+    dqm_lock/unlock
+
+Change-Id: I42450b2c149d2b1842be99a8f355c829a0079e7c
+Signed-off-by: Yong Zhao <Yong.Zhao@amd.com>
+Reviewed-by: Felix Kuehling <Felix.Kuehling@amd.com>
+---
+ drivers/gpu/drm/amd/amdkfd/kfd_mqd_manager_v10.c | 2 +-
+ drivers/gpu/drm/amd/amdkfd/kfd_mqd_manager_v9.c  | 2 +-
+ 2 files changed, 2 insertions(+), 2 deletions(-)
+
+diff --git a/drivers/gpu/drm/amd/amdkfd/kfd_mqd_manager_v10.c b/drivers/gpu/drm/amd/amdkfd/kfd_mqd_manager_v10.c
+index 46ddb33b624a..579c5ffcfa79 100644
+--- a/drivers/gpu/drm/amd/amdkfd/kfd_mqd_manager_v10.c
++++ b/drivers/gpu/drm/amd/amdkfd/kfd_mqd_manager_v10.c
+@@ -393,7 +393,7 @@ struct mqd_manager *mqd_manager_init_v10(enum KFD_MQD_TYPE type,
+ 	if (WARN_ON(type >= KFD_MQD_TYPE_MAX))
+ 		return NULL;
+ 
+-	mqd = kzalloc(sizeof(*mqd), GFP_NOIO);
++	mqd = kzalloc(sizeof(*mqd), GFP_KERNEL);
+ 	if (!mqd)
+ 		return NULL;
+ 
+diff --git a/drivers/gpu/drm/amd/amdkfd/kfd_mqd_manager_v9.c b/drivers/gpu/drm/amd/amdkfd/kfd_mqd_manager_v9.c
+index 785ceda52c94..822747377c28 100755
+--- a/drivers/gpu/drm/amd/amdkfd/kfd_mqd_manager_v9.c
++++ b/drivers/gpu/drm/amd/amdkfd/kfd_mqd_manager_v9.c
+@@ -135,7 +135,7 @@ static struct kfd_mem_obj *allocate_mqd(struct kfd_dev *kfd,
+ 	 * instead of sub-allocation function.
+ 	 */
+ 	if (kfd->cwsr_enabled && (q->type == KFD_QUEUE_TYPE_COMPUTE)) {
+-		mqd_mem_obj = kzalloc(sizeof(struct kfd_mem_obj), GFP_NOIO);
++		mqd_mem_obj = kzalloc(sizeof(struct kfd_mem_obj), GFP_KERNEL);
+ 		if (!mqd_mem_obj)
+ 			return NULL;
+ 		retval = amdgpu_amdkfd_alloc_gtt_mem(kfd->kgd,
+-- 
+2.17.1
+

@@ -1,0 +1,34 @@
+From 31dae320c759546b8304a5f271439e186e9ced9b Mon Sep 17 00:00:00 2001
+From: Alex Deucher <alexander.deucher@amd.com>
+Date: Wed, 8 Jan 2020 17:47:23 -0500
+Subject: [PATCH 1322/1453] drm/amdgpu/display: set gpu vm flag for renoir
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+It won't get used unless the driver allows the gtt domain for
+display buffers which is controlled elsewhere.
+
+Reviewed-by: Harry Wentland <harry.wentland@amd.com>
+Acked-by: Huang Rui <ray.huang@amd.com>
+Acked-by: Christian König <christian.koenig@amd.com>
+Signed-off-by: Alex Deucher <alexander.deucher@amd.com>
+---
+ drivers/gpu/drm/amd/display/amdgpu_dm/amdgpu_dm.c | 1 +
+ 1 file changed, 1 insertion(+)
+
+diff --git a/drivers/gpu/drm/amd/display/amdgpu_dm/amdgpu_dm.c b/drivers/gpu/drm/amd/display/amdgpu_dm/amdgpu_dm.c
+index dd2cc19b1467..28a654ba6fa3 100755
+--- a/drivers/gpu/drm/amd/display/amdgpu_dm/amdgpu_dm.c
++++ b/drivers/gpu/drm/amd/display/amdgpu_dm/amdgpu_dm.c
+@@ -913,6 +913,7 @@ static int amdgpu_dm_init(struct amdgpu_device *adev)
+ 	case CHIP_CARRIZO:
+ 	case CHIP_STONEY:
+ 	case CHIP_RAVEN:
++	case CHIP_RENOIR:
+ 		init_data.flags.gpu_vm_support = true;
+ 		break;
+ 	default:
+-- 
+2.17.1
+

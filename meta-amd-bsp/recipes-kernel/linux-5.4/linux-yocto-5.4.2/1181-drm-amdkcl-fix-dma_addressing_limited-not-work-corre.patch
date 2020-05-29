@@ -1,0 +1,42 @@
+From 919e35cfc4a0e7750f82b91faa900f9ea6e78f5d Mon Sep 17 00:00:00 2001
+From: Flora Cui <flora.cui@amd.com>
+Date: Wed, 25 Dec 2019 18:05:04 +0800
+Subject: [PATCH 1181/1453] drm/amdkcl: fix dma_addressing_limited() not work
+ correctly
+
+It will cause KFDEvictTest failure on ubuntu16.04.
+
+Change-Id: Ia15b860eb57e5278fff865291cf1e77f81e24ab0
+Signed-off-by: Flora Cui <flora.cui@amd.com>
+Reviewed-by: Le Ma <Le.Ma@amd.com>
+Signed-off-by: Kalyan Alle <kalyan.alle@amd.com>
+---
+ drivers/gpu/drm/amd/amdgpu/amdgpu_ttm.c | 5 ++++-
+ 1 file changed, 4 insertions(+), 1 deletion(-)
+
+diff --git a/drivers/gpu/drm/amd/amdgpu/amdgpu_ttm.c b/drivers/gpu/drm/amd/amdgpu/amdgpu_ttm.c
+index 9fccd981252f..98c33feb1877 100644
+--- a/drivers/gpu/drm/amd/amdgpu/amdgpu_ttm.c
++++ b/drivers/gpu/drm/amd/amdgpu/amdgpu_ttm.c
+@@ -1939,6 +1939,9 @@ int amdgpu_ttm_init(struct amdgpu_device *adev)
+ 	int r;
+ 	u64 vis_vram_limit;
+ 	void *stolen_vga_buf;
++	bool need_dma32;
++	
++	need_dma32 = dma_addressing_limited(adev->dev);
+ 
+ 	mutex_init(&adev->mman.gtt_window_lock);
+ 
+@@ -1946,7 +1949,7 @@ int amdgpu_ttm_init(struct amdgpu_device *adev)
+ 	r = ttm_bo_device_init(&adev->mman.bdev,
+ 			       &amdgpu_bo_driver,
+ 			       adev->ddev->anon_inode->i_mapping,
+-			       dma_addressing_limited(adev->dev));
++			       need_dma32);
+ 	if (r) {
+ 		DRM_ERROR("failed initializing buffer object driver(%d).\n", r);
+ 		return r;
+-- 
+2.17.1
+

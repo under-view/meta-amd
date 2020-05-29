@@ -1,0 +1,29 @@
+From 0d8e5296b14d056fca2aaa237cfd80e2177286f3 Mon Sep 17 00:00:00 2001
+From: Flora Cui <flora.cui@amd.com>
+Date: Wed, 25 Sep 2019 10:12:52 +0800
+Subject: [PATCH 0159/1453] Revert "drm/amdgpu: fix building without
+ CONFIG_HMM_MIRROR"
+
+This reverts commit cef3eea1a0f1679e244dd33222fdd0b0b2ee0caa.
+---
+ drivers/gpu/drm/amd/amdgpu/amdgpu_mn.h | 2 --
+ 1 file changed, 2 deletions(-)
+
+diff --git a/drivers/gpu/drm/amd/amdgpu/amdgpu_mn.h b/drivers/gpu/drm/amd/amdgpu/amdgpu_mn.h
+index b8ed68943625..281fd9fef662 100644
+--- a/drivers/gpu/drm/amd/amdgpu/amdgpu_mn.h
++++ b/drivers/gpu/drm/amd/amdgpu/amdgpu_mn.h
+@@ -65,10 +65,8 @@ struct amdgpu_mn {
+ 	struct rw_semaphore	lock;
+ 	struct rb_root_cached	objects;
+ 
+-#ifdef CONFIG_HMM_MIRROR
+ 	/* HMM mirror */
+ 	struct hmm_mirror	mirror;
+-#endif
+ };
+ 
+ #if defined(CONFIG_HMM_MIRROR)
+-- 
+2.17.1
+

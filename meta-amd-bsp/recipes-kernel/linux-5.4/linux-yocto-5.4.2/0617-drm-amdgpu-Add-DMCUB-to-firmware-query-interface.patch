@@ -1,0 +1,87 @@
+From 9235a0c9f2e3e54fce18e32049a40c2f173fb1d9 Mon Sep 17 00:00:00 2001
+From: Nicholas Kazlauskas <nicholas.kazlauskas@amd.com>
+Date: Fri, 25 Oct 2019 14:15:08 -0400
+Subject: [PATCH 0617/1453] drm/amdgpu: Add DMCUB to firmware query interface
+
+The DMCUB firmware version can be read using the AMDGPU_INFO ioctl
+or the amdgpu_firmware_info debugfs entry.
+
+Signed-off-by: Nicholas Kazlauskas <nicholas.kazlauskas@amd.com>
+Reviewed-by: Hersen Wu <hersenxs.wu@amd.com>
+Acked-by: Harry Wentland <harry.wentland@amd.com>
+Signed-off-by: Kalyan Alle <kalyan.alle@amd.com>
+---
+ drivers/gpu/drm/amd/amdgpu/amdgpu_kms.c           | 12 ++++++++++++
+ drivers/gpu/drm/amd/display/amdgpu_dm/amdgpu_dm.h |  4 +---
+ include/uapi/drm/amdgpu_drm.h                     |  3 +++
+ 3 files changed, 16 insertions(+), 3 deletions(-)
+
+diff --git a/drivers/gpu/drm/amd/amdgpu/amdgpu_kms.c b/drivers/gpu/drm/amd/amdgpu/amdgpu_kms.c
+index 87717940fdec..c8b1e54a6a28 100644
+--- a/drivers/gpu/drm/amd/amdgpu/amdgpu_kms.c
++++ b/drivers/gpu/drm/amd/amdgpu/amdgpu_kms.c
+@@ -293,6 +293,10 @@ static int amdgpu_firmware_info(struct drm_amdgpu_info_firmware *fw_info,
+ 		fw_info->ver = adev->dm.dmcu_fw_version;
+ 		fw_info->feature = 0;
+ 		break;
++	case AMDGPU_INFO_FW_DMCUB:
++		fw_info->ver = adev->dm.dmcub_fw_version;
++		fw_info->feature = 0;
++		break;
+ 	default:
+ 		return -EINVAL;
+ 	}
+@@ -1437,6 +1441,14 @@ static int amdgpu_debugfs_firmware_info(struct seq_file *m, void *data)
+ 	seq_printf(m, "DMCU feature version: %u, firmware version: 0x%08x\n",
+ 		   fw_info.feature, fw_info.ver);
+ 
++	/* DMCUB */
++	query_fw.fw_type = AMDGPU_INFO_FW_DMCUB;
++	ret = amdgpu_firmware_info(&fw_info, &query_fw, adev);
++	if (ret)
++		return ret;
++	seq_printf(m, "DMCUB feature version: %u, firmware version: 0x%08x\n",
++		   fw_info.feature, fw_info.ver);
++
+ 
+ 	seq_printf(m, "VBIOS version: %s\n", ctx->vbios_version);
+ 
+diff --git a/drivers/gpu/drm/amd/display/amdgpu_dm/amdgpu_dm.h b/drivers/gpu/drm/amd/display/amdgpu_dm/amdgpu_dm.h
+index 03b11aa8c7bb..87674843919f 100644
+--- a/drivers/gpu/drm/amd/display/amdgpu_dm/amdgpu_dm.h
++++ b/drivers/gpu/drm/amd/display/amdgpu_dm/amdgpu_dm.h
+@@ -125,7 +125,6 @@ struct amdgpu_display_manager {
+ 
+ 	struct dc *dc;
+ 
+-#ifdef CONFIG_DRM_AMD_DC_DMUB
+ 	/**
+ 	 * @dmub_srv:
+ 	 *
+@@ -169,8 +168,7 @@ struct amdgpu_display_manager {
+ 	 * DMCUB firmware version.
+ 	 */
+ 	uint32_t dmcub_fw_version;
+-
+-#endif
++	
+ 	/**
+ 	 * @cgs_device:
+ 	 *
+diff --git a/include/uapi/drm/amdgpu_drm.h b/include/uapi/drm/amdgpu_drm.h
+index 1aec2014afdd..a1a636ec39ac 100755
+--- a/include/uapi/drm/amdgpu_drm.h
++++ b/include/uapi/drm/amdgpu_drm.h
+@@ -772,6 +772,9 @@ struct drm_amdgpu_cs_chunk_data {
+ 	/* Subquery id: Query DMCU firmware version */
+ 	#define AMDGPU_INFO_FW_DMCU		0x12
+ 	#define AMDGPU_INFO_FW_TA		0x13
++	/* Subquery id: Query DMCUB firmware version */
++	#define AMDGPU_INFO_FW_DMCUB		0x14
++
+ /* number of bytes moved for TTM migration */
+ #define AMDGPU_INFO_NUM_BYTES_MOVED		0x0f
+ /* the used VRAM size */
+-- 
+2.17.1
+

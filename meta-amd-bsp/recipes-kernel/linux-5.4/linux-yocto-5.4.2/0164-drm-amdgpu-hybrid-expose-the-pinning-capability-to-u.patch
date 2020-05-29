@@ -1,0 +1,105 @@
+From 0bee9be1180deb09806d293c6178c157c037a81f Mon Sep 17 00:00:00 2001
+From: Jammy Zhou <Jammy.Zhou@amd.com>
+Date: Mon, 9 Nov 2015 13:39:37 +0800
+Subject: [PATCH 0164/1453] drm/amdgpu: [hybrid] expose the pinning capability
+ to user space
+
+The module option amdgpu.no_evict is added, and it is disabled
+by default now.
+
+Signed-off-by: Jammy Zhou <Jammy.Zhou@amd.com>
+Reviewed-by: Chunming Zhou <david1.zhou@amd.com>
+Signed-off-by: Junwei Zhang <Jerry.Zhang@amd.com>
+Signed-off-by: Flora Cui <flora.cui@amd.com>
+---
+ drivers/gpu/drm/amd/amdgpu/amdgpu.h        | 1 +
+ drivers/gpu/drm/amd/amdgpu/amdgpu_drv.c    | 3 +++
+ drivers/gpu/drm/amd/amdgpu/amdgpu_gem.c    | 3 ++-
+ drivers/gpu/drm/amd/amdgpu/amdgpu_object.c | 8 ++++++++
+ include/uapi/drm/amdgpu_drm.h              | 4 ++++
+ 5 files changed, 18 insertions(+), 1 deletion(-)
+
+diff --git a/drivers/gpu/drm/amd/amdgpu/amdgpu.h b/drivers/gpu/drm/amd/amdgpu/amdgpu.h
+index 20a37ce56950..17e40f81866d 100644
+--- a/drivers/gpu/drm/amd/amdgpu/amdgpu.h
++++ b/drivers/gpu/drm/amd/amdgpu/amdgpu.h
+@@ -139,6 +139,7 @@ extern int amdgpu_vm_update_mode;
+ extern int amdgpu_dc;
+ extern int amdgpu_sched_jobs;
+ extern int amdgpu_sched_hw_submission;
++extern int amdgpu_no_evict;
+ extern uint amdgpu_pcie_gen_cap;
+ extern uint amdgpu_pcie_lane_cap;
+ extern uint amdgpu_cg_mask;
+diff --git a/drivers/gpu/drm/amd/amdgpu/amdgpu_drv.c b/drivers/gpu/drm/amd/amdgpu/amdgpu_drv.c
+index f5820a694898..2f28b7435918 100644
+--- a/drivers/gpu/drm/amd/amdgpu/amdgpu_drv.c
++++ b/drivers/gpu/drm/amd/amdgpu/amdgpu_drv.c
+@@ -121,6 +121,7 @@ int amdgpu_exp_hw_support = 0;
+ int amdgpu_dc = -1;
+ int amdgpu_sched_jobs = 32;
+ int amdgpu_sched_hw_submission = 2;
++int amdgpu_no_evict = 0;
+ uint amdgpu_pcie_gen_cap = 0;
+ uint amdgpu_pcie_lane_cap = 0;
+ uint amdgpu_cg_mask = 0xffffffff;
+@@ -394,6 +395,8 @@ module_param_named(sched_hw_submission, amdgpu_sched_hw_submission, int, 0444);
+ MODULE_PARM_DESC(ppfeaturemask, "all power features enabled (default))");
+ module_param_named(ppfeaturemask, amdgpu_pp_feature_mask, uint, 0444);
+ 
++MODULE_PARM_DESC(no_evict, "Support pinning request from user space (1 = enable, 0 = disable (default))");
++module_param_named(no_evict, amdgpu_no_evict, int, 0444);
+ /**
+  * DOC: pcie_gen_cap (uint)
+  * Override PCIE gen speed capabilities. See the CAIL flags in drivers/gpu/drm/amd/include/amd_pcie.h.
+diff --git a/drivers/gpu/drm/amd/amdgpu/amdgpu_gem.c b/drivers/gpu/drm/amd/amdgpu/amdgpu_gem.c
+index e687d7aa1e4a..67dc4a986769 100644
+--- a/drivers/gpu/drm/amd/amdgpu/amdgpu_gem.c
++++ b/drivers/gpu/drm/amd/amdgpu/amdgpu_gem.c
+@@ -226,7 +226,8 @@ int amdgpu_gem_create_ioctl(struct drm_device *dev, void *data,
+ 		      AMDGPU_GEM_CREATE_CPU_GTT_USWC |
+ 		      AMDGPU_GEM_CREATE_VRAM_CLEARED |
+ 		      AMDGPU_GEM_CREATE_VM_ALWAYS_VALID |
+-		      AMDGPU_GEM_CREATE_EXPLICIT_SYNC))
++		      AMDGPU_GEM_CREATE_EXPLICIT_SYNC |
++		      AMDGPU_GEM_CREATE_NO_EVICT))
+ 
+ 		return -EINVAL;
+ 
+diff --git a/drivers/gpu/drm/amd/amdgpu/amdgpu_object.c b/drivers/gpu/drm/amd/amdgpu/amdgpu_object.c
+index ace49f0820db..c4cd6103ea6d 100644
+--- a/drivers/gpu/drm/amd/amdgpu/amdgpu_object.c
++++ b/drivers/gpu/drm/amd/amdgpu/amdgpu_object.c
+@@ -609,6 +609,14 @@ static int amdgpu_bo_do_create(struct amdgpu_device *adev,
+ 	if (bp->type == ttm_bo_type_device)
+ 		bo->flags &= ~AMDGPU_GEM_CREATE_CPU_ACCESS_REQUIRED;
+ 
++	if ((bp->flags & AMDGPU_GEM_CREATE_NO_EVICT) && amdgpu_no_evict) {
++		r = amdgpu_bo_reserve(bo, false);
++		if (unlikely(r != 0))
++			return r;
++		r = amdgpu_bo_pin(bo, bp->domain);
++		amdgpu_bo_unreserve(bo);
++	}
++
+ 	return 0;
+ 
+ fail_unreserve:
+diff --git a/include/uapi/drm/amdgpu_drm.h b/include/uapi/drm/amdgpu_drm.h
+index 47f64dde0c83..d858cfe6d67f 100644
+--- a/include/uapi/drm/amdgpu_drm.h
++++ b/include/uapi/drm/amdgpu_drm.h
+@@ -133,6 +133,10 @@ extern "C" {
+  */
+ #define AMDGPU_GEM_CREATE_VRAM_WIPE_ON_RELEASE	(1 << 9)
+ 
++/* hybrid specific */
++/* Flag that the memory allocation should be pinned */
++#define AMDGPU_GEM_CREATE_NO_EVICT		(1ULL << 31)
++
+ struct drm_amdgpu_gem_create_in  {
+ 	/** the requested memory size */
+ 	__u64 bo_size;
+-- 
+2.17.1
+

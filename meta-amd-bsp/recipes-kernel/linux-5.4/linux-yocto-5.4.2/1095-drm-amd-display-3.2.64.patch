@@ -1,0 +1,28 @@
+From 8f725e76d17760df2f295cecd1ff56fe380565be Mon Sep 17 00:00:00 2001
+From: Aric Cyr <aric.cyr@amd.com>
+Date: Mon, 2 Dec 2019 03:42:28 -0500
+Subject: [PATCH 1095/1453] drm/amd/display: 3.2.64
+
+Signed-off-by: Aric Cyr <aric.cyr@amd.com>
+Reviewed-by: Aric Cyr <Aric.Cyr@amd.com>
+Acked-by: Rodrigo Siqueira <Rodrigo.Siqueira@amd.com>
+---
+ drivers/gpu/drm/amd/display/dc/dc.h | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/drivers/gpu/drm/amd/display/dc/dc.h b/drivers/gpu/drm/amd/display/dc/dc.h
+index a912763609e8..f34216103d60 100755
+--- a/drivers/gpu/drm/amd/display/dc/dc.h
++++ b/drivers/gpu/drm/amd/display/dc/dc.h
+@@ -39,7 +39,7 @@
+ #include "inc/hw/dmcu.h"
+ #include "dml/display_mode_lib.h"
+ 
+-#define DC_VER "3.2.63"
++#define DC_VER "3.2.64"
+ 
+ #define MAX_SURFACES 3
+ #define MAX_PLANES 6
+-- 
+2.17.1
+

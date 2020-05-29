@@ -1,0 +1,33 @@
+From 56e29ace293e50229a69bf005c4409741752599b Mon Sep 17 00:00:00 2001
+From: Leo Liu <leo.liu@amd.com>
+Date: Wed, 15 Jan 2020 19:32:42 -0500
+Subject: [PATCH 1352/1453] drm/amdgpu: fix the instance loop and build warning
+
+Fixes: 8ae1e132 "drm/amdgpu/vcn: support multiple instance direct SRAM read and write"
+
+Signed-off-by: Leo Liu <leo.liu@amd.com>
+Reviewed-by: James Zhu <James.Zhu@amd.com>
+---
+ drivers/gpu/drm/amd/amdgpu/amdgpu_vcn.c | 6 +++---
+ 1 file changed, 3 insertions(+), 3 deletions(-)
+
+diff --git a/drivers/gpu/drm/amd/amdgpu/amdgpu_vcn.c b/drivers/gpu/drm/amd/amdgpu/amdgpu_vcn.c
+index ab51f0e9539c..f96464e2c157 100644
+--- a/drivers/gpu/drm/amd/amdgpu/amdgpu_vcn.c
++++ b/drivers/gpu/drm/amd/amdgpu/amdgpu_vcn.c
+@@ -193,9 +193,9 @@ int amdgpu_vcn_sw_fini(struct amdgpu_device *adev)
+ 		if (adev->vcn.harvest_config & (1 << j))
+ 			continue;
+ 		if (adev->vcn.indirect_sram) {
+-			amdgpu_bo_free_kernel(&adev->vcn.inst[i].dpg_sram_bo,
+-						  &adev->vcn.inst[i].dpg_sram_gpu_addr,
+-						  (void **)&adev->vcn.inst[i].dpg_sram_cpu_addr);
++			amdgpu_bo_free_kernel(&adev->vcn.inst[j].dpg_sram_bo,
++						  &adev->vcn.inst[j].dpg_sram_gpu_addr,
++						  (void **)&adev->vcn.inst[j].dpg_sram_cpu_addr);
+ 		}
+ 		kvfree(adev->vcn.inst[j].saved_bo);
+ 
+-- 
+2.17.1
+

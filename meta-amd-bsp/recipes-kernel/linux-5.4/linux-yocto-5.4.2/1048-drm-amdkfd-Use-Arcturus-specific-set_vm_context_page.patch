@@ -1,0 +1,119 @@
+From 529ff7718c8425bd04376fad2721c939c6fbfa23 Mon Sep 17 00:00:00 2001
+From: Yong Zhao <Yong.Zhao@amd.com>
+Date: Mon, 2 Dec 2019 23:23:41 -0500
+Subject: [PATCH 1048/1453] drm/amdkfd: Use Arcturus specific
+ set_vm_context_page_table_base()
+
+Since Arcturus has it own function pointer, we can move Arcturus
+specific logic to there rather than leaving it entangled with
+other GFX9 chips.
+
+Change-Id: I7df7c004a0c8ac0616ded0e65144670df50f92a7
+Signed-off-by: Yong Zhao <Yong.Zhao@amd.com>
+Reviewed-by: Felix Kuehling <Felix.Kuehling@amd.com>
+---
+ .../drm/amd/amdgpu/amdgpu_amdkfd_arcturus.c   | 20 ++++++++++++++++++-
+ .../gpu/drm/amd/amdgpu/amdgpu_amdkfd_gfx_v9.c | 14 +++----------
+ .../gpu/drm/amd/amdgpu/amdgpu_amdkfd_gfx_v9.h |  2 --
+ 3 files changed, 22 insertions(+), 14 deletions(-)
+
+diff --git a/drivers/gpu/drm/amd/amdgpu/amdgpu_amdkfd_arcturus.c b/drivers/gpu/drm/amd/amdgpu/amdgpu_amdkfd_arcturus.c
+index 90c03487384d..d7a693d7a122 100644
+--- a/drivers/gpu/drm/amd/amdgpu/amdgpu_amdkfd_arcturus.c
++++ b/drivers/gpu/drm/amd/amdgpu/amdgpu_amdkfd_arcturus.c
+@@ -47,6 +47,8 @@
+ #include "soc15.h"
+ #include "soc15d.h"
+ #include "amdgpu_amdkfd_gfx_v9.h"
++#include "gfxhub_v1_0.h"
++#include "mmhub_v9_4.h"
+ 
+ #define HQD_N_REGS 56
+ #define DUMP_REG(addr) do {				\
+@@ -259,6 +261,22 @@ static int kgd_hqd_sdma_destroy(struct kgd_dev *kgd, void *mqd,
+ 	return 0;
+ }
+ 
++static void kgd_set_vm_context_page_table_base(struct kgd_dev *kgd, uint32_t vmid,
++		uint64_t page_table_base)
++{
++	struct amdgpu_device *adev = get_amdgpu_device(kgd);
++
++	if (!amdgpu_amdkfd_is_kfd_vmid(adev, vmid)) {
++		pr_err("trying to set page table base for wrong VMID %u\n",
++		       vmid);
++		return;
++	}
++
++	mmhub_v9_4_setup_vm_pt_regs(adev, vmid, page_table_base);
++
++	gfxhub_v1_0_setup_vm_pt_regs(adev, vmid, page_table_base);
++}
++
+ const struct kfd2kgd_calls arcturus_kfd2kgd = {
+ 	.program_sh_mem_settings = kgd_gfx_v9_program_sh_mem_settings,
+ 	.set_pasid_vmid_mapping = kgd_gfx_v9_set_pasid_vmid_mapping,
+@@ -278,7 +296,7 @@ const struct kfd2kgd_calls arcturus_kfd2kgd = {
+ 	.get_atc_vmid_pasid_mapping_info =
+ 			kgd_gfx_v9_get_atc_vmid_pasid_mapping_info,
+ 	.get_tile_config = kgd_gfx_v9_get_tile_config,
+-	.set_vm_context_page_table_base = kgd_gfx_v9_set_vm_context_page_table_base,
++	.set_vm_context_page_table_base = kgd_set_vm_context_page_table_base,
+ 	.invalidate_tlbs = kgd_gfx_v9_invalidate_tlbs,
+ 	.invalidate_tlbs_vmid = kgd_gfx_v9_invalidate_tlbs_vmid,
+ 	.get_hive_id = amdgpu_amdkfd_get_hive_id,
+diff --git a/drivers/gpu/drm/amd/amdgpu/amdgpu_amdkfd_gfx_v9.c b/drivers/gpu/drm/amd/amdgpu/amdgpu_amdkfd_gfx_v9.c
+index 8e6e0ca41c1d..fa3eb5200b72 100755
+--- a/drivers/gpu/drm/amd/amdgpu/amdgpu_amdkfd_gfx_v9.c
++++ b/drivers/gpu/drm/amd/amdgpu/amdgpu_amdkfd_gfx_v9.c
+@@ -45,7 +45,6 @@
+ #include "soc15d.h"
+ #include "mmhub_v1_0.h"
+ #include "gfxhub_v1_0.h"
+-#include "mmhub_v9_4.h"
+ 
+ 
+ enum hqd_dequeue_request_type {
+@@ -951,8 +950,8 @@ void kgd_gfx_v9_get_iq_wait_times(struct kgd_dev *kgd,
+ 	*wait_times = RREG32(SOC15_REG_OFFSET(GC, 0, mmCP_IQ_WAIT_TIME2));
+ }
+ 
+-void kgd_gfx_v9_set_vm_context_page_table_base(struct kgd_dev *kgd, uint32_t vmid,
+-		uint64_t page_table_base)
++static void kgd_gfx_v9_set_vm_context_page_table_base(struct kgd_dev *kgd,
++			uint32_t vmid, uint64_t page_table_base)
+ {
+ 	struct amdgpu_device *adev = get_amdgpu_device(kgd);
+ 
+@@ -962,14 +961,7 @@ void kgd_gfx_v9_set_vm_context_page_table_base(struct kgd_dev *kgd, uint32_t vmi
+ 		return;
+ 	}
+ 
+-	/* TODO: take advantage of per-process address space size. For
+-	 * now, all processes share the same address space size, like
+-	 * on GFX8 and older.
+-	 */
+-	if (adev->asic_type == CHIP_ARCTURUS) {
+-		mmhub_v9_4_setup_vm_pt_regs(adev, vmid, page_table_base);
+-	} else
+-		mmhub_v1_0_setup_vm_pt_regs(adev, vmid, page_table_base);
++	mmhub_v1_0_setup_vm_pt_regs(adev, vmid, page_table_base);
+ 
+ 	gfxhub_v1_0_setup_vm_pt_regs(adev, vmid, page_table_base);
+ }
+diff --git a/drivers/gpu/drm/amd/amdgpu/amdgpu_amdkfd_gfx_v9.h b/drivers/gpu/drm/amd/amdgpu/amdgpu_amdkfd_gfx_v9.h
+index 2b41d810c68e..eaf64fd4e155 100644
+--- a/drivers/gpu/drm/amd/amdgpu/amdgpu_amdkfd_gfx_v9.h
++++ b/drivers/gpu/drm/amd/amdgpu/amdgpu_amdkfd_gfx_v9.h
+@@ -57,8 +57,6 @@ uint32_t kgd_gfx_v9_address_watch_get_offset(struct kgd_dev *kgd,
+ 
+ bool kgd_gfx_v9_get_atc_vmid_pasid_mapping_info(struct kgd_dev *kgd,
+ 					uint8_t vmid, uint16_t *p_pasid);
+-void kgd_gfx_v9_set_vm_context_page_table_base(struct kgd_dev *kgd, uint32_t vmid,
+-		uint64_t page_table_base);
+ int kgd_gfx_v9_invalidate_tlbs(struct kgd_dev *kgd, uint16_t pasid);
+ int kgd_gfx_v9_invalidate_tlbs_vmid(struct kgd_dev *kgd, uint16_t vmid);
+ int kgd_gfx_v9_get_tile_config(struct kgd_dev *kgd,
+-- 
+2.17.1
+

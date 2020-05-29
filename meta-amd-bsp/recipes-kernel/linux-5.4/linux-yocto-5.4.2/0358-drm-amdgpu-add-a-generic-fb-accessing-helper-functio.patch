@@ -1,0 +1,113 @@
+From 7754caf09cc8aa14d40c2c9e35c05ae1a5fd1f8e Mon Sep 17 00:00:00 2001
+From: "Tianci.Yin" <tianci.yin@amd.com>
+Date: Mon, 30 Sep 2019 13:33:50 +0800
+Subject: [PATCH 0358/1453] drm/amdgpu: add a generic fb accessing helper
+ function
+
+add a generic helper function for accessing framebuffer via MMIO
+
+Change-Id: I4baa0aa53c93a94c2eff98c6211a61f369239982
+Reviewed-by: Alex Deucher <alexander.deucher@amd.com>
+Signed-off-by: Tianci.Yin <tianci.yin@amd.com>
+---
+ drivers/gpu/drm/amd/amdgpu/amdgpu.h           |  2 +
+ drivers/gpu/drm/amd/amdgpu/amdgpu_device.c    | 42 +++++++++++++++++++
+ drivers/gpu/drm/amd/amdgpu/amdgpu_discovery.c | 13 +-----
+ 3 files changed, 45 insertions(+), 12 deletions(-)
+
+diff --git a/drivers/gpu/drm/amd/amdgpu/amdgpu.h b/drivers/gpu/drm/amd/amdgpu/amdgpu.h
+index 6d9ba2474d7b..db0b8b4c69a8 100644
+--- a/drivers/gpu/drm/amd/amdgpu/amdgpu.h
++++ b/drivers/gpu/drm/amd/amdgpu/amdgpu.h
+@@ -1020,6 +1020,8 @@ int amdgpu_device_init(struct amdgpu_device *adev,
+ void amdgpu_device_fini(struct amdgpu_device *adev);
+ int amdgpu_gpu_wait_for_idle(struct amdgpu_device *adev);
+ 
++int amdgpu_device_vram_access(struct amdgpu_device *adev, loff_t pos,
++		       uint32_t *buf, size_t size, bool write);
+ uint32_t amdgpu_mm_rreg(struct amdgpu_device *adev, uint32_t reg,
+ 			uint32_t acc_flags);
+ void amdgpu_mm_wreg(struct amdgpu_device *adev, uint32_t reg, uint32_t v,
+diff --git a/drivers/gpu/drm/amd/amdgpu/amdgpu_device.c b/drivers/gpu/drm/amd/amdgpu/amdgpu_device.c
+index 6991c5293fb2..f4e2e506c1e5 100644
+--- a/drivers/gpu/drm/amd/amdgpu/amdgpu_device.c
++++ b/drivers/gpu/drm/amd/amdgpu/amdgpu_device.c
+@@ -153,6 +153,48 @@ bool amdgpu_device_is_px(struct drm_device *dev)
+ 	return false;
+ }
+ 
++/**
++ * VRAM access helper functions.
++ *
++ * amdgpu_device_vram_access - read/write a buffer in vram
++ *
++ * @adev: amdgpu_device pointer
++ * @pos: offset of the buffer in vram
++ * @buf: virtual address of the buffer in system memory
++ * @size: read/write size, sizeof(@buf) must > @size
++ * @write: true - write to vram, otherwise - read from vram
++ *
++ * Returns 0 on success or an -error on failure.
++ */
++int amdgpu_device_vram_access(struct amdgpu_device *adev, loff_t pos,
++		       uint32_t *buf, size_t size, bool write)
++{
++	uint64_t end = pos + size;
++	unsigned long flags;
++
++	if (IS_ERR_OR_NULL(buf) ||
++	    (adev->gmc.mc_vram_size > 0 &&
++	     end > adev->gmc.mc_vram_size)) {
++		DRM_ERROR("parameter error! pos:%llx, buf:%llx, size:%zx.\n",
++			  pos, (u64)buf, size);
++		return -EINVAL;
++	}
++
++	while (pos < end) {
++		spin_lock_irqsave(&adev->mmio_idx_lock, flags);
++		WREG32_NO_KIQ(mmMM_INDEX, ((uint32_t)pos) | 0x80000000);
++		WREG32_NO_KIQ(mmMM_INDEX_HI, pos >> 31);
++		if (write)
++			WREG32_NO_KIQ(mmMM_DATA, *buf++);
++		else
++			*buf++ = RREG32_NO_KIQ(mmMM_DATA);
++		spin_unlock_irqrestore(&adev->mmio_idx_lock, flags);
++		pos += 4;
++	}
++
++	return 0;
++}
++
+ /*
+  * MMIO register access helper functions.
+  */
+diff --git a/drivers/gpu/drm/amd/amdgpu/amdgpu_discovery.c b/drivers/gpu/drm/amd/amdgpu/amdgpu_discovery.c
+index db2dab3a6dff..324c2d605f54 100644
+--- a/drivers/gpu/drm/amd/amdgpu/amdgpu_discovery.c
++++ b/drivers/gpu/drm/amd/amdgpu/amdgpu_discovery.c
+@@ -134,21 +134,10 @@ static int hw_id_map[MAX_HWIP] = {
+ 
+ static int amdgpu_discovery_read_binary(struct amdgpu_device *adev, uint8_t *binary)
+ {
+-	uint32_t *p = (uint32_t *)binary;
+ 	uint64_t vram_size = (uint64_t)RREG32(mmRCC_CONFIG_MEMSIZE) << 20;
+ 	uint64_t pos = vram_size - BINARY_MAX_SIZE;
+-	unsigned long flags;
+-
+-	while (pos < vram_size) {
+-		spin_lock_irqsave(&adev->mmio_idx_lock, flags);
+-		WREG32_NO_KIQ(mmMM_INDEX, ((uint32_t)pos) | 0x80000000);
+-		WREG32_NO_KIQ(mmMM_INDEX_HI, pos >> 31);
+-		*p++ = RREG32_NO_KIQ(mmMM_DATA);
+-		spin_unlock_irqrestore(&adev->mmio_idx_lock, flags);
+-		pos += 4;
+-	}
+ 
+-	return 0;
++	return amdgpu_device_vram_access(adev, pos, (uint32_t *)binary, BINARY_MAX_SIZE, false);
+ }
+ 
+ static uint16_t amdgpu_discovery_calculate_checksum(uint8_t *data, uint32_t size)
+-- 
+2.17.1
+

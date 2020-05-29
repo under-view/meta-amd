@@ -1,0 +1,43 @@
+From c57cfac4a02f9b8eeae537c6a7c83d10cab68f03 Mon Sep 17 00:00:00 2001
+From: "Stanley.Yang" <Stanley.Yang@amd.com>
+Date: Thu, 26 Dec 2019 17:15:39 +0800
+Subject: [PATCH 1237/1453] drm/amdkcl: Test whether
+ drm_dp_mst_dsc_aux_for_port is available
+
+Change-Id: If098c1c8474741511e7ae338be90c1a382e3f5cc
+Signed-off-by: Stanley.Yang <Stanley.Yang@amd.com>
+Reviewed-by: Flora Cui <flora.cui@amd.com>
+Signed-off-by: Kalyan Alle <kalyan.alle@amd.com>
+---
+ drivers/gpu/drm/amd/display/amdgpu_dm/amdgpu_dm_mst_types.c | 4 ++++
+ 1 file changed, 4 insertions(+)
+
+diff --git a/drivers/gpu/drm/amd/display/amdgpu_dm/amdgpu_dm_mst_types.c b/drivers/gpu/drm/amd/display/amdgpu_dm/amdgpu_dm_mst_types.c
+index 37db285f8c73..2dc9802046c8 100644
+--- a/drivers/gpu/drm/amd/display/amdgpu_dm/amdgpu_dm_mst_types.c
++++ b/drivers/gpu/drm/amd/display/amdgpu_dm/amdgpu_dm_mst_types.c
+@@ -174,7 +174,9 @@ static bool validate_dsc_caps_on_connector(struct amdgpu_dm_connector *aconnecto
+ 	struct drm_dp_mst_port *port = aconnector->port;
+ 	u8 dsc_caps[16] = { 0 };
+ 
++#if defined(HAVE_DRM_DP_MST_DSC_AUX_FOR_PORT)
+ 	aconnector->dsc_aux = drm_dp_mst_dsc_aux_for_port(port);
++#endif
+ 
+ 	if (!aconnector->dsc_aux)
+ 		return false;
+@@ -251,9 +253,11 @@ static int dm_dp_mst_get_modes(struct drm_connector *connector)
+ 					connector, aconnector->edid);
+ 
+ #ifdef CONFIG_DRM_AMD_DC_DSC_SUPPORT
++#if defined(HAVE_DRM_DP_MST_DSC_AUX_FOR_PORT)
+ 			if (!validate_dsc_caps_on_connector(aconnector))
+ 				memset(&aconnector->dc_sink->sink_dsc_caps,
+ 					0, sizeof(aconnector->dc_sink->sink_dsc_caps));
++#endif
+ #endif
+ 		}
+ 	}
+-- 
+2.17.1
+

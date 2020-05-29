@@ -1,0 +1,51 @@
+From 4c7cd43d18445c3d27bfc44e9fb7a83a2fa6091a Mon Sep 17 00:00:00 2001
+From: Aric Cyr <aric.cyr@amd.com>
+Date: Wed, 4 Dec 2019 17:59:14 -0500
+Subject: [PATCH 1099/1453] drm/amd/display: Fix manual trigger source for DCN2
+
+Fix manual trigger source correctly be TRIGA for DCN2
+rather than MANUAL_FLOW.
+
+Signed-off-by: Aric Cyr <aric.cyr@amd.com>
+Reviewed-by: Anthony Koo <Anthony.Koo@amd.com>
+Acked-by: Rodrigo Siqueira <Rodrigo.Siqueira@amd.com>
+---
+ drivers/gpu/drm/amd/display/dc/dcn20/dcn20_optc.c | 8 +-------
+ drivers/gpu/drm/amd/display/dc/dcn20/dcn20_optc.h | 1 +
+ 2 files changed, 2 insertions(+), 7 deletions(-)
+
+diff --git a/drivers/gpu/drm/amd/display/dc/dcn20/dcn20_optc.c b/drivers/gpu/drm/amd/display/dc/dcn20/dcn20_optc.c
+index 112f42eb0b03..280a25f468af 100755
+--- a/drivers/gpu/drm/amd/display/dc/dcn20/dcn20_optc.c
++++ b/drivers/gpu/drm/amd/display/dc/dcn20/dcn20_optc.c
+@@ -392,14 +392,8 @@ void optc2_setup_manual_trigger(struct timing_generator *optc)
+ {
+ 	struct optc *optc1 = DCN10TG_FROM_TG(optc);
+ 
+-	REG_SET(OTG_MANUAL_FLOW_CONTROL, 0,
+-			MANUAL_FLOW_CONTROL, 1);
+-
+-	REG_SET(OTG_GLOBAL_CONTROL2, 0,
+-			MANUAL_FLOW_CONTROL_SEL, optc->inst);
+-
+ 	REG_SET_8(OTG_TRIGA_CNTL, 0,
+-			OTG_TRIGA_SOURCE_SELECT, 22,
++			OTG_TRIGA_SOURCE_SELECT, 21,
+ 			OTG_TRIGA_SOURCE_PIPE_SELECT, optc->inst,
+ 			OTG_TRIGA_RISING_EDGE_DETECT_CNTL, 1,
+ 			OTG_TRIGA_FALLING_EDGE_DETECT_CNTL, 0,
+diff --git a/drivers/gpu/drm/amd/display/dc/dcn20/dcn20_optc.h b/drivers/gpu/drm/amd/display/dc/dcn20/dcn20_optc.h
+index de2b7b3416df..fd7453c06691 100755
+--- a/drivers/gpu/drm/amd/display/dc/dcn20/dcn20_optc.h
++++ b/drivers/gpu/drm/amd/display/dc/dcn20/dcn20_optc.h
+@@ -108,6 +108,7 @@ void optc2_triplebuffer_lock(struct timing_generator *optc);
+ void optc2_triplebuffer_unlock(struct timing_generator *optc);
+ void optc2_lock_doublebuffer_disable(struct timing_generator *optc);
+ void optc2_lock_doublebuffer_enable(struct timing_generator *optc);
++void optc2_setup_manual_trigger(struct timing_generator *optc);
+ void optc2_program_manual_trigger(struct timing_generator *optc);
+ bool optc2_is_two_pixels_per_containter(const struct dc_crtc_timing *timing);
+ #endif /* __DC_OPTC_DCN20_H__ */
+-- 
+2.17.1
+
