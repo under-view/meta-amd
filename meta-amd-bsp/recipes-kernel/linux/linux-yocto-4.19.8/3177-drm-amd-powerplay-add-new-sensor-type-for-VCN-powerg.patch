@@ -1,0 +1,31 @@
+From cf86d2c50588f5f67131804f6267474919645a72 Mon Sep 17 00:00:00 2001
+From: Evan Quan <evan.quan@amd.com>
+Date: Mon, 22 Jul 2019 09:51:59 +0800
+Subject: [PATCH 3177/4256] drm/amd/powerplay: add new sensor type for VCN
+ powergate status
+
+VCN is widely used in new ASICs and different from tranditional
+UVD and VCE.
+
+Signed-off-by: Evan Quan <evan.quan@amd.com>
+Reviewed-by: Kenneth Feng <kenneth.feng@amd.com>
+Signed-off-by: Alex Deucher <alexander.deucher@amd.com>
+---
+ drivers/gpu/drm/amd/include/kgd_pp_interface.h | 1 +
+ 1 file changed, 1 insertion(+)
+
+diff --git a/drivers/gpu/drm/amd/include/kgd_pp_interface.h b/drivers/gpu/drm/amd/include/kgd_pp_interface.h
+index 95edc3d3a9c4..bba1291ae405 100644
+--- a/drivers/gpu/drm/amd/include/kgd_pp_interface.h
++++ b/drivers/gpu/drm/amd/include/kgd_pp_interface.h
+@@ -123,6 +123,7 @@ enum amd_pp_sensors {
+ 	AMDGPU_PP_SENSOR_ENABLED_SMC_FEATURES_MASK,
+ 	AMDGPU_PP_SENSOR_MIN_FAN_RPM,
+ 	AMDGPU_PP_SENSOR_MAX_FAN_RPM,
++	AMDGPU_PP_SENSOR_VCN_POWER_STATE,
+ };
+ 
+ enum amd_pp_task {
+-- 
+2.17.1
+

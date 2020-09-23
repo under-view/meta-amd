@@ -1,0 +1,37 @@
+From f10fe7c3d94c7c368dc2072549eaffe09407c36e Mon Sep 17 00:00:00 2001
+From: Le Ma <le.ma@amd.com>
+Date: Mon, 23 Sep 2019 14:10:55 +0800
+Subject: [PATCH 3854/4256] drm/amdgpu: enable psp front door loading by
+ default on Arcturus
+
+Change-Id: I13a5f590d5a49655965a13eb7ce773d1efffcbd0
+Signed-off-by: Le Ma <le.ma@amd.com>
+Reviewed-by: Hawking Zhang <Hawking.Zhang@amd.com>
+---
+ drivers/gpu/drm/amd/amdgpu/amdgpu_ucode.c | 3 +--
+ 1 file changed, 1 insertion(+), 2 deletions(-)
+
+diff --git a/drivers/gpu/drm/amd/amdgpu/amdgpu_ucode.c b/drivers/gpu/drm/amd/amdgpu/amdgpu_ucode.c
+index 82f6b413718b..fce1f71c1cff 100644
+--- a/drivers/gpu/drm/amd/amdgpu/amdgpu_ucode.c
++++ b/drivers/gpu/drm/amd/amdgpu/amdgpu_ucode.c
+@@ -360,6 +360,7 @@ amdgpu_ucode_get_load_type(struct amdgpu_device *adev, int load_type)
+ 	case CHIP_RAVEN:
+ 	case CHIP_VEGA12:
+ 	case CHIP_VEGA20:
++	case CHIP_ARCTURUS:
+ 	case CHIP_RENOIR:
+ 	case CHIP_NAVI10:
+ 	case CHIP_NAVI14:
+@@ -368,8 +369,6 @@ amdgpu_ucode_get_load_type(struct amdgpu_device *adev, int load_type)
+ 			return AMDGPU_FW_LOAD_DIRECT;
+ 		else
+ 			return AMDGPU_FW_LOAD_PSP;
+-	case CHIP_ARCTURUS:
+-		return AMDGPU_FW_LOAD_DIRECT;
+ 
+ 	default:
+ 		DRM_ERROR("Unknown firmware load type\n");
+-- 
+2.17.1
+

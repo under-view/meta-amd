@@ -1,0 +1,103 @@
+From 3edc48db116e53270a1547acab1c70e29a02b08b Mon Sep 17 00:00:00 2001
+From: Dale Zhao <dale.zhao@amd.com>
+Date: Wed, 10 Jul 2019 17:36:53 +0800
+Subject: [PATCH 3095/4256] drm/amd/display: handle active dongle port type is
+ DP++ or DP case
+
+[Why]:
+Some active dongles have DP++ port and DP port at the same time. Current
+code doesn't cover DP++ case and processes as default DVI case, in which
+audio is disabled. Because of dual mode, DP case is also treat as DVI case
+for the other port.
+
+[How]:
+According DP 1.4 spec, add DP++ procedure similar with HDMI case. Also
+add None dongle type for DP case.
+
+Change-Id: I15c02256326d319ba66c1bba44d8e669353aface
+Signed-off-by: Dale Zhao <dale.zhao@amd.com>
+Reviewed-by: Wenjing Liu <wenjing.liu@amd.com>
+Acked-by: Leo Li <sunpeng.li@amd.com>
+---
+ .../gpu/drm/amd/display/dc/core/dc_link_dp.c  | 30 ++++++++++++-------
+ .../gpu/drm/amd/display/include/dpcd_defs.h   |  2 +-
+ 2 files changed, 21 insertions(+), 11 deletions(-)
+
+diff --git a/drivers/gpu/drm/amd/display/dc/core/dc_link_dp.c b/drivers/gpu/drm/amd/display/dc/core/dc_link_dp.c
+index b512fecae061..08bd9c96b9b0 100644
+--- a/drivers/gpu/drm/amd/display/dc/core/dc_link_dp.c
++++ b/drivers/gpu/drm/amd/display/dc/core/dc_link_dp.c
+@@ -2398,8 +2398,8 @@ static void get_active_converter_info(
+ 	case DOWNSTREAM_VGA:
+ 		link->dpcd_caps.dongle_type = DISPLAY_DONGLE_DP_VGA_CONVERTER;
+ 		break;
+-	case DOWNSTREAM_DVI_HDMI:
+-		/* At this point we don't know is it DVI or HDMI,
++	case DOWNSTREAM_DVI_HDMI_DP_PLUS_PLUS:
++		/* At this point we don't know is it DVI or HDMI or DP++,
+ 		 * assume DVI.*/
+ 		link->dpcd_caps.dongle_type = DISPLAY_DONGLE_DP_DVI_CONVERTER;
+ 		break;
+@@ -2416,6 +2416,10 @@ static void get_active_converter_info(
+ 				det_caps, sizeof(det_caps));
+ 
+ 		switch (port_caps->bits.DWN_STRM_PORTX_TYPE) {
++		/*Handle DP case as DONGLE_NONE*/
++		case DOWN_STREAM_DETAILED_DP:
++			link->dpcd_caps.dongle_type = DISPLAY_DONGLE_NONE;
++			break;
+ 		case DOWN_STREAM_DETAILED_VGA:
+ 			link->dpcd_caps.dongle_type =
+ 				DISPLAY_DONGLE_DP_VGA_CONVERTER;
+@@ -2425,6 +2429,8 @@ static void get_active_converter_info(
+ 				DISPLAY_DONGLE_DP_DVI_CONVERTER;
+ 			break;
+ 		case DOWN_STREAM_DETAILED_HDMI:
++		case DOWN_STREAM_DETAILED_DP_PLUS_PLUS:
++			/*Handle DP++ active converter case, process DP++ case as HDMI case according DP1.4 spec*/
+ 			link->dpcd_caps.dongle_type =
+ 				DISPLAY_DONGLE_DP_HDMI_CONVERTER;
+ 
+@@ -2440,14 +2446,18 @@ static void get_active_converter_info(
+ 
+ 				link->dpcd_caps.dongle_caps.is_dp_hdmi_s3d_converter =
+ 					hdmi_caps.bits.FRAME_SEQ_TO_FRAME_PACK;
+-				link->dpcd_caps.dongle_caps.is_dp_hdmi_ycbcr422_pass_through =
+-					hdmi_caps.bits.YCrCr422_PASS_THROUGH;
+-				link->dpcd_caps.dongle_caps.is_dp_hdmi_ycbcr420_pass_through =
+-					hdmi_caps.bits.YCrCr420_PASS_THROUGH;
+-				link->dpcd_caps.dongle_caps.is_dp_hdmi_ycbcr422_converter =
+-					hdmi_caps.bits.YCrCr422_CONVERSION;
+-				link->dpcd_caps.dongle_caps.is_dp_hdmi_ycbcr420_converter =
+-					hdmi_caps.bits.YCrCr420_CONVERSION;
++				/*YCBCR capability only for HDMI case*/
++				if (port_caps->bits.DWN_STRM_PORTX_TYPE
++						== DOWN_STREAM_DETAILED_HDMI) {
++					link->dpcd_caps.dongle_caps.is_dp_hdmi_ycbcr422_pass_through =
++							hdmi_caps.bits.YCrCr422_PASS_THROUGH;
++					link->dpcd_caps.dongle_caps.is_dp_hdmi_ycbcr420_pass_through =
++							hdmi_caps.bits.YCrCr420_PASS_THROUGH;
++					link->dpcd_caps.dongle_caps.is_dp_hdmi_ycbcr422_converter =
++							hdmi_caps.bits.YCrCr422_CONVERSION;
++					link->dpcd_caps.dongle_caps.is_dp_hdmi_ycbcr420_converter =
++							hdmi_caps.bits.YCrCr420_CONVERSION;
++				}
+ 
+ 				link->dpcd_caps.dongle_caps.dp_hdmi_max_bpc =
+ 					translate_dpcd_max_bpc(
+diff --git a/drivers/gpu/drm/amd/display/include/dpcd_defs.h b/drivers/gpu/drm/amd/display/include/dpcd_defs.h
+index 1c66166d0a94..2c90d1b46c8b 100644
+--- a/drivers/gpu/drm/amd/display/include/dpcd_defs.h
++++ b/drivers/gpu/drm/amd/display/include/dpcd_defs.h
+@@ -43,7 +43,7 @@ enum dpcd_revision {
+ enum dpcd_downstream_port_type {
+ 	DOWNSTREAM_DP = 0,
+ 	DOWNSTREAM_VGA,
+-	DOWNSTREAM_DVI_HDMI,
++	DOWNSTREAM_DVI_HDMI_DP_PLUS_PLUS,/* DVI, HDMI, DP++ */
+ 	DOWNSTREAM_NONDDC /* has no EDID (TV,CV) */
+ };
+ 
+-- 
+2.17.1
+

@@ -1,0 +1,33 @@
+From 0556da67e2e51c68e26fe49e8cd258c908de7c92 Mon Sep 17 00:00:00 2001
+From: Xiaojie Yuan <xiaojie.yuan@amd.com>
+Date: Tue, 17 Sep 2019 18:57:37 +0800
+Subject: [PATCH 3851/4256] drm/amdgpu/gfx10: enable gfxoff for navi12
+
+Signed-off-by: Xiaojie Yuan <xiaojie.yuan@amd.com>
+---
+ drivers/gpu/drm/amd/amdgpu/gfx_v10_0.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/drivers/gpu/drm/amd/amdgpu/gfx_v10_0.c b/drivers/gpu/drm/amd/amdgpu/gfx_v10_0.c
+index 65caf404e7d1..ecfda0602456 100644
+--- a/drivers/gpu/drm/amd/amdgpu/gfx_v10_0.c
++++ b/drivers/gpu/drm/amd/amdgpu/gfx_v10_0.c
+@@ -585,7 +585,6 @@ static void gfx_v10_0_check_gfxoff_flag(struct amdgpu_device *adev)
+ {
+ 	switch (adev->asic_type) {
+ 	case CHIP_NAVI10:
+-	case CHIP_NAVI12:
+ 		adev->pm.pp_feature &= ~PP_GFXOFF_MASK;
+ 		break;
+ 	default:
+@@ -4194,6 +4193,7 @@ static int gfx_v10_0_set_powergating_state(void *handle,
+ 	bool enable = (state == AMD_PG_STATE_GATE) ? true : false;
+ 	switch (adev->asic_type) {
+ 	case CHIP_NAVI10:
++	case CHIP_NAVI12:
+ 	case CHIP_NAVI14:
+ 		if (!enable) {
+ 			amdgpu_gfx_off_ctrl(adev, false);
+-- 
+2.17.1
+

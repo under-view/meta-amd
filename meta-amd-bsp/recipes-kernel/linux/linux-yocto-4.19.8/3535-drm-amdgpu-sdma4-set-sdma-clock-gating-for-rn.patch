@@ -1,0 +1,29 @@
+From fe4218c18e22e6c9403cacf7745dcb75bb7b655c Mon Sep 17 00:00:00 2001
+From: Prike Liang <Prike.Liang@amd.com>
+Date: Mon, 12 Aug 2019 15:25:18 -0500
+Subject: [PATCH 3535/4256] drm/amdgpu/sdma4: set sdma clock gating for rn
+
+Add support for SDMA clockgating on RN.
+
+Signed-off-by: Prike Liang <Prike.Liang@amd.com>
+Reviewed-by: Alex Deucher <alexander.deucher@amd.com>
+Signed-off-by: Alex Deucher <alexander.deucher@amd.com>
+---
+ drivers/gpu/drm/amd/amdgpu/sdma_v4_0.c | 1 +
+ 1 file changed, 1 insertion(+)
+
+diff --git a/drivers/gpu/drm/amd/amdgpu/sdma_v4_0.c b/drivers/gpu/drm/amd/amdgpu/sdma_v4_0.c
+index e336dae8be33..528d8d026cc0 100644
+--- a/drivers/gpu/drm/amd/amdgpu/sdma_v4_0.c
++++ b/drivers/gpu/drm/amd/amdgpu/sdma_v4_0.c
+@@ -2180,6 +2180,7 @@ static int sdma_v4_0_set_clockgating_state(void *handle,
+ 	case CHIP_VEGA20:
+ 	case CHIP_RAVEN:
+ 	case CHIP_ARCTURUS:
++	case CHIP_RENOIR:
+ 		sdma_v4_0_update_medium_grain_clock_gating(adev,
+ 				state == AMD_CG_STATE_GATE ? true : false);
+ 		sdma_v4_0_update_medium_grain_light_sleep(adev,
+-- 
+2.17.1
+

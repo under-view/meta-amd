@@ -1,0 +1,532 @@
+From bb55adf710ed52497c932dd368965bb3064760f4 Mon Sep 17 00:00:00 2001
+From: Rui Teng <rui.teng@amd.com>
+Date: Wed, 25 Sep 2019 08:38:52 +0800
+Subject: [PATCH 3857/4256] Revert "drm/amd/display: Add dmub offload
+ functions."
+
+This reverts commit 32add621ba8f6021e3a52cabafe88f660d46a0a4.
+
+This patch does not exist on amd-staging-drm-next-20190920, and it conflict
+with new patches.
+
+Signed-off-by: Rui Teng <rui.teng@amd.com>
+---
+ drivers/gpu/drm/amd/display/dc/core/dc.c      |  15 +--
+ drivers/gpu/drm/amd/display/dc/dc.h           |  14 ---
+ drivers/gpu/drm/amd/display/dc/dc_helper.c    |  79 ------------
+ drivers/gpu/drm/amd/display/dc/dc_types.h     |   9 --
+ drivers/gpu/drm/amd/display/dc/dmub_cmd.h     | 115 ------------------
+ drivers/gpu/drm/amd/display/dc/dmub_dc.h      |  53 --------
+ .../gpu/drm/amd/display/dc/inc/reg_helper.h   |  27 ----
+ .../display/dmub_fw/src/common/dmub_common.h  |  58 ---------
+ 8 files changed, 2 insertions(+), 368 deletions(-)
+ delete mode 100644 drivers/gpu/drm/amd/display/dc/dmub_cmd.h
+ delete mode 100644 drivers/gpu/drm/amd/display/dc/dmub_dc.h
+ delete mode 100644 drivers/gpu/drm/amd/display/dmub_fw/src/common/dmub_common.h
+
+diff --git a/drivers/gpu/drm/amd/display/dc/core/dc.c b/drivers/gpu/drm/amd/display/dc/core/dc.c
+index 8a1947e6741a..1ab1df443202 100644
+--- a/drivers/gpu/drm/amd/display/dc/core/dc.c
++++ b/drivers/gpu/drm/amd/display/dc/core/dc.c
+@@ -31,8 +31,6 @@
+ #include "hw_sequencer.h"
+ #include "dce/dce_hwseq.h"
+ 
+-#include "reg_helper.h"
+-
+ #include "resource.h"
+ 
+ #include "clk_mgr.h"
+@@ -68,12 +66,8 @@
+ 
+ #include "dce/dce_i2c.h"
+ 
+-#define CTX \
+-	dc->ctx
+-
+ #define DC_LOGGER \
+-	CTX->logger
+-
++	dc->ctx->logger
+ 
+ const static char DC_BUILD_ID[] = "production-build";
+ 
+@@ -635,7 +629,6 @@ static bool construct(struct dc *dc,
+ 	dc_ctx->asic_id = init_params->asic_id;
+ 	dc_ctx->dc_sink_id_count = 0;
+ 	dc_ctx->dc_stream_id_count = 0;
+-
+ 	dc->ctx = dc_ctx;
+ 
+ 	/* Create logger */
+@@ -834,11 +827,6 @@ void dc_hardware_init(struct dc *dc)
+ void dc_init_callbacks(struct dc *dc,
+ 		const struct dc_callback_init *init_params)
+ {
+-
+-#ifdef CONFIG_DRM_AMD_DC_DMUB
+-	dc->ctx->dmub_if = init_params->dmub_if;
+-	dc->ctx->reg_helper_offload = init_params->dmub_offload;
+-#endif
+ }
+ 
+ void dc_destroy(struct dc **dc)
+@@ -2170,6 +2158,7 @@ static void commit_planes_for_stream(struct dc *dc,
+ 					dc->hwss.update_plane_addr(dc, pipe_ctx);
+ 			}
+ 		}
++
+ 		dc->hwss.pipe_control_lock(dc, top_pipe_to_program, false);
+ 	}
+ 
+diff --git a/drivers/gpu/drm/amd/display/dc/dc.h b/drivers/gpu/drm/amd/display/dc/dc.h
+index ed596ffd7468..3ecc42987b05 100644
+--- a/drivers/gpu/drm/amd/display/dc/dc.h
++++ b/drivers/gpu/drm/amd/display/dc/dc.h
+@@ -29,9 +29,6 @@
+ #include "dc_types.h"
+ #include "grph_object_defs.h"
+ #include "logger_types.h"
+-#ifdef CONFIG_DRM_AMD_DC_DMUB
+-#include "dmub_dc.h"
+-#endif
+ #include "gpio_types.h"
+ #include "link_service_types.h"
+ #include "grph_object_ctrl_defs.h"
+@@ -543,10 +540,6 @@ struct dc_init_data {
+ 	struct dc_bios *vbios_override;
+ 	enum dce_environment dce_environment;
+ 
+-#ifdef CONFIG_DRM_AMD_DC_DMUB
+-	struct dmub_offload_funcs *dmub_if;
+-	struct dc_reg_helper_state *dmub_offload;
+-#endif
+ 	struct dc_config flags;
+ 	uint32_t log_mask;
+ #ifdef CONFIG_DRM_AMD_DC_DCN2_0
+@@ -559,14 +552,7 @@ struct dc_init_data {
+ };
+ 
+ struct dc_callback_init {
+-
+-#ifdef CONFIG_DRM_AMD_DC_DMUB
+-	struct dmub_offload_funcs *dmub_if;
+-	struct dc_reg_helper_state *dmub_offload;
+-#endif
+-
+ 	uint8_t reserved;
+-
+ };
+ 
+ struct dc *dc_create(const struct dc_init_data *init_params);
+diff --git a/drivers/gpu/drm/amd/display/dc/dc_helper.c b/drivers/gpu/drm/amd/display/dc/dc_helper.c
+index e45278a246d8..2d0acf109360 100644
+--- a/drivers/gpu/drm/amd/display/dc/dc_helper.c
++++ b/drivers/gpu/drm/amd/display/dc/dc_helper.c
+@@ -29,25 +29,6 @@
+ #include "dm_services.h"
+ #include <stdarg.h>
+ 
+-#ifdef CONFIG_DRM_AMD_DC_DMUB
+-#include "dmub_dc.h"
+-
+-static inline void submit_dmub_read_modify_write(
+-	struct dc_reg_helper_state *offload,
+-	const struct dc_context *ctx)
+-{
+-	struct dmub_rb_cmd_read_modify_write *cmd_buf = &offload->cmd_data.read_modify_write;
+-	struct dmub_offload_funcs *dmub_if = ctx->dmub_if;
+-
+-	cmd_buf->header.type = DMUB_CMD__REG_SEQ_READ_MODIFY_WRITE;
+-	cmd_buf->header.payload_bytes = sizeof(struct read_modify_write_sequence) * offload->reg_seq_count;
+-
+-	dmub_if->queue_dmub_cmd(&dmub_if->dmub_cmd, &cmd_buf->header);
+-
+-	offload->reg_seq_count = 0;
+-}
+-#endif
+-
+ struct dc_reg_value_masks {
+ 	uint32_t value;
+ 	uint32_t mask;
+@@ -131,28 +112,6 @@ uint32_t generic_reg_set_ex(const struct dc_context *ctx,
+ 
+ 	va_end(ap);
+ 
+-#ifdef CONFIG_DRM_AMD_DC_DMUB
+-	if (ctx->reg_helper_offload && ctx->reg_helper_offload->gather_in_progress) {
+-
+-		struct dc_reg_helper_state *offload = ctx->reg_helper_offload;
+-		struct dmub_rb_cmd_read_modify_write *cmd_buf = &offload->cmd_data.read_modify_write;
+-		struct read_modify_write_sequence *seq;
+-
+-		/* flush command if buffer is full */
+-		if (offload->reg_seq_count == DMUB_READ_MODIFY_WRITE_SEQ__MAX)
+-			submit_dmub_read_modify_write(offload, ctx);
+-
+-		/* pack commands */
+-		seq = &cmd_buf->seq[offload->reg_seq_count];
+-
+-		seq->addr = addr;
+-		seq->modify_mask = field_value_mask.mask;
+-		seq->modify_value = field_value_mask.value;
+-		offload->reg_seq_count++;
+-
+-		return reg_val;  /* todo: return void so we can decouple code running in driver from register states */
+-	}
+-#endif
+ 
+ 	/* mmio write directly */
+ 	reg_val = (reg_val & ~field_value_mask.mask) | field_value_mask.value;
+@@ -420,41 +379,3 @@ uint32_t generic_indirect_reg_update_ex(const struct dc_context *ctx,
+ 
+ 	return reg_val;
+ }
+-
+-#ifdef CONFIG_DRM_AMD_DC_DMUB
+-void reg_sequence_start_gather(const struct dc_context *ctx)
+-{
+-	/* if reg sequence is supported and enabled, set flag to
+-	 * indicate we want to have REG_SET, REG_UPDATE macro build
+-	 * reg sequence command buffer rather than MMIO directly.
+-	 */
+-
+-	if (ctx->reg_helper_offload) {
+-		struct dc_reg_helper_state *offload = ctx->reg_helper_offload;
+-
+-		/* caller sequence mismatch.  need to debug caller.  offload will not work!!! */
+-		ASSERT(!offload->gather_in_progress);
+-
+-		offload->gather_in_progress = true;
+-	}
+-}
+-
+-void reg_sequence_start_execute(const struct dc_context *ctx)
+-{
+-	struct dc_reg_helper_state *offload = ctx->reg_helper_offload;
+-
+-	if (offload && offload->gather_in_progress) {
+-
+-		submit_dmub_read_modify_write(offload, ctx);
+-
+-		offload->gather_in_progress = false;
+-
+-		ctx->dmub_if->execute_dmub_queue(&ctx->dmub_if->dmub_cmd);
+-	}
+-}
+-
+-void reg_sequence_wait_done(const struct dc_context *ctx)
+-{
+-	/* callback to DM to poll for last submission done*/
+-}
+-#endif
+diff --git a/drivers/gpu/drm/amd/display/dc/dc_types.h b/drivers/gpu/drm/amd/display/dc/dc_types.h
+index ed60bf011af2..e6ae66791943 100644
+--- a/drivers/gpu/drm/amd/display/dc/dc_types.h
++++ b/drivers/gpu/drm/amd/display/dc/dc_types.h
+@@ -38,10 +38,6 @@
+ #include "dal_types.h"
+ #include "grph_object_defs.h"
+ 
+-#ifdef CONFIG_DRM_AMD_DC_DMUB
+-#include "dmub_dc.h"
+-#endif
+-
+ /* forward declarations */
+ struct dc_plane_state;
+ struct dc_stream_state;
+@@ -109,11 +105,6 @@ struct dc_context {
+ 	uint32_t dc_sink_id_count;
+ 	uint32_t dc_stream_id_count;
+ 	uint64_t fbc_gpu_addr;
+-
+-#ifdef CONFIG_DRM_AMD_DC_DMUB
+-	struct dc_reg_helper_state *reg_helper_offload;
+-	struct dmub_offload_funcs *dmub_if;
+-#endif
+ };
+ 
+ 
+diff --git a/drivers/gpu/drm/amd/display/dc/dmub_cmd.h b/drivers/gpu/drm/amd/display/dc/dmub_cmd.h
+deleted file mode 100644
+index eb9c68657d1d..000000000000
+--- a/drivers/gpu/drm/amd/display/dc/dmub_cmd.h
++++ /dev/null
+@@ -1,115 +0,0 @@
+-/*
+- * Copyright 2018 Advanced Micro Devices, Inc.
+- *
+- * Permission is hereby granted, free of charge, to any person obtaining a
+- * copy of this software and associated documentation files (the "Software"),
+- * to deal in the Software without restriction, including without limitation
+- * the rights to use, copy, modify, merge, publish, distribute, sublicense,
+- * and/or sell copies of the Software, and to permit persons to whom the
+- * Software is furnished to do so, subject to the following conditions:
+- *
+- * The above copyright notice and this permission notice shall be included in
+- * all copies or substantial portions of the Software.
+- *
+- * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+- * IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+- * FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.  IN NO EVENT SHALL
+- * THE COPYRIGHT HOLDER(S) OR AUTHOR(S) BE LIABLE FOR ANY CLAIM, DAMAGES OR
+- * OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE,
+- * ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR
+- * OTHER DEALINGS IN THE SOFTWARE.
+- *
+- * Authors: AMD
+- *
+- */
+-
+-#ifndef DMUB_CMD__H
+-#define DMUB_CMD__H
+-
+-
+-#ifdef CONFIG_DRM_AMD_DC_DMUB
+-#include "os_types.h"
+-#else
+-#include "dmub_types.h"
+-#endif
+-/*
+- * DMUB command definition
+- */
+-
+-
+-#define DMUB_RB_MAX_ENTRY	16
+-#define DMUB_RB_CMD_SIZE	64
+-#define DMUB_RB_SIZE	(DMUB_RB_CMD_SIZE * DMUB_RB_MAX_ENTRY)
+-
+-#ifdef DMUB_EMULATION
+-
+-#else
+-
+-#endif
+-
+-
+-enum dmub_cmd_type {
+-	DMUB_CMD__NULL,
+-	DMUB_CMD__REG_SEQ_READ_MODIFY_WRITE,
+-	DMUB_CMD__REG_SEQ_BURST_WRITE,
+-};
+-
+-
+-struct dmub_cmd_header {
+-	enum dmub_cmd_type type : 11;
+-	unsigned int payload_bytes : 5;  /* up to 60 bytes */
+-	unsigned int reserved : 16;
+-};
+-
+-struct read_modify_write_sequence {
+-	uint32_t addr;
+-	uint32_t modify_mask;
+-	uint32_t modify_value;
+-};
+-
+-
+-/* read modify write
+- *
+- * 60 payload bytes can hold up to 5 sets of read modify writes,
+- * each take 3 dwords.
+- *
+- * number of sequences = header.payload_bytes / sizeof(struct read_modify_write_sequence)
+- *
+- * modify_mask = 0xffff'ffff means all fields are going to be updated.  in this case
+- * command parser will skip the read and we can use modify_mask = 0xffff'ffff as reg write
+- */
+-#define DMUB_READ_MODIFY_WRITE_SEQ__MAX		5
+-struct dmub_rb_cmd_read_modify_write {
+-	struct dmub_cmd_header header;  // type = DMUB_CMD__REG_SEQ_READ_MODIFY_WRITE
+-	struct read_modify_write_sequence seq[DMUB_READ_MODIFY_WRITE_SEQ__MAX];
+-};
+-
+-
+-/* burst write
+- *
+- * support use case such as writing out LUTs.
+- *
+- * 60 payload bytes can hold up to 14 values to write to given address
+- *
+- * number of payload = header.payload_bytes / sizeof(struct read_modify_write_sequence)
+- */
+-struct dmub_rb_cmd_burst_write {
+-	struct dmub_cmd_header header;  // type = DMUB_CMD__REG_SEQ_BURST_WRITE
+-	uint32_t addr;
+-	uint32_t write_values[14];
+-};
+-
+-#define HEAD_BYTES sizeof(struct dmub_cmd_header) / 8
+-
+-struct dmub_rb_cmd_common {
+-	struct dmub_cmd_header header;
+-	uint8_t cmd_buffer[DMUB_RB_CMD_SIZE - HEAD_BYTES];
+-};
+-
+-union dmub_rb_cmd {
+-	struct dmub_rb_cmd_read_modify_write read_modify_write;
+-	struct dmub_rb_cmd_burst_write burst_write;
+-	struct dmub_rb_cmd_common cmd_common;
+-};
+-
+-#endif /* DMUB_CMD__H */
+diff --git a/drivers/gpu/drm/amd/display/dc/dmub_dc.h b/drivers/gpu/drm/amd/display/dc/dmub_dc.h
+deleted file mode 100644
+index a7b8c278ef33..000000000000
+--- a/drivers/gpu/drm/amd/display/dc/dmub_dc.h
++++ /dev/null
+@@ -1,53 +0,0 @@
+-/*
+- * Copyright 2018 Advanced Micro Devices, Inc.
+- *
+- * Permission is hereby granted, free of charge, to any person obtaining a
+- * copy of this software and associated documentation files (the "Software"),
+- * to deal in the Software without restriction, including without limitation
+- * the rights to use, copy, modify, merge, publish, distribute, sublicense,
+- * and/or sell copies of the Software, and to permit persons to whom the
+- * Software is furnished to do so, subject to the following conditions:
+- *
+- * The above copyright notice and this permission notice shall be included in
+- * all copies or substantial portions of the Software.
+- *
+- * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+- * IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+- * FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.  IN NO EVENT SHALL
+- * THE COPYRIGHT HOLDER(S) OR AUTHOR(S) BE LIABLE FOR ANY CLAIM, DAMAGES OR
+- * OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE,
+- * ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR
+- * OTHER DEALINGS IN THE SOFTWARE.
+- *
+- * Authors: AMD
+- *
+- */
+-
+-#ifndef DMUB_DC__H
+-#define DMUB_DC__H
+-
+-#include "dmub_cmd.h"
+-
+-
+-struct dmub_dc_cmd {
+-	const void *dm;
+-};
+-
+-
+-struct dmub_offload_funcs {
+-	struct dmub_dc_cmd dmub_cmd;
+-
+-	void (*queue_dmub_cmd)(struct dmub_dc_cmd *dmub_cmd, struct dmub_cmd_header *cmd);
+-	void (*execute_dmub_queue)(struct dmub_dc_cmd *dmub_cmd);
+-	void (*wait_queue_idle)(struct dmub_dc_cmd *dmub_cmd);
+-};
+-
+-struct dc_reg_helper_state {
+-	bool gather_in_progress;
+-
+-	union dmub_rb_cmd cmd_data;
+-	unsigned int reg_seq_count;
+-};
+-
+-
+-#endif /* DMUB_DC__H */
+diff --git a/drivers/gpu/drm/amd/display/dc/inc/reg_helper.h b/drivers/gpu/drm/amd/display/dc/inc/reg_helper.h
+index 3ad739568e3b..8503d9cc4763 100644
+--- a/drivers/gpu/drm/amd/display/dc/inc/reg_helper.h
++++ b/drivers/gpu/drm/amd/display/dc/inc/reg_helper.h
+@@ -485,31 +485,4 @@ uint32_t generic_indirect_reg_update_ex(const struct dc_context *ctx,
+ 		uint8_t shift1, uint32_t mask1, uint32_t field_value1,
+ 		...);
+ 
+-
+-#ifdef CONFIG_DRM_AMD_DC_DMUB
+-/* register offload macros
+- *
+- * instead of MMIO to register directly, in some cases we want
+- * to gather register sequence and execute the register sequence
+- * from another thread so we optimize time required for lengthy ops
+- */
+-
+-/* start gathering register sequence */
+-#define REG_SEQ_START() \
+-	reg_sequence_start_gather(CTX)
+-
+-/* start execution of register sequence gathered since REG_SEQ_START */
+-#define REG_SEQ_SUBMIT() \
+-	reg_sequence_start_execute(CTX)
+-
+-/* wait for the last REG_SEQ_SUBMIT to finish */
+-#define REG_SEQ_WAIT_DONE() \
+-	reg_sequence_wait_done(CTX)
+-
+-void reg_sequence_start_gather(const struct dc_context *ctx);
+-void reg_sequence_start_execute(const struct dc_context *ctx);
+-void reg_sequence_wait_done(const struct dc_context *ctx);
+-
+-#endif
+-
+ #endif /* DRIVERS_GPU_DRM_AMD_DC_DEV_DC_INC_REG_HELPER_H_ */
+diff --git a/drivers/gpu/drm/amd/display/dmub_fw/src/common/dmub_common.h b/drivers/gpu/drm/amd/display/dmub_fw/src/common/dmub_common.h
+deleted file mode 100644
+index edecbba394c7..000000000000
+--- a/drivers/gpu/drm/amd/display/dmub_fw/src/common/dmub_common.h
++++ /dev/null
+@@ -1,58 +0,0 @@
+-/*
+- * Copyright 2018 Advanced Micro Devices, Inc.
+- *
+- * Permission is hereby granted, free of charge, to any person obtaining a
+- * copy of this software and associated documentation files (the "Software"),
+- * to deal in the Software without restriction, including without limitation
+- * the rights to use, copy, modify, merge, publish, distribute, sublicense,
+- * and/or sell copies of the Software, and to permit persons to whom the
+- * Software is furnished to do so, subject to the following conditions:
+- *
+- * The above copyright notice and this permission notice shall be included in
+- * all copies or substantial portions of the Software.
+- *
+- * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+- * IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+- * FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.  IN NO EVENT SHALL
+- * THE COPYRIGHT HOLDER(S) OR AUTHOR(S) BE LIABLE FOR ANY CLAIM, DAMAGES OR
+- * OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE,
+- * ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR
+- * OTHER DEALINGS IN THE SOFTWARE.
+- *
+- * Authors: AMD
+- *
+- */
+-#ifndef DMUB_COMMON_H_
+-#define DMUB_COMMON_H_
+-
+-#ifdef __cplusplus
+-extern "C" {
+-#endif
+-
+-#ifdef CONFIG_DRM_AMD_DC_DMUB
+-#include "os_types.h"
+-struct dmub_dc_cmd;
+-
+-struct dmub {
+-	void *ctx;
+-	void (*reg_write)(struct dmub *dmub, uint32_t offset, uint32_t value);
+-	uint32_t (*reg_read)(struct dmub *dmub, uint32_t offset);
+-	void (*dequeque)();
+-};
+-
+-#define mmRegWrite(offset, value)
+-#define mmRegRead(offset)
+-#endif
+-
+-void process_ring_buffer_command(
+-		struct dmub *dmub,
+-		struct dmub_dc_cmd *dc_cmd);
+-void ring_buffer_command_dequeue(
+-		struct dmub_dc_cmd *dmub_cmd,
+-		union dmub_rb_cmd *cmd);
+-
+-#ifdef __cplusplus
+-}
+-#endif
+-
+-#endif /* DMUB_COMMON_H_ */
+-- 
+2.17.1
+

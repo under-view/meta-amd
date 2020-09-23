@@ -1,0 +1,37 @@
+From 380cc83606e4cd2ca0b3b206955d7047d54ace0c Mon Sep 17 00:00:00 2001
+From: Roman Li <Roman.Li@amd.com>
+Date: Tue, 8 Oct 2019 17:35:48 -0400
+Subject: [PATCH 4170/4736] drm/amd/display: disable ext aux support for vega
+
+[Why]
+Earlier changes to support configurable aux timeout
+caused dc init failure on vega due to missing reg defs.
+Needs to be disabled until implemented for vega.
+
+[How]
+Set extended aux timeout cap for vega to false.
+
+fixes: drm/amd/display: configurable aux timeout support
+
+Signed-off-by: Roman Li <Roman.Li@amd.com>
+Reviewed-By: abdoulaye berthe <abdoulaye.berthe@amd.com>
+---
+ drivers/gpu/drm/amd/display/dc/dce120/dce120_resource.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/drivers/gpu/drm/amd/display/dc/dce120/dce120_resource.c b/drivers/gpu/drm/amd/display/dc/dce120/dce120_resource.c
+index 2dcc647ad27d..c982fd336cae 100644
+--- a/drivers/gpu/drm/amd/display/dc/dce120/dce120_resource.c
++++ b/drivers/gpu/drm/amd/display/dc/dce120/dce120_resource.c
+@@ -1050,7 +1050,7 @@ static bool construct(
+ 	dc->caps.max_cursor_size = 128;
+ 	dc->caps.dual_link_dvi = true;
+ 	dc->caps.psp_setup_panel_mode = true;
+-	dc->caps.extended_aux_timeout_support = true;
++	dc->caps.extended_aux_timeout_support = false;
+ 	dc->debug = debug_defaults;
+ 
+ 	/*************************************************
+-- 
+2.17.1
+

@@ -1,0 +1,52 @@
+From 313389cbdb0be06fa7fec79ccfb74ea93d020204 Mon Sep 17 00:00:00 2001
+From: Dmytro Laktyushkin <Dmytro.Laktyushkin@amd.com>
+Date: Tue, 6 Aug 2019 15:10:33 -0400
+Subject: [PATCH 3584/4256] drm/amd/display: fix dcn20 odm dpp programming
+
+dcn20 requires special casing for odm.
+This change treats odm as alternative to mpc tree on dcn20.
+
+This is planned to be fixed in a future refactor
+
+Signed-off-by: Dmytro Laktyushkin <Dmytro.Laktyushkin@amd.com>
+Reviewed-by: Charlene Liu <Charlene.Liu@amd.com>
+Acked-by: Bhawanpreet Lakha <Bhawanpreet.Lakha@amd.com>
+---
+ drivers/gpu/drm/amd/display/dc/core/dc.c           | 1 +
+ drivers/gpu/drm/amd/display/dc/dcn20/dcn20_hwseq.c | 7 ++++++-
+ 2 files changed, 7 insertions(+), 1 deletion(-)
+
+diff --git a/drivers/gpu/drm/amd/display/dc/core/dc.c b/drivers/gpu/drm/amd/display/dc/core/dc.c
+index ba8de868606d..bae845dfd069 100644
+--- a/drivers/gpu/drm/amd/display/dc/core/dc.c
++++ b/drivers/gpu/drm/amd/display/dc/core/dc.c
+@@ -2035,6 +2035,7 @@ static void commit_planes_for_stream(struct dc *dc,
+ 		struct pipe_ctx *pipe_ctx = &context->res_ctx.pipe_ctx[j];
+ 
+ 		if (!pipe_ctx->top_pipe &&
++			!pipe_ctx->prev_odm_pipe &&
+ 			pipe_ctx->stream &&
+ 			pipe_ctx->stream == stream) {
+ 			struct dc_stream_status *stream_status = NULL;
+diff --git a/drivers/gpu/drm/amd/display/dc/dcn20/dcn20_hwseq.c b/drivers/gpu/drm/amd/display/dc/dcn20/dcn20_hwseq.c
+index aa6e5ddc89b6..230a4216c2ae 100644
+--- a/drivers/gpu/drm/amd/display/dc/dcn20/dcn20_hwseq.c
++++ b/drivers/gpu/drm/amd/display/dc/dcn20/dcn20_hwseq.c
+@@ -1054,8 +1054,13 @@ static void dcn20_program_all_pipe_in_tree(
+ 	if (pipe_ctx->plane_state != NULL)
+ 		dcn20_program_pipe(dc, pipe_ctx, context);
+ 
+-	if (pipe_ctx->bottom_pipe != NULL && pipe_ctx->bottom_pipe != pipe_ctx)
++	if (pipe_ctx->bottom_pipe != NULL) {
++		ASSERT(pipe_ctx->bottom_pipe != pipe_ctx);
+ 		dcn20_program_all_pipe_in_tree(dc, pipe_ctx->bottom_pipe, context);
++	} else if (pipe_ctx->next_odm_pipe != NULL) {
++		ASSERT(pipe_ctx->next_odm_pipe != pipe_ctx);
++		dcn20_program_all_pipe_in_tree(dc, pipe_ctx->next_odm_pipe, context);
++	}
+ }
+ 
+ void dcn20_pipe_control_lock_global(
+-- 
+2.17.1
+

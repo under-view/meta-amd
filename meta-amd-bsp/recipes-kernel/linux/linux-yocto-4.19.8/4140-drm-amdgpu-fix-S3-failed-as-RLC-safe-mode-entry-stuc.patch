@@ -1,0 +1,64 @@
+From 3056eac53726a1cb97a3d989fb62d0cd57cf27e4 Mon Sep 17 00:00:00 2001
+From: Prike Liang <Prike.Liang@amd.com>
+Date: Tue, 15 Oct 2019 17:11:49 +0800
+Subject: [PATCH 4140/4736] drm/amdgpu: fix S3 failed as RLC safe mode entry
+ stucked in polloing gfx acq
+
+Fix gfx cgpg setting sequence for RLC deadlock at safe mode entry in polling gfx response.
+The patch can fix VCN IB test failed and DAL get dispaly count failed issue.
+
+Signed-off-by: Prike Liang <Prike.Liang@amd.com>
+Reviewed-by: Huang Rui <ray.huang@amd.com>
+---
+ drivers/gpu/drm/amd/amdgpu/gfx_v9_0.c      | 5 -----
+ drivers/gpu/drm/amd/powerplay/amdgpu_smu.c | 4 ++++
+ 2 files changed, 4 insertions(+), 5 deletions(-)
+
+diff --git a/drivers/gpu/drm/amd/amdgpu/gfx_v9_0.c b/drivers/gpu/drm/amd/amdgpu/gfx_v9_0.c
+index f5322313f93c..16043b824f97 100644
+--- a/drivers/gpu/drm/amd/amdgpu/gfx_v9_0.c
++++ b/drivers/gpu/drm/amd/amdgpu/gfx_v9_0.c
+@@ -4285,9 +4285,6 @@ static void gfx_v9_0_update_gfx_cg_power_gating(struct amdgpu_device *adev,
+ {
+ 	amdgpu_gfx_rlc_enter_safe_mode(adev);
+ 
+-	if (is_support_sw_smu(adev) && !enable)
+-		smu_set_gfx_cgpg(&adev->smu, enable);
+-
+ 	if ((adev->pg_flags & AMD_PG_SUPPORT_GFX_PG) && enable) {
+ 		gfx_v9_0_enable_gfx_cg_power_gating(adev, true);
+ 		if (adev->pg_flags & AMD_PG_SUPPORT_GFX_PIPELINE)
+@@ -4564,8 +4561,6 @@ static int gfx_v9_0_set_powergating_state(void *handle,
+ 			gfx_v9_0_enable_cp_power_gating(adev, false);
+ 
+ 		/* update gfx cgpg state */
+-		if (is_support_sw_smu(adev) && enable)
+-			smu_set_gfx_cgpg(&adev->smu, enable);
+ 		gfx_v9_0_update_gfx_cg_power_gating(adev, enable);
+ 
+ 		/* update mgcg state */
+diff --git a/drivers/gpu/drm/amd/powerplay/amdgpu_smu.c b/drivers/gpu/drm/amd/powerplay/amdgpu_smu.c
+index a5255116785b..d0a25dd8fcfc 100644
+--- a/drivers/gpu/drm/amd/powerplay/amdgpu_smu.c
++++ b/drivers/gpu/drm/amd/powerplay/amdgpu_smu.c
+@@ -1188,6 +1188,7 @@ static int smu_hw_init(void *handle)
+ 	if (adev->flags & AMD_IS_APU) {
+ 		smu_powergate_sdma(&adev->smu, false);
+ 		smu_powergate_vcn(&adev->smu, false);
++		smu_set_gfx_cgpg(&adev->smu, true);
+ 	}
+ 
+ 	if (!smu->pm_enabled)
+@@ -1350,6 +1351,9 @@ static int smu_resume(void *handle)
+ 	if (ret)
+ 		goto failed;
+ 
++	if (smu->is_apu)
++		smu_set_gfx_cgpg(&adev->smu, true);
++
+ 	mutex_unlock(&smu->mutex);
+ 
+ 	pr_info("SMU is resumed successfully!\n");
+-- 
+2.17.1
+

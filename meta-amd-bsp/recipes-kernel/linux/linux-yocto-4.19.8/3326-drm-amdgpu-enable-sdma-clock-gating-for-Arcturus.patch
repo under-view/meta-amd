@@ -1,0 +1,33 @@
+From 2b853dab6998d8a72fd8b588c7f0820a8b329200 Mon Sep 17 00:00:00 2001
+From: Le Ma <le.ma@amd.com>
+Date: Wed, 7 Aug 2019 15:48:44 +0800
+Subject: [PATCH 3326/4256] drm/amdgpu: enable sdma clock gating for Arcturus
+
+Init sdma MGCG/LS flag
+
+Change-Id: I600b8c67b1dfa74240269f2f028960b2c93a0ec2
+Signed-off-by: Le Ma <le.ma@amd.com>
+Reviewed-by: Feifei Xu <Feifei.Xu@amd.com>
+Reviewed-by: Kenneth Feng <kenneth.feng@amd.com>
+---
+ drivers/gpu/drm/amd/amdgpu/soc15.c | 4 +++-
+ 1 file changed, 3 insertions(+), 1 deletion(-)
+
+diff --git a/drivers/gpu/drm/amd/amdgpu/soc15.c b/drivers/gpu/drm/amd/amdgpu/soc15.c
+index ccc040c14399..261493a6c49f 100644
+--- a/drivers/gpu/drm/amd/amdgpu/soc15.c
++++ b/drivers/gpu/drm/amd/amdgpu/soc15.c
+@@ -1123,7 +1123,9 @@ static int soc15_common_early_init(void *handle)
+ 			AMD_CG_SUPPORT_GFX_CGCG |
+ 			AMD_CG_SUPPORT_GFX_CGLS |
+ 			AMD_CG_SUPPORT_HDP_MGCG |
+-			AMD_CG_SUPPORT_HDP_LS;
++			AMD_CG_SUPPORT_HDP_LS |
++			AMD_CG_SUPPORT_SDMA_MGCG |
++			AMD_CG_SUPPORT_SDMA_LS;
+ 		adev->pg_flags = 0;
+ 		adev->external_rev_id = adev->rev_id + 0x32;
+ 		break;
+-- 
+2.17.1
+

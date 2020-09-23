@@ -1,0 +1,45 @@
+From 4dfd7149c57f60d4a25d860971f03613a5c15f77 Mon Sep 17 00:00:00 2001
+From: Hawking Zhang <Hawking.Zhang@amd.com>
+Date: Wed, 20 Nov 2019 19:21:35 +0800
+Subject: [PATCH 4601/4736] drm/amdgpu: apply gpr/gds workaround before
+ enabling GFX EDC mode
+
+gfx memory should be initialized before enabling
+DED and FUE field in mmGB_EDC_MODE
+
+Change-Id: I248a087364cbd9858cba32a70be456af3f07c90d
+Signed-off-by: Hawking Zhang <Hawking.Zhang@amd.com>
+Reviewed-by: Alex Deucher <alexander.deucher@amd.com>
+---
+ drivers/gpu/drm/amd/amdgpu/gfx_v9_0.c | 8 ++++----
+ 1 file changed, 4 insertions(+), 4 deletions(-)
+
+diff --git a/drivers/gpu/drm/amd/amdgpu/gfx_v9_0.c b/drivers/gpu/drm/amd/amdgpu/gfx_v9_0.c
+index 18490f23e0d9..1aff77c89e7a 100644
+--- a/drivers/gpu/drm/amd/amdgpu/gfx_v9_0.c
++++ b/drivers/gpu/drm/amd/amdgpu/gfx_v9_0.c
+@@ -4238,10 +4238,6 @@ static int gfx_v9_0_ecc_late_init(void *handle)
+ 	struct amdgpu_device *adev = (struct amdgpu_device *)handle;
+ 	int r;
+ 
+-	r = amdgpu_gfx_ras_late_init(adev);
+-	if (r)
+-		return r;
+-
+ 	r = gfx_v9_0_do_edc_gds_workarounds(adev);
+ 	if (r)
+ 		return r;
+@@ -4251,6 +4247,10 @@ static int gfx_v9_0_ecc_late_init(void *handle)
+ 	if (r)
+ 		return r;
+ 
++	r = amdgpu_gfx_ras_late_init(adev);
++	if (r)
++		return r;
++
+ 	return 0;
+ }
+ 
+-- 
+2.17.1
+

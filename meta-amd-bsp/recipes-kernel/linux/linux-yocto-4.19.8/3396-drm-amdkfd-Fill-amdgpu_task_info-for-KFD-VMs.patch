@@ -1,0 +1,30 @@
+From e1e865d2ff94f3450c93afff64f87e6f17d415d4 Mon Sep 17 00:00:00 2001
+From: Yong Zhao <Yong.Zhao@amd.com>
+Date: Wed, 7 Aug 2019 17:45:37 -0400
+Subject: [PATCH 3396/4256] drm/amdkfd: Fill amdgpu_task_info for KFD VMs
+
+The amdgpu_task_info will be used when printing VM page fault for KFD
+processes.
+
+Change-Id: Ifd983db5dceb1d477e7287e4893f80565a7a6b06
+Signed-off-by: Yong Zhao <Yong.Zhao@amd.com>
+---
+ drivers/gpu/drm/amd/amdkfd/kfd_process.c | 2 ++
+ 1 file changed, 2 insertions(+)
+
+diff --git a/drivers/gpu/drm/amd/amdkfd/kfd_process.c b/drivers/gpu/drm/amd/amdkfd/kfd_process.c
+index bcdc1f915bc8..04a621a76822 100644
+--- a/drivers/gpu/drm/amd/amdkfd/kfd_process.c
++++ b/drivers/gpu/drm/amd/amdkfd/kfd_process.c
+@@ -874,6 +874,8 @@ int kfd_process_device_init_vm(struct kfd_process_device *pdd,
+ 		return ret;
+ 	}
+ 
++	amdgpu_vm_set_task_info(pdd->vm);
++
+ 	ret = kfd_process_device_reserve_ib_mem(pdd);
+ 	if (ret)
+ 		goto err_reserve_ib_mem;
+-- 
+2.17.1
+

@@ -1,0 +1,110 @@
+From 43d07f6ba6b19edcb8fed98769bd057e3ba0a17b Mon Sep 17 00:00:00 2001
+From: Felix Kuehling <Felix.Kuehling@amd.com>
+Date: Sat, 13 Jul 2019 02:27:34 -0400
+Subject: [PATCH 2986/4256] drm/amdgpu: Fix silent amdgpu_bo_move failures
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+Under memory pressure, buffer moves between RAM to VRAM  can
+fail when there is no GTT space available. In those cases
+amdgpu_bo_move falls back to ttm_bo_move_memcpy, which seems to
+succeed, although it doesn't really support non-contiguous or
+invisible VRAM. This manifests as VM faults with corrupted page
+table entries in KFD eviction stress tests.
+
+Print some helpful messages when lack of GTT space is causing buffer
+moves to fail. Check that source and destination memory regions are
+supported by ttm_bo_move_memcpy before taking that fallback.
+
+Signed-off-by: Felix Kuehling <Felix.Kuehling@amd.com>
+Reviewed-by: Christian König <christian.koenig@amd.com>
+---
+ drivers/gpu/drm/amd/amdgpu/amdgpu_ttm.c | 40 +++++++++++++++++++++++--
+ 1 file changed, 37 insertions(+), 3 deletions(-)
+
+diff --git a/drivers/gpu/drm/amd/amdgpu/amdgpu_ttm.c b/drivers/gpu/drm/amd/amdgpu/amdgpu_ttm.c
+index 12487f99e367..ff0ab1521cde 100644
+--- a/drivers/gpu/drm/amd/amdgpu/amdgpu_ttm.c
++++ b/drivers/gpu/drm/amd/amdgpu/amdgpu_ttm.c
+@@ -600,6 +600,7 @@ static int amdgpu_move_vram_ram(struct ttm_buffer_object *bo, bool evict,
+ 	placements.flags = TTM_PL_MASK_CACHING | TTM_PL_FLAG_TT;
+ 	r = ttm_bo_mem_space(bo, &placement, &tmp_mem, ctx);
+ 	if (unlikely(r)) {
++		pr_err("Failed to find GTT space for blit from VRAM\n");
+ 		return r;
+ 	}
+ 
+@@ -658,6 +659,7 @@ static int amdgpu_move_ram_vram(struct ttm_buffer_object *bo, bool evict,
+ 	placements.flags = TTM_PL_MASK_CACHING | TTM_PL_FLAG_TT;
+ 	r = ttm_bo_mem_space(bo, &placement, &tmp_mem, ctx);
+ 	if (unlikely(r)) {
++		pr_err("Failed to find GTT space for blit to VRAM\n");
+ 		return r;
+ 	}
+ 
+@@ -677,6 +679,30 @@ static int amdgpu_move_ram_vram(struct ttm_buffer_object *bo, bool evict,
+ 	return r;
+ }
+ 
++/**
++ * amdgpu_mem_visible - Check that memory can be accessed by ttm_bo_move_memcpy
++ *
++ * Called by amdgpu_bo_move()
++ */
++static bool amdgpu_mem_visible(struct amdgpu_device *adev,
++			       struct ttm_mem_reg *mem)
++{
++	struct drm_mm_node *nodes = mem->mm_node;
++
++	if (mem->mem_type == TTM_PL_SYSTEM ||
++	    mem->mem_type == TTM_PL_TT)
++		return true;
++	if (mem->mem_type != TTM_PL_VRAM)
++		return false;
++
++	/* ttm_mem_reg_ioremap only supports contiguous memory */
++	if (nodes->size != mem->num_pages)
++		return false;
++
++	return ((nodes->start + nodes->size) << PAGE_SHIFT)
++		<= adev->gmc.visible_vram_size;
++}
++
+ /**
+  * amdgpu_bo_move - Move a buffer object to a new memory location
+  *
+@@ -725,8 +751,10 @@ static int amdgpu_bo_move(struct ttm_buffer_object *bo, bool evict,
+ 		return 0;
+ 	}
+ 
+-	if (!adev->mman.buffer_funcs_enabled)
++	if (!adev->mman.buffer_funcs_enabled) {
++		r = -ENODEV;
+ 		goto memcpy;
++	}
+ 
+ 	if (old_mem->mem_type == TTM_PL_VRAM &&
+ 	    new_mem->mem_type == TTM_PL_SYSTEM) {
+@@ -741,10 +769,16 @@ static int amdgpu_bo_move(struct ttm_buffer_object *bo, bool evict,
+ 
+ 	if (r) {
+ memcpy:
+-		r = ttm_bo_move_memcpy(bo, ctx, new_mem);
+-		if (r) {
++		/* Check that all memory is CPU accessible */
++		if (!amdgpu_mem_visible(adev, old_mem) ||
++		    !amdgpu_mem_visible(adev, new_mem)) {
++			pr_err("Move buffer fallback to memcpy unavailable\n");
+ 			return r;
+ 		}
++
++		r = ttm_bo_move_memcpy(bo, ctx, new_mem);
++		if (r)
++			return r;
+ 	}
+ 
+ 	if (bo->type == ttm_bo_type_device &&
+-- 
+2.17.1
+

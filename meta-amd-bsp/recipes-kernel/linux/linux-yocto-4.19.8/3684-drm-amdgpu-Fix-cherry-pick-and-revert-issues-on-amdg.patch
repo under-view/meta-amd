@@ -1,0 +1,66 @@
+From 667002b5f5a17658a56a5c686556eb847b423a44 Mon Sep 17 00:00:00 2001
+From: Adam Yang <Adam1.Yang@amd.com>
+Date: Thu, 5 Sep 2019 14:18:45 +0800
+Subject: [PATCH 3684/4256] drm/amdgpu: Fix cherry-pick and revert issues on
+ amdgpu_amdkfd_gpuvm
+
+After a series of cherry-pick, revert and re-cherry-pick on the following
+4 commits:
+
+d12c8758ea35 drm/amdgpu: Use optimal mtypes and PTE bits for Arcturus
+af441757c60a drm/amdgpu: Determing PTE flags separately for each mapping (v3)
+0d8f49a01988 drm/amdgpu: Support new arcturus mtype
+b2e1a6e14d5a drm/amdgpu: Extends amdgpu vm definitions (v2)
+
+File amdgpu_amdkfd_gpuvm.c is messed up and some of the commits
+become quite fragmented and lost part of the following commit:
+
+53a0d54498fa drm/amdgpu: Remove unnecessary TLB workaround (v2)
+
+Signed-off-by: Adam Yang <Adam1.Yang@amd.com>
+Reviewed-by: Flora Cui <flora.cui@amd.com>
+---
+ .../gpu/drm/amd/amdgpu/amdgpu_amdkfd_gpuvm.c  | 20 +++++++++++++++++--
+ 1 file changed, 18 insertions(+), 2 deletions(-)
+
+diff --git a/drivers/gpu/drm/amd/amdgpu/amdgpu_amdkfd_gpuvm.c b/drivers/gpu/drm/amd/amdgpu/amdgpu_amdkfd_gpuvm.c
+index 595922f63f47..7d540d5f4f9a 100644
+--- a/drivers/gpu/drm/amd/amdgpu/amdgpu_amdkfd_gpuvm.c
++++ b/drivers/gpu/drm/amd/amdgpu/amdgpu_amdkfd_gpuvm.c
+@@ -384,6 +384,7 @@ static int vm_update_pds(struct amdgpu_vm *vm, struct amdgpu_sync *sync)
+ 
+ static uint64_t get_pte_flags(struct amdgpu_device *adev, struct kgd_mem *mem)
+ {
++	struct amdgpu_device *bo_adev = amdgpu_ttm_adev(mem->bo->tbo.bdev);
+ 	bool coherent = mem->alloc_flags & ALLOC_MEM_FLAGS_COHERENT;
+ 	uint32_t mapping_flags;
+ 
+@@ -393,8 +394,23 @@ static uint64_t get_pte_flags(struct amdgpu_device *adev, struct kgd_mem *mem)
+ 	if (mem->alloc_flags & ALLOC_MEM_FLAGS_EXECUTABLE)
+ 		mapping_flags |= AMDGPU_VM_PAGE_EXECUTABLE;
+ 
+-	mapping_flags |= coherent ?
+-		AMDGPU_VM_MTYPE_UC : AMDGPU_VM_MTYPE_NC;
++	switch (adev->asic_type) {
++	case CHIP_ARCTURUS:
++		if (mem->alloc_flags & ALLOC_MEM_FLAGS_VRAM) {
++			if (bo_adev == adev)
++				mapping_flags |= coherent ?
++					AMDGPU_VM_MTYPE_CC : AMDGPU_VM_MTYPE_RW;
++			else
++				mapping_flags |= AMDGPU_VM_MTYPE_UC;
++		} else {
++			mapping_flags |= coherent ?
++				AMDGPU_VM_MTYPE_UC : AMDGPU_VM_MTYPE_NC;
++		}
++		break;
++	default:
++		mapping_flags |= coherent ?
++			AMDGPU_VM_MTYPE_UC : AMDGPU_VM_MTYPE_NC;
++	}
+ 
+ 	return amdgpu_gmc_get_pte_flags(adev, mapping_flags);
+ }
+-- 
+2.17.1
+

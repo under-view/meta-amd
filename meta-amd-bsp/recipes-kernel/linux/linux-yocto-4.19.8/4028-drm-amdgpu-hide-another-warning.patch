@@ -1,0 +1,35 @@
+From 3532d7ac060ae4a5bc848cdf83e8ebcf46d3dadf Mon Sep 17 00:00:00 2001
+From: Arnd Bergmann <arnd@arndb.de>
+Date: Wed, 2 Oct 2019 14:01:23 +0200
+Subject: [PATCH 4028/4256] drm/amdgpu: hide another #warning
+
+An earlier patch of mine disabled some #warning statements
+that get in the way of build testing, but then another
+instance was added around the same time.
+
+Remove that as well.
+
+Fixes: b5203d16aef4 ("drm/amd/amdgpu: hide #warning for missing DC config")
+Fixes: e1c14c43395c ("drm/amdgpu: Enable DC on Renoir")
+Signed-off-by: Arnd Bergmann <arnd@arndb.de>
+Signed-off-by: Alex Deucher <alexander.deucher@amd.com>
+---
+ drivers/gpu/drm/amd/amdgpu/soc15.c | 2 --
+ 1 file changed, 2 deletions(-)
+
+diff --git a/drivers/gpu/drm/amd/amdgpu/soc15.c b/drivers/gpu/drm/amd/amdgpu/soc15.c
+index 3f89a57e823e..a77f9b708f7f 100644
+--- a/drivers/gpu/drm/amd/amdgpu/soc15.c
++++ b/drivers/gpu/drm/amd/amdgpu/soc15.c
+@@ -795,8 +795,6 @@ int soc15_set_ip_blocks(struct amdgpu_device *adev)
+ #if defined(CONFIG_DRM_AMD_DC)
+                 else if (amdgpu_device_has_dc_support(adev))
+                         amdgpu_device_ip_block_add(adev, &dm_ip_block);
+-#else
+-#       warning "Enable CONFIG_DRM_AMD_DC for display support on SOC15."
+ #endif
+ 		amdgpu_device_ip_block_add(adev, &vcn_v2_0_ip_block);
+ 		break;
+-- 
+2.17.1
+

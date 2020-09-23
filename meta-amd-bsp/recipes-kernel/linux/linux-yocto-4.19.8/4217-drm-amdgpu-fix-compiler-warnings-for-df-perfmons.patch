@@ -1,0 +1,39 @@
+From e83bffab9a34e2db3c19b25c2e5841fbb8c03e15 Mon Sep 17 00:00:00 2001
+From: Jonathan Kim <jonathan.kim@amd.com>
+Date: Thu, 17 Oct 2019 13:52:38 -0400
+Subject: [PATCH 4217/4736] drm/amdgpu: fix compiler warnings for df perfmons
+
+fixing compiler warnings in df v3.6 for c-state toggle and pmc count.
+
+Change-Id: I74f8f1eafccf523a89d60d005e3549235f75c6b8
+Signed-off-by: Jonathan Kim <jonathan.kim@amd.com>
+Reviewed-by: Philip Yang <Philip.Yang@amd.com>
+---
+ drivers/gpu/drm/amd/amdgpu/df_v3_6.c | 4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
+
+diff --git a/drivers/gpu/drm/amd/amdgpu/df_v3_6.c b/drivers/gpu/drm/amd/amdgpu/df_v3_6.c
+index 839a948d70de..766615f8c0ba 100644
+--- a/drivers/gpu/drm/amd/amdgpu/df_v3_6.c
++++ b/drivers/gpu/drm/amd/amdgpu/df_v3_6.c
+@@ -93,7 +93,7 @@ const struct attribute_group *df_v3_6_attr_groups[] = {
+ 		NULL
+ };
+ 
+-static df_v3_6_set_df_cstate(struct amdgpu_device *adev, int allow)
++static int df_v3_6_set_df_cstate(struct amdgpu_device *adev, int allow)
+ {
+ 	int r = 0;
+ 
+@@ -547,7 +547,7 @@ static void df_v3_6_pmc_get_count(struct amdgpu_device *adev,
+ 		      uint64_t config,
+ 		      uint64_t *count)
+ {
+-	uint32_t lo_base_addr, hi_base_addr, lo_val, hi_val;
++	uint32_t lo_base_addr, hi_base_addr, lo_val = 0, hi_val = 0;
+ 	*count = 0;
+ 
+ 	switch (adev->asic_type) {
+-- 
+2.17.1
+

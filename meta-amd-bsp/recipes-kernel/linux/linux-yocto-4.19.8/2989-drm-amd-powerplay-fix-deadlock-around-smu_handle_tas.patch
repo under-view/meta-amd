@@ -1,0 +1,38 @@
+From c21b51a8e22364794dffcc81c4269f041504f93b Mon Sep 17 00:00:00 2001
+From: Evan Quan <evan.quan@amd.com>
+Date: Fri, 12 Jul 2019 13:18:16 +0800
+Subject: [PATCH 2989/4256] drm/amd/powerplay: fix deadlock around
+ smu_handle_task V2
+
+As the lock was already held on the entrance to smu_handle_task.
+
+- V2: lock in small granularity
+
+Change-Id: I5388aa917ef0e330974e26c59db42d1354b6a865
+Signed-off-by: Evan Quan <evan.quan@amd.com>
+Reviewed-by: Kevin Wang <kevin1.wang@amd.com>
+---
+ drivers/gpu/drm/amd/amdgpu/amdgpu_pm.c | 3 ---
+ 1 file changed, 3 deletions(-)
+
+diff --git a/drivers/gpu/drm/amd/amdgpu/amdgpu_pm.c b/drivers/gpu/drm/amd/amdgpu/amdgpu_pm.c
+index ba3198399cc9..09b4b0dc94ab 100644
+--- a/drivers/gpu/drm/amd/amdgpu/amdgpu_pm.c
++++ b/drivers/gpu/drm/amd/amdgpu/amdgpu_pm.c
+@@ -2994,13 +2994,10 @@ void amdgpu_pm_compute_clocks(struct amdgpu_device *adev)
+ 	}
+ 
+ 	if (is_support_sw_smu(adev)) {
+-		struct smu_context *smu = &adev->smu;
+ 		struct smu_dpm_context *smu_dpm = &adev->smu.smu_dpm;
+-		mutex_lock(&(smu->mutex));
+ 		smu_handle_task(&adev->smu,
+ 				smu_dpm->dpm_level,
+ 				AMD_PP_TASK_DISPLAY_CONFIG_CHANGE);
+-		mutex_unlock(&(smu->mutex));
+ 	} else {
+ 		if (adev->powerplay.pp_funcs->dispatch_tasks) {
+ 			if (!amdgpu_device_has_dc_support(adev)) {
+-- 
+2.17.1
+

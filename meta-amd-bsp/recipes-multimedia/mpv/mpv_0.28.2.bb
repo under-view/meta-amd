@@ -16,12 +16,12 @@ LICENSE_FLAGS = "commercial"
 
 SRC_URI = " \
     https://github.com/mpv-player/mpv/archive/v${PV}.tar.gz;name=mpv \
-    http://www.freehackers.org/~tnagy/release/waf-1.9.8;name=waf;downloadfilename=waf;subdir=${BPN}-${PV} \
+    http://sources.openembedded.org/waf-1.8.12;name=waf;downloadfilename=waf;subdir=${BPN}-${PV} \
 "
 SRC_URI[mpv.md5sum] = "b6538dec29a2a69574f4e3a3d688fb8b"
 SRC_URI[mpv.sha256sum] = "aada14e025317b5b3e8e58ffaf7902e8b6e4ec347a93d25a7c10d3579426d795"
-SRC_URI[waf.md5sum] = "fbb646eafa430f959743010c85e269be"
-SRC_URI[waf.sha256sum] = "167dc42bab6d5bd823b798af195420319cb5c9b571e00db7d83df2a0fe1f4dbf"
+SRC_URI[waf.md5sum] = "cef4ee82206b1843db082d0b0506bf71"
+SRC_URI[waf.sha256sum] = "01bf2beab2106d1558800c8709bc2c8e496d3da4a2ca343fe091f22fca60c98b"
 
 inherit waf pkgconfig pythonnative distro_features_check
 

@@ -1,0 +1,60 @@
+From 5074a9aaadd952d79318a24bedb2e81e470089bf Mon Sep 17 00:00:00 2001
+From: Alex Deucher <alexander.deucher@amd.com>
+Date: Mon, 28 Oct 2019 14:47:38 -0400
+Subject: [PATCH 4544/4736] drm/amdgpu: add a amdgpu_device_supports_baco
+ helper
+
+BACO - Bus Active, Chip Off
+
+To check if a device supports BACO or not.  This will be
+used in determining when to enable runtime pm.
+
+Reviewed-by: Evan Quan <evan.quan@amd.com>
+Signed-off-by: Alex Deucher <alexander.deucher@amd.com>
+Signed-off-by: Rahul Kumar <rahul.kumar1@amd.com>
+---
+ drivers/gpu/drm/amd/amdgpu/amdgpu.h        |  1 +
+ drivers/gpu/drm/amd/amdgpu/amdgpu_device.c | 15 +++++++++++++++
+ 2 files changed, 16 insertions(+)
+
+diff --git a/drivers/gpu/drm/amd/amdgpu/amdgpu.h b/drivers/gpu/drm/amd/amdgpu/amdgpu.h
+index 0e736a65d5dc..c73ef0017ca5 100644
+--- a/drivers/gpu/drm/amd/amdgpu/amdgpu.h
++++ b/drivers/gpu/drm/amd/amdgpu/amdgpu.h
+@@ -1189,6 +1189,7 @@ void amdgpu_device_program_register_sequence(struct amdgpu_device *adev,
+ 					     const u32 array_size);
+ 
+ bool amdgpu_device_is_px(struct drm_device *dev);
++bool amdgpu_device_supports_baco(struct drm_device *dev);
+ bool amdgpu_device_is_peer_accessible(struct amdgpu_device *adev,
+                                       struct amdgpu_device *peer_adev);
+ 
+diff --git a/drivers/gpu/drm/amd/amdgpu/amdgpu_device.c b/drivers/gpu/drm/amd/amdgpu/amdgpu_device.c
+index 61fb27b4e89c..ee045f328bf2 100644
+--- a/drivers/gpu/drm/amd/amdgpu/amdgpu_device.c
++++ b/drivers/gpu/drm/amd/amdgpu/amdgpu_device.c
+@@ -153,6 +153,21 @@ bool amdgpu_device_is_px(struct drm_device *dev)
+ 	return false;
+ }
+ 
++/**
++ * amdgpu_device_supports_baco - Does the device support BACO
++ *
++ * @dev: drm_device pointer
++ *
++ * Returns true if the device supporte BACO,
++ * otherwise return false.
++ */
++bool amdgpu_device_supports_baco(struct drm_device *dev)
++{
++	struct amdgpu_device *adev = dev->dev_private;
++
++	return amdgpu_asic_supports_baco(adev);
++}
++
+ /**
+  * VRAM access helper functions.
+  *
+-- 
+2.17.1
+

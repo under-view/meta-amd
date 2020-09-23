@@ -1,0 +1,33 @@
+From 4a27cb55c08daadc17ec3b7c23247770566f3562 Mon Sep 17 00:00:00 2001
+From: Yong Zhao <Yong.Zhao@amd.com>
+Date: Mon, 16 Sep 2019 12:24:38 -0400
+Subject: [PATCH 3871/4256] drm/amdkfd: Delete unused KFD_IS_* macro
+
+These were deleted before, but somehow showed up again. Delete them again.
+
+Signed-off-by: Yong Zhao <Yong.Zhao@amd.com>
+Acked-by: Alex Deucher <alexander.deucher@amd.com>
+Reviewed-by: Felix Kuehling <Felix.Kuehling@amd.com>
+Signed-off-by: Alex Deucher <alexander.deucher@amd.com>
+---
+ drivers/gpu/drm/amd/amdkfd/kfd_priv.h | 4 ----
+ 1 file changed, 4 deletions(-)
+
+diff --git a/drivers/gpu/drm/amd/amdkfd/kfd_priv.h b/drivers/gpu/drm/amd/amdkfd/kfd_priv.h
+index b0965eaa327e..6bf5be992303 100644
+--- a/drivers/gpu/drm/amd/amdkfd/kfd_priv.h
++++ b/drivers/gpu/drm/amd/amdkfd/kfd_priv.h
+@@ -195,10 +195,6 @@ enum cache_policy {
+ 	cache_policy_noncoherent
+ };
+ 
+-#define KFD_IS_VI(chip) ((chip) >= CHIP_CARRIZO && (chip) <= CHIP_POLARIS11)
+-#define KFD_IS_DGPU(chip) (((chip) >= CHIP_TONGA && \
+-			   (chip) <= CHIP_NAVI10) || \
+-			   (chip) == CHIP_HAWAII)
+ #define KFD_IS_SOC15(chip) ((chip) >= CHIP_VEGA10)
+ 
+ struct kfd_event_interrupt_class {
+-- 
+2.17.1
+

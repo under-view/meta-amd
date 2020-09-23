@@ -1,0 +1,33 @@
+From 6443dfd4eca783e2055e9ae01740e021e8fcfb03 Mon Sep 17 00:00:00 2001
+From: Andrey Grodzovsky <andrey.grodzovsky@amd.com>
+Date: Wed, 14 Aug 2019 15:44:14 -0400
+Subject: [PATCH 3458/4256] dmr/amdgpu: Fix compile error with
+ CONFIG_DRM_AMDGPU_GART_DEBUGFS
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+Double defintion of 'i'
+
+Signed-off-by: Andrey Grodzovsky <andrey.grodzovsky@amd.com>
+Reviewed-by: Christian König <christian.koenig@amd.com>
+---
+ drivers/gpu/drm/amd/amdgpu/amdgpu_gart.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/drivers/gpu/drm/amd/amdgpu/amdgpu_gart.c b/drivers/gpu/drm/amd/amdgpu/amdgpu_gart.c
+index 9a212aa4c177..c040e9f4f5c3 100644
+--- a/drivers/gpu/drm/amd/amdgpu/amdgpu_gart.c
++++ b/drivers/gpu/drm/amd/amdgpu/amdgpu_gart.c
+@@ -305,7 +305,7 @@ int amdgpu_gart_bind(struct amdgpu_device *adev, uint64_t offset,
+ 		     uint64_t flags)
+ {
+ #ifdef CONFIG_DRM_AMDGPU_GART_DEBUGFS
+-	unsigned i,t,p;
++	unsigned t,p;
+ #endif
+ 	int r;
+ 
+-- 
+2.17.1
+

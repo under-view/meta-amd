@@ -1,0 +1,34 @@
+From ec6646d3102f9e7e0a841d3568ec65b9fd5231eb Mon Sep 17 00:00:00 2001
+From: Prike Liang <Prike.Liang@amd.com>
+Date: Fri, 16 Aug 2019 11:22:13 +0800
+Subject: [PATCH 3629/4256] drm/amd/powerplay: enable populate DPM clocks table
+ for swSMU APU
+
+Should populate DPM clocks tables during hw init,otherwise will
+suffer from invalidate table.
+
+Signed-off-by: Prike Liang <Prike.Liang@amd.com>
+Reviewed-by: Evan Quan <evan.quan@amd.com>
+Reviewed-by: Aaron Liu <aaron.liu@amd.com>
+Signed-off-by: Alex Deucher <alexander.deucher@amd.com>
+---
+ drivers/gpu/drm/amd/powerplay/amdgpu_smu.c | 3 ---
+ 1 file changed, 3 deletions(-)
+
+diff --git a/drivers/gpu/drm/amd/powerplay/amdgpu_smu.c b/drivers/gpu/drm/amd/powerplay/amdgpu_smu.c
+index b4f89c3c2b43..8c61778f8f74 100644
+--- a/drivers/gpu/drm/amd/powerplay/amdgpu_smu.c
++++ b/drivers/gpu/drm/amd/powerplay/amdgpu_smu.c
+@@ -1042,9 +1042,6 @@ static int smu_smc_table_hw_init(struct smu_context *smu,
+ 	struct amdgpu_device *adev = smu->adev;
+ 	int ret;
+ 
+-	if (adev->flags & AMD_IS_APU)
+-		return 0;
+-
+ 	if (smu_is_dpm_running(smu) && adev->in_suspend) {
+ 		pr_info("dpm has been enabled\n");
+ 		return 0;
+-- 
+2.17.1
+

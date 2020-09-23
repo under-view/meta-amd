@@ -1,0 +1,35 @@
+From 2da8abe5f1a1aef2fad014ee3b5c7c79ae14badc Mon Sep 17 00:00:00 2001
+From: Jesse Zhang <zhexi.zhang@amd.com>
+Date: Tue, 24 Sep 2019 11:54:37 +0800
+Subject: [PATCH 3915/4256] Revert "drm/amd/powerplay [Vega10]Vega10 BKM0.83
+ AVFS parameters patch for Linux Driver"
+
+This reverts commit 72328b005eee2357024b69620add9c14421c03d4.
+
+Change-Id: I5c9d58196f3f55ac795fe45cb38b292572ca1b8d
+Signed-off-by: Jesse Zhang <zhexi.zhang@amd.com>
+---
+ drivers/gpu/drm/amd/powerplay/hwmgr/ppatomfwctrl.c | 7 -------
+ 1 file changed, 7 deletions(-)
+
+diff --git a/drivers/gpu/drm/amd/powerplay/hwmgr/ppatomfwctrl.c b/drivers/gpu/drm/amd/powerplay/hwmgr/ppatomfwctrl.c
+index b827c2c1f0e2..615cf2c09e54 100644
+--- a/drivers/gpu/drm/amd/powerplay/hwmgr/ppatomfwctrl.c
++++ b/drivers/gpu/drm/amd/powerplay/hwmgr/ppatomfwctrl.c
+@@ -293,13 +293,6 @@ int pp_atomfwctrl_get_avfs_information(struct pp_hwmgr *hwmgr,
+ 	format_revision = ((struct atom_common_table_header *)profile)->format_revision;
+ 	content_revision = ((struct atom_common_table_header *)profile)->content_revision;
+ 
+-	if (format_revision == 4)
+-	{
+-		profile->gb_vdroop_table_cksoff_a0 = 0xfffcd2e7;
+-		profile->gb_vdroop_table_cksoff_a1 = 0x24902;
+-		profile->gb_vdroop_table_cksoff_a2 = 0x249ba;
+-	}
+-
+ 	if (format_revision == 4 && content_revision == 1) {
+ 		param->ulMaxVddc = le32_to_cpu(profile->maxvddc);
+ 		param->ulMinVddc = le32_to_cpu(profile->minvddc);
+-- 
+2.17.1
+

@@ -1,0 +1,245 @@
+From e1df710802aba86f3e84051f4e5b7bbf3784d31b Mon Sep 17 00:00:00 2001
+From: Yong Zhao <Yong.Zhao@amd.com>
+Date: Wed, 17 Jul 2019 17:49:19 -0400
+Subject: [PATCH 3143/4256] drm/amdkfd: Fill the name field in node topology
+ with asic name
+
+The name field in node topology has not been used. We re-purpose it to
+hold the asic name, which can be queried by user space applications
+through sysfs.
+
+Change-Id: I6eac5c01cdba41022d6c5b2f4629679a57b32a73
+Signed-off-by: Yong Zhao <Yong.Zhao@amd.com>
+---
+ drivers/gpu/drm/amd/amdkfd/kfd_device.c   | 18 ++++++++++++++++++
+ drivers/gpu/drm/amd/amdkfd/kfd_priv.h     |  1 +
+ drivers/gpu/drm/amd/amdkfd/kfd_topology.c | 16 ++++++----------
+ drivers/gpu/drm/amd/amdkfd/kfd_topology.h |  4 ++--
+ 4 files changed, 27 insertions(+), 12 deletions(-)
+
+diff --git a/drivers/gpu/drm/amd/amdkfd/kfd_device.c b/drivers/gpu/drm/amd/amdkfd/kfd_device.c
+index 52851e658bda..b333e81061f5 100644
+--- a/drivers/gpu/drm/amd/amdkfd/kfd_device.c
++++ b/drivers/gpu/drm/amd/amdkfd/kfd_device.c
+@@ -42,6 +42,7 @@ static atomic_t kfd_locked = ATOMIC_INIT(0);
+ #ifdef KFD_SUPPORT_IOMMU_V2
+ static const struct kfd_device_info kaveri_device_info = {
+ 	.asic_family = CHIP_KAVERI,
++	.asic_name = "Kaveri",
+ 	.max_pasid_bits = 16,
+ 	/* max num of queues for KV.TODO should be a dynamic value */
+ 	.max_no_of_hqd	= 24,
+@@ -60,6 +61,7 @@ static const struct kfd_device_info kaveri_device_info = {
+ 
+ static const struct kfd_device_info carrizo_device_info = {
+ 	.asic_family = CHIP_CARRIZO,
++	.asic_name = "Carrizo",
+ 	.max_pasid_bits = 16,
+ 	/* max num of queues for CZ.TODO should be a dynamic value */
+ 	.max_no_of_hqd	= 24,
+@@ -78,6 +80,7 @@ static const struct kfd_device_info carrizo_device_info = {
+ 
+ static const struct kfd_device_info raven_device_info = {
+ 	.asic_family = CHIP_RAVEN,
++	.asic_name = "Raven",
+ 	.max_pasid_bits = 16,
+ 	.max_no_of_hqd  = 24,
+ 	.doorbell_size  = 8,
+@@ -96,6 +99,7 @@ static const struct kfd_device_info raven_device_info = {
+ 
+ static const struct kfd_device_info hawaii_device_info = {
+ 	.asic_family = CHIP_HAWAII,
++	.asic_name = "Hawaii",
+ 	.max_pasid_bits = 16,
+ 	/* max num of queues for KV.TODO should be a dynamic value */
+ 	.max_no_of_hqd	= 24,
+@@ -114,6 +118,7 @@ static const struct kfd_device_info hawaii_device_info = {
+ 
+ static const struct kfd_device_info tonga_device_info = {
+ 	.asic_family = CHIP_TONGA,
++	.asic_name = "Tonga",
+ 	.max_pasid_bits = 16,
+ 	.max_no_of_hqd  = 24,
+ 	.doorbell_size  = 4,
+@@ -131,6 +136,7 @@ static const struct kfd_device_info tonga_device_info = {
+ 
+ static const struct kfd_device_info fiji_device_info = {
+ 	.asic_family = CHIP_FIJI,
++	.asic_name = "Fiji",
+ 	.max_pasid_bits = 16,
+ 	.max_no_of_hqd  = 24,
+ 	.doorbell_size  = 4,
+@@ -148,6 +154,7 @@ static const struct kfd_device_info fiji_device_info = {
+ 
+ static const struct kfd_device_info fiji_vf_device_info = {
+ 	.asic_family = CHIP_FIJI,
++	.asic_name = "Fiji",
+ 	.max_pasid_bits = 16,
+ 	.max_no_of_hqd  = 24,
+ 	.doorbell_size  = 4,
+@@ -166,6 +173,7 @@ static const struct kfd_device_info fiji_vf_device_info = {
+ 
+ static const struct kfd_device_info polaris10_device_info = {
+ 	.asic_family = CHIP_POLARIS10,
++	.asic_name = "Polaris10",
+ 	.max_pasid_bits = 16,
+ 	.max_no_of_hqd  = 24,
+ 	.doorbell_size  = 4,
+@@ -183,6 +191,7 @@ static const struct kfd_device_info polaris10_device_info = {
+ 
+ static const struct kfd_device_info polaris10_vf_device_info = {
+ 	.asic_family = CHIP_POLARIS10,
++	.asic_name = "Polaris10",
+ 	.max_pasid_bits = 16,
+ 	.max_no_of_hqd  = 24,
+ 	.doorbell_size  = 4,
+@@ -200,6 +209,7 @@ static const struct kfd_device_info polaris10_vf_device_info = {
+ 
+ static const struct kfd_device_info polaris11_device_info = {
+ 	.asic_family = CHIP_POLARIS11,
++	.asic_name = "Polaris11",
+ 	.max_pasid_bits = 16,
+ 	.max_no_of_hqd  = 24,
+ 	.doorbell_size  = 4,
+@@ -217,6 +227,7 @@ static const struct kfd_device_info polaris11_device_info = {
+ 
+ static const struct kfd_device_info polaris12_device_info = {
+ 	.asic_family = CHIP_POLARIS12,
++	.asic_name = "Polaris12",
+ 	.max_pasid_bits = 16,
+ 	.max_no_of_hqd  = 24,
+ 	.doorbell_size  = 4,
+@@ -234,6 +245,7 @@ static const struct kfd_device_info polaris12_device_info = {
+ 
+ static const struct kfd_device_info vegam_device_info = {
+ 	.asic_family = CHIP_VEGAM,
++	.asic_name = "VegaM",
+ 	.max_pasid_bits = 16,
+ 	.max_no_of_hqd  = 24,
+ 	.doorbell_size  = 4,
+@@ -251,6 +263,7 @@ static const struct kfd_device_info vegam_device_info = {
+ 
+ static const struct kfd_device_info vega10_device_info = {
+ 	.asic_family = CHIP_VEGA10,
++	.asic_name = "Vega10",
+ 	.max_pasid_bits = 16,
+ 	.max_no_of_hqd  = 24,
+ 	.doorbell_size  = 8,
+@@ -268,6 +281,7 @@ static const struct kfd_device_info vega10_device_info = {
+ 
+ static const struct kfd_device_info vega10_vf_device_info = {
+ 	.asic_family = CHIP_VEGA10,
++	.asic_name = "Vega10",
+ 	.max_pasid_bits = 16,
+ 	.max_no_of_hqd  = 24,
+ 	.doorbell_size  = 8,
+@@ -285,6 +299,7 @@ static const struct kfd_device_info vega10_vf_device_info = {
+ 
+ static const struct kfd_device_info vega12_device_info = {
+ 	.asic_family = CHIP_VEGA12,
++	.asic_name = "Vega12",
+ 	.max_pasid_bits = 16,
+ 	.max_no_of_hqd  = 24,
+ 	.doorbell_size  = 8,
+@@ -302,6 +317,7 @@ static const struct kfd_device_info vega12_device_info = {
+ 
+ static const struct kfd_device_info vega20_device_info = {
+ 	.asic_family = CHIP_VEGA20,
++	.asic_name = "Vega20",
+ 	.max_pasid_bits = 16,
+ 	.max_no_of_hqd	= 24,
+ 	.doorbell_size	= 8,
+@@ -319,6 +335,7 @@ static const struct kfd_device_info vega20_device_info = {
+ 
+ static const struct kfd_device_info arcturus_device_info = {
+ 	.asic_family = CHIP_ARCTURUS,
++	.asic_name = "Arcturus",
+ 	.max_pasid_bits = 16,
+ 	.max_no_of_hqd	= 24,
+ 	.doorbell_size	= 8,
+@@ -336,6 +353,7 @@ static const struct kfd_device_info arcturus_device_info = {
+ 
+ static const struct kfd_device_info navi10_device_info = {
+ 	.asic_family = CHIP_NAVI10,
++	.asic_name = "Navi10",
+ 	.max_pasid_bits = 16,
+ 	.max_no_of_hqd  = 24,
+ 	.doorbell_size  = 8,
+diff --git a/drivers/gpu/drm/amd/amdkfd/kfd_priv.h b/drivers/gpu/drm/amd/amdkfd/kfd_priv.h
+index a8fe46c22c7d..267c2e4d69a0 100644
+--- a/drivers/gpu/drm/amd/amdkfd/kfd_priv.h
++++ b/drivers/gpu/drm/amd/amdkfd/kfd_priv.h
+@@ -211,6 +211,7 @@ struct kfd_event_interrupt_class {
+ 
+ struct kfd_device_info {
+ 	enum amd_asic_type asic_family;
++	const char *asic_name;
+ 	const struct kfd_event_interrupt_class *event_interrupt_class;
+ 	unsigned int max_pasid_bits;
+ 	unsigned int max_no_of_hqd;
+diff --git a/drivers/gpu/drm/amd/amdkfd/kfd_topology.c b/drivers/gpu/drm/amd/amdkfd/kfd_topology.c
+index 65f831f5955c..39ea6a104d63 100644
+--- a/drivers/gpu/drm/amd/amdkfd/kfd_topology.c
++++ b/drivers/gpu/drm/amd/amdkfd/kfd_topology.c
+@@ -428,8 +428,6 @@ static ssize_t node_show(struct kobject *kobj, struct attribute *attr,
+ 		char *buffer)
+ {
+ 	struct kfd_topology_device *dev;
+-	char public_name[KFD_TOPOLOGY_PUBLIC_NAME_SIZE];
+-	uint32_t i;
+ 	uint32_t log_max_watch_addr;
+ 	struct kfd_local_mem_info local_mem_info;
+ 
+@@ -449,14 +447,8 @@ static ssize_t node_show(struct kobject *kobj, struct attribute *attr,
+ 				attr_name);
+ 		if (dev->gpu && kfd_devcgroup_check_permission(dev->gpu))
+ 			return -EPERM;
+-		for (i = 0; i < KFD_TOPOLOGY_PUBLIC_NAME_SIZE; i++) {
+-			public_name[i] =
+-					(char)dev->node_props.marketing_name[i];
+-			if (dev->node_props.marketing_name[i] == 0)
+-				break;
+-		}
+-		public_name[KFD_TOPOLOGY_PUBLIC_NAME_SIZE-1] = 0x0;
+-		return sysfs_show_str_val(buffer, public_name);
++
++		return sysfs_show_str_val(buffer, dev->node_props.name);
+ 	}
+ 
+ 	dev = container_of(attr, struct kfd_topology_device,
+@@ -1346,6 +1338,10 @@ int kfd_topology_add_device(struct kfd_dev *gpu)
+ 	 */
+ 
+ 	amdgpu_amdkfd_get_cu_info(dev->gpu->kgd, &cu_info);
++
++	strncpy(dev->node_props.name, gpu->device_info->asic_name,
++			KFD_TOPOLOGY_PUBLIC_NAME_SIZE);
++
+ 	dev->node_props.simd_arrays_per_engine =
+ 		cu_info.num_shader_arrays_per_engine;
+ 
+diff --git a/drivers/gpu/drm/amd/amdkfd/kfd_topology.h b/drivers/gpu/drm/amd/amdkfd/kfd_topology.h
+index 0b80ee02e9e7..ba0c62084cc6 100644
+--- a/drivers/gpu/drm/amd/amdkfd/kfd_topology.h
++++ b/drivers/gpu/drm/amd/amdkfd/kfd_topology.h
+@@ -27,7 +27,7 @@
+ #include <linux/list.h>
+ #include "kfd_crat.h"
+ 
+-#define KFD_TOPOLOGY_PUBLIC_NAME_SIZE 128
++#define KFD_TOPOLOGY_PUBLIC_NAME_SIZE 32
+ 
+ #define HSA_CAP_HOT_PLUGGABLE			0x00000001
+ #define HSA_CAP_ATS_PRESENT			0x00000002
+@@ -87,7 +87,7 @@ struct kfd_node_properties {
+ 	int32_t  drm_render_minor;
+ 	uint32_t num_sdma_engines;
+ 	uint32_t num_sdma_xgmi_engines;
+-	uint16_t marketing_name[KFD_TOPOLOGY_PUBLIC_NAME_SIZE];
++	char name[KFD_TOPOLOGY_PUBLIC_NAME_SIZE];
+ };
+ 
+ #define HSA_MEM_HEAP_TYPE_SYSTEM	0
+-- 
+2.17.1
+

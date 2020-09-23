@@ -1,0 +1,75 @@
+From 239474d5beff1d866ec464851c741368bbfc44e4 Mon Sep 17 00:00:00 2001
+From: kalyan alle <Kalyan.Alle@amd.com>
+Date: Fri, 25 Oct 2019 20:18:11 +0530
+Subject: [PATCH 4102/4103] drm/amd/display: Fixes the unigine heaven hang when
+
+user choses to quit/exit the application on 4.19 kernel
+
+This patch fixes the unigine heaven application hang when user chooses
+to quit the application.
+
+Signed-off-by: Kalyan Alle <kalyan.alle@amd.com>
+---
+ .../gpu/drm/amd/display/amdgpu_dm/amdgpu_dm.c   | 17 +++++++++++++----
+ 1 file changed, 13 insertions(+), 4 deletions(-)
+ mode change 100644 => 100755 drivers/gpu/drm/amd/display/amdgpu_dm/amdgpu_dm.c
+
+diff --git a/drivers/gpu/drm/amd/display/amdgpu_dm/amdgpu_dm.c b/drivers/gpu/drm/amd/display/amdgpu_dm/amdgpu_dm.c
+old mode 100644
+new mode 100755
+index 25d20fd466c0..70ca73d2a80b
+--- a/drivers/gpu/drm/amd/display/amdgpu_dm/amdgpu_dm.c
++++ b/drivers/gpu/drm/amd/display/amdgpu_dm/amdgpu_dm.c
+@@ -3251,7 +3251,7 @@ static int fill_dc_plane_attributes(struct amdgpu_device *adev,
+ 	if (ret)
+ 		return ret;
+ 
+-	return ret;
++	return 0;
+ }
+ 
+ static void update_stream_scaling_settings(const struct drm_display_mode *mode,
+@@ -3939,7 +3939,6 @@ static const struct drm_crtc_funcs amdgpu_dm_crtc_funcs = {
+ 	.atomic_destroy_state = dm_crtc_destroy_state,
+ 	.set_crc_source = amdgpu_dm_crtc_set_crc_source,
+ 	.verify_crc_source = amdgpu_dm_crtc_verify_crc_source,
+-	.get_crc_sources = amdgpu_dm_crtc_get_crc_sources,
+ 	.enable_vblank = dm_enable_vblank,
+ 	.disable_vblank = dm_disable_vblank,
+ };
+@@ -4034,7 +4033,7 @@ int amdgpu_dm_connector_atomic_set_property(struct drm_connector *connector,
+ 		ret = 0;
+ 	}
+ 
+-	return 0;
++	return ret;
+ }
+ 
+ int amdgpu_dm_connector_atomic_get_property(struct drm_connector *connector,
+@@ -4648,12 +4647,22 @@ static int dm_plane_atomic_check(struct drm_plane *plane,
+ }
+ 
+ static int dm_plane_atomic_async_check(struct drm_plane *plane,
+-				       struct drm_plane_state *new_plane_state)
++					struct drm_plane_state *new_plane_state)
+ {
++	struct drm_plane_state *old_plane_state =
++		drm_atomic_get_old_plane_state(new_plane_state->state, plane);
++
+ 	/* Only support async updates on cursor planes. */
+ 	if (plane->type != DRM_PLANE_TYPE_CURSOR)
+ 		return -EINVAL;
+ 
++	/*
++	* DRM calls prepare_fb and cleanup_fb on new_plane_state for
++	* async commits so don't allow fb changes.
++	*/
++	if (old_plane_state->fb != new_plane_state->fb)
++		return -EINVAL;
++
+ 	return 0;
+ }
+ 
+-- 
+2.17.1
+

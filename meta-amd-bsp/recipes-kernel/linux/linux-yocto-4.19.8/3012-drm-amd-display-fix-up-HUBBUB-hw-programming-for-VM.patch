@@ -1,0 +1,77 @@
+From 1409151b4833b16601d3df7639557236dae9edd0 Mon Sep 17 00:00:00 2001
+From: Jun Lei <jun.lei@amd.com>
+Date: Mon, 3 Jun 2019 08:13:12 -0400
+Subject: [PATCH 3012/4256] drm/amd/display: fix up HUBBUB hw programming for
+ VM
+
+[why]
+Some values were not being converted or bit-shifted properly for
+HW registers, causing black screen
+
+[how]
+Fix up the values before programming HW
+
+Signed-off-by: Jun Lei <jun.lei@amd.com>
+Reviewed-by: Anthony Koo <Anthony.Koo@amd.com>
+Acked-by: Leo Li <sunpeng.li@amd.com>
+---
+ .../gpu/drm/amd/display/dc/dcn20/dcn20_hubbub.c | 17 ++++++++---------
+ .../gpu/drm/amd/display/dc/inc/hw/dchubbub.h    |  4 ++--
+ 2 files changed, 10 insertions(+), 11 deletions(-)
+
+diff --git a/drivers/gpu/drm/amd/display/dc/dcn20/dcn20_hubbub.c b/drivers/gpu/drm/amd/display/dc/dcn20/dcn20_hubbub.c
+index ece6e136437b..c72a9ff57f15 100644
+--- a/drivers/gpu/drm/amd/display/dc/dcn20/dcn20_hubbub.c
++++ b/drivers/gpu/drm/amd/display/dc/dcn20/dcn20_hubbub.c
+@@ -366,25 +366,24 @@ int hubbub2_init_dchub_sys_ctx(struct hubbub *hubbub,
+ 	struct dcn_vmid_page_table_config phys_config;
+ 
+ 	REG_SET(DCN_VM_FB_LOCATION_BASE, 0,
+-			FB_BASE, pa_config->system_aperture.fb_base);
++			FB_BASE, pa_config->system_aperture.fb_base >> 24);
+ 	REG_SET(DCN_VM_FB_LOCATION_TOP, 0,
+-			FB_TOP, pa_config->system_aperture.fb_top);
++			FB_TOP, pa_config->system_aperture.fb_top >> 24);
+ 	REG_SET(DCN_VM_FB_OFFSET, 0,
+-			FB_OFFSET, pa_config->system_aperture.fb_offset);
++			FB_OFFSET, pa_config->system_aperture.fb_offset >> 24);
+ 	REG_SET(DCN_VM_AGP_BOT, 0,
+-			AGP_BOT, pa_config->system_aperture.agp_bot);
++			AGP_BOT, pa_config->system_aperture.agp_bot >> 24);
+ 	REG_SET(DCN_VM_AGP_TOP, 0,
+-			AGP_TOP, pa_config->system_aperture.agp_top);
++			AGP_TOP, pa_config->system_aperture.agp_top >> 24);
+ 	REG_SET(DCN_VM_AGP_BASE, 0,
+-			AGP_BASE, pa_config->system_aperture.agp_base);
++			AGP_BASE, pa_config->system_aperture.agp_base >> 24);
+ 
+ 	if (pa_config->gart_config.page_table_start_addr != pa_config->gart_config.page_table_end_addr) {
+-		phys_config.depth = 1;
+-		phys_config.block_size = 4096;
+ 		phys_config.page_table_start_addr = pa_config->gart_config.page_table_start_addr >> 12;
+ 		phys_config.page_table_end_addr = pa_config->gart_config.page_table_end_addr >> 12;
+ 		phys_config.page_table_base_addr = pa_config->gart_config.page_table_base_addr;
+-
++		phys_config.depth = 0;
++		phys_config.block_size = 0;
+ 		// Init VMID 0 based on PA config
+ 		dcn20_vmid_setup(&hubbub1->vmid[0], &phys_config);
+ 	}
+diff --git a/drivers/gpu/drm/amd/display/dc/inc/hw/dchubbub.h b/drivers/gpu/drm/amd/display/dc/inc/hw/dchubbub.h
+index 959f5b654611..1ea505f7a05a 100644
+--- a/drivers/gpu/drm/amd/display/dc/inc/hw/dchubbub.h
++++ b/drivers/gpu/drm/amd/display/dc/inc/hw/dchubbub.h
+@@ -61,8 +61,8 @@ enum dcn_hubbub_page_table_depth {
+ };
+ 
+ enum dcn_hubbub_page_table_block_size {
+-	DCN_PAGE_TABLE_BLOCK_SIZE_4KB,
+-	DCN_PAGE_TABLE_BLOCK_SIZE_64KB
++	DCN_PAGE_TABLE_BLOCK_SIZE_4KB = 0,
++	DCN_PAGE_TABLE_BLOCK_SIZE_64KB = 4
+ };
+ 
+ struct dcn_hubbub_phys_addr_config {
+-- 
+2.17.1
+

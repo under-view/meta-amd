@@ -1,0 +1,396 @@
+From 4aa44071610a84e54543ed1afba70c295c7ab1fa Mon Sep 17 00:00:00 2001
+From: Wenjing Liu <Wenjing.Liu@amd.com>
+Date: Tue, 15 Oct 2019 15:12:57 -0400
+Subject: [PATCH 4488/4736] drm/amd/display: add color space option when
+ sending link test pattern
+
+[why]
+In the TEST_MSIC dpcd register field definition, the test equipment
+has the option to choose between YCbCr601 or YCbCr709.
+We will apply corresponding YCbCr coefficient based on this test
+request.
+
+[how]
+Add a new input parameter in dc_link_dp_set_test_pattern to allow the
+selection between different color space.
+
+Signed-off-by: Wenjing Liu <Wenjing.Liu@amd.com>
+Reviewed-by: Nikola Cornij <Nikola.Cornij@amd.com>
+Acked-by: Rodrigo Siqueira <Rodrigo.Siqueira@amd.com>
+---
+ .../amd/display/amdgpu_dm/amdgpu_dm_debugfs.c |  1 +
+ drivers/gpu/drm/amd/display/dc/core/dc_link.c |  2 +
+ .../gpu/drm/amd/display/dc/core/dc_link_dp.c  | 39 +++++++++++++++++--
+ drivers/gpu/drm/amd/display/dc/dc_dp_types.h  | 10 ++---
+ drivers/gpu/drm/amd/display/dc/dc_link.h      |  2 +
+ .../drm/amd/display/dc/dcn20/dcn20_hwseq.c    |  9 ++++-
+ .../gpu/drm/amd/display/dc/dcn20/dcn20_opp.c  | 16 +++++++-
+ .../gpu/drm/amd/display/dc/dcn20/dcn20_opp.h  |  1 +
+ .../gpu/drm/amd/display/dc/inc/hw/hw_shared.h |  7 ++++
+ drivers/gpu/drm/amd/display/dc/inc/hw/opp.h   |  1 +
+ .../amd/display/include/link_service_types.h  |  7 ++++
+ 11 files changed, 85 insertions(+), 10 deletions(-)
+
+diff --git a/drivers/gpu/drm/amd/display/amdgpu_dm/amdgpu_dm_debugfs.c b/drivers/gpu/drm/amd/display/amdgpu_dm/amdgpu_dm_debugfs.c
+index 2bb1fae452d9..ae5c898ade17 100644
+--- a/drivers/gpu/drm/amd/display/amdgpu_dm/amdgpu_dm_debugfs.c
++++ b/drivers/gpu/drm/amd/display/amdgpu_dm/amdgpu_dm_debugfs.c
+@@ -655,6 +655,7 @@ static ssize_t dp_phy_test_pattern_debugfs_write(struct file *f, const char __us
+ 	dc_link_set_test_pattern(
+ 		link,
+ 		test_pattern,
++		DP_TEST_PATTERN_COLOR_SPACE_RGB,
+ 		&link_training_settings,
+ 		custom_pattern,
+ 		10);
+diff --git a/drivers/gpu/drm/amd/display/dc/core/dc_link.c b/drivers/gpu/drm/amd/display/dc/core/dc_link.c
+index 014cb7cf9cba..ec010dc0de8b 100644
+--- a/drivers/gpu/drm/amd/display/dc/core/dc_link.c
++++ b/drivers/gpu/drm/amd/display/dc/core/dc_link.c
+@@ -3333,6 +3333,7 @@ void dc_link_disable_hpd(const struct dc_link *link)
+ 
+ void dc_link_set_test_pattern(struct dc_link *link,
+ 			      enum dp_test_pattern test_pattern,
++			      enum dp_test_pattern_color_space test_pattern_color_space,
+ 			      const struct link_training_settings *p_link_settings,
+ 			      const unsigned char *p_custom_pattern,
+ 			      unsigned int cust_pattern_size)
+@@ -3341,6 +3342,7 @@ void dc_link_set_test_pattern(struct dc_link *link,
+ 		dc_link_dp_set_test_pattern(
+ 			link,
+ 			test_pattern,
++			test_pattern_color_space,
+ 			p_link_settings,
+ 			p_custom_pattern,
+ 			cust_pattern_size);
+diff --git a/drivers/gpu/drm/amd/display/dc/core/dc_link_dp.c b/drivers/gpu/drm/amd/display/dc/core/dc_link_dp.c
+index 66f59058b56d..4e0ca8d1b484 100644
+--- a/drivers/gpu/drm/amd/display/dc/core/dc_link_dp.c
++++ b/drivers/gpu/drm/amd/display/dc/core/dc_link_dp.c
+@@ -2507,6 +2507,7 @@ static void dp_test_send_phy_test_pattern(struct dc_link *link)
+ 	dc_link_dp_set_test_pattern(
+ 		link,
+ 		test_pattern,
++		DP_TEST_PATTERN_COLOR_SPACE_UNDEFINED,
+ 		&link_training_settings,
+ 		test_80_bit_pattern,
+ 		(DP_TEST_80BIT_CUSTOM_PATTERN_79_72 -
+@@ -2518,6 +2519,8 @@ static void dp_test_send_link_test_pattern(struct dc_link *link)
+ 	union link_test_pattern dpcd_test_pattern;
+ 	union test_misc dpcd_test_params;
+ 	enum dp_test_pattern test_pattern;
++	enum dp_test_pattern_color_space test_pattern_color_space =
++			DP_TEST_PATTERN_COLOR_SPACE_UNDEFINED;
+ 
+ 	memset(&dpcd_test_pattern, 0, sizeof(dpcd_test_pattern));
+ 	memset(&dpcd_test_params, 0, sizeof(dpcd_test_params));
+@@ -2552,9 +2555,14 @@ static void dp_test_send_link_test_pattern(struct dc_link *link)
+ 	break;
+ 	}
+ 
++	test_pattern_color_space = dpcd_test_params.bits.YCBCR_COEFS ?
++			DP_TEST_PATTERN_COLOR_SPACE_YCBCR709 :
++			DP_TEST_PATTERN_COLOR_SPACE_YCBCR601;
++
+ 	dc_link_dp_set_test_pattern(
+ 			link,
+ 			test_pattern,
++			test_pattern_color_space,
+ 			NULL,
+ 			NULL,
+ 			0);
+@@ -3350,7 +3358,8 @@ static bool is_dp_phy_pattern(enum dp_test_pattern test_pattern)
+ 
+ static void set_crtc_test_pattern(struct dc_link *link,
+ 				struct pipe_ctx *pipe_ctx,
+-				enum dp_test_pattern test_pattern)
++				enum dp_test_pattern test_pattern,
++				enum dp_test_pattern_color_space test_pattern_color_space)
+ {
+ 	enum controller_dp_test_pattern controller_test_pattern;
+ 	enum dc_color_depth color_depth = pipe_ctx->
+@@ -3411,8 +3420,27 @@ static void set_crtc_test_pattern(struct dc_link *link,
+ #if defined(CONFIG_DRM_AMD_DC_DCN2_0)
+ 		else if (opp->funcs->opp_set_disp_pattern_generator) {
+ 			struct pipe_ctx *odm_pipe;
++			enum controller_dp_color_space controller_color_space;
+ 			int opp_cnt = 1;
+ 
++			switch (test_pattern_color_space) {
++			case DP_TEST_PATTERN_COLOR_SPACE_RGB:
++				controller_color_space = CONTROLLER_DP_COLOR_SPACE_RGB;
++				break;
++			case DP_TEST_PATTERN_COLOR_SPACE_YCBCR601:
++				controller_color_space = CONTROLLER_DP_COLOR_SPACE_YCBCR601;
++				break;
++			case DP_TEST_PATTERN_COLOR_SPACE_YCBCR709:
++				controller_color_space = CONTROLLER_DP_COLOR_SPACE_YCBCR709;
++				break;
++			case DP_TEST_PATTERN_COLOR_SPACE_UNDEFINED:
++			default:
++				controller_color_space = CONTROLLER_DP_COLOR_SPACE_UDEFINED;
++				DC_LOG_ERROR("%s: Color space must be defined for test pattern", __func__);
++				ASSERT(0);
++				break;
++			}
++
+ 			for (odm_pipe = pipe_ctx->next_odm_pipe; odm_pipe; odm_pipe = odm_pipe->next_odm_pipe)
+ 				opp_cnt++;
+ 
+@@ -3424,6 +3452,7 @@ static void set_crtc_test_pattern(struct dc_link *link,
+ 				odm_opp->funcs->opp_program_bit_depth_reduction(odm_opp, &params);
+ 				odm_opp->funcs->opp_set_disp_pattern_generator(odm_opp,
+ 					controller_test_pattern,
++					controller_color_space,
+ 					color_depth,
+ 					NULL,
+ 					width,
+@@ -3431,6 +3460,7 @@ static void set_crtc_test_pattern(struct dc_link *link,
+ 			}
+ 			opp->funcs->opp_set_disp_pattern_generator(opp,
+ 				controller_test_pattern,
++				controller_color_space,
+ 				color_depth,
+ 				NULL,
+ 				width,
+@@ -3464,6 +3494,7 @@ static void set_crtc_test_pattern(struct dc_link *link,
+ 				odm_opp->funcs->opp_program_bit_depth_reduction(odm_opp, &params);
+ 				odm_opp->funcs->opp_set_disp_pattern_generator(odm_opp,
+ 					CONTROLLER_DP_TEST_PATTERN_VIDEOMODE,
++					CONTROLLER_DP_COLOR_SPACE_UDEFINED,
+ 					color_depth,
+ 					NULL,
+ 					width,
+@@ -3471,6 +3502,7 @@ static void set_crtc_test_pattern(struct dc_link *link,
+ 			}
+ 			opp->funcs->opp_set_disp_pattern_generator(opp,
+ 				CONTROLLER_DP_TEST_PATTERN_VIDEOMODE,
++				CONTROLLER_DP_COLOR_SPACE_UDEFINED,
+ 				color_depth,
+ 				NULL,
+ 				width,
+@@ -3488,6 +3520,7 @@ static void set_crtc_test_pattern(struct dc_link *link,
+ bool dc_link_dp_set_test_pattern(
+ 	struct dc_link *link,
+ 	enum dp_test_pattern test_pattern,
++	enum dp_test_pattern_color_space test_pattern_color_space,
+ 	const struct link_training_settings *p_link_settings,
+ 	const unsigned char *p_custom_pattern,
+ 	unsigned int cust_pattern_size)
+@@ -3516,7 +3549,7 @@ bool dc_link_dp_set_test_pattern(
+ 	if (link->test_pattern_enabled && test_pattern ==
+ 			DP_TEST_PATTERN_VIDEO_MODE) {
+ 		/* Set CRTC Test Pattern */
+-		set_crtc_test_pattern(link, pipe_ctx, test_pattern);
++		set_crtc_test_pattern(link, pipe_ctx, test_pattern, test_pattern_color_space);
+ 		dp_set_hw_test_pattern(link, test_pattern,
+ 				(uint8_t *)p_custom_pattern,
+ 				(uint32_t)cust_pattern_size);
+@@ -3631,7 +3664,7 @@ bool dc_link_dp_set_test_pattern(
+ 		}
+ 	} else {
+ 	/* CRTC Patterns */
+-		set_crtc_test_pattern(link, pipe_ctx, test_pattern);
++		set_crtc_test_pattern(link, pipe_ctx, test_pattern, test_pattern_color_space);
+ 		/* Set Test Pattern state */
+ 		link->test_pattern_enabled = true;
+ 	}
+diff --git a/drivers/gpu/drm/amd/display/dc/dc_dp_types.h b/drivers/gpu/drm/amd/display/dc/dc_dp_types.h
+index ef79a686e4c2..f0a6e25d2d4a 100644
+--- a/drivers/gpu/drm/amd/display/dc/dc_dp_types.h
++++ b/drivers/gpu/drm/amd/display/dc/dc_dp_types.h
+@@ -524,14 +524,14 @@ union link_test_pattern {
+ 
+ union test_misc {
+ 	struct dpcd_test_misc_bits {
+-		unsigned char SYNC_CLOCK :1;
++		unsigned char SYNC_CLOCK  :1;
+ 		/* dpcd_test_color_format */
+-		unsigned char CLR_FORMAT :2;
++		unsigned char CLR_FORMAT  :2;
+ 		/* dpcd_test_dyn_range */
+-		unsigned char DYN_RANGE  :1;
+-		unsigned char YCBCR      :1;
++		unsigned char DYN_RANGE   :1;
++		unsigned char YCBCR_COEFS :1;
+ 		/* dpcd_test_bit_depth */
+-		unsigned char BPC        :3;
++		unsigned char BPC         :3;
+ 	} bits;
+ 	unsigned char raw;
+ };
+diff --git a/drivers/gpu/drm/amd/display/dc/dc_link.h b/drivers/gpu/drm/amd/display/dc/dc_link.h
+index 67ba6666a324..ccb68c14a806 100644
+--- a/drivers/gpu/drm/amd/display/dc/dc_link.h
++++ b/drivers/gpu/drm/amd/display/dc/dc_link.h
+@@ -260,6 +260,7 @@ void dc_link_dp_disable_hpd(const struct dc_link *link);
+ bool dc_link_dp_set_test_pattern(
+ 	struct dc_link *link,
+ 	enum dp_test_pattern test_pattern,
++	enum dp_test_pattern_color_space test_pattern_color_space,
+ 	const struct link_training_settings *p_link_settings,
+ 	const unsigned char *p_custom_pattern,
+ 	unsigned int cust_pattern_size);
+@@ -291,6 +292,7 @@ void dc_link_enable_hpd(const struct dc_link *link);
+ void dc_link_disable_hpd(const struct dc_link *link);
+ void dc_link_set_test_pattern(struct dc_link *link,
+ 			enum dp_test_pattern test_pattern,
++			enum dp_test_pattern_color_space test_pattern_color_space,
+ 			const struct link_training_settings *p_link_settings,
+ 			const unsigned char *p_custom_pattern,
+ 			unsigned int cust_pattern_size);
+diff --git a/drivers/gpu/drm/amd/display/dc/dcn20/dcn20_hwseq.c b/drivers/gpu/drm/amd/display/dc/dcn20/dcn20_hwseq.c
+index 921a36668ced..cb71b2787ddb 100644
+--- a/drivers/gpu/drm/amd/display/dc/dcn20/dcn20_hwseq.c
++++ b/drivers/gpu/drm/amd/display/dc/dcn20/dcn20_hwseq.c
+@@ -225,6 +225,7 @@ void dcn20_init_blank(
+ 	opp->funcs->opp_set_disp_pattern_generator(
+ 			opp,
+ 			CONTROLLER_DP_TEST_PATTERN_SOLID_COLOR,
++			CONTROLLER_DP_COLOR_SPACE_UDEFINED,
+ 			COLOR_DEPTH_UNDEFINED,
+ 			&black_color,
+ 			otg_active_width,
+@@ -234,6 +235,7 @@ void dcn20_init_blank(
+ 		bottom_opp->funcs->opp_set_disp_pattern_generator(
+ 				bottom_opp,
+ 				CONTROLLER_DP_TEST_PATTERN_SOLID_COLOR,
++				CONTROLLER_DP_COLOR_SPACE_UDEFINED,
+ 				COLOR_DEPTH_UNDEFINED,
+ 				&black_color,
+ 				otg_active_width,
+@@ -855,6 +857,7 @@ void dcn20_blank_pixel_data(
+ 	struct dc_stream_state *stream = pipe_ctx->stream;
+ 	enum dc_color_space color_space = stream->output_color_space;
+ 	enum controller_dp_test_pattern test_pattern = CONTROLLER_DP_TEST_PATTERN_SOLID_COLOR;
++	enum controller_dp_color_space test_pattern_color_space = CONTROLLER_DP_COLOR_SPACE_UDEFINED;
+ 	struct pipe_ctx *odm_pipe;
+ 	int odm_cnt = 1;
+ 
+@@ -873,8 +876,10 @@ void dcn20_blank_pixel_data(
+ 		if (stream_res->abm)
+ 			stream_res->abm->funcs->set_abm_immediate_disable(stream_res->abm);
+ 
+-		if (dc->debug.visual_confirm != VISUAL_CONFIRM_DISABLE)
++		if (dc->debug.visual_confirm != VISUAL_CONFIRM_DISABLE) {
+ 			test_pattern = CONTROLLER_DP_TEST_PATTERN_COLORSQUARES;
++			test_pattern_color_space = CONTROLLER_DP_COLOR_SPACE_RGB;
++		}
+ 	} else {
+ 		test_pattern = CONTROLLER_DP_TEST_PATTERN_VIDEOMODE;
+ 	}
+@@ -882,6 +887,7 @@ void dcn20_blank_pixel_data(
+ 	stream_res->opp->funcs->opp_set_disp_pattern_generator(
+ 			stream_res->opp,
+ 			test_pattern,
++			test_pattern_color_space,
+ 			stream->timing.display_color_depth,
+ 			&black_color,
+ 			width,
+@@ -892,6 +898,7 @@ void dcn20_blank_pixel_data(
+ 				odm_pipe->stream_res.opp,
+ 				dc->debug.visual_confirm != VISUAL_CONFIRM_DISABLE && blank ?
+ 						CONTROLLER_DP_TEST_PATTERN_COLORRAMP : test_pattern,
++				test_pattern_color_space,
+ 				stream->timing.display_color_depth,
+ 				&black_color,
+ 				width,
+diff --git a/drivers/gpu/drm/amd/display/dc/dcn20/dcn20_opp.c b/drivers/gpu/drm/amd/display/dc/dcn20/dcn20_opp.c
+index 40164ed015ea..023cc71fad0f 100644
+--- a/drivers/gpu/drm/amd/display/dc/dcn20/dcn20_opp.c
++++ b/drivers/gpu/drm/amd/display/dc/dcn20/dcn20_opp.c
+@@ -41,6 +41,7 @@
+ void opp2_set_disp_pattern_generator(
+ 		struct output_pixel_processor *opp,
+ 		enum controller_dp_test_pattern test_pattern,
++		enum controller_dp_color_space color_space,
+ 		enum dc_color_depth color_depth,
+ 		const struct tg_color *solid_color,
+ 		int width,
+@@ -100,9 +101,22 @@ void opp2_set_disp_pattern_generator(
+ 				TEST_PATTERN_DYN_RANGE_CEA :
+ 				TEST_PATTERN_DYN_RANGE_VESA);
+ 
++		switch (color_space) {
++		case CONTROLLER_DP_COLOR_SPACE_YCBCR601:
++			mode = TEST_PATTERN_MODE_COLORSQUARES_YCBCR601;
++		break;
++		case CONTROLLER_DP_COLOR_SPACE_YCBCR709:
++			mode = TEST_PATTERN_MODE_COLORSQUARES_YCBCR709;
++		break;
++		case CONTROLLER_DP_COLOR_SPACE_RGB:
++		default:
++			mode = TEST_PATTERN_MODE_COLORSQUARES_RGB;
++		break;
++		}
++
+ 		REG_UPDATE_6(DPG_CONTROL,
+ 			DPG_EN, 1,
+-			DPG_MODE, TEST_PATTERN_MODE_COLORSQUARES_RGB,
++			DPG_MODE, mode,
+ 			DPG_DYNAMIC_RANGE, dyn_range,
+ 			DPG_BIT_DEPTH, bit_depth,
+ 			DPG_VRES, 6,
+diff --git a/drivers/gpu/drm/amd/display/dc/dcn20/dcn20_opp.h b/drivers/gpu/drm/amd/display/dc/dcn20/dcn20_opp.h
+index abd8de9a78f8..4093bec172c1 100644
+--- a/drivers/gpu/drm/amd/display/dc/dcn20/dcn20_opp.h
++++ b/drivers/gpu/drm/amd/display/dc/dcn20/dcn20_opp.h
+@@ -140,6 +140,7 @@ void dcn20_opp_construct(struct dcn20_opp *oppn20,
+ void opp2_set_disp_pattern_generator(
+ 	struct output_pixel_processor *opp,
+ 	enum controller_dp_test_pattern test_pattern,
++	enum controller_dp_color_space color_space,
+ 	enum dc_color_depth color_depth,
+ 	const struct tg_color *solid_color,
+ 	int width,
+diff --git a/drivers/gpu/drm/amd/display/dc/inc/hw/hw_shared.h b/drivers/gpu/drm/amd/display/dc/inc/hw/hw_shared.h
+index f82365e2d03c..91fda51e5370 100644
+--- a/drivers/gpu/drm/amd/display/dc/inc/hw/hw_shared.h
++++ b/drivers/gpu/drm/amd/display/dc/inc/hw/hw_shared.h
+@@ -255,6 +255,13 @@ enum controller_dp_test_pattern {
+ 	CONTROLLER_DP_TEST_PATTERN_SOLID_COLOR
+ };
+ 
++enum controller_dp_color_space {
++	CONTROLLER_DP_COLOR_SPACE_RGB,
++	CONTROLLER_DP_COLOR_SPACE_YCBCR601,
++	CONTROLLER_DP_COLOR_SPACE_YCBCR709,
++	CONTROLLER_DP_COLOR_SPACE_UDEFINED
++};
++
+ enum dc_lut_mode {
+ 	LUT_BYPASS,
+ 	LUT_RAM_A,
+diff --git a/drivers/gpu/drm/amd/display/dc/inc/hw/opp.h b/drivers/gpu/drm/amd/display/dc/inc/hw/opp.h
+index 18def2b6fafe..b01ff30145fd 100644
+--- a/drivers/gpu/drm/amd/display/dc/inc/hw/opp.h
++++ b/drivers/gpu/drm/amd/display/dc/inc/hw/opp.h
+@@ -309,6 +309,7 @@ struct opp_funcs {
+ 	void (*opp_set_disp_pattern_generator)(
+ 			struct output_pixel_processor *opp,
+ 			enum controller_dp_test_pattern test_pattern,
++			enum controller_dp_color_space color_space,
+ 			enum dc_color_depth color_depth,
+ 			const struct tg_color *solid_color,
+ 			int width,
+diff --git a/drivers/gpu/drm/amd/display/include/link_service_types.h b/drivers/gpu/drm/amd/display/include/link_service_types.h
+index 876b0b3e1a9c..4869d4562e4d 100644
+--- a/drivers/gpu/drm/amd/display/include/link_service_types.h
++++ b/drivers/gpu/drm/amd/display/include/link_service_types.h
+@@ -123,6 +123,13 @@ enum dp_test_pattern {
+ 	DP_TEST_PATTERN_UNSUPPORTED
+ };
+ 
++enum dp_test_pattern_color_space {
++	DP_TEST_PATTERN_COLOR_SPACE_RGB,
++	DP_TEST_PATTERN_COLOR_SPACE_YCBCR601,
++	DP_TEST_PATTERN_COLOR_SPACE_YCBCR709,
++	DP_TEST_PATTERN_COLOR_SPACE_UNDEFINED
++};
++
+ enum dp_panel_mode {
+ 	/* not required */
+ 	DP_PANEL_MODE_DEFAULT,
+-- 
+2.17.1
+

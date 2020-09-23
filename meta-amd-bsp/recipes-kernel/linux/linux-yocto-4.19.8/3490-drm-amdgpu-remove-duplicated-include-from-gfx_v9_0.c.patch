@@ -1,0 +1,29 @@
+From 52ac59205487e178749aed68e89ff1aaf53e9ff9 Mon Sep 17 00:00:00 2001
+From: YueHaibing <yuehaibing@huawei.com>
+Date: Wed, 10 Jul 2019 01:57:20 +0000
+Subject: [PATCH 3490/4256] drm/amdgpu: remove duplicated include from
+ gfx_v9_0.c
+
+Remove duplicated include.
+
+Signed-off-by: YueHaibing <yuehaibing@huawei.com>
+Signed-off-by: Alex Deucher <alexander.deucher@amd.com>
+---
+ drivers/gpu/drm/amd/amdgpu/gfx_v9_0.c | 1 -
+ 1 file changed, 1 deletion(-)
+
+diff --git a/drivers/gpu/drm/amd/amdgpu/gfx_v9_0.c b/drivers/gpu/drm/amd/amdgpu/gfx_v9_0.c
+index 155a8699adb8..2a43ec2f7bad 100644
+--- a/drivers/gpu/drm/amd/amdgpu/gfx_v9_0.c
++++ b/drivers/gpu/drm/amd/amdgpu/gfx_v9_0.c
+@@ -36,7 +36,6 @@
+ #include "vega10_enum.h"
+ #include "hdp/hdp_4_0_offset.h"
+ 
+-#include "soc15.h"
+ #include "soc15_common.h"
+ #include "clearstate_gfx9.h"
+ #include "v9_structs.h"
+-- 
+2.17.1
+

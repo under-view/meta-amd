@@ -1,0 +1,71 @@
+From 1e7a25ed9b24ef78b28905e387fc494d10bcace6 Mon Sep 17 00:00:00 2001
+From: Evan Quan <evan.quan@amd.com>
+Date: Fri, 16 Aug 2019 11:34:12 +0800
+Subject: [PATCH 3474/4256] drm/amd/powerplay: expose supported clock domains
+ only through sysfs
+
+Do not expose those unsupported clock domains through sysfs on
+Arcturus.
+
+Change-Id: I526e7bd457fdcd8c79d4581bb9b77e5cb57f5844
+Signed-off-by: Evan Quan <evan.quan@amd.com>
+Reviewed-by: Kevin Wang <kevin1.wang@amd.com>
+---
+ drivers/gpu/drm/amd/amdgpu/amdgpu_pm.c | 26 ++++++++++++++++----------
+ 1 file changed, 16 insertions(+), 10 deletions(-)
+
+diff --git a/drivers/gpu/drm/amd/amdgpu/amdgpu_pm.c b/drivers/gpu/drm/amd/amdgpu/amdgpu_pm.c
+index 6cff61802400..6a651b0480c0 100644
+--- a/drivers/gpu/drm/amd/amdgpu/amdgpu_pm.c
++++ b/drivers/gpu/drm/amd/amdgpu/amdgpu_pm.c
+@@ -2826,10 +2826,12 @@ int amdgpu_pm_sysfs_init(struct amdgpu_device *adev)
+ 			DRM_ERROR("failed to create device file pp_dpm_socclk\n");
+ 			return ret;
+ 		}
+-		ret = device_create_file(adev->dev, &dev_attr_pp_dpm_dcefclk);
+-		if (ret) {
+-			DRM_ERROR("failed to create device file pp_dpm_dcefclk\n");
+-			return ret;
++		if (adev->asic_type != CHIP_ARCTURUS) {
++			ret = device_create_file(adev->dev, &dev_attr_pp_dpm_dcefclk);
++			if (ret) {
++				DRM_ERROR("failed to create device file pp_dpm_dcefclk\n");
++				return ret;
++			}
+ 		}
+ 	}
+ 	if (adev->asic_type >= CHIP_VEGA20) {
+@@ -2839,10 +2841,12 @@ int amdgpu_pm_sysfs_init(struct amdgpu_device *adev)
+ 			return ret;
+ 		}
+ 	}
+-	ret = device_create_file(adev->dev, &dev_attr_pp_dpm_pcie);
+-	if (ret) {
+-		DRM_ERROR("failed to create device file pp_dpm_pcie\n");
+-		return ret;
++	if (adev->asic_type != CHIP_ARCTURUS) {
++		ret = device_create_file(adev->dev, &dev_attr_pp_dpm_pcie);
++		if (ret) {
++			DRM_ERROR("failed to create device file pp_dpm_pcie\n");
++			return ret;
++		}
+ 	}
+ 	ret = device_create_file(adev->dev, &dev_attr_pp_sclk_od);
+ 	if (ret) {
+@@ -2946,9 +2950,11 @@ void amdgpu_pm_sysfs_fini(struct amdgpu_device *adev)
+ 	device_remove_file(adev->dev, &dev_attr_pp_dpm_mclk);
+ 	if (adev->asic_type >= CHIP_VEGA10) {
+ 		device_remove_file(adev->dev, &dev_attr_pp_dpm_socclk);
+-		device_remove_file(adev->dev, &dev_attr_pp_dpm_dcefclk);
++		if (adev->asic_type != CHIP_ARCTURUS)
++			device_remove_file(adev->dev, &dev_attr_pp_dpm_dcefclk);
+ 	}
+-	device_remove_file(adev->dev, &dev_attr_pp_dpm_pcie);
++	if (adev->asic_type != CHIP_ARCTURUS)
++		device_remove_file(adev->dev, &dev_attr_pp_dpm_pcie);
+ 	if (adev->asic_type >= CHIP_VEGA20)
+ 		device_remove_file(adev->dev, &dev_attr_pp_dpm_fclk);
+ 	device_remove_file(adev->dev, &dev_attr_pp_sclk_od);
+-- 
+2.17.1
+

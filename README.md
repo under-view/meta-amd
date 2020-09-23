@@ -72,7 +72,7 @@ upon triage.
 ## Contribute
 
 Please submit any patches against meta-amd BSPs to the meta-amd
-mailing list (meta-amd@yoctoproject.org).  Also, if your patches are
+mailing list (meta-amd@lists.yoctoproject.org).  Also, if your patches are
 available via a public git repository, please also include a URL to
 the repo and branch containing your patches as that makes it easier
 for maintainers to grab and test your patches.

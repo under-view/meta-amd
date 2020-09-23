@@ -1,0 +1,67 @@
+From 632af13b7f5ddb00c69ed0cd0daa3af5b7c719c4 Mon Sep 17 00:00:00 2001
+From: Evan Quan <evan.quan@amd.com>
+Date: Thu, 25 Jul 2019 10:12:42 +0800
+Subject: [PATCH 3128/4256] drm/amd/powerplay: enable SW SMU reset
+ functionality
+
+Move SMU irq handler register to sw_init as that's totally
+software related. Otherwise, it will prevent SMU reset working.
+
+Change-Id: Ibd3e48ae9a90ab57f42b3f2ddbb736deeebc8715
+Signed-off-by: Evan Quan <evan.quan@amd.com>
+Reviewed-by: Kenneth Feng <kenneth.feng@amd.com>
+---
+ drivers/gpu/drm/amd/powerplay/amdgpu_smu.c | 16 +++++++++-------
+ 1 file changed, 9 insertions(+), 7 deletions(-)
+
+diff --git a/drivers/gpu/drm/amd/powerplay/amdgpu_smu.c b/drivers/gpu/drm/amd/powerplay/amdgpu_smu.c
+index c22b4d5673fa..b78eeeab87da 100644
+--- a/drivers/gpu/drm/amd/powerplay/amdgpu_smu.c
++++ b/drivers/gpu/drm/amd/powerplay/amdgpu_smu.c
+@@ -743,6 +743,12 @@ static int smu_sw_init(void *handle)
+ 		return ret;
+ 	}
+ 
++	ret = smu_register_irq_handler(smu);
++	if (ret) {
++		pr_err("Failed to register smc irq handler!\n");
++		return ret;
++	}
++
+ 	return 0;
+ }
+ 
+@@ -752,6 +758,9 @@ static int smu_sw_fini(void *handle)
+ 	struct smu_context *smu = &adev->smu;
+ 	int ret;
+ 
++	kfree(smu->irq_source);
++	smu->irq_source = NULL;
++
+ 	ret = smu_smc_table_sw_fini(smu);
+ 	if (ret) {
+ 		pr_err("Failed to sw fini smc table!\n");
+@@ -1111,10 +1120,6 @@ static int smu_hw_init(void *handle)
+ 	if (ret)
+ 		goto failed;
+ 
+-	ret = smu_register_irq_handler(smu);
+-	if (ret)
+-		goto failed;
+-
+ 	if (!smu->pm_enabled)
+ 		adev->pm.dpm_enabled = false;
+ 	else
+@@ -1144,9 +1149,6 @@ static int smu_hw_fini(void *handle)
+ 	kfree(table_context->overdrive_table);
+ 	table_context->overdrive_table = NULL;
+ 
+-	kfree(smu->irq_source);
+-	smu->irq_source = NULL;
+-
+ 	ret = smu_fini_fb_allocations(smu);
+ 	if (ret)
+ 		return ret;
+-- 
+2.17.1
+

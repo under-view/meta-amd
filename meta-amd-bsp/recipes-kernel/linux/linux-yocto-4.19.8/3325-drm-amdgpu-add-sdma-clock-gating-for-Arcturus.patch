@@ -1,0 +1,30 @@
+From 053b93da1aee75de5e63f22cbc27d8ff2b9ac10e Mon Sep 17 00:00:00 2001
+From: Le Ma <le.ma@amd.com>
+Date: Wed, 7 Aug 2019 15:47:34 +0800
+Subject: [PATCH 3325/4256] drm/amdgpu: add sdma clock gating for Arcturus
+
+Add ARCTURUS case in sdma set clockgating function
+
+Change-Id: I65a3d99a140a8a76949b4d03c20bc6e0195c9854
+Signed-off-by: Le Ma <le.ma@amd.com>
+Reviewed-by: Feifei Xu <Feifei.Xu@amd.com>
+Reviewed-by: Kenneth Feng <kenneth.feng@amd.com>
+---
+ drivers/gpu/drm/amd/amdgpu/sdma_v4_0.c | 1 +
+ 1 file changed, 1 insertion(+)
+
+diff --git a/drivers/gpu/drm/amd/amdgpu/sdma_v4_0.c b/drivers/gpu/drm/amd/amdgpu/sdma_v4_0.c
+index 84ad12c1e601..08774110bcbb 100644
+--- a/drivers/gpu/drm/amd/amdgpu/sdma_v4_0.c
++++ b/drivers/gpu/drm/amd/amdgpu/sdma_v4_0.c
+@@ -2158,6 +2158,7 @@ static int sdma_v4_0_set_clockgating_state(void *handle,
+ 	case CHIP_VEGA12:
+ 	case CHIP_VEGA20:
+ 	case CHIP_RAVEN:
++	case CHIP_ARCTURUS:
+ 		sdma_v4_0_update_medium_grain_clock_gating(adev,
+ 				state == AMD_CG_STATE_GATE ? true : false);
+ 		sdma_v4_0_update_medium_grain_light_sleep(adev,
+-- 
+2.17.1
+

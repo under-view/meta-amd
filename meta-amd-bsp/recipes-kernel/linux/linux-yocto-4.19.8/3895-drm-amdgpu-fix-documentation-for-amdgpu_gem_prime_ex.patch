@@ -1,0 +1,32 @@
+From 89e57081994d82d26bc15f94a594197823d2776d Mon Sep 17 00:00:00 2001
+From: Alex Deucher <alexander.deucher@amd.com>
+Date: Thu, 19 Sep 2019 14:18:10 -0500
+Subject: [PATCH 3895/4256] drm/amdgpu: fix documentation for
+ amdgpu_gem_prime_export
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+Drop extra function parameter.
+
+Acked-by: Christian König <christian.koenig@amd.com>
+Signed-off-by: Alex Deucher <alexander.deucher@amd.com>
+---
+ drivers/gpu/drm/amd/amdgpu/amdgpu_dma_buf.c | 1 -
+ 1 file changed, 1 deletion(-)
+
+diff --git a/drivers/gpu/drm/amd/amdgpu/amdgpu_dma_buf.c b/drivers/gpu/drm/amd/amdgpu/amdgpu_dma_buf.c
+index 91f023c928dc..be231f91359b 100644
+--- a/drivers/gpu/drm/amd/amdgpu/amdgpu_dma_buf.c
++++ b/drivers/gpu/drm/amd/amdgpu/amdgpu_dma_buf.c
+@@ -337,7 +337,6 @@ const struct dma_buf_ops amdgpu_dmabuf_ops = {
+ 
+ /**
+  * amdgpu_gem_prime_export - &drm_driver.gem_prime_export implementation
+- * @dev: DRM device
+  * @gobj: GEM BO
+  * @flags: Flags such as DRM_CLOEXEC and DRM_RDWR.
+  *
+-- 
+2.17.1
+

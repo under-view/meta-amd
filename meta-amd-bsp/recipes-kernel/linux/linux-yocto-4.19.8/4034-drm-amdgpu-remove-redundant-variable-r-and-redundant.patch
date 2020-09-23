@@ -1,0 +1,44 @@
+From 4fe886989f7416fdbce7c6a50cacaee0aaf85562 Mon Sep 17 00:00:00 2001
+From: Colin Ian King <colin.king@canonical.com>
+Date: Thu, 3 Oct 2019 22:40:49 +0100
+Subject: [PATCH 4034/4256] drm/amdgpu: remove redundant variable r and
+ redundant return statement
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+There is a return statement that is not reachable and a variable that
+is not used.  Remove them.
+
+Addresses-Coverity: ("Structurally dead code")
+Fixes: de7b45babd9b ("drm/amdgpu: cleanup creating BOs at fixed location (v2)")
+Reviewed-by: Christian König <christian.koenig@amd.com>
+Signed-off-by: Colin Ian King <colin.king@canonical.com>
+Signed-off-by: Alex Deucher <alexander.deucher@amd.com>
+---
+ drivers/gpu/drm/amd/amdgpu/amdgpu_ttm.c | 2 --
+ 1 file changed, 2 deletions(-)
+
+diff --git a/drivers/gpu/drm/amd/amdgpu/amdgpu_ttm.c b/drivers/gpu/drm/amd/amdgpu/amdgpu_ttm.c
+index 677275c1b2c3..2e0e7fe98b3c 100644
+--- a/drivers/gpu/drm/amd/amdgpu/amdgpu_ttm.c
++++ b/drivers/gpu/drm/amd/amdgpu/amdgpu_ttm.c
+@@ -1793,7 +1793,6 @@ static void amdgpu_ttm_fw_reserve_vram_fini(struct amdgpu_device *adev)
+ static int amdgpu_ttm_fw_reserve_vram_init(struct amdgpu_device *adev)
+ {
+ 	uint64_t vram_size = adev->gmc.visible_vram_size;
+-	int r;
+ 
+ 	adev->fw_vram_usage.va = NULL;
+ 	adev->fw_vram_usage.reserved_bo = NULL;
+@@ -1808,7 +1807,6 @@ static int amdgpu_ttm_fw_reserve_vram_init(struct amdgpu_device *adev)
+ 					  AMDGPU_GEM_DOMAIN_VRAM,
+ 					  &adev->fw_vram_usage.reserved_bo,
+ 					  &adev->fw_vram_usage.va);
+-	return r;
+ }
+ 
+ static int amdgpu_direct_gma_init(struct amdgpu_device *adev)
+-- 
+2.17.1
+

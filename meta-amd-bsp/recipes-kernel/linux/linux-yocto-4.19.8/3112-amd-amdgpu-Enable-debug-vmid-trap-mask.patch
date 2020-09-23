@@ -1,0 +1,81 @@
+From f87a9b09dff509976836971a0372a715864f3cc8 Mon Sep 17 00:00:00 2001
+From: Philip Cox <Philip.Cox@amd.com>
+Date: Tue, 16 Jul 2019 09:39:44 -0400
+Subject: [PATCH 3112/4256] amd/amdgpu: Enable debug vmid trap mask
+
+To always have wave state info available for the debugger, we enable
+the debug trap mask always for vg10 asics.
+
+Change-Id: Ic8d50c39ecbc70b031f8c199c1bcae78674a4edf
+Signed-off-by: Philip Cox <Philip.Cox@amd.com>
+---
+ drivers/gpu/drm/amd/amdgpu/amdgpu_amdkfd_gfx_v9.c |  9 ---------
+ drivers/gpu/drm/amd/amdgpu/gfx_v9_0.c             | 11 +++++++++++
+ 2 files changed, 11 insertions(+), 9 deletions(-)
+
+diff --git a/drivers/gpu/drm/amd/amdgpu/amdgpu_amdkfd_gfx_v9.c b/drivers/gpu/drm/amd/amdgpu/amdgpu_amdkfd_gfx_v9.c
+index 35f845a6b1c3..c98b57a5e9b2 100644
+--- a/drivers/gpu/drm/amd/amdgpu/amdgpu_amdkfd_gfx_v9.c
++++ b/drivers/gpu/drm/amd/amdgpu/amdgpu_amdkfd_gfx_v9.c
+@@ -869,13 +869,6 @@ static uint32_t kgd_enable_debug_trap(struct kgd_dev *kgd,
+ 	data = 0;
+ 	WREG32(SOC15_REG_OFFSET(GC, 0, mmSPI_GDBG_TRAP_MASK), data);
+ 
+-	data = 0;
+-	data = REG_SET_FIELD(data, SPI_GDBG_TRAP_CONFIG,
+-		VMID_SEL, 1<<vmid);
+-	data = REG_SET_FIELD(data, SPI_GDBG_TRAP_CONFIG,
+-		TRAP_EN, 1);
+-	WREG32(SOC15_REG_OFFSET(GC, 0, mmSPI_GDBG_TRAP_CONFIG), data);
+-
+ 	WREG32(SOC15_REG_OFFSET(GC, 0, mmSPI_GDBG_WAVE_CNTL), orig_stall_vmid);
+ 
+ 	mutex_unlock(&adev->grbm_idx_mutex);
+@@ -889,8 +882,6 @@ static uint32_t kgd_disable_debug_trap(struct kgd_dev *kgd)
+ 
+ 	mutex_lock(&adev->grbm_idx_mutex);
+ 
+-	WREG32(SOC15_REG_OFFSET(GC, 0, mmSPI_GDBG_TRAP_CONFIG), 0);
+-
+ 	WREG32(SOC15_REG_OFFSET(GC, 0, mmSPI_GDBG_TRAP_DATA0), 0);
+ 	WREG32(SOC15_REG_OFFSET(GC, 0, mmSPI_GDBG_TRAP_DATA1), 0);
+ 
+diff --git a/drivers/gpu/drm/amd/amdgpu/gfx_v9_0.c b/drivers/gpu/drm/amd/amdgpu/gfx_v9_0.c
+index 6fa433ff6043..45d5919b0cd5 100644
+--- a/drivers/gpu/drm/amd/amdgpu/gfx_v9_0.c
++++ b/drivers/gpu/drm/amd/amdgpu/gfx_v9_0.c
+@@ -2003,6 +2003,8 @@ static void gfx_v9_0_init_compute_vmid(struct amdgpu_device *adev)
+ 	int i;
+ 	uint32_t sh_mem_config;
+ 	uint32_t sh_mem_bases;
++	uint32_t trap_config_vmid_mask = 0;
++	uint32_t data;
+ 
+ 	/*
+ 	 * Configure apertures:
+@@ -2022,6 +2024,9 @@ static void gfx_v9_0_init_compute_vmid(struct amdgpu_device *adev)
+ 		/* CP and shaders */
+ 		WREG32_SOC15_RLC(GC, 0, mmSH_MEM_CONFIG, sh_mem_config);
+ 		WREG32_SOC15_RLC(GC, 0, mmSH_MEM_BASES, sh_mem_bases);
++
++		/* Calculate trap config vmid mask */
++		trap_config_vmid_mask |= (1 << i);
+ 	}
+ 	soc15_grbm_select(adev, 0, 0, 0, 0);
+ 	mutex_unlock(&adev->srbm_mutex);
+@@ -2034,6 +2039,12 @@ static void gfx_v9_0_init_compute_vmid(struct amdgpu_device *adev)
+ 		WREG32_SOC15_OFFSET(GC, 0, mmGDS_GWS_VMID0, i, 0);
+ 		WREG32_SOC15_OFFSET(GC, 0, mmGDS_OA_VMID0, i, 0);
+ 	}
++	data = 0;
++	data = REG_SET_FIELD(data, SPI_GDBG_TRAP_CONFIG,
++			VMID_SEL, trap_config_vmid_mask);
++	data = REG_SET_FIELD(data, SPI_GDBG_TRAP_CONFIG,
++			TRAP_EN, 1);
++	WREG32(SOC15_REG_OFFSET(GC, 0, mmSPI_GDBG_TRAP_CONFIG), data);
+ }
+ 
+ static void gfx_v9_0_constants_init(struct amdgpu_device *adev)
+-- 
+2.17.1
+
