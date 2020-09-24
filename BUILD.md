@@ -1,15 +1,16 @@
 # 2. Setting up and starting a build
 
-After [setting up the build system](SETUP.md), we can build images or
-recipes for a target machine (or BSP).
+After setting up the build system ([SETUP.md](SETUP.md)), we can build
+images or recipes for a target machine (or BSP).
 Running the commands in the instructions below will setup a build for
-a selected AMD BSP, and start a build:
+a selected AMD BSP, and will start a build:
 
 ### 2.1. Select a BSP
 
 Set the environment variable `MACHINE` to one of the
-[supported AMD BSPs](meta-amd-bsp/README.md) (change the
-`<machine-name>` in the following example accordingly):
+supported AMD BSPs (i.e. `r1000`, `v1000` or `e3000`) that you want to
+build for (change the `<machine-name>` in the following example
+accordingly):
 ```sh
 MACHINE="<machine-name>"
 ```
@@ -50,15 +51,16 @@ Build one of the supported image recipes:
 bitbake <image-name> -k
 ```
 
-###### where `<image-name>` is to be replaced with one of the [supported images](FEATURES.md) for the selected AMD BSP.
+###### where `<image-name>` is to be replaced with one of the supported images for the selected AMD BSP. See *supported features* section for a list all supported images for your machine.
 ###### (e.g. `core-image-sato` or `core-image-base`)
 
 ---
 #### What's next
 
-Continue to "[section 3 - deploy](DEPLOY.md)" for instructions on
-booting the target with the newly built image.
+Continue to "Section 3 - Deploying an image to the target"
+([DEPLOY.md](DEPLOY.md)) for instructions on booting the target with
+the newly built image.
 
-You can also [customize the image](CUSTOMIZE.md) by enabling/disabling
-certain configurable features. Make sure to re-build the image before
-deploying the customized build.
+You can also customize the image ([CUSTOMIZE.md](CUSTOMIZE.md)) by
+enabling/disabling certain configurable features in the `local.conf`.
+Make sure to re-build the image before deploying the customized build.

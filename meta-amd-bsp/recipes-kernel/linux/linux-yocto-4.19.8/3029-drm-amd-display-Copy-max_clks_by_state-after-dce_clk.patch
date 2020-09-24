@@ -1,0 +1,85 @@
+From a6fb89dc8bda4a9b9f39f513036ef37d5d67d24f Mon Sep 17 00:00:00 2001
+From: Nicholas Kazlauskas <nicholas.kazlauskas@amd.com>
+Date: Wed, 5 Jun 2019 15:02:04 -0400
+Subject: [PATCH 3029/4256] drm/amd/display: Copy max_clks_by_state after
+ dce_clk_mgr_construct
+
+[Why]
+For DCE110, DCE112 and DCE120 the max_clks_by_state for the clk_mgr are
+copied from their respective table before the call to
+dce_clk_mgr_construct, but then dce_clk_mgr_construct overwrites
+these with the dce80_max_clks_by_state.
+
+[How]
+Copy these after we call dce_clk_mgr_construct so we're using the
+right tables.
+
+Signed-off-by: Nicholas Kazlauskas <nicholas.kazlauskas@amd.com>
+Reviewed-by: David Francis <David.Francis@amd.com>
+Acked-by: Leo Li <sunpeng.li@amd.com>
+---
+ .../gpu/drm/amd/display/dc/clk_mgr/dce110/dce110_clk_mgr.c    | 4 ++--
+ .../gpu/drm/amd/display/dc/clk_mgr/dce112/dce112_clk_mgr.c    | 4 ++--
+ .../gpu/drm/amd/display/dc/clk_mgr/dce120/dce120_clk_mgr.c    | 4 ++--
+ 3 files changed, 6 insertions(+), 6 deletions(-)
+
+diff --git a/drivers/gpu/drm/amd/display/dc/clk_mgr/dce110/dce110_clk_mgr.c b/drivers/gpu/drm/amd/display/dc/clk_mgr/dce110/dce110_clk_mgr.c
+index c1a92c16535c..5cc3acccda2a 100644
+--- a/drivers/gpu/drm/amd/display/dc/clk_mgr/dce110/dce110_clk_mgr.c
++++ b/drivers/gpu/drm/amd/display/dc/clk_mgr/dce110/dce110_clk_mgr.c
+@@ -262,12 +262,12 @@ void dce110_clk_mgr_construct(
+ 		struct dc_context *ctx,
+ 		struct clk_mgr_internal *clk_mgr)
+ {
++	dce_clk_mgr_construct(ctx, clk_mgr);
++
+ 	memcpy(clk_mgr->max_clks_by_state,
+ 		dce110_max_clks_by_state,
+ 		sizeof(dce110_max_clks_by_state));
+ 
+-	dce_clk_mgr_construct(ctx, clk_mgr);
+-
+ 	clk_mgr->regs = &disp_clk_regs;
+ 	clk_mgr->clk_mgr_shift = &disp_clk_shift;
+ 	clk_mgr->clk_mgr_mask = &disp_clk_mask;
+diff --git a/drivers/gpu/drm/amd/display/dc/clk_mgr/dce112/dce112_clk_mgr.c b/drivers/gpu/drm/amd/display/dc/clk_mgr/dce112/dce112_clk_mgr.c
+index 778392c73187..7c746ef1e32e 100644
+--- a/drivers/gpu/drm/amd/display/dc/clk_mgr/dce112/dce112_clk_mgr.c
++++ b/drivers/gpu/drm/amd/display/dc/clk_mgr/dce112/dce112_clk_mgr.c
+@@ -226,12 +226,12 @@ void dce112_clk_mgr_construct(
+ 		struct dc_context *ctx,
+ 		struct clk_mgr_internal *clk_mgr)
+ {
++	dce_clk_mgr_construct(ctx, clk_mgr);
++
+ 	memcpy(clk_mgr->max_clks_by_state,
+ 		dce112_max_clks_by_state,
+ 		sizeof(dce112_max_clks_by_state));
+ 
+-	dce_clk_mgr_construct(ctx, clk_mgr);
+-
+ 	clk_mgr->regs = &disp_clk_regs;
+ 	clk_mgr->clk_mgr_shift = &disp_clk_shift;
+ 	clk_mgr->clk_mgr_mask = &disp_clk_mask;
+diff --git a/drivers/gpu/drm/amd/display/dc/clk_mgr/dce120/dce120_clk_mgr.c b/drivers/gpu/drm/amd/display/dc/clk_mgr/dce120/dce120_clk_mgr.c
+index 906310c3e2eb..5399b8cf6b75 100644
+--- a/drivers/gpu/drm/amd/display/dc/clk_mgr/dce120/dce120_clk_mgr.c
++++ b/drivers/gpu/drm/amd/display/dc/clk_mgr/dce120/dce120_clk_mgr.c
+@@ -127,12 +127,12 @@ static struct clk_mgr_funcs dce120_funcs = {
+ 
+ void dce120_clk_mgr_construct(struct dc_context *ctx, struct clk_mgr_internal *clk_mgr)
+ {
++	dce_clk_mgr_construct(ctx, clk_mgr);
++
+ 	memcpy(clk_mgr->max_clks_by_state,
+ 		dce120_max_clks_by_state,
+ 		sizeof(dce120_max_clks_by_state));
+ 
+-	dce_clk_mgr_construct(ctx, clk_mgr);
+-
+ 	clk_mgr->base.dprefclk_khz = 600000;
+ 	clk_mgr->base.funcs = &dce120_funcs;
+ }
+-- 
+2.17.1
+

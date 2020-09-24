@@ -1,0 +1,51 @@
+From c630821a54b38fe43f35f300e7df2880243dc61b Mon Sep 17 00:00:00 2001
+From: Evan Quan <evan.quan@amd.com>
+Date: Fri, 12 Jul 2019 16:28:02 +0800
+Subject: [PATCH 3168/4256] drm/amd/powerplay: update arcturus_ppsmc.h
+
+Correct header and fix typo.
+
+Signed-off-by: Evan Quan <evan.quan@amd.com>
+Reviewed-by: Le Ma <Le.Ma@amd.com>
+Reviewed-by: Kenneth Feng <kenneth.feng@amd.com>
+Signed-off-by: Alex Deucher <alexander.deucher@amd.com>
+---
+ drivers/gpu/drm/amd/powerplay/arcturus_ppt.c       | 1 -
+ drivers/gpu/drm/amd/powerplay/inc/arcturus_ppsmc.h | 4 ++--
+ 2 files changed, 2 insertions(+), 3 deletions(-)
+
+diff --git a/drivers/gpu/drm/amd/powerplay/arcturus_ppt.c b/drivers/gpu/drm/amd/powerplay/arcturus_ppt.c
+index 7d680f33ce3c..e995c49afacf 100644
+--- a/drivers/gpu/drm/amd/powerplay/arcturus_ppt.c
++++ b/drivers/gpu/drm/amd/powerplay/arcturus_ppt.c
+@@ -80,7 +80,6 @@ static struct smu_11_0_cmn2aisc_mapping arcturus_message_map[SMU_MSG_MAX_COUNT]
+ 	MSG_MAP(SetPptLimit,			     PPSMC_MSG_SetPptLimit),
+ 	MSG_MAP(GetPptLimit,			     PPSMC_MSG_GetPptLimit),
+ 	MSG_MAP(PowerUpVcn0,			     PPSMC_MSG_PowerUpVcn0),
+-	MSG_MAP(PowerDownVcn01,			     PPSMC_MSG_PowerDownVcn01),
+ 	MSG_MAP(PowerUpVcn1,			     PPSMC_MSG_PowerUpVcn1),
+ 	MSG_MAP(PowerDownVcn1,			     PPSMC_MSG_PowerDownVcn1),
+ 	MSG_MAP(PrepareMp1ForUnload,		     PPSMC_MSG_PrepareMp1ForUnload),
+diff --git a/drivers/gpu/drm/amd/powerplay/inc/arcturus_ppsmc.h b/drivers/gpu/drm/amd/powerplay/inc/arcturus_ppsmc.h
+index b86bb2bc8a31..78e5927b7711 100644
+--- a/drivers/gpu/drm/amd/powerplay/inc/arcturus_ppsmc.h
++++ b/drivers/gpu/drm/amd/powerplay/inc/arcturus_ppsmc.h
+@@ -1,5 +1,5 @@
+ /*
+- * Copyright 2018 Advanced Micro Devices, Inc.
++ * Copyright 2019 Advanced Micro Devices, Inc.
+  *
+  * Permission is hereby granted, free of charge, to any person obtaining a
+  * copy of this software and associated documentation files (the "Software"),
+@@ -83,7 +83,7 @@
+ 
+ //Power Gating
+ #define PPSMC_MSG_PowerUpVcn0                    0x28
+-#define PPSMC_MSG_PowerDownVcn01                 0x29
++#define PPSMC_MSG_PowerDownVcn0                  0x29
+ #define PPSMC_MSG_PowerUpVcn1                    0x2A
+ #define PPSMC_MSG_PowerDownVcn1                  0x2B
+ 
+-- 
+2.17.1
+

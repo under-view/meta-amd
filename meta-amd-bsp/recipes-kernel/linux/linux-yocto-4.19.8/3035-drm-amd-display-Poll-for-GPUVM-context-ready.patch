@@ -1,0 +1,76 @@
+From a64abd033c46e7d8f75bf617563703d50005dd55 Mon Sep 17 00:00:00 2001
+From: Julian Parkin <julian.parkin@amd.com>
+Date: Thu, 13 Jun 2019 12:49:37 -0400
+Subject: [PATCH 3035/4256] drm/amd/display: Poll for GPUVM context ready
+
+[Why]
+Hardware docs state that we must wait until the GPUVM context is ready
+after programming it.
+
+[How]
+Poll until the valid bit of PAGE_TABLE_BASE_ADDR_LO32 is set to 1 after
+programming it.
+
+Signed-off-by: Julian Parkin <julian.parkin@amd.com>
+Reviewed-by: Charlene Liu <Charlene.Liu@amd.com>
+Acked-by: Leo Li <sunpeng.li@amd.com>
+---
+ .../gpu/drm/amd/display/dc/dcn20/dcn20_vmid.c | 35 +++++++++++++++++++
+ 1 file changed, 35 insertions(+)
+
+diff --git a/drivers/gpu/drm/amd/display/dc/dcn20/dcn20_vmid.c b/drivers/gpu/drm/amd/display/dc/dcn20/dcn20_vmid.c
+index 27679ef6ebe8..84512e646f87 100644
+--- a/drivers/gpu/drm/amd/display/dc/dcn20/dcn20_vmid.c
++++ b/drivers/gpu/drm/amd/display/dc/dcn20/dcn20_vmid.c
+@@ -36,6 +36,38 @@
+ #define FN(reg_name, field_name) \
+ 	vmid->shifts->field_name, vmid->masks->field_name
+ 
++static void dcn20_wait_for_vmid_ready(struct dcn20_vmid *vmid)
++{
++	/* According the hardware spec, we need to poll for the lowest
++	 * bit of PAGE_TABLE_BASE_ADDR_LO32 = 1 any time a GPUVM
++	 * context is updated. We can't use REG_WAIT here since we
++	 * don't have a seperate field to wait on.
++	 *
++	 * TODO: Confirm timeout / poll interval with hardware team
++	 */
++
++	int max_times = 10000;
++	int delay_us  = 5;
++	int i;
++
++	for (i = 0; i < max_times; ++i) {
++		uint32_t entry_lo32;
++
++		REG_GET(PAGE_TABLE_BASE_ADDR_LO32,
++			VM_CONTEXT0_PAGE_DIRECTORY_ENTRY_LO32,
++			&entry_lo32);
++
++		if (entry_lo32 & 0x1)
++			return;
++
++		udelay(delay_us);
++	}
++
++	/* VM setup timed out */
++	DC_LOG_WARNING("Timeout while waiting for GPUVM context update\n");
++	ASSERT(0);
++}
++
+ void dcn20_vmid_setup(struct dcn20_vmid *vmid, const struct dcn_vmid_page_table_config *config)
+ {
+ 	REG_SET(PAGE_TABLE_START_ADDR_HI32, 0,
+@@ -54,6 +86,9 @@ void dcn20_vmid_setup(struct dcn20_vmid *vmid, const struct dcn_vmid_page_table_
+ 
+ 	REG_SET(PAGE_TABLE_BASE_ADDR_HI32, 0,
+ 			VM_CONTEXT0_PAGE_DIRECTORY_ENTRY_HI32, (config->page_table_base_addr >> 32) & 0xFFFFFFFF);
++	/* Note: per hardware spec PAGE_TABLE_BASE_ADDR_LO32 must be programmed last in sequence */
+ 	REG_SET(PAGE_TABLE_BASE_ADDR_LO32, 0,
+ 			VM_CONTEXT0_PAGE_DIRECTORY_ENTRY_LO32, config->page_table_base_addr & 0xFFFFFFFF);
++
++	dcn20_wait_for_vmid_ready(vmid);
+ }
+-- 
+2.17.1
+

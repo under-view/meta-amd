@@ -1,0 +1,47 @@
+From 49546878f068753b202b7778c6c4480117a17be5 Mon Sep 17 00:00:00 2001
+From: Evan Quan <evan.quan@amd.com>
+Date: Tue, 16 Jul 2019 14:20:22 +0800
+Subject: [PATCH 2993/4256] drm/amd/powerplay: maintain SMU FW backward
+ compatibility
+
+Do not halt driver loading on if_version mismatch. As our
+driver and FWs are backward compatible.
+
+Change-Id: I01271202d08a62e775efabfb66310f6cc742b9dd
+Signed-off-by: Evan Quan <evan.quan@amd.com>
+Reviewed-by: Kenneth Feng <kenneth.feng@amd.com>
+---
+ drivers/gpu/drm/amd/powerplay/smu_v11_0.c | 12 +++++++++---
+ 1 file changed, 9 insertions(+), 3 deletions(-)
+
+diff --git a/drivers/gpu/drm/amd/powerplay/smu_v11_0.c b/drivers/gpu/drm/amd/powerplay/smu_v11_0.c
+index 9f60e5c78ba0..76bc157525d0 100644
+--- a/drivers/gpu/drm/amd/powerplay/smu_v11_0.c
++++ b/drivers/gpu/drm/amd/powerplay/smu_v11_0.c
+@@ -267,14 +267,20 @@ static int smu_v11_0_check_fw_version(struct smu_context *smu)
+ 	smu_minor = (smu_version >> 8) & 0xff;
+ 	smu_debug = (smu_version >> 0) & 0xff;
+ 
+-
++	/*
++	 * 1. if_version mismatch is not critical as our fw is designed
++	 * to be backward compatible.
++	 * 2. New fw usually brings some optimizations. But that's visible
++	 * only on the paired driver.
++	 * Considering above, we just leave user a warning message instead
++	 * of halt driver loading.
++	 */
+ 	if (if_version != smu->smc_if_version) {
+ 		pr_info("smu driver if version = 0x%08x, smu fw if version = 0x%08x, "
+ 			"smu fw version = 0x%08x (%d.%d.%d)\n",
+ 			smu->smc_if_version, if_version,
+ 			smu_version, smu_major, smu_minor, smu_debug);
+-		pr_err("SMU driver if version not matched\n");
+-		ret = -EINVAL;
++		pr_warn("SMU driver if version not matched\n");
+ 	}
+ 
+ 	return ret;
+-- 
+2.17.1
+

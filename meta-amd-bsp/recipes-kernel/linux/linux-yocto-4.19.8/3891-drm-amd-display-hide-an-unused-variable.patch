@@ -1,0 +1,37 @@
+From 94d010a7b2d46f79be1b805ece7ecd7d6188cdb3 Mon Sep 17 00:00:00 2001
+From: Arnd Bergmann <arnd@arndb.de>
+Date: Wed, 18 Sep 2019 21:53:58 +0200
+Subject: [PATCH 3891/4256] drm/amd/display: hide an unused variable
+
+Without CONFIG_DEBUG_FS, we get a warning for an unused
+variable:
+
+drivers/gpu/drm/amd/amdgpu/../display/amdgpu_dm/amdgpu_dm.c:6020:33: error: unused variable 'source' [-Werror,-Wunused-variable]
+
+Hide the variable in an #ifdef like its only users.
+
+Fixes: 14b2584636c6 ("drm/amd/display: add functionality to grab DPRX CRC entries.")
+Reviewed-by: Harry Wentland <harry.wentland@amd.com>
+Signed-off-by: Arnd Bergmann <arnd@arndb.de>
+Signed-off-by: Alex Deucher <alexander.deucher@amd.com>
+---
+ drivers/gpu/drm/amd/display/amdgpu_dm/amdgpu_dm.c | 2 ++
+ 1 file changed, 2 insertions(+)
+
+diff --git a/drivers/gpu/drm/amd/display/amdgpu_dm/amdgpu_dm.c b/drivers/gpu/drm/amd/display/amdgpu_dm/amdgpu_dm.c
+index 3e75028529d1..3014fbe98c67 100644
+--- a/drivers/gpu/drm/amd/display/amdgpu_dm/amdgpu_dm.c
++++ b/drivers/gpu/drm/amd/display/amdgpu_dm/amdgpu_dm.c
+@@ -6890,7 +6890,9 @@ static bool should_reset_plane(struct drm_atomic_state *state,
+ 	struct drm_plane_state *old_other_state, *new_other_state;
+ 	struct drm_crtc_state *new_crtc_state;
+ 	int i;
++#ifdef CONFIG_DEBUG_FS
+ 	enum amdgpu_dm_pipe_crc_source source;
++#endif
+ 
+ 	/*
+ 	 * TODO: Remove this hack once the checks below are sufficient
+-- 
+2.17.1
+

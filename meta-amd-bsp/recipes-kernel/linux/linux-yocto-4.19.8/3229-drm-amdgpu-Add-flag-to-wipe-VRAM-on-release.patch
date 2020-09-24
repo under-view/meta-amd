@@ -1,0 +1,35 @@
+From 0dc3d43ed7e0ec05f2fcda64d9b7ffeb53aa6024 Mon Sep 17 00:00:00 2001
+From: Felix Kuehling <Felix.Kuehling@amd.com>
+Date: Mon, 8 Jul 2019 20:09:21 -0400
+Subject: [PATCH 3229/4256] drm/amdgpu: Add flag to wipe VRAM on release
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+This memory allocation flag will be used to indicate BOs containing
+sensitive data that should not be leaked to other processes.
+
+Signed-off-by: Felix Kuehling <Felix.Kuehling@amd.com>
+Reviewed-by: Christian König <christian.koenig@amd.com>
+---
+ include/uapi/drm/amdgpu_drm.h | 4 ++++
+ 1 file changed, 4 insertions(+)
+
+diff --git a/include/uapi/drm/amdgpu_drm.h b/include/uapi/drm/amdgpu_drm.h
+index 66b00e41fbcd..6944be414ee0 100644
+--- a/include/uapi/drm/amdgpu_drm.h
++++ b/include/uapi/drm/amdgpu_drm.h
+@@ -142,6 +142,10 @@ extern "C" {
+  * for the second page onward should be set to NC.
+  */
+ #define AMDGPU_GEM_CREATE_MQD_GFX9		(1 << 8)
++/* Flag that BO may contain sensitive data that must be wiped before
++ * releasing the memory
++ */
++#define AMDGPU_GEM_CREATE_VRAM_WIPE_ON_RELEASE	(1 << 9)
+ 
+ /* hybrid specific */
+ /* Flag that the memory allocation should be from top of domain */
+-- 
+2.17.1
+

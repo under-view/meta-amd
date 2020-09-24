@@ -1,0 +1,37 @@
+From d1167cf1045fbef72cb0604225a0d929bef790d8 Mon Sep 17 00:00:00 2001
+From: Wayne Lin <Wayne.Lin@amd.com>
+Date: Wed, 4 Sep 2019 05:31:16 +0800
+Subject: [PATCH 4056/4256] drm/amd/display: build up VSIF infopacket
+
+[Why]
+Didn't send VSIF infopacket when it's 4k mode defined in HDMI 1.4b.
+For HDMI 1.4b, While displaying 4k modes, it should send VSP.
+
+[How]
+Call mod_build_hf_vsif_infopacket() function to build info frame
+and send it.
+
+Signed-off-by: Wayne Lin <Wayne.Lin@amd.com>
+Reviewed-by: Nicholas Kazlauskas <Nicholas.Kazlauskas@amd.com>
+Acked-by: Bhawanpreet Lakha <Bhawanpreet.Lakha@amd.com>
+---
+ drivers/gpu/drm/amd/display/amdgpu_dm/amdgpu_dm.c | 3 +++
+ 1 file changed, 3 insertions(+)
+
+diff --git a/drivers/gpu/drm/amd/display/amdgpu_dm/amdgpu_dm.c b/drivers/gpu/drm/amd/display/amdgpu_dm/amdgpu_dm.c
+index 3be135654d00..be90836269b4 100644
+--- a/drivers/gpu/drm/amd/display/amdgpu_dm/amdgpu_dm.c
++++ b/drivers/gpu/drm/amd/display/amdgpu_dm/amdgpu_dm.c
+@@ -3792,6 +3792,9 @@ create_stream_for_sink(struct amdgpu_dm_connector *aconnector,
+ 
+ 	update_stream_signal(stream, sink);
+ 
++	if (stream->signal == SIGNAL_TYPE_HDMI_TYPE_A)
++		mod_build_hf_vsif_infopacket(stream, &stream->vsp_infopacket, false, false);
++
+ finish:
+ 	dc_sink_release(sink);
+ 
+-- 
+2.17.1
+

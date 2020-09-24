@@ -1,0 +1,36 @@
+From 6a7dca8e4714a78040a4ac9aa99d3ed86b52bdf7 Mon Sep 17 00:00:00 2001
+From: Prike Liang <Prike.Liang@amd.com>
+Date: Thu, 1 Aug 2019 16:21:07 +0800
+Subject: [PATCH 3524/4256] drm/amdgpu: enable gfx clock gating for rn
+
+Enable gfx cg/mg/cp etc clock gating.
+
+Signed-off-by: Prike Liang <Prike.Liang@amd.com>
+Reviewed-by: Alex Deucher <alexander.deucher@amd.com>
+Signed-off-by: Alex Deucher <alexander.deucher@amd.com>
+---
+ drivers/gpu/drm/amd/amdgpu/soc15.c | 8 +++++++-
+ 1 file changed, 7 insertions(+), 1 deletion(-)
+
+diff --git a/drivers/gpu/drm/amd/amdgpu/soc15.c b/drivers/gpu/drm/amd/amdgpu/soc15.c
+index c092be45f5e2..d4cb7a66024e 100644
+--- a/drivers/gpu/drm/amd/amdgpu/soc15.c
++++ b/drivers/gpu/drm/amd/amdgpu/soc15.c
+@@ -1154,7 +1154,13 @@ static int soc15_common_early_init(void *handle)
+ 		break;
+ 	case CHIP_RENOIR:
+ 		adev->asic_funcs = &soc15_asic_funcs;
+-		adev->cg_flags = 0;
++		adev->cg_flags = AMD_CG_SUPPORT_GFX_MGCG |
++				 AMD_CG_SUPPORT_GFX_MGLS |
++				 AMD_CG_SUPPORT_GFX_3D_CGCG |
++				 AMD_CG_SUPPORT_GFX_3D_CGLS |
++				 AMD_CG_SUPPORT_GFX_CGCG |
++				 AMD_CG_SUPPORT_GFX_CGLS |
++				 AMD_CG_SUPPORT_GFX_CP_LS;
+ 		adev->pg_flags = 0;
+ 		adev->external_rev_id = adev->rev_id + 0x91;
+ 
+-- 
+2.17.1
+

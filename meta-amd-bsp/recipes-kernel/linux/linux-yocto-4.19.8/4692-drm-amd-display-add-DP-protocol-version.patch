@@ -1,0 +1,61 @@
+From fe8a3a4343e0503c30cb22f11ebd949daab072b2 Mon Sep 17 00:00:00 2001
+From: Anthony Koo <Anthony.Koo@amd.com>
+Date: Wed, 13 Nov 2019 14:04:56 -0500
+Subject: [PATCH 4692/4736] drm/amd/display: add DP protocol version
+
+[Why]
+We want to know DP protocol version
+
+[How]
+In DC create we initialize a cap to indicate the max
+DP protocol version supported
+
+Change-Id: I9a5a356fa1ec008037ce3c27fc2872da83855f1f
+Signed-off-by: Anthony Koo <Anthony.Koo@amd.com>
+Reviewed-by: Aric Cyr <Aric.Cyr@amd.com>
+Acked-by: Leo Li <sunpeng.li@amd.com>
+Signed-off-by: Rahul Kumar <rahul.kumar1@amd.com>
+---
+ drivers/gpu/drm/amd/display/dc/core/dc.c | 2 ++
+ drivers/gpu/drm/amd/display/dc/dc.h      | 5 +++++
+ 2 files changed, 7 insertions(+)
+
+diff --git a/drivers/gpu/drm/amd/display/dc/core/dc.c b/drivers/gpu/drm/amd/display/dc/core/dc.c
+index 1e4919687ece..97da6384348a 100644
+--- a/drivers/gpu/drm/amd/display/dc/core/dc.c
++++ b/drivers/gpu/drm/amd/display/dc/core/dc.c
+@@ -820,6 +820,8 @@ struct dc *dc_create(const struct dc_init_data *init_params)
+ 	dc->caps.max_audios = dc->res_pool->audio_count;
+ 	dc->caps.linear_pitch_alignment = 64;
+ 
++	dc->caps.max_dp_protocol_version = DP_VERSION_1_4;
++
+ 	/* Populate versioning information */
+ 	dc->versions.dc_ver = DC_VER;
+ 
+diff --git a/drivers/gpu/drm/amd/display/dc/dc.h b/drivers/gpu/drm/amd/display/dc/dc.h
+index df833b6937a1..f4884548e77e 100644
+--- a/drivers/gpu/drm/amd/display/dc/dc.h
++++ b/drivers/gpu/drm/amd/display/dc/dc.h
+@@ -54,6 +54,10 @@ struct dc_versions {
+ 	struct dmcu_version dmcu_version;
+ };
+ 
++enum dp_protocol_version {
++	DP_VERSION_1_4,
++};
++
+ enum dc_plane_type {
+ 	DC_PLANE_TYPE_INVALID,
+ 	DC_PLANE_TYPE_DCE_RGB,
+@@ -114,6 +118,7 @@ struct dc_caps {
+ 	bool extended_aux_timeout_support;
+ 	bool dmcub_support;
+ 	bool hw_3d_lut;
++	enum dp_protocol_version max_dp_protocol_version;
+ 	struct dc_plane_cap planes[MAX_PLANES];
+ };
+ 
+-- 
+2.17.1
+

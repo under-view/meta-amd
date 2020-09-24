@@ -1,0 +1,54 @@
+From aa78ca7c874cd5e6d3aa57bebb4427b87fc18801 Mon Sep 17 00:00:00 2001
+From: Monk Liu <Monk.Liu@amd.com>
+Date: Wed, 21 Aug 2019 18:04:42 +0800
+Subject: [PATCH 3911/4256] drm/amdgpu: fix an UMC hw arbitrator bug
+
+issue:
+the UMC h/w bug is that when MCLK is doing the switch
+in the middle of a page access being preempted by high
+priority client (e.g. DISPLAY) then UMC and the mclk switch
+would stuck there due to deadlock
+
+how:
+fixed by disabling auto PreChg for UMC to avoid high
+priority client preempting other client's access on
+the same page, thus the deadlock could be avoided
+
+Signed-off-by: Monk Liu <Monk.Liu@amd.com>
+Change-Id: Iaf6eb2a20a4785ec8440e64d5e0cae67aa0603da
+---
+ drivers/gpu/drm/amd/amdgpu/gmc_v9_0.c | 18 ++++++++++++++++++
+ 1 file changed, 18 insertions(+)
+
+diff --git a/drivers/gpu/drm/amd/amdgpu/gmc_v9_0.c b/drivers/gpu/drm/amd/amdgpu/gmc_v9_0.c
+index 561cc6bef280..9b823cd9d86e 100644
+--- a/drivers/gpu/drm/amd/amdgpu/gmc_v9_0.c
++++ b/drivers/gpu/drm/amd/amdgpu/gmc_v9_0.c
+@@ -1316,6 +1316,24 @@ static int gmc_v9_0_gart_enable(struct amdgpu_device *adev)
+ 		 (unsigned)(adev->gmc.gart_size >> 20),
+ 		 (unsigned long long)amdgpu_bo_gpu_offset(adev->gart.bo));
+ 	adev->gart.ready = true;
++
++	/* disable auto Pchg is a w/a for the vega10 UMC hardware bug */
++	WREG32(0x5010c/4, 0x1002);
++	WREG32(0x5210c/4, 0x1002);
++	WREG32(0x5410c/4, 0x1002);
++	WREG32(0x5610c/4, 0x1002);
++	WREG32(0x15010c/4, 0x1002);
++	WREG32(0x15210c/4, 0x1002);
++	WREG32(0x15410c/4, 0x1002);
++	WREG32(0x15610c/4, 0x1002);
++	WREG32(0x25010c/4, 0x1002);
++	WREG32(0x25210c/4, 0x1002);
++	WREG32(0x25410c/4, 0x1002);
++	WREG32(0x25610c/4, 0x1002);
++	WREG32(0x35010c/4, 0x1002);
++	WREG32(0x35210c/4, 0x1002);
++	WREG32(0x35410c/4, 0x1002);
++	WREG32(0x35610c/4, 0x1002);
+ 	return 0;
+ }
+ 
+-- 
+2.17.1
+

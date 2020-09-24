@@ -1,0 +1,32 @@
+From 5ab485e2af46cd114f85eaef65fd6190ef64cf9b Mon Sep 17 00:00:00 2001
+From: Aaron Liu <aaron.liu@amd.com>
+Date: Fri, 15 Nov 2019 16:18:03 +0800
+Subject: [PATCH 4525/4736] drm/amdgpu: enable TMZ bit in sdma copy pkt for
+ sdma v5
+
+Enable sdma TMZ mode via setting TMZ bit in sdma copy pkt
+for sdma v5.
+
+Signed-off-by: Aaron Liu <aaron.liu@amd.com>
+Reviewed-by: Huang Rui <ray.huang@amd.com>
+---
+ drivers/gpu/drm/amd/amdgpu/sdma_v5_0.c | 3 ++-
+ 1 file changed, 2 insertions(+), 1 deletion(-)
+
+diff --git a/drivers/gpu/drm/amd/amdgpu/sdma_v5_0.c b/drivers/gpu/drm/amd/amdgpu/sdma_v5_0.c
+index 66e89bebe0ed..948e9a46da2d 100644
+--- a/drivers/gpu/drm/amd/amdgpu/sdma_v5_0.c
++++ b/drivers/gpu/drm/amd/amdgpu/sdma_v5_0.c
+@@ -1661,7 +1661,8 @@ static void sdma_v5_0_emit_copy_buffer(struct amdgpu_ib *ib,
+ 				       bool tmz)
+ {
+ 	ib->ptr[ib->length_dw++] = SDMA_PKT_HEADER_OP(SDMA_OP_COPY) |
+-		SDMA_PKT_HEADER_SUB_OP(SDMA_SUBOP_COPY_LINEAR);
++		SDMA_PKT_HEADER_SUB_OP(SDMA_SUBOP_COPY_LINEAR) |
++		SDMA_PKT_COPY_LINEAR_HEADER_TMZ(tmz ? 1 : 0);
+ 	ib->ptr[ib->length_dw++] = byte_count - 1;
+ 	ib->ptr[ib->length_dw++] = 0; /* src/dst endian swap */
+ 	ib->ptr[ib->length_dw++] = lower_32_bits(src_offset);
+-- 
+2.17.1
+

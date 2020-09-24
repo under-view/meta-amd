@@ -1,0 +1,35 @@
+From e0b28c9f844741146773f7b920cf7efbbe078e28 Mon Sep 17 00:00:00 2001
+From: Felix Kuehling <Felix.Kuehling@amd.com>
+Date: Thu, 5 Sep 2019 19:22:02 -0400
+Subject: [PATCH 3783/4256] drm/amdgpu: Fix KFD-related kernel oops on Hawaii
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+Hawaii needs to flush caches explicitly, submitting an IB in a user
+VMID from kernel mode. There is no s_fence in this case.
+
+Fixes: eb3961a57424 ("drm/amdgpu: remove fence context from the job")
+Signed-off-by: Felix Kuehling <Felix.Kuehling@amd.com>
+Reviewed-by: Christian König <christian.koenig@amd.com>
+---
+ drivers/gpu/drm/amd/amdgpu/amdgpu_ib.c | 3 ++-
+ 1 file changed, 2 insertions(+), 1 deletion(-)
+
+diff --git a/drivers/gpu/drm/amd/amdgpu/amdgpu_ib.c b/drivers/gpu/drm/amd/amdgpu/amdgpu_ib.c
+index 210a6fd5676a..0515f7a98a11 100644
+--- a/drivers/gpu/drm/amd/amdgpu/amdgpu_ib.c
++++ b/drivers/gpu/drm/amd/amdgpu/amdgpu_ib.c
+@@ -142,7 +142,8 @@ int amdgpu_ib_schedule(struct amdgpu_ring *ring, unsigned num_ibs,
+ 	/* ring tests don't use a job */
+ 	if (job) {
+ 		vm = job->vm;
+-		fence_ctx = job->base.s_fence->scheduled.context;
++		fence_ctx = job->base.s_fence ?
++			job->base.s_fence->scheduled.context : 0;
+ 	} else {
+ 		vm = NULL;
+ 		fence_ctx = 0;
+-- 
+2.17.1
+

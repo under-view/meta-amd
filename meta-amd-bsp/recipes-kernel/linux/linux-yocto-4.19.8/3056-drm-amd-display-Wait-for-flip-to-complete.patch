@@ -1,0 +1,43 @@
+From b713b48f76896f3c7bc345888bb1be0a869b1389 Mon Sep 17 00:00:00 2001
+From: Alvin Lee <alvin.lee2@amd.com>
+Date: Mon, 24 Jun 2019 09:49:44 -0400
+Subject: [PATCH 3056/4256] drm/amd/display: Wait for flip to complete
+
+[why]
+In pipe split issue occurs when we program immediate flip while vsync flip is pending
+
+[how]
+Don't program immediate flip until flip is no longer pending
+
+Signed-off-by: Alvin Lee <alvin.lee2@amd.com>
+Reviewed-by: Jaehyun Chung <Jaehyun.Chung@amd.com>
+Acked-by: Leo Li <sunpeng.li@amd.com>
+---
+ drivers/gpu/drm/amd/display/dc/dcn20/dcn20_hwseq.c | 11 +++++++++++
+ 1 file changed, 11 insertions(+)
+
+diff --git a/drivers/gpu/drm/amd/display/dc/dcn20/dcn20_hwseq.c b/drivers/gpu/drm/amd/display/dc/dcn20/dcn20_hwseq.c
+index b753e40c4196..b089ba1c7614 100644
+--- a/drivers/gpu/drm/amd/display/dc/dcn20/dcn20_hwseq.c
++++ b/drivers/gpu/drm/amd/display/dc/dcn20/dcn20_hwseq.c
+@@ -1285,6 +1285,17 @@ void dcn20_pipe_control_lock(
+ 	if (pipe->plane_state != NULL)
+ 		flip_immediate = pipe->plane_state->flip_immediate;
+ 
++	if (flip_immediate && lock) {
++		while (pipe->plane_res.hubp->funcs->hubp_is_flip_pending(pipe->plane_res.hubp))	{
++			udelay(1);
++		}
++
++		if (pipe->bottom_pipe != NULL)
++			while (pipe->bottom_pipe->plane_res.hubp->funcs->hubp_is_flip_pending(pipe->bottom_pipe->plane_res.hubp))	{
++				udelay(1);
++			}
++	}
++
+ 	/* In flip immediate and pipe splitting case, we need to use GSL
+ 	 * for synchronization. Only do setup on locking and on flip type change.
+ 	 */
+-- 
+2.17.1
+

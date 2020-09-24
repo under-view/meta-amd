@@ -1,0 +1,55 @@
+From 6a910457afbbc7b3f3c098da67b8412e37721174 Mon Sep 17 00:00:00 2001
+From: YueHaibing <yuehaibing@huawei.com>
+Date: Fri, 26 Jul 2019 22:00:54 +0800
+Subject: [PATCH 3492/4256] drm/amdkfd: remove set but not used variable 'pdd'
+
+Fixes gcc '-Wunused-but-set-variable' warning:
+
+drivers/gpu/drm/amd/amdgpu/../amdkfd/kfd_process.c: In function restore_process_worker:
+drivers/gpu/drm/amd/amdgpu/../amdkfd/kfd_process.c:949:29: warning:
+ variable pdd set but not used [-Wunused-but-set-variable]
+
+It is not used since
+commit 5b87245faf57 ("drm/amdkfd: Simplify kfd2kgd interface")
+
+Change-Id: Ie7fcd56d6ce44f753d1bebb7e93fc40a8a763447
+Reported-by: Hulk Robot <hulkci@huawei.com>
+Signed-off-by: YueHaibing <yuehaibing@huawei.com>
+Signed-off-by: Alex Deucher <alexander.deucher@amd.com>
+---
+ drivers/gpu/drm/amd/amdkfd/kfd_process.c | 11 +----------
+ 1 file changed, 1 insertion(+), 10 deletions(-)
+
+diff --git a/drivers/gpu/drm/amd/amdkfd/kfd_process.c b/drivers/gpu/drm/amd/amdkfd/kfd_process.c
+index 04a621a76822..9446cc45d80f 100644
+--- a/drivers/gpu/drm/amd/amdkfd/kfd_process.c
++++ b/drivers/gpu/drm/amd/amdkfd/kfd_process.c
+@@ -1297,7 +1297,6 @@ static void restore_process_worker(struct work_struct *work)
+ {
+ 	struct delayed_work *dwork;
+ 	struct kfd_process *p;
+-	struct kfd_process_device *pdd;
+ 	int ret = 0;
+ 
+ 	dwork = to_delayed_work(work);
+@@ -1306,16 +1305,8 @@ static void restore_process_worker(struct work_struct *work)
+ 	 * lifetime of this thread, kfd_process p will be valid
+ 	 */
+ 	p = container_of(dwork, struct kfd_process, restore_work);
+-	trace_kfd_restore_process_worker_start(p);
+ 
+-	/* Call restore_process_bos on the first KGD device. This function
+-	 * takes care of restoring the whole process including other devices.
+-	 * Restore can fail if enough memory is not available. If so,
+-	 * reschedule again.
+-	 */
+-	pdd = list_first_entry(&p->per_device_data,
+-			       struct kfd_process_device,
+-			       per_device_list);
++	trace_kfd_restore_process_worker_start(p);
+ 
+ 	pr_info("Started restoring pasid %d\n", p->pasid);
+ 
+-- 
+2.17.1
+

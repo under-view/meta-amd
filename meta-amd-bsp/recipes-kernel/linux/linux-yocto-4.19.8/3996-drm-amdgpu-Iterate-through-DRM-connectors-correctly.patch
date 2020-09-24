@@ -1,0 +1,998 @@
+From 2ece5e4d1ded4f21bd19abcc9e36b9745ea19354 Mon Sep 17 00:00:00 2001
+From: Lyude Paul <lyude@redhat.com>
+Date: Tue, 3 Sep 2019 16:46:01 -0400
+Subject: [PATCH 3996/4256] drm/amdgpu: Iterate through DRM connectors
+ correctly
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+Currently, every single piece of code in amdgpu that loops through
+connectors does it incorrectly and doesn't use the proper list iteration
+helpers, drm_connector_list_iter_begin() and
+drm_connector_list_iter_end(). Yeesh.
+
+So, do that.
+
+Cc: Juston Li <juston.li@intel.com>
+Cc: Imre Deak <imre.deak@intel.com>
+Cc: Ville Syrjälä <ville.syrjala@linux.intel.com>
+Cc: Harry Wentland <hwentlan@amd.com>
+Cc: Daniel Vetter <daniel.vetter@ffwll.ch>
+Reviewed-by: Alex Deucher <alexander.deucher@amd.com>
+Signed-off-by: Lyude Paul <lyude@redhat.com>
+Signed-off-by: Alex Deucher <alexander.deucher@amd.com>
+---
+ .../gpu/drm/amd/amdgpu/amdgpu_connectors.c    | 13 +++++-
+ drivers/gpu/drm/amd/amdgpu/amdgpu_device.c    | 20 +++++++---
+ drivers/gpu/drm/amd/amdgpu/amdgpu_display.c   |  5 ++-
+ drivers/gpu/drm/amd/amdgpu/amdgpu_encoders.c  | 40 +++++++++++++------
+ drivers/gpu/drm/amd/amdgpu/amdgpu_irq.c       |  5 ++-
+ drivers/gpu/drm/amd/amdgpu/dce_v10_0.c        | 34 ++++++++++++----
+ drivers/gpu/drm/amd/amdgpu/dce_v11_0.c        | 34 ++++++++++++----
+ drivers/gpu/drm/amd/amdgpu/dce_v6_0.c         | 40 ++++++++++++++-----
+ drivers/gpu/drm/amd/amdgpu/dce_v8_0.c         | 34 ++++++++++++----
+ .../gpu/drm/amd/display/amdgpu_dm/amdgpu_dm.c | 33 ++++++++-------
+ .../drm/amd/display/amdgpu_dm/amdgpu_dm_irq.c | 10 ++++-
+ 11 files changed, 195 insertions(+), 73 deletions(-)
+
+diff --git a/drivers/gpu/drm/amd/amdgpu/amdgpu_connectors.c b/drivers/gpu/drm/amd/amdgpu/amdgpu_connectors.c
+index 69ad6ec0a4f3..b1226ac57515 100644
+--- a/drivers/gpu/drm/amd/amdgpu/amdgpu_connectors.c
++++ b/drivers/gpu/drm/amd/amdgpu/amdgpu_connectors.c
+@@ -1022,8 +1022,12 @@ amdgpu_connector_dvi_detect(struct drm_connector *connector, bool force)
+ 			 */
+ 			if (amdgpu_connector->shared_ddc && (ret == connector_status_connected)) {
+ 				struct drm_connector *list_connector;
++				struct drm_connector_list_iter iter;
+ 				struct amdgpu_connector *list_amdgpu_connector;
+-				list_for_each_entry(list_connector, &dev->mode_config.connector_list, head) {
++
++				drm_connector_list_iter_begin(dev, &iter);
++				drm_for_each_connector_iter(list_connector,
++							    &iter) {
+ 					if (connector == list_connector)
+ 						continue;
+ 					list_amdgpu_connector = to_amdgpu_connector(list_connector);
+@@ -1040,6 +1044,7 @@ amdgpu_connector_dvi_detect(struct drm_connector *connector, bool force)
+ 						}
+ 					}
+ 				}
++				drm_connector_list_iter_end(&iter);
+ 			}
+ 		}
+ 	}
+@@ -1501,6 +1506,7 @@ amdgpu_connector_add(struct amdgpu_device *adev,
+ {
+ 	struct drm_device *dev = adev->ddev;
+ 	struct drm_connector *connector;
++	struct drm_connector_list_iter iter;
+ 	struct amdgpu_connector *amdgpu_connector;
+ 	struct amdgpu_connector_atom_dig *amdgpu_dig_connector;
+ 	struct drm_encoder *encoder;
+@@ -1514,10 +1520,12 @@ amdgpu_connector_add(struct amdgpu_device *adev,
+ 		return;
+ 
+ 	/* see if we already added it */
+-	list_for_each_entry(connector, &dev->mode_config.connector_list, head) {
++	drm_connector_list_iter_begin(dev, &iter);
++	drm_for_each_connector_iter(connector, &iter) {
+ 		amdgpu_connector = to_amdgpu_connector(connector);
+ 		if (amdgpu_connector->connector_id == connector_id) {
+ 			amdgpu_connector->devices |= supported_device;
++			drm_connector_list_iter_end(&iter);
+ 			return;
+ 		}
+ 		if (amdgpu_connector->ddc_bus && i2c_bus->valid) {
+@@ -1532,6 +1540,7 @@ amdgpu_connector_add(struct amdgpu_device *adev,
+ 			}
+ 		}
+ 	}
++	drm_connector_list_iter_end(&iter);
+ 
+ 	/* check if it's a dp bridge */
+ 	list_for_each_entry(encoder, &dev->mode_config.encoder_list, head) {
+diff --git a/drivers/gpu/drm/amd/amdgpu/amdgpu_device.c b/drivers/gpu/drm/amd/amdgpu/amdgpu_device.c
+index 8f7e8911d4f3..9e9617ce9381 100644
+--- a/drivers/gpu/drm/amd/amdgpu/amdgpu_device.c
++++ b/drivers/gpu/drm/amd/amdgpu/amdgpu_device.c
+@@ -3027,6 +3027,7 @@ int amdgpu_device_suspend(struct drm_device *dev, bool suspend, bool fbcon)
+ 	struct amdgpu_device *adev;
+ 	struct drm_crtc *crtc;
+ 	struct drm_connector *connector;
++	struct drm_connector_list_iter iter;
+ 	int r;
+ 
+ 	if (dev == NULL || dev->dev_private == NULL) {
+@@ -3049,9 +3050,11 @@ int amdgpu_device_suspend(struct drm_device *dev, bool suspend, bool fbcon)
+ 	if (!amdgpu_device_has_dc_support(adev)) {
+ 		/* turn off display hw */
+ 		drm_modeset_lock_all(dev);
+-		list_for_each_entry(connector, &dev->mode_config.connector_list, head) {
+-			drm_helper_connector_dpms(connector, DRM_MODE_DPMS_OFF);
+-		}
++		drm_connector_list_iter_begin(dev, &iter);
++		drm_for_each_connector_iter(connector, &iter)
++			drm_helper_connector_dpms(connector,
++						  DRM_MODE_DPMS_OFF);
++		drm_connector_list_iter_end(&iter);
+ 		drm_modeset_unlock_all(dev);
+ 			/* unpin the front buffers and cursors */
+ 		list_for_each_entry(crtc, &dev->mode_config.crtc_list, head) {
+@@ -3130,6 +3133,7 @@ int amdgpu_device_suspend(struct drm_device *dev, bool suspend, bool fbcon)
+ int amdgpu_device_resume(struct drm_device *dev, bool resume, bool fbcon)
+ {
+ 	struct drm_connector *connector;
++	struct drm_connector_list_iter iter;
+ 	struct amdgpu_device *adev = dev->dev_private;
+ 	struct drm_crtc *crtc;
+ 	int r = 0;
+@@ -3200,9 +3204,13 @@ int amdgpu_device_resume(struct drm_device *dev, bool resume, bool fbcon)
+ 
+ 			/* turn on display hw */
+ 			drm_modeset_lock_all(dev);
+-			list_for_each_entry(connector, &dev->mode_config.connector_list, head) {
+-				drm_helper_connector_dpms(connector, DRM_MODE_DPMS_ON);
+-			}
++
++			drm_connector_list_iter_begin(dev, &iter);
++			drm_for_each_connector_iter(connector, &iter)
++				drm_helper_connector_dpms(connector,
++							  DRM_MODE_DPMS_ON);
++			drm_connector_list_iter_end(&iter);
++
+ 			drm_modeset_unlock_all(dev);
+ 		}
+ 		amdgpu_fbdev_set_suspend(adev, 0);
+diff --git a/drivers/gpu/drm/amd/amdgpu/amdgpu_display.c b/drivers/gpu/drm/amd/amdgpu/amdgpu_display.c
+index 543f7a8f6c76..aad642e660b2 100644
+--- a/drivers/gpu/drm/amd/amdgpu/amdgpu_display.c
++++ b/drivers/gpu/drm/amd/amdgpu/amdgpu_display.c
+@@ -368,11 +368,13 @@ void amdgpu_display_print_display_setup(struct drm_device *dev)
+ 	struct amdgpu_connector *amdgpu_connector;
+ 	struct drm_encoder *encoder;
+ 	struct amdgpu_encoder *amdgpu_encoder;
++	struct drm_connector_list_iter iter;
+ 	uint32_t devices;
+ 	int i = 0;
+ 
++	drm_connector_list_iter_begin(dev, &iter);
+ 	DRM_INFO("AMDGPU Display Connectors\n");
+-	list_for_each_entry(connector, &dev->mode_config.connector_list, head) {
++	drm_for_each_connector_iter(connector, &iter) {
+ 		amdgpu_connector = to_amdgpu_connector(connector);
+ 		DRM_INFO("Connector %d:\n", i);
+ 		DRM_INFO("  %s\n", connector->name);
+@@ -436,6 +438,7 @@ void amdgpu_display_print_display_setup(struct drm_device *dev)
+ 		}
+ 		i++;
+ 	}
++	drm_connector_list_iter_end(&iter);
+ }
+ 
+ /**
+diff --git a/drivers/gpu/drm/amd/amdgpu/amdgpu_encoders.c b/drivers/gpu/drm/amd/amdgpu/amdgpu_encoders.c
+index ec78e2b2015c..02a42e908b1d 100644
+--- a/drivers/gpu/drm/amd/amdgpu/amdgpu_encoders.c
++++ b/drivers/gpu/drm/amd/amdgpu/amdgpu_encoders.c
+@@ -37,12 +37,14 @@ amdgpu_link_encoder_connector(struct drm_device *dev)
+ {
+ 	struct amdgpu_device *adev = dev->dev_private;
+ 	struct drm_connector *connector;
++	struct drm_connector_list_iter iter;
+ 	struct amdgpu_connector *amdgpu_connector;
+ 	struct drm_encoder *encoder;
+ 	struct amdgpu_encoder *amdgpu_encoder;
+ 
++	drm_connector_list_iter_begin(dev, &iter);
+ 	/* walk the list and link encoders to connectors */
+-	list_for_each_entry(connector, &dev->mode_config.connector_list, head) {
++	drm_for_each_connector_iter(connector, &iter) {
+ 		amdgpu_connector = to_amdgpu_connector(connector);
+ 		list_for_each_entry(encoder, &dev->mode_config.encoder_list, head) {
+ 			amdgpu_encoder = to_amdgpu_encoder(encoder);
+@@ -55,6 +57,7 @@ amdgpu_link_encoder_connector(struct drm_device *dev)
+ 			}
+ 		}
+ 	}
++	drm_connector_list_iter_end(&iter);
+ }
+ 
+ void amdgpu_encoder_set_active_device(struct drm_encoder *encoder)
+@@ -62,8 +65,10 @@ void amdgpu_encoder_set_active_device(struct drm_encoder *encoder)
+ 	struct drm_device *dev = encoder->dev;
+ 	struct amdgpu_encoder *amdgpu_encoder = to_amdgpu_encoder(encoder);
+ 	struct drm_connector *connector;
++	struct drm_connector_list_iter iter;
+ 
+-	list_for_each_entry(connector, &dev->mode_config.connector_list, head) {
++	drm_connector_list_iter_begin(dev, &iter);
++	drm_for_each_connector_iter(connector, &iter) {
+ 		if (connector->encoder == encoder) {
+ 			struct amdgpu_connector *amdgpu_connector = to_amdgpu_connector(connector);
+ 			amdgpu_encoder->active_device = amdgpu_encoder->devices & amdgpu_connector->devices;
+@@ -72,6 +77,7 @@ void amdgpu_encoder_set_active_device(struct drm_encoder *encoder)
+ 				  amdgpu_connector->devices, encoder->encoder_type);
+ 		}
+ 	}
++	drm_connector_list_iter_end(&iter);
+ }
+ 
+ struct drm_connector *
+@@ -79,15 +85,20 @@ amdgpu_get_connector_for_encoder(struct drm_encoder *encoder)
+ {
+ 	struct drm_device *dev = encoder->dev;
+ 	struct amdgpu_encoder *amdgpu_encoder = to_amdgpu_encoder(encoder);
+-	struct drm_connector *connector;
++	struct drm_connector *connector, *found = NULL;
++	struct drm_connector_list_iter iter;
+ 	struct amdgpu_connector *amdgpu_connector;
+ 
+-	list_for_each_entry(connector, &dev->mode_config.connector_list, head) {
++	drm_connector_list_iter_begin(dev, &iter);
++	drm_for_each_connector_iter(connector, &iter) {
+ 		amdgpu_connector = to_amdgpu_connector(connector);
+-		if (amdgpu_encoder->active_device & amdgpu_connector->devices)
+-			return connector;
++		if (amdgpu_encoder->active_device & amdgpu_connector->devices) {
++			found = connector;
++			break;
++		}
+ 	}
+-	return NULL;
++	drm_connector_list_iter_end(&iter);
++	return found;
+ }
+ 
+ struct drm_connector *
+@@ -95,15 +106,20 @@ amdgpu_get_connector_for_encoder_init(struct drm_encoder *encoder)
+ {
+ 	struct drm_device *dev = encoder->dev;
+ 	struct amdgpu_encoder *amdgpu_encoder = to_amdgpu_encoder(encoder);
+-	struct drm_connector *connector;
++	struct drm_connector *connector, *found = NULL;
++	struct drm_connector_list_iter iter;
+ 	struct amdgpu_connector *amdgpu_connector;
+ 
+-	list_for_each_entry(connector, &dev->mode_config.connector_list, head) {
++	drm_connector_list_iter_begin(dev, &iter);
++	drm_for_each_connector_iter(connector, &iter) {
+ 		amdgpu_connector = to_amdgpu_connector(connector);
+-		if (amdgpu_encoder->devices & amdgpu_connector->devices)
+-			return connector;
++		if (amdgpu_encoder->devices & amdgpu_connector->devices) {
++			found = connector;
++			break;
++		}
+ 	}
+-	return NULL;
++	drm_connector_list_iter_end(&iter);
++	return found;
+ }
+ 
+ struct drm_encoder *amdgpu_get_external_encoder(struct drm_encoder *encoder)
+diff --git a/drivers/gpu/drm/amd/amdgpu/amdgpu_irq.c b/drivers/gpu/drm/amd/amdgpu/amdgpu_irq.c
+index d391087844e0..708fee1f2466 100644
+--- a/drivers/gpu/drm/amd/amdgpu/amdgpu_irq.c
++++ b/drivers/gpu/drm/amd/amdgpu/amdgpu_irq.c
+@@ -84,10 +84,13 @@ static void amdgpu_hotplug_work_func(struct work_struct *work)
+ 	struct drm_device *dev = adev->ddev;
+ 	struct drm_mode_config *mode_config = &dev->mode_config;
+ 	struct drm_connector *connector;
++	struct drm_connector_list_iter iter;
+ 
+ 	mutex_lock(&mode_config->mutex);
+-	list_for_each_entry(connector, &mode_config->connector_list, head)
++	drm_connector_list_iter_begin(dev, &iter);
++	drm_for_each_connector_iter(connector, &iter)
+ 		amdgpu_connector_hotplug(connector);
++	drm_connector_list_iter_end(&iter);
+ 	mutex_unlock(&mode_config->mutex);
+ 	/* Just fire off a uevent and let userspace tell us what to do */
+ 	drm_helper_hpd_irq_event(dev);
+diff --git a/drivers/gpu/drm/amd/amdgpu/dce_v10_0.c b/drivers/gpu/drm/amd/amdgpu/dce_v10_0.c
+index c35181e2bfe7..b6338d9d871b 100644
+--- a/drivers/gpu/drm/amd/amdgpu/dce_v10_0.c
++++ b/drivers/gpu/drm/amd/amdgpu/dce_v10_0.c
+@@ -327,9 +327,11 @@ static void dce_v10_0_hpd_init(struct amdgpu_device *adev)
+ {
+ 	struct drm_device *dev = adev->ddev;
+ 	struct drm_connector *connector;
++	struct drm_connector_list_iter iter;
+ 	u32 tmp;
+ 
+-	list_for_each_entry(connector, &dev->mode_config.connector_list, head) {
++	drm_connector_list_iter_begin(dev, &iter);
++	drm_for_each_connector_iter(connector, &iter) {
+ 		struct amdgpu_connector *amdgpu_connector = to_amdgpu_connector(connector);
+ 
+ 		if (amdgpu_connector->hpd.hpd >= adev->mode_info.num_hpd)
+@@ -365,6 +367,7 @@ static void dce_v10_0_hpd_init(struct amdgpu_device *adev)
+ 		amdgpu_irq_get(adev, &adev->hpd_irq,
+ 			       amdgpu_connector->hpd.hpd);
+ 	}
++	drm_connector_list_iter_end(&iter);
+ }
+ 
+ /**
+@@ -379,9 +382,11 @@ static void dce_v10_0_hpd_fini(struct amdgpu_device *adev)
+ {
+ 	struct drm_device *dev = adev->ddev;
+ 	struct drm_connector *connector;
++	struct drm_connector_list_iter iter;
+ 	u32 tmp;
+ 
+-	list_for_each_entry(connector, &dev->mode_config.connector_list, head) {
++	drm_connector_list_iter_begin(dev, &iter);
++	drm_for_each_connector_iter(connector, &iter) {
+ 		struct amdgpu_connector *amdgpu_connector = to_amdgpu_connector(connector);
+ 
+ 		if (amdgpu_connector->hpd.hpd >= adev->mode_info.num_hpd)
+@@ -394,6 +399,7 @@ static void dce_v10_0_hpd_fini(struct amdgpu_device *adev)
+ 		amdgpu_irq_put(adev, &adev->hpd_irq,
+ 			       amdgpu_connector->hpd.hpd);
+ 	}
++	drm_connector_list_iter_end(&iter);
+ }
+ 
+ static u32 dce_v10_0_hpd_get_gpio_reg(struct amdgpu_device *adev)
+@@ -1216,10 +1222,12 @@ static void dce_v10_0_afmt_audio_select_pin(struct drm_encoder *encoder)
+ static void dce_v10_0_audio_write_latency_fields(struct drm_encoder *encoder,
+ 						struct drm_display_mode *mode)
+ {
+-	struct amdgpu_device *adev = encoder->dev->dev_private;
++	struct drm_device *dev = encoder->dev;
++	struct amdgpu_device *adev = dev->dev_private;
+ 	struct amdgpu_encoder *amdgpu_encoder = to_amdgpu_encoder(encoder);
+ 	struct amdgpu_encoder_atom_dig *dig = amdgpu_encoder->enc_priv;
+ 	struct drm_connector *connector;
++	struct drm_connector_list_iter iter;
+ 	struct amdgpu_connector *amdgpu_connector = NULL;
+ 	u32 tmp;
+ 	int interlace = 0;
+@@ -1227,12 +1235,14 @@ static void dce_v10_0_audio_write_latency_fields(struct drm_encoder *encoder,
+ 	if (!dig || !dig->afmt || !dig->afmt->pin)
+ 		return;
+ 
+-	list_for_each_entry(connector, &encoder->dev->mode_config.connector_list, head) {
++	drm_connector_list_iter_begin(dev, &iter);
++	drm_for_each_connector_iter(connector, &iter) {
+ 		if (connector->encoder == encoder) {
+ 			amdgpu_connector = to_amdgpu_connector(connector);
+ 			break;
+ 		}
+ 	}
++	drm_connector_list_iter_end(&iter);
+ 
+ 	if (!amdgpu_connector) {
+ 		DRM_ERROR("Couldn't find encoder's connector\n");
+@@ -1258,10 +1268,12 @@ static void dce_v10_0_audio_write_latency_fields(struct drm_encoder *encoder,
+ 
+ static void dce_v10_0_audio_write_speaker_allocation(struct drm_encoder *encoder)
+ {
+-	struct amdgpu_device *adev = encoder->dev->dev_private;
++	struct drm_device *dev = encoder->dev;
++	struct amdgpu_device *adev = dev->dev_private;
+ 	struct amdgpu_encoder *amdgpu_encoder = to_amdgpu_encoder(encoder);
+ 	struct amdgpu_encoder_atom_dig *dig = amdgpu_encoder->enc_priv;
+ 	struct drm_connector *connector;
++	struct drm_connector_list_iter iter;
+ 	struct amdgpu_connector *amdgpu_connector = NULL;
+ 	u32 tmp;
+ 	u8 *sadb = NULL;
+@@ -1270,12 +1282,14 @@ static void dce_v10_0_audio_write_speaker_allocation(struct drm_encoder *encoder
+ 	if (!dig || !dig->afmt || !dig->afmt->pin)
+ 		return;
+ 
+-	list_for_each_entry(connector, &encoder->dev->mode_config.connector_list, head) {
++	drm_connector_list_iter_begin(dev, &iter);
++	drm_for_each_connector_iter(connector, &iter) {
+ 		if (connector->encoder == encoder) {
+ 			amdgpu_connector = to_amdgpu_connector(connector);
+ 			break;
+ 		}
+ 	}
++	drm_connector_list_iter_end(&iter);
+ 
+ 	if (!amdgpu_connector) {
+ 		DRM_ERROR("Couldn't find encoder's connector\n");
+@@ -1310,10 +1324,12 @@ static void dce_v10_0_audio_write_speaker_allocation(struct drm_encoder *encoder
+ 
+ static void dce_v10_0_audio_write_sad_regs(struct drm_encoder *encoder)
+ {
+-	struct amdgpu_device *adev = encoder->dev->dev_private;
++	struct drm_device *dev = encoder->dev;
++	struct amdgpu_device *adev = dev->dev_private;
+ 	struct amdgpu_encoder *amdgpu_encoder = to_amdgpu_encoder(encoder);
+ 	struct amdgpu_encoder_atom_dig *dig = amdgpu_encoder->enc_priv;
+ 	struct drm_connector *connector;
++	struct drm_connector_list_iter iter;
+ 	struct amdgpu_connector *amdgpu_connector = NULL;
+ 	struct cea_sad *sads;
+ 	int i, sad_count;
+@@ -1336,12 +1352,14 @@ static void dce_v10_0_audio_write_sad_regs(struct drm_encoder *encoder)
+ 	if (!dig || !dig->afmt || !dig->afmt->pin)
+ 		return;
+ 
+-	list_for_each_entry(connector, &encoder->dev->mode_config.connector_list, head) {
++	drm_connector_list_iter_begin(dev, &iter);
++	drm_for_each_connector_iter(connector, &iter) {
+ 		if (connector->encoder == encoder) {
+ 			amdgpu_connector = to_amdgpu_connector(connector);
+ 			break;
+ 		}
+ 	}
++	drm_connector_list_iter_end(&iter);
+ 
+ 	if (!amdgpu_connector) {
+ 		DRM_ERROR("Couldn't find encoder's connector\n");
+diff --git a/drivers/gpu/drm/amd/amdgpu/dce_v11_0.c b/drivers/gpu/drm/amd/amdgpu/dce_v11_0.c
+index f459fc70074c..6a5e13f34e8c 100644
+--- a/drivers/gpu/drm/amd/amdgpu/dce_v11_0.c
++++ b/drivers/gpu/drm/amd/amdgpu/dce_v11_0.c
+@@ -345,9 +345,11 @@ static void dce_v11_0_hpd_init(struct amdgpu_device *adev)
+ {
+ 	struct drm_device *dev = adev->ddev;
+ 	struct drm_connector *connector;
++	struct drm_connector_list_iter iter;
+ 	u32 tmp;
+ 
+-	list_for_each_entry(connector, &dev->mode_config.connector_list, head) {
++	drm_connector_list_iter_begin(dev, &iter);
++	drm_for_each_connector_iter(connector, &iter) {
+ 		struct amdgpu_connector *amdgpu_connector = to_amdgpu_connector(connector);
+ 
+ 		if (amdgpu_connector->hpd.hpd >= adev->mode_info.num_hpd)
+@@ -382,6 +384,7 @@ static void dce_v11_0_hpd_init(struct amdgpu_device *adev)
+ 		dce_v11_0_hpd_set_polarity(adev, amdgpu_connector->hpd.hpd);
+ 		amdgpu_irq_get(adev, &adev->hpd_irq, amdgpu_connector->hpd.hpd);
+ 	}
++	drm_connector_list_iter_end(&iter);
+ }
+ 
+ /**
+@@ -396,9 +399,11 @@ static void dce_v11_0_hpd_fini(struct amdgpu_device *adev)
+ {
+ 	struct drm_device *dev = adev->ddev;
+ 	struct drm_connector *connector;
++	struct drm_connector_list_iter iter;
+ 	u32 tmp;
+ 
+-	list_for_each_entry(connector, &dev->mode_config.connector_list, head) {
++	drm_connector_list_iter_begin(dev, &iter);
++	drm_for_each_connector_iter(connector, &iter) {
+ 		struct amdgpu_connector *amdgpu_connector = to_amdgpu_connector(connector);
+ 
+ 		if (amdgpu_connector->hpd.hpd >= adev->mode_info.num_hpd)
+@@ -410,6 +415,7 @@ static void dce_v11_0_hpd_fini(struct amdgpu_device *adev)
+ 
+ 		amdgpu_irq_put(adev, &adev->hpd_irq, amdgpu_connector->hpd.hpd);
+ 	}
++	drm_connector_list_iter_end(&iter);
+ }
+ 
+ static u32 dce_v11_0_hpd_get_gpio_reg(struct amdgpu_device *adev)
+@@ -1242,10 +1248,12 @@ static void dce_v11_0_afmt_audio_select_pin(struct drm_encoder *encoder)
+ static void dce_v11_0_audio_write_latency_fields(struct drm_encoder *encoder,
+ 						struct drm_display_mode *mode)
+ {
+-	struct amdgpu_device *adev = encoder->dev->dev_private;
++	struct drm_device *dev = encoder->dev;
++	struct amdgpu_device *adev = dev->dev_private;
+ 	struct amdgpu_encoder *amdgpu_encoder = to_amdgpu_encoder(encoder);
+ 	struct amdgpu_encoder_atom_dig *dig = amdgpu_encoder->enc_priv;
+ 	struct drm_connector *connector;
++	struct drm_connector_list_iter iter;
+ 	struct amdgpu_connector *amdgpu_connector = NULL;
+ 	u32 tmp;
+ 	int interlace = 0;
+@@ -1253,12 +1261,14 @@ static void dce_v11_0_audio_write_latency_fields(struct drm_encoder *encoder,
+ 	if (!dig || !dig->afmt || !dig->afmt->pin)
+ 		return;
+ 
+-	list_for_each_entry(connector, &encoder->dev->mode_config.connector_list, head) {
++	drm_connector_list_iter_begin(dev, &iter);
++	drm_for_each_connector_iter(connector, &iter) {
+ 		if (connector->encoder == encoder) {
+ 			amdgpu_connector = to_amdgpu_connector(connector);
+ 			break;
+ 		}
+ 	}
++	drm_connector_list_iter_end(&iter);
+ 
+ 	if (!amdgpu_connector) {
+ 		DRM_ERROR("Couldn't find encoder's connector\n");
+@@ -1284,10 +1294,12 @@ static void dce_v11_0_audio_write_latency_fields(struct drm_encoder *encoder,
+ 
+ static void dce_v11_0_audio_write_speaker_allocation(struct drm_encoder *encoder)
+ {
+-	struct amdgpu_device *adev = encoder->dev->dev_private;
++	struct drm_device *dev = encoder->dev;
++	struct amdgpu_device *adev = dev->dev_private;
+ 	struct amdgpu_encoder *amdgpu_encoder = to_amdgpu_encoder(encoder);
+ 	struct amdgpu_encoder_atom_dig *dig = amdgpu_encoder->enc_priv;
+ 	struct drm_connector *connector;
++	struct drm_connector_list_iter iter;
+ 	struct amdgpu_connector *amdgpu_connector = NULL;
+ 	u32 tmp;
+ 	u8 *sadb = NULL;
+@@ -1296,12 +1308,14 @@ static void dce_v11_0_audio_write_speaker_allocation(struct drm_encoder *encoder
+ 	if (!dig || !dig->afmt || !dig->afmt->pin)
+ 		return;
+ 
+-	list_for_each_entry(connector, &encoder->dev->mode_config.connector_list, head) {
++	drm_connector_list_iter_begin(dev, &iter);
++	drm_for_each_connector_iter(connector, &iter) {
+ 		if (connector->encoder == encoder) {
+ 			amdgpu_connector = to_amdgpu_connector(connector);
+ 			break;
+ 		}
+ 	}
++	drm_connector_list_iter_end(&iter);
+ 
+ 	if (!amdgpu_connector) {
+ 		DRM_ERROR("Couldn't find encoder's connector\n");
+@@ -1336,10 +1350,12 @@ static void dce_v11_0_audio_write_speaker_allocation(struct drm_encoder *encoder
+ 
+ static void dce_v11_0_audio_write_sad_regs(struct drm_encoder *encoder)
+ {
+-	struct amdgpu_device *adev = encoder->dev->dev_private;
++	struct drm_device *dev = encoder->dev;
++	struct amdgpu_device *adev = dev->dev_private;
+ 	struct amdgpu_encoder *amdgpu_encoder = to_amdgpu_encoder(encoder);
+ 	struct amdgpu_encoder_atom_dig *dig = amdgpu_encoder->enc_priv;
+ 	struct drm_connector *connector;
++	struct drm_connector_list_iter iter;
+ 	struct amdgpu_connector *amdgpu_connector = NULL;
+ 	struct cea_sad *sads;
+ 	int i, sad_count;
+@@ -1362,12 +1378,14 @@ static void dce_v11_0_audio_write_sad_regs(struct drm_encoder *encoder)
+ 	if (!dig || !dig->afmt || !dig->afmt->pin)
+ 		return;
+ 
+-	list_for_each_entry(connector, &encoder->dev->mode_config.connector_list, head) {
++	drm_connector_list_iter_begin(dev, &iter);
++	drm_for_each_connector_iter(connector, &iter) {
+ 		if (connector->encoder == encoder) {
+ 			amdgpu_connector = to_amdgpu_connector(connector);
+ 			break;
+ 		}
+ 	}
++	drm_connector_list_iter_end(&iter);
+ 
+ 	if (!amdgpu_connector) {
+ 		DRM_ERROR("Couldn't find encoder's connector\n");
+diff --git a/drivers/gpu/drm/amd/amdgpu/dce_v6_0.c b/drivers/gpu/drm/amd/amdgpu/dce_v6_0.c
+index bcea8a1a6ba6..084d5770b32d 100644
+--- a/drivers/gpu/drm/amd/amdgpu/dce_v6_0.c
++++ b/drivers/gpu/drm/amd/amdgpu/dce_v6_0.c
+@@ -276,9 +276,11 @@ static void dce_v6_0_hpd_init(struct amdgpu_device *adev)
+ {
+ 	struct drm_device *dev = adev->ddev;
+ 	struct drm_connector *connector;
++	struct drm_connector_list_iter iter;
+ 	u32 tmp;
+ 
+-	list_for_each_entry(connector, &dev->mode_config.connector_list, head) {
++	drm_connector_list_iter_begin(dev, &iter);
++	drm_for_each_connector_iter(connector, &iter) {
+ 		struct amdgpu_connector *amdgpu_connector = to_amdgpu_connector(connector);
+ 
+ 		if (amdgpu_connector->hpd.hpd >= adev->mode_info.num_hpd)
+@@ -304,7 +306,7 @@ static void dce_v6_0_hpd_init(struct amdgpu_device *adev)
+ 		dce_v6_0_hpd_set_polarity(adev, amdgpu_connector->hpd.hpd);
+ 		amdgpu_irq_get(adev, &adev->hpd_irq, amdgpu_connector->hpd.hpd);
+ 	}
+-
++	drm_connector_list_iter_end(&iter);
+ }
+ 
+ /**
+@@ -319,9 +321,11 @@ static void dce_v6_0_hpd_fini(struct amdgpu_device *adev)
+ {
+ 	struct drm_device *dev = adev->ddev;
+ 	struct drm_connector *connector;
++	struct drm_connector_list_iter iter;
+ 	u32 tmp;
+ 
+-	list_for_each_entry(connector, &dev->mode_config.connector_list, head) {
++	drm_connector_list_iter_begin(dev, &iter);
++	drm_for_each_connector_iter(connector, &iter) {
+ 		struct amdgpu_connector *amdgpu_connector = to_amdgpu_connector(connector);
+ 
+ 		if (amdgpu_connector->hpd.hpd >= adev->mode_info.num_hpd)
+@@ -333,6 +337,7 @@ static void dce_v6_0_hpd_fini(struct amdgpu_device *adev)
+ 
+ 		amdgpu_irq_put(adev, &adev->hpd_irq, amdgpu_connector->hpd.hpd);
+ 	}
++	drm_connector_list_iter_end(&iter);
+ }
+ 
+ static u32 dce_v6_0_hpd_get_gpio_reg(struct amdgpu_device *adev)
+@@ -1119,20 +1124,24 @@ static void dce_v6_0_audio_select_pin(struct drm_encoder *encoder)
+ static void dce_v6_0_audio_write_latency_fields(struct drm_encoder *encoder,
+ 						struct drm_display_mode *mode)
+ {
+-	struct amdgpu_device *adev = encoder->dev->dev_private;
++	struct drm_device *dev = encoder->dev;
++	struct amdgpu_device *adev = dev->dev_private;
+ 	struct amdgpu_encoder *amdgpu_encoder = to_amdgpu_encoder(encoder);
+ 	struct amdgpu_encoder_atom_dig *dig = amdgpu_encoder->enc_priv;
+ 	struct drm_connector *connector;
++	struct drm_connector_list_iter iter;
+ 	struct amdgpu_connector *amdgpu_connector = NULL;
+ 	int interlace = 0;
+ 	u32 tmp;
+ 
+-	list_for_each_entry(connector, &encoder->dev->mode_config.connector_list, head) {
++	drm_connector_list_iter_begin(dev, &iter);
++	drm_for_each_connector_iter(connector, &iter) {
+ 		if (connector->encoder == encoder) {
+ 			amdgpu_connector = to_amdgpu_connector(connector);
+ 			break;
+ 		}
+ 	}
++	drm_connector_list_iter_end(&iter);
+ 
+ 	if (!amdgpu_connector) {
+ 		DRM_ERROR("Couldn't find encoder's connector\n");
+@@ -1159,21 +1168,25 @@ static void dce_v6_0_audio_write_latency_fields(struct drm_encoder *encoder,
+ 
+ static void dce_v6_0_audio_write_speaker_allocation(struct drm_encoder *encoder)
+ {
+-	struct amdgpu_device *adev = encoder->dev->dev_private;
++	struct drm_device *dev = encoder->dev;
++	struct amdgpu_device *adev = dev->dev_private;
+ 	struct amdgpu_encoder *amdgpu_encoder = to_amdgpu_encoder(encoder);
+ 	struct amdgpu_encoder_atom_dig *dig = amdgpu_encoder->enc_priv;
+ 	struct drm_connector *connector;
++	struct drm_connector_list_iter iter;
+ 	struct amdgpu_connector *amdgpu_connector = NULL;
+ 	u8 *sadb = NULL;
+ 	int sad_count;
+ 	u32 tmp;
+ 
+-	list_for_each_entry(connector, &encoder->dev->mode_config.connector_list, head) {
++	drm_connector_list_iter_begin(dev, &iter);
++	drm_for_each_connector_iter(connector, &iter) {
+ 		if (connector->encoder == encoder) {
+ 			amdgpu_connector = to_amdgpu_connector(connector);
+ 			break;
+ 		}
+ 	}
++	drm_connector_list_iter_end(&iter);
+ 
+ 	if (!amdgpu_connector) {
+ 		DRM_ERROR("Couldn't find encoder's connector\n");
+@@ -1216,10 +1229,12 @@ static void dce_v6_0_audio_write_speaker_allocation(struct drm_encoder *encoder)
+ 
+ static void dce_v6_0_audio_write_sad_regs(struct drm_encoder *encoder)
+ {
+-	struct amdgpu_device *adev = encoder->dev->dev_private;
++	struct drm_device *dev = encoder->dev;
++	struct amdgpu_device *adev = dev->dev_private;
+ 	struct amdgpu_encoder *amdgpu_encoder = to_amdgpu_encoder(encoder);
+ 	struct amdgpu_encoder_atom_dig *dig = amdgpu_encoder->enc_priv;
+ 	struct drm_connector *connector;
++	struct drm_connector_list_iter iter;
+ 	struct amdgpu_connector *amdgpu_connector = NULL;
+ 	struct cea_sad *sads;
+ 	int i, sad_count;
+@@ -1239,12 +1254,14 @@ static void dce_v6_0_audio_write_sad_regs(struct drm_encoder *encoder)
+ 		{ ixAZALIA_F0_CODEC_PIN_CONTROL_AUDIO_DESCRIPTOR13, HDMI_AUDIO_CODING_TYPE_WMA_PRO },
+ 	};
+ 
+-	list_for_each_entry(connector, &encoder->dev->mode_config.connector_list, head) {
++	drm_connector_list_iter_begin(dev, &iter);
++	drm_for_each_connector_iter(connector, &iter) {
+ 		if (connector->encoder == encoder) {
+ 			amdgpu_connector = to_amdgpu_connector(connector);
+ 			break;
+ 		}
+ 	}
++	drm_connector_list_iter_end(&iter);
+ 
+ 	if (!amdgpu_connector) {
+ 		DRM_ERROR("Couldn't find encoder's connector\n");
+@@ -1626,6 +1643,7 @@ static void dce_v6_0_afmt_setmode(struct drm_encoder *encoder,
+ 	struct amdgpu_encoder *amdgpu_encoder = to_amdgpu_encoder(encoder);
+ 	struct amdgpu_encoder_atom_dig *dig = amdgpu_encoder->enc_priv;
+ 	struct drm_connector *connector;
++	struct drm_connector_list_iter iter;
+ 	struct amdgpu_connector *amdgpu_connector = NULL;
+ 	int em = amdgpu_atombios_encoder_get_encoder_mode(encoder);
+ 	int bpc = 8;
+@@ -1633,12 +1651,14 @@ static void dce_v6_0_afmt_setmode(struct drm_encoder *encoder,
+ 	if (!dig || !dig->afmt)
+ 		return;
+ 
+-	list_for_each_entry(connector, &encoder->dev->mode_config.connector_list, head) {
++	drm_connector_list_iter_begin(dev, &iter);
++	drm_for_each_connector_iter(connector, &iter) {
+ 		if (connector->encoder == encoder) {
+ 			amdgpu_connector = to_amdgpu_connector(connector);
+ 			break;
+ 		}
+ 	}
++	drm_connector_list_iter_end(&iter);
+ 
+ 	if (!amdgpu_connector) {
+ 		DRM_ERROR("Couldn't find encoder's connector\n");
+diff --git a/drivers/gpu/drm/amd/amdgpu/dce_v8_0.c b/drivers/gpu/drm/amd/amdgpu/dce_v8_0.c
+index 37fd742ab62d..183fc065963a 100644
+--- a/drivers/gpu/drm/amd/amdgpu/dce_v8_0.c
++++ b/drivers/gpu/drm/amd/amdgpu/dce_v8_0.c
+@@ -272,9 +272,11 @@ static void dce_v8_0_hpd_init(struct amdgpu_device *adev)
+ {
+ 	struct drm_device *dev = adev->ddev;
+ 	struct drm_connector *connector;
++	struct drm_connector_list_iter iter;
+ 	u32 tmp;
+ 
+-	list_for_each_entry(connector, &dev->mode_config.connector_list, head) {
++	drm_connector_list_iter_begin(dev, &iter);
++	drm_for_each_connector_iter(connector, &iter) {
+ 		struct amdgpu_connector *amdgpu_connector = to_amdgpu_connector(connector);
+ 
+ 		if (amdgpu_connector->hpd.hpd >= adev->mode_info.num_hpd)
+@@ -300,6 +302,7 @@ static void dce_v8_0_hpd_init(struct amdgpu_device *adev)
+ 		dce_v8_0_hpd_set_polarity(adev, amdgpu_connector->hpd.hpd);
+ 		amdgpu_irq_get(adev, &adev->hpd_irq, amdgpu_connector->hpd.hpd);
+ 	}
++	drm_connector_list_iter_end(&iter);
+ }
+ 
+ /**
+@@ -314,9 +317,11 @@ static void dce_v8_0_hpd_fini(struct amdgpu_device *adev)
+ {
+ 	struct drm_device *dev = adev->ddev;
+ 	struct drm_connector *connector;
++	struct drm_connector_list_iter iter;
+ 	u32 tmp;
+ 
+-	list_for_each_entry(connector, &dev->mode_config.connector_list, head) {
++	drm_connector_list_iter_begin(dev, &iter);
++	drm_for_each_connector_iter(connector, &iter) {
+ 		struct amdgpu_connector *amdgpu_connector = to_amdgpu_connector(connector);
+ 
+ 		if (amdgpu_connector->hpd.hpd >= adev->mode_info.num_hpd)
+@@ -328,6 +333,7 @@ static void dce_v8_0_hpd_fini(struct amdgpu_device *adev)
+ 
+ 		amdgpu_irq_put(adev, &adev->hpd_irq, amdgpu_connector->hpd.hpd);
+ 	}
++	drm_connector_list_iter_end(&iter);
+ }
+ 
+ static u32 dce_v8_0_hpd_get_gpio_reg(struct amdgpu_device *adev)
+@@ -1154,10 +1160,12 @@ static void dce_v8_0_afmt_audio_select_pin(struct drm_encoder *encoder)
+ static void dce_v8_0_audio_write_latency_fields(struct drm_encoder *encoder,
+ 						struct drm_display_mode *mode)
+ {
+-	struct amdgpu_device *adev = encoder->dev->dev_private;
++	struct drm_device *dev = encoder->dev;
++	struct amdgpu_device *adev = dev->dev_private;
+ 	struct amdgpu_encoder *amdgpu_encoder = to_amdgpu_encoder(encoder);
+ 	struct amdgpu_encoder_atom_dig *dig = amdgpu_encoder->enc_priv;
+ 	struct drm_connector *connector;
++	struct drm_connector_list_iter iter;
+ 	struct amdgpu_connector *amdgpu_connector = NULL;
+ 	u32 tmp = 0, offset;
+ 
+@@ -1166,12 +1174,14 @@ static void dce_v8_0_audio_write_latency_fields(struct drm_encoder *encoder,
+ 
+ 	offset = dig->afmt->pin->offset;
+ 
+-	list_for_each_entry(connector, &encoder->dev->mode_config.connector_list, head) {
++	drm_connector_list_iter_begin(dev, &iter);
++	drm_for_each_connector_iter(connector, &iter) {
+ 		if (connector->encoder == encoder) {
+ 			amdgpu_connector = to_amdgpu_connector(connector);
+ 			break;
+ 		}
+ 	}
++	drm_connector_list_iter_end(&iter);
+ 
+ 	if (!amdgpu_connector) {
+ 		DRM_ERROR("Couldn't find encoder's connector\n");
+@@ -1211,10 +1221,12 @@ static void dce_v8_0_audio_write_latency_fields(struct drm_encoder *encoder,
+ 
+ static void dce_v8_0_audio_write_speaker_allocation(struct drm_encoder *encoder)
+ {
+-	struct amdgpu_device *adev = encoder->dev->dev_private;
++	struct drm_device *dev = encoder->dev;
++	struct amdgpu_device *adev = dev->dev_private;
+ 	struct amdgpu_encoder *amdgpu_encoder = to_amdgpu_encoder(encoder);
+ 	struct amdgpu_encoder_atom_dig *dig = amdgpu_encoder->enc_priv;
+ 	struct drm_connector *connector;
++	struct drm_connector_list_iter iter;
+ 	struct amdgpu_connector *amdgpu_connector = NULL;
+ 	u32 offset, tmp;
+ 	u8 *sadb = NULL;
+@@ -1225,12 +1237,14 @@ static void dce_v8_0_audio_write_speaker_allocation(struct drm_encoder *encoder)
+ 
+ 	offset = dig->afmt->pin->offset;
+ 
+-	list_for_each_entry(connector, &encoder->dev->mode_config.connector_list, head) {
++	drm_connector_list_iter_begin(dev, &iter);
++	drm_for_each_connector_iter(connector, &iter) {
+ 		if (connector->encoder == encoder) {
+ 			amdgpu_connector = to_amdgpu_connector(connector);
+ 			break;
+ 		}
+ 	}
++	drm_connector_list_iter_end(&iter);
+ 
+ 	if (!amdgpu_connector) {
+ 		DRM_ERROR("Couldn't find encoder's connector\n");
+@@ -1260,11 +1274,13 @@ static void dce_v8_0_audio_write_speaker_allocation(struct drm_encoder *encoder)
+ 
+ static void dce_v8_0_audio_write_sad_regs(struct drm_encoder *encoder)
+ {
+-	struct amdgpu_device *adev = encoder->dev->dev_private;
++	struct drm_device *dev = encoder->dev;
++	struct amdgpu_device *adev = dev->dev_private;
+ 	struct amdgpu_encoder *amdgpu_encoder = to_amdgpu_encoder(encoder);
+ 	struct amdgpu_encoder_atom_dig *dig = amdgpu_encoder->enc_priv;
+ 	u32 offset;
+ 	struct drm_connector *connector;
++	struct drm_connector_list_iter iter;
+ 	struct amdgpu_connector *amdgpu_connector = NULL;
+ 	struct cea_sad *sads;
+ 	int i, sad_count;
+@@ -1289,12 +1305,14 @@ static void dce_v8_0_audio_write_sad_regs(struct drm_encoder *encoder)
+ 
+ 	offset = dig->afmt->pin->offset;
+ 
+-	list_for_each_entry(connector, &encoder->dev->mode_config.connector_list, head) {
++	drm_connector_list_iter_begin(dev, &iter);
++	drm_for_each_connector_iter(connector, &iter) {
+ 		if (connector->encoder == encoder) {
+ 			amdgpu_connector = to_amdgpu_connector(connector);
+ 			break;
+ 		}
+ 	}
++	drm_connector_list_iter_end(&iter);
+ 
+ 	if (!amdgpu_connector) {
+ 		DRM_ERROR("Couldn't find encoder's connector\n");
+diff --git a/drivers/gpu/drm/amd/display/amdgpu_dm/amdgpu_dm.c b/drivers/gpu/drm/amd/display/amdgpu_dm/amdgpu_dm.c
+index 7ade3cbb5552..c654ec649ae5 100644
+--- a/drivers/gpu/drm/amd/display/amdgpu_dm/amdgpu_dm.c
++++ b/drivers/gpu/drm/amd/display/amdgpu_dm/amdgpu_dm.c
+@@ -928,27 +928,29 @@ static int detect_mst_link_for_all_connectors(struct drm_device *dev)
+ {
+ 	struct amdgpu_dm_connector *aconnector;
+ 	struct drm_connector *connector;
++	struct drm_connector_list_iter iter;
+ 	int ret = 0;
+ 
+-	drm_modeset_lock(&dev->mode_config.connection_mutex, NULL);
+-
+-	list_for_each_entry(connector, &dev->mode_config.connector_list, head) {
++	drm_connector_list_iter_begin(dev, &iter);
++	drm_for_each_connector_iter(connector, &iter) {
+ 		aconnector = to_amdgpu_dm_connector(connector);
+ 		if (aconnector->dc_link->type == dc_connection_mst_branch &&
+ 		    aconnector->mst_mgr.aux) {
+ 			DRM_DEBUG_DRIVER("DM_MST: starting TM on aconnector: %p [id: %d]\n",
+-					aconnector, aconnector->base.base.id);
++					 aconnector,
++					 aconnector->base.base.id);
+ 
+ 			ret = drm_dp_mst_topology_mgr_set_mst(&aconnector->mst_mgr, true);
+ 			if (ret < 0) {
+ 				DRM_ERROR("DM_MST: Failed to start MST\n");
+-				((struct dc_link *)aconnector->dc_link)->type = dc_connection_single;
+-				return ret;
+-				}
++				aconnector->dc_link->type =
++					dc_connection_single;
++				break;
+ 			}
++		}
+ 	}
++	drm_connector_list_iter_end(&iter);
+ 
+-	drm_modeset_unlock(&dev->mode_config.connection_mutex);
+ 	return ret;
+ }
+ 
+@@ -991,14 +993,13 @@ static void s3_handle_mst(struct drm_device *dev, bool suspend)
+ {
+ 	struct amdgpu_dm_connector *aconnector;
+ 	struct drm_connector *connector;
++	struct drm_connector_list_iter iter;
+ 	struct drm_dp_mst_topology_mgr *mgr;
+ 	int ret;
+ 	bool need_hotplug = false;
+ 
+-	drm_modeset_lock(&dev->mode_config.connection_mutex, NULL);
+-
+-	list_for_each_entry(connector, &dev->mode_config.connector_list,
+-			    head) {
++	drm_connector_list_iter_begin(dev, &iter);
++	drm_for_each_connector_iter(connector, &iter) {
+ 		aconnector = to_amdgpu_dm_connector(connector);
+ 		if (aconnector->dc_link->type != dc_connection_mst_branch ||
+ 		    aconnector->mst_port)
+@@ -1016,8 +1017,7 @@ static void s3_handle_mst(struct drm_device *dev, bool suspend)
+ 			}
+ 		}
+ 	}
+-
+-	drm_modeset_unlock(&dev->mode_config.connection_mutex);
++	drm_connector_list_iter_end(&iter);
+ 
+ 	if (need_hotplug)
+ 		drm_kms_helper_hotplug_event(dev);
+@@ -1199,6 +1199,7 @@ static int dm_resume(void *handle)
+ 	struct amdgpu_display_manager *dm = &adev->dm;
+ 	struct amdgpu_dm_connector *aconnector;
+ 	struct drm_connector *connector;
++	struct drm_connector_list_iter iter;
+ 	struct drm_crtc *crtc;
+ 	struct drm_crtc_state *new_crtc_state;
+ 	struct dm_crtc_state *dm_new_crtc_state;
+@@ -1231,7 +1232,8 @@ static int dm_resume(void *handle)
+ 	s3_handle_mst(ddev, false);
+ 
+ 	/* Do detection*/
+-	list_for_each_entry(connector, &ddev->mode_config.connector_list, head) {
++	drm_connector_list_iter_begin(ddev, &iter);
++	drm_for_each_connector_iter(connector, &iter) {
+ 		aconnector = to_amdgpu_dm_connector(connector);
+ 
+ 		/*
+@@ -1259,6 +1261,7 @@ static int dm_resume(void *handle)
+ 		amdgpu_dm_update_connector_after_detect(aconnector);
+ 		mutex_unlock(&aconnector->hpd_lock);
+ 	}
++	drm_connector_list_iter_end(&iter);
+ 
+ 	/* Force mode set in atomic comit */
+ 	for_each_new_crtc_in_state(dm->cached_state, crtc, new_crtc_state, i)
+diff --git a/drivers/gpu/drm/amd/display/amdgpu_dm/amdgpu_dm_irq.c b/drivers/gpu/drm/amd/display/amdgpu_dm/amdgpu_dm_irq.c
+index 4e6da61d1a93..c68ab269523e 100644
+--- a/drivers/gpu/drm/amd/display/amdgpu_dm/amdgpu_dm_irq.c
++++ b/drivers/gpu/drm/amd/display/amdgpu_dm/amdgpu_dm_irq.c
+@@ -734,8 +734,10 @@ void amdgpu_dm_hpd_init(struct amdgpu_device *adev)
+ {
+ 	struct drm_device *dev = adev->ddev;
+ 	struct drm_connector *connector;
++	struct drm_connector_list_iter iter;
+ 
+-	list_for_each_entry(connector, &dev->mode_config.connector_list, head) {
++	drm_connector_list_iter_begin(dev, &iter);
++	drm_for_each_connector_iter(connector, &iter) {
+ 		struct amdgpu_dm_connector *amdgpu_dm_connector =
+ 				to_amdgpu_dm_connector(connector);
+ 
+@@ -753,6 +755,7 @@ void amdgpu_dm_hpd_init(struct amdgpu_device *adev)
+ 					true);
+ 		}
+ 	}
++	drm_connector_list_iter_end(&iter);
+ }
+ 
+ /**
+@@ -767,8 +770,10 @@ void amdgpu_dm_hpd_fini(struct amdgpu_device *adev)
+ {
+ 	struct drm_device *dev = adev->ddev;
+ 	struct drm_connector *connector;
++	struct drm_connector_list_iter iter;
+ 
+-	list_for_each_entry(connector, &dev->mode_config.connector_list, head) {
++	drm_connector_list_iter_begin(dev, &iter);
++	drm_for_each_connector_iter(connector, &iter) {
+ 		struct amdgpu_dm_connector *amdgpu_dm_connector =
+ 				to_amdgpu_dm_connector(connector);
+ 		const struct dc_link *dc_link = amdgpu_dm_connector->dc_link;
+@@ -781,4 +786,5 @@ void amdgpu_dm_hpd_fini(struct amdgpu_device *adev)
+ 					false);
+ 		}
+ 	}
++	drm_connector_list_iter_end(&iter);
+ }
+-- 
+2.17.1
+

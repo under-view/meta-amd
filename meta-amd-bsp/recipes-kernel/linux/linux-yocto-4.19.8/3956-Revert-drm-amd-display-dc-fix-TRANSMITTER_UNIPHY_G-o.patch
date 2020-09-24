@@ -1,0 +1,37 @@
+From 3dca4e05ef422e3fdd931a3befd43211b33ef128 Mon Sep 17 00:00:00 2001
+From: Chaudhary Amit Kumar <Chaudharyamit.Kumar@amd.com>
+Date: Mon, 7 Oct 2019 13:49:57 +0530
+Subject: [PATCH 3956/4256] Revert "drm/amd/display/dc: fix
+ TRANSMITTER_UNIPHY_G offset"
+
+This reverts commit 9e71cc6934e138ec33ae79dcbab960ee97600cb6.
+---
+ drivers/gpu/drm/amd/display/dc/dce80/dce80_resource.c | 5 +----
+ 1 file changed, 1 insertion(+), 4 deletions(-)
+
+diff --git a/drivers/gpu/drm/amd/display/dc/dce80/dce80_resource.c b/drivers/gpu/drm/amd/display/dc/dce80/dce80_resource.c
+index 8e4effb1f439..86be482b6816 100644
+--- a/drivers/gpu/drm/amd/display/dc/dce80/dce80_resource.c
++++ b/drivers/gpu/drm/amd/display/dc/dce80/dce80_resource.c
+@@ -226,7 +226,7 @@ static const struct dce110_link_enc_hpd_registers link_enc_hpd_regs[] = {
+ };
+ 
+ #define link_regs(id)\
+-{\
++[id] = {\
+ 	LE_DCE80_REG_LIST(id)\
+ }
+ 
+@@ -237,9 +237,6 @@ static const struct dce110_link_enc_registers link_enc_regs[] = {
+ 	link_regs(3),
+ 	link_regs(4),
+ 	link_regs(5),
+-	link_regs(0),
+-	link_regs(0),
+-	link_regs(0),
+ 	link_regs(6),
+ };
+ 
+-- 
+2.17.1
+

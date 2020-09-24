@@ -1,0 +1,40 @@
+From a5cf5ff9b7a777316e164278f84a6803dc7fe9b7 Mon Sep 17 00:00:00 2001
+From: Huang Rui <ray.huang@amd.com>
+Date: Thu, 8 Aug 2019 15:23:17 -0500
+Subject: [PATCH 3515/4256] drm/amd/powerplay: powerup sdma/vcn for all apu
+ series
+
+All apu series need powerup sdma and vcn via smu messages.
+
+Signed-off-by: Huang Rui <ray.huang@amd.com>
+Reviewed-by: Evan Quan <evan.quan@amd.com>
+Signed-off-by: Alex Deucher <alexander.deucher@amd.com>
+---
+ drivers/gpu/drm/amd/powerplay/amdgpu_smu.c | 4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
+
+diff --git a/drivers/gpu/drm/amd/powerplay/amdgpu_smu.c b/drivers/gpu/drm/amd/powerplay/amdgpu_smu.c
+index 022507eacf1a..85f52401d5a1 100644
+--- a/drivers/gpu/drm/amd/powerplay/amdgpu_smu.c
++++ b/drivers/gpu/drm/amd/powerplay/amdgpu_smu.c
+@@ -1268,7 +1268,7 @@ static int smu_hw_init(void *handle)
+ 		return ret;
+ 	}
+ 
+-	if (adev->asic_type == CHIP_RENOIR) {
++	if (adev->flags & AMD_IS_APU) {
+ 		smu_powergate_sdma(&adev->smu, false);
+ 		smu_powergate_vcn(&adev->smu, false);
+ 	}
+@@ -1324,7 +1324,7 @@ static int smu_hw_fini(void *handle)
+ 	struct smu_table_context *table_context = &smu->smu_table;
+ 	int ret = 0;
+ 
+-	if (adev->asic_type == CHIP_RENOIR) {
++	if (adev->flags & AMD_IS_APU) {
+ 		smu_powergate_sdma(&adev->smu, true);
+ 		smu_powergate_vcn(&adev->smu, true);
+ 	}
+-- 
+2.17.1
+

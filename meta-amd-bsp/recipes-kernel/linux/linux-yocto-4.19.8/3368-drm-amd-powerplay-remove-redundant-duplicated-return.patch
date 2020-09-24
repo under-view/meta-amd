@@ -1,0 +1,43 @@
+From 24e0d3ddd845c28240b9c84d4c429c95b33e66a5 Mon Sep 17 00:00:00 2001
+From: Colin Ian King <colin.king@canonical.com>
+Date: Mon, 5 Aug 2019 11:29:40 +0100
+Subject: [PATCH 3368/4256] drm/amd/powerplay: remove redundant duplicated
+ return check
+
+The check on ret is duplicated in two places, it is redundant code.
+Remove it.
+
+Addresses-Coverity: ("Logically dead code")
+Fixes: b94afb61cdae ("drm/amd/powerplay: honor hw limit on fetching metrics data for navi10")
+Reviewed-by: Evan Quan <evan.quan@amd.com>
+Signed-off-by: Colin Ian King <colin.king@canonical.com>
+Signed-off-by: Alex Deucher <alexander.deucher@amd.com>
+---
+ drivers/gpu/drm/amd/powerplay/navi10_ppt.c | 4 ----
+ 1 file changed, 4 deletions(-)
+
+diff --git a/drivers/gpu/drm/amd/powerplay/navi10_ppt.c b/drivers/gpu/drm/amd/powerplay/navi10_ppt.c
+index 99c1f94e44d1..920156e9fb9d 100644
+--- a/drivers/gpu/drm/amd/powerplay/navi10_ppt.c
++++ b/drivers/gpu/drm/amd/powerplay/navi10_ppt.c
+@@ -940,8 +940,6 @@ static int navi10_get_gpu_power(struct smu_context *smu, uint32_t *value)
+ 	ret = navi10_get_metrics_table(smu, &metrics);
+ 	if (ret)
+ 		return ret;
+-	if (ret)
+-		return ret;
+ 
+ 	*value = metrics.AverageSocketPower << 8;
+ 
+@@ -1000,8 +998,6 @@ static int navi10_get_fan_speed_rpm(struct smu_context *smu,
+ 	ret = navi10_get_metrics_table(smu, &metrics);
+ 	if (ret)
+ 		return ret;
+-	if (ret)
+-		return ret;
+ 
+ 	*speed = metrics.CurrFanSpeed;
+ 
+-- 
+2.17.1
+

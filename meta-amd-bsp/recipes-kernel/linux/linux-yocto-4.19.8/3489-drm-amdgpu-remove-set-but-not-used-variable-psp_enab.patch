@@ -1,0 +1,47 @@
+From 67014dea2f04c2140b77d664010c75288c44b6ec Mon Sep 17 00:00:00 2001
+From: YueHaibing <yuehaibing@huawei.com>
+Date: Thu, 27 Jun 2019 07:53:50 +0000
+Subject: [PATCH 3489/4256] drm/amdgpu: remove set but not used variable
+ 'psp_enabled'
+
+Fixes gcc '-Wunused-but-set-variable' warning:
+
+drivers/gpu/drm/amd/amdgpu/nv.c: In function 'nv_common_early_init':
+drivers/gpu/drm/amd/amdgpu/nv.c:471:7: warning:
+ variable 'psp_enabled' set but not used [-Wunused-but-set-variable]
+
+It's not used since inroduction in
+commit c6b6a42175f5 ("drm/amdgpu: add navi10 common ip block (v3)")
+
+Signed-off-by: YueHaibing <yuehaibing@huawei.com>
+Signed-off-by: Alex Deucher <alexander.deucher@amd.com>
+---
+ drivers/gpu/drm/amd/amdgpu/nv.c | 5 -----
+ 1 file changed, 5 deletions(-)
+
+diff --git a/drivers/gpu/drm/amd/amdgpu/nv.c b/drivers/gpu/drm/amd/amdgpu/nv.c
+index 46f402a52408..a3d99f2ddf6b 100644
+--- a/drivers/gpu/drm/amd/amdgpu/nv.c
++++ b/drivers/gpu/drm/amd/amdgpu/nv.c
+@@ -575,7 +575,6 @@ static const struct amdgpu_asic_funcs nv_asic_funcs =
+ 
+ static int nv_common_early_init(void *handle)
+ {
+-	bool psp_enabled = false;
+ 	struct amdgpu_device *adev = (struct amdgpu_device *)handle;
+ 
+ 	adev->smc_rreg = NULL;
+@@ -592,10 +591,6 @@ static int nv_common_early_init(void *handle)
+ 
+ 	adev->asic_funcs = &nv_asic_funcs;
+ 
+-	if (amdgpu_device_ip_get_ip_block(adev, AMD_IP_BLOCK_TYPE_PSP) &&
+-	    (amdgpu_ip_block_mask & (1 << AMD_IP_BLOCK_TYPE_PSP)))
+-		psp_enabled = true;
+-
+ 	adev->rev_id = nv_get_rev_id(adev);
+ 	adev->external_rev_id = 0xff;
+ 	switch (adev->asic_type) {
+-- 
+2.17.1
+

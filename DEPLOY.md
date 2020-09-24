@@ -1,16 +1,16 @@
 # 3. Deploying an image to the target
 
-After [building an image](BUILD.md), we can deploy it to the target
-using a USB Flash Drive or a CD/DVD. The built images can be found in
-the `<build-dir>/tmp/deploy/images/<machine-name>` directory to
+After building an image ([BUILD.md](BUILD.md)), we can deploy it to the
+target using a USB Flash Drive or a CD/DVD. The built images can be
+found in the `<build-dir>/tmp/deploy/images/<machine-name>` directory to
 which we will refer to as the **"Image Deploy Directory"** in this doc.
 
 ---
 ##### Note
-Change these placeholders in the following instructions according to
-the selected BSP and the image built in [section 2 - build](BUILD.md):
-* `<machine-name>`
-* `<image-name>`
+Change the `<machine-name>` and `<image-name>` placeholders in the
+following instructions according to the selected BSP and the image 
+built in "Section 2 - Setting up and starting a build" ([BUILD.md](BUILD.md)).
+
 ---
 
 Change directory to the Image Deploy Directory:
@@ -77,6 +77,7 @@ graphical user interface depending on the image and the target machine.
 ---
 #### What's next
 
-You can also [customize the image](CUSTOMIZE.md) by enabling/disabling
-certain configurable features. Make sure to
-[re-build the image](BUILD.md) before deploying the customized build.
+You can also customize the image ([CUSTOMIZE.md](CUSTOMIZE.md)) by
+enabling/disabling certain configurable features in the `local.conf`.
+Make sure to re-build the image ([BUILD.md](BUILD.md)) before deploying
+the customized build.

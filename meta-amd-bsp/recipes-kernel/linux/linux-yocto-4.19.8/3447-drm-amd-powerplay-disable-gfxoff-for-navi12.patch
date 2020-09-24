@@ -1,0 +1,29 @@
+From 49a2ead41c9ebf911786fd9f81c66ffcbaac455d Mon Sep 17 00:00:00 2001
+From: Xiaojie Yuan <xiaojie.yuan@amd.com>
+Date: Mon, 13 May 2019 17:02:12 +0800
+Subject: [PATCH 3447/4256] drm/amd/powerplay: disable gfxoff for navi12
+
+gfxoff doesn't work on navi12 yet, so disable it for now
+
+Signed-off-by: Xiaojie Yuan <xiaojie.yuan@amd.com>
+Acked-by: Alex Deucher <alexander.deucher@amd.com>
+Reviewed-by: Hawking Zhang <Hawking.Zhang@amd.com>
+---
+ drivers/gpu/drm/amd/amdgpu/gfx_v10_0.c | 1 +
+ 1 file changed, 1 insertion(+)
+
+diff --git a/drivers/gpu/drm/amd/amdgpu/gfx_v10_0.c b/drivers/gpu/drm/amd/amdgpu/gfx_v10_0.c
+index 066ba593af23..d644669e5d93 100644
+--- a/drivers/gpu/drm/amd/amdgpu/gfx_v10_0.c
++++ b/drivers/gpu/drm/amd/amdgpu/gfx_v10_0.c
+@@ -580,6 +580,7 @@ static void gfx_v10_0_check_gfxoff_flag(struct amdgpu_device *adev)
+ {
+ 	switch (adev->asic_type) {
+ 	case CHIP_NAVI10:
++	case CHIP_NAVI12:
+ 		adev->pm.pp_feature &= ~PP_GFXOFF_MASK;
+ 		break;
+ 	default:
+-- 
+2.17.1
+

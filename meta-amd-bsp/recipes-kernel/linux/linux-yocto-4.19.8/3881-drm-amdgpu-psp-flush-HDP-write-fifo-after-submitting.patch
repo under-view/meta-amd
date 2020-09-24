@@ -1,0 +1,69 @@
+From bb2dccc1156971611b25b5d7e9a877cca31118fc Mon Sep 17 00:00:00 2001
+From: Alex Deucher <alexander.deucher@amd.com>
+Date: Tue, 17 Sep 2019 15:12:18 -0500
+Subject: [PATCH 3881/4256] drm/amdgpu/psp: flush HDP write fifo after
+ submitting cmds to the psp
+
+We need to make sure the fifo is flushed before we ask the psp to
+process the commands.
+
+Reviewed-by: Feifei Xu <Feifei.Xu@amd.com>
+Signed-off-by: Alex Deucher <alexander.deucher@amd.com>
+---
+ drivers/gpu/drm/amd/amdgpu/psp_v10_0.c | 1 +
+ drivers/gpu/drm/amd/amdgpu/psp_v11_0.c | 1 +
+ drivers/gpu/drm/amd/amdgpu/psp_v12_0.c | 1 +
+ drivers/gpu/drm/amd/amdgpu/psp_v3_1.c  | 1 +
+ 4 files changed, 4 insertions(+)
+
+diff --git a/drivers/gpu/drm/amd/amdgpu/psp_v10_0.c b/drivers/gpu/drm/amd/amdgpu/psp_v10_0.c
+index 6dec5fbc2678..f24760dab4e0 100644
+--- a/drivers/gpu/drm/amd/amdgpu/psp_v10_0.c
++++ b/drivers/gpu/drm/amd/amdgpu/psp_v10_0.c
+@@ -263,6 +263,7 @@ static int psp_v10_0_cmd_submit(struct psp_context *psp,
+ 	write_frame->fence_addr_hi = upper_32_bits(fence_mc_addr);
+ 	write_frame->fence_addr_lo = lower_32_bits(fence_mc_addr);
+ 	write_frame->fence_value = index;
++	amdgpu_asic_flush_hdp(adev, NULL);
+ 
+ 	/* Update the write Pointer in DWORDs */
+ 	psp_write_ptr_reg = (psp_write_ptr_reg + rb_frame_size_dw) % ring_size_dw;
+diff --git a/drivers/gpu/drm/amd/amdgpu/psp_v11_0.c b/drivers/gpu/drm/amd/amdgpu/psp_v11_0.c
+index 54de388ae114..f5bc9c176e7b 100644
+--- a/drivers/gpu/drm/amd/amdgpu/psp_v11_0.c
++++ b/drivers/gpu/drm/amd/amdgpu/psp_v11_0.c
+@@ -557,6 +557,7 @@ static int psp_v11_0_cmd_submit(struct psp_context *psp,
+ 	write_frame->fence_addr_hi = upper_32_bits(fence_mc_addr);
+ 	write_frame->fence_addr_lo = lower_32_bits(fence_mc_addr);
+ 	write_frame->fence_value = index;
++	amdgpu_asic_flush_hdp(adev, NULL);
+ 
+ 	/* Update the write Pointer in DWORDs */
+ 	psp_write_ptr_reg = (psp_write_ptr_reg + rb_frame_size_dw) % ring_size_dw;
+diff --git a/drivers/gpu/drm/amd/amdgpu/psp_v12_0.c b/drivers/gpu/drm/amd/amdgpu/psp_v12_0.c
+index c72e43f8e0be..8f553f6f92d6 100644
+--- a/drivers/gpu/drm/amd/amdgpu/psp_v12_0.c
++++ b/drivers/gpu/drm/amd/amdgpu/psp_v12_0.c
+@@ -378,6 +378,7 @@ static int psp_v12_0_cmd_submit(struct psp_context *psp,
+ 	write_frame->fence_addr_hi = upper_32_bits(fence_mc_addr);
+ 	write_frame->fence_addr_lo = lower_32_bits(fence_mc_addr);
+ 	write_frame->fence_value = index;
++	amdgpu_asic_flush_hdp(adev, NULL);
+ 
+ 	/* Update the write Pointer in DWORDs */
+ 	psp_write_ptr_reg = (psp_write_ptr_reg + rb_frame_size_dw) % ring_size_dw;
+diff --git a/drivers/gpu/drm/amd/amdgpu/psp_v3_1.c b/drivers/gpu/drm/amd/amdgpu/psp_v3_1.c
+index 4a02058682f5..f652241aa71a 100644
+--- a/drivers/gpu/drm/amd/amdgpu/psp_v3_1.c
++++ b/drivers/gpu/drm/amd/amdgpu/psp_v3_1.c
+@@ -452,6 +452,7 @@ static int psp_v3_1_cmd_submit(struct psp_context *psp,
+ 	write_frame->fence_addr_hi = upper_32_bits(fence_mc_addr);
+ 	write_frame->fence_addr_lo = lower_32_bits(fence_mc_addr);
+ 	write_frame->fence_value = index;
++	amdgpu_asic_flush_hdp(adev, NULL);
+ 
+ 	/* Update the write Pointer in DWORDs */
+ 	psp_write_ptr_reg = (psp_write_ptr_reg + rb_frame_size_dw) % ring_size_dw;
+-- 
+2.17.1
+

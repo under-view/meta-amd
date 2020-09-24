@@ -1,0 +1,37 @@
+From 9b07d278f4fe8327730c3915582b73ce79819acd Mon Sep 17 00:00:00 2001
+From: Jun Lei <Jun.Lei@amd.com>
+Date: Wed, 5 Jun 2019 10:53:40 -0400
+Subject: [PATCH 3023/4256] drm/amd/display: swap system aperture high/low
+
+[why]
+Currently logical values are swapped in HW, causing
+system aperture to be undefined, so VA and PA cannot co-exist
+
+[how]
+program values correctly
+
+Signed-off-by: Jun Lei <Jun.Lei@amd.com>
+Reviewed-by: Yongqiang Sun <yongqiang.sun@amd.com>
+Acked-by: Leo Li <sunpeng.li@amd.com>
+---
+ drivers/gpu/drm/amd/display/dc/dcn20/dcn20_hwseq.c | 4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
+
+diff --git a/drivers/gpu/drm/amd/display/dc/dcn20/dcn20_hwseq.c b/drivers/gpu/drm/amd/display/dc/dcn20/dcn20_hwseq.c
+index 45f9dad95644..8d3bc156de6f 100644
+--- a/drivers/gpu/drm/amd/display/dc/dcn20/dcn20_hwseq.c
++++ b/drivers/gpu/drm/amd/display/dc/dcn20/dcn20_hwseq.c
+@@ -1128,8 +1128,8 @@ void dcn20_enable_plane(
+ 
+ 		apt.sys_default.quad_part = 0;
+ 
+-		apt.sys_high.quad_part = dc->vm_pa_config.system_aperture.start_addr;
+-		apt.sys_low.quad_part = dc->vm_pa_config.system_aperture.end_addr;
++		apt.sys_low.quad_part = dc->vm_pa_config.system_aperture.start_addr;
++		apt.sys_high.quad_part = dc->vm_pa_config.system_aperture.end_addr;
+ 
+ 		// Program system aperture settings
+ 		pipe_ctx->plane_res.hubp->funcs->hubp_set_vm_system_aperture_settings(pipe_ctx->plane_res.hubp, &apt);
+-- 
+2.17.1
+

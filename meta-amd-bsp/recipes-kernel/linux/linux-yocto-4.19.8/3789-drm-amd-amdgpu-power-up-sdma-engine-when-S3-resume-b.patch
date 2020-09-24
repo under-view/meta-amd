@@ -1,0 +1,82 @@
+From 0b4d4b4075020fc18b38964b00456a7ce139b49f Mon Sep 17 00:00:00 2001
+From: Prike Liang <Prike.Liang@amd.com>
+Date: Wed, 11 Sep 2019 13:15:17 +0800
+Subject: [PATCH 3789/4256] drm/amd/amdgpu: power up sdma engine when S3 resume
+ back
+
+The sdma_v4 should be ungated when the IP resume back,
+otherwise it will hang up and resume time out error.
+
+Signed-off-by: Prike Liang <Prike.Liang@amd.com>
+Reviewed-by: Evan Quan <evan.quan@amd.com>
+---
+ drivers/gpu/drm/amd/amdgpu/amdgpu_dpm.c    |  2 +-
+ drivers/gpu/drm/amd/amdgpu/sdma_v4_0.c     | 10 ++++++----
+ drivers/gpu/drm/amd/powerplay/amdgpu_smu.c |  3 +++
+ 3 files changed, 10 insertions(+), 5 deletions(-)
+
+diff --git a/drivers/gpu/drm/amd/amdgpu/amdgpu_dpm.c b/drivers/gpu/drm/amd/amdgpu/amdgpu_dpm.c
+index 357e45fa5711..263265245e19 100644
+--- a/drivers/gpu/drm/amd/amdgpu/amdgpu_dpm.c
++++ b/drivers/gpu/drm/amd/amdgpu/amdgpu_dpm.c
+@@ -951,6 +951,7 @@ int amdgpu_dpm_set_powergating_by_smu(struct amdgpu_device *adev, uint32_t block
+ 	case AMD_IP_BLOCK_TYPE_UVD:
+ 	case AMD_IP_BLOCK_TYPE_VCN:
+ 	case AMD_IP_BLOCK_TYPE_VCE:
++	case AMD_IP_BLOCK_TYPE_SDMA:
+ 		if (swsmu)
+ 			ret = smu_dpm_set_power_gate(&adev->smu, block_type, gate);
+ 		else
+@@ -959,7 +960,6 @@ int amdgpu_dpm_set_powergating_by_smu(struct amdgpu_device *adev, uint32_t block
+ 		break;
+ 	case AMD_IP_BLOCK_TYPE_GMC:
+ 	case AMD_IP_BLOCK_TYPE_ACP:
+-	case AMD_IP_BLOCK_TYPE_SDMA:
+ 		ret = ((adev)->powerplay.pp_funcs->set_powergating_by_smu(
+ 				(adev)->powerplay.pp_handle, block_type, gate));
+ 		break;
+diff --git a/drivers/gpu/drm/amd/amdgpu/sdma_v4_0.c b/drivers/gpu/drm/amd/amdgpu/sdma_v4_0.c
+index 9cf417a76697..06f769acac62 100644
+--- a/drivers/gpu/drm/amd/amdgpu/sdma_v4_0.c
++++ b/drivers/gpu/drm/amd/amdgpu/sdma_v4_0.c
+@@ -1803,8 +1803,9 @@ static int sdma_v4_0_hw_init(void *handle)
+ 	int r;
+ 	struct amdgpu_device *adev = (struct amdgpu_device *)handle;
+ 
+-	if (adev->asic_type == CHIP_RAVEN && adev->powerplay.pp_funcs &&
+-			adev->powerplay.pp_funcs->set_powergating_by_smu)
++	if ((adev->asic_type == CHIP_RAVEN && adev->powerplay.pp_funcs &&
++			adev->powerplay.pp_funcs->set_powergating_by_smu) ||
++			adev->asic_type == CHIP_RENOIR)
+ 		amdgpu_dpm_set_powergating_by_smu(adev, AMD_IP_BLOCK_TYPE_SDMA, false);
+ 
+ 	if (!amdgpu_sriov_vf(adev))
+@@ -1831,8 +1832,9 @@ static int sdma_v4_0_hw_fini(void *handle)
+ 	sdma_v4_0_ctx_switch_enable(adev, false);
+ 	sdma_v4_0_enable(adev, false);
+ 
+-	if (adev->asic_type == CHIP_RAVEN && adev->powerplay.pp_funcs
+-			&& adev->powerplay.pp_funcs->set_powergating_by_smu)
++	if ((adev->asic_type == CHIP_RAVEN && adev->powerplay.pp_funcs
++			&& adev->powerplay.pp_funcs->set_powergating_by_smu) ||
++			adev->asic_type == CHIP_RENOIR)
+ 		amdgpu_dpm_set_powergating_by_smu(adev, AMD_IP_BLOCK_TYPE_SDMA, true);
+ 
+ 	return 0;
+diff --git a/drivers/gpu/drm/amd/powerplay/amdgpu_smu.c b/drivers/gpu/drm/amd/powerplay/amdgpu_smu.c
+index bc11dff37a02..b3025bd0ea88 100644
+--- a/drivers/gpu/drm/amd/powerplay/amdgpu_smu.c
++++ b/drivers/gpu/drm/amd/powerplay/amdgpu_smu.c
+@@ -400,6 +400,9 @@ int smu_dpm_set_power_gate(struct smu_context *smu, uint32_t block_type,
+ 	case AMD_IP_BLOCK_TYPE_GFX:
+ 		ret = smu_gfx_off_control(smu, gate);
+ 		break;
++	case AMD_IP_BLOCK_TYPE_SDMA:
++		ret = smu_powergate_sdma(smu, gate);
++		break;
+ 	default:
+ 		break;
+ 	}
+-- 
+2.17.1
+

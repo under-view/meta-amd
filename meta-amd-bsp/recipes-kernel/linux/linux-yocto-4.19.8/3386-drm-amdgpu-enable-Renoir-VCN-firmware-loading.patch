@@ -1,0 +1,51 @@
+From 5696089579835c373ca6b0df11f5b1fe3fd0f2f9 Mon Sep 17 00:00:00 2001
+From: Leo Liu <leo.liu@amd.com>
+Date: Mon, 15 Jul 2019 09:01:51 -0400
+Subject: [PATCH 3386/4256] drm/amdgpu: enable Renoir VCN firmware loading
+
+By adding new Renoir VCN firmware
+
+Acked-by: Huang Rui <ray.huang@amd.com>
+Signed-off-by: Leo Liu <leo.liu@amd.com>
+Reviewed-by: Alex Deucher <alexander.deucher@amd.com>
+Signed-off-by: Alex Deucher <alexander.deucher@amd.com>
+---
+ drivers/gpu/drm/amd/amdgpu/amdgpu_vcn.c | 8 ++++++++
+ 1 file changed, 8 insertions(+)
+
+diff --git a/drivers/gpu/drm/amd/amdgpu/amdgpu_vcn.c b/drivers/gpu/drm/amd/amdgpu/amdgpu_vcn.c
+index b74f0f679aca..8566a264961f 100644
+--- a/drivers/gpu/drm/amd/amdgpu/amdgpu_vcn.c
++++ b/drivers/gpu/drm/amd/amdgpu/amdgpu_vcn.c
+@@ -46,6 +46,7 @@
+ #define FIRMWARE_PICASSO	"amdgpu/picasso_vcn.bin"
+ #define FIRMWARE_RAVEN2		"amdgpu/raven2_vcn.bin"
+ #define FIRMWARE_ARCTURUS 	"amdgpu/arcturus_vcn.bin"
++#define FIRMWARE_RENOIR 	"amdgpu/renoir_vcn.bin"
+ #define FIRMWARE_NAVI10 	"amdgpu/navi10_vcn.bin"
+ #define FIRMWARE_NAVI14 	"amdgpu/navi14_vcn.bin"
+ #define FIRMWARE_NAVI12 	"amdgpu/navi12_vcn.bin"
+@@ -54,6 +55,7 @@ MODULE_FIRMWARE(FIRMWARE_RAVEN);
+ MODULE_FIRMWARE(FIRMWARE_PICASSO);
+ MODULE_FIRMWARE(FIRMWARE_RAVEN2);
+ MODULE_FIRMWARE(FIRMWARE_ARCTURUS);
++MODULE_FIRMWARE(FIRMWARE_RENOIR);
+ MODULE_FIRMWARE(FIRMWARE_NAVI10);
+ MODULE_FIRMWARE(FIRMWARE_NAVI14);
+ MODULE_FIRMWARE(FIRMWARE_NAVI12);
+@@ -82,6 +84,12 @@ int amdgpu_vcn_sw_init(struct amdgpu_device *adev)
+ 	case CHIP_ARCTURUS:
+ 		fw_name = FIRMWARE_ARCTURUS;
+ 		break;
++	case CHIP_RENOIR:
++		fw_name = FIRMWARE_RENOIR;
++		if ((adev->firmware.load_type == AMDGPU_FW_LOAD_PSP) &&
++		    (adev->pg_flags & AMD_PG_SUPPORT_VCN_DPG))
++			adev->vcn.indirect_sram = true;
++		break;
+ 	case CHIP_NAVI10:
+ 		fw_name = FIRMWARE_NAVI10;
+ 		if ((adev->firmware.load_type == AMDGPU_FW_LOAD_PSP) &&
+-- 
+2.17.1
+

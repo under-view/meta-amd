@@ -1,0 +1,105 @@
+From 64083676a7dd30fec3db9f77cd30b08182aebacf Mon Sep 17 00:00:00 2001
+From: Alex Deucher <alexander.deucher@amd.com>
+Date: Wed, 7 Aug 2019 22:32:46 -0500
+Subject: [PATCH 4098/4256] drm/amdgpu: set TMZ bits in PTEs for secure BO (v4)
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+If a buffer object is secure, i.e. created with
+AMDGPU_GEM_CREATE_ENCRYPTED, then the TMZ bit of
+the PTEs that belong the buffer object should be
+set.
+
+v1: design and draft the skeletion of TMZ bits setting on PTEs (Alex)
+v2: return failure once create secure BO on non-TMZ platform  (Ray)
+v3: amdgpu_bo_encrypted() only checks the BO (Luben)
+v4: move TMZ flag setting into amdgpu_vm_bo_update  (Christian)
+
+Signed-off-by: Alex Deucher <alexander.deucher@amd.com>
+Reviewed-by: Huang Rui <ray.huang@amd.com>
+Signed-off-by: Huang Rui <ray.huang@amd.com>
+Signed-off-by: Luben Tuikov <luben.tuikov@amd.com>
+Reviewed-by: Alex Deucher <alexander.deucher@amd.com>
+Reviewed-by: Christian König <christian.koenig@amd.com>
+---
+ drivers/gpu/drm/amd/amdgpu/amdgpu_gem.c    | 10 ++++++++++
+ drivers/gpu/drm/amd/amdgpu/amdgpu_object.h | 11 +++++++++++
+ drivers/gpu/drm/amd/amdgpu/amdgpu_vm.c     |  4 ++++
+ 3 files changed, 25 insertions(+)
+
+diff --git a/drivers/gpu/drm/amd/amdgpu/amdgpu_gem.c b/drivers/gpu/drm/amd/amdgpu/amdgpu_gem.c
+index 59a1e73f4056..021a5c7d6d38 100644
+--- a/drivers/gpu/drm/amd/amdgpu/amdgpu_gem.c
++++ b/drivers/gpu/drm/amd/amdgpu/amdgpu_gem.c
+@@ -253,6 +253,7 @@ int amdgpu_gem_create_ioctl(struct drm_device *dev, void *data,
+ 		      AMDGPU_GEM_CREATE_VRAM_CLEARED |
+ 		      AMDGPU_GEM_CREATE_VM_ALWAYS_VALID |
+ 		      AMDGPU_GEM_CREATE_EXPLICIT_SYNC |
++		      AMDGPU_GEM_CREATE_ENCRYPTED |
+ 		      AMDGPU_GEM_CREATE_NO_EVICT))
+ 
+ 		return -EINVAL;
+@@ -261,6 +262,11 @@ int amdgpu_gem_create_ioctl(struct drm_device *dev, void *data,
+ 	if (args->in.domains & ~AMDGPU_GEM_DOMAIN_MASK)
+ 		return -EINVAL;
+ 
++	if (!adev->tmz.enabled && (flags & AMDGPU_GEM_CREATE_ENCRYPTED)) {
++		DRM_ERROR("Cannot allocate secure buffer while tmz is disabled\n");
++		return -EINVAL;
++	}
++
+ 	/* create a gem object to contain this object in */
+ 	if (args->in.domains & (AMDGPU_GEM_DOMAIN_GDS |
+ 	    AMDGPU_GEM_DOMAIN_GWS | AMDGPU_GEM_DOMAIN_OA)) {
+@@ -282,6 +288,10 @@ int amdgpu_gem_create_ioctl(struct drm_device *dev, void *data,
+ 		resv = vm->root.base.bo->tbo.resv;
+ 	}
+ 
++	if (flags & AMDGPU_GEM_CREATE_ENCRYPTED) {
++		/* XXX: pad out alignment to meet TMZ requirements */
++	}
++
+ 	r = amdgpu_gem_object_create(adev, size, args->in.alignment,
+ 				     (u32)(0xffffffff & args->in.domains),
+ 				     flags, ttm_bo_type_device, resv, &gobj);
+diff --git a/drivers/gpu/drm/amd/amdgpu/amdgpu_object.h b/drivers/gpu/drm/amd/amdgpu/amdgpu_object.h
+index 57f41bed2898..38a6ba7ad9be 100644
+--- a/drivers/gpu/drm/amd/amdgpu/amdgpu_object.h
++++ b/drivers/gpu/drm/amd/amdgpu/amdgpu_object.h
+@@ -229,6 +229,17 @@ static inline bool amdgpu_bo_explicit_sync(struct amdgpu_bo *bo)
+ 	return bo->flags & AMDGPU_GEM_CREATE_EXPLICIT_SYNC;
+ }
+ 
++/**
++ * amdgpu_bo_encrypted - test if the BO is encrypted
++ * @bo: pointer to a buffer object
++ *
++ * Return true if the buffer object is encrypted, false otherwise.
++ */
++static inline bool amdgpu_bo_encrypted(struct amdgpu_bo *bo)
++{
++	return bo->flags & AMDGPU_GEM_CREATE_ENCRYPTED;
++}
++
+ bool amdgpu_bo_is_amdgpu_bo(struct ttm_buffer_object *bo);
+ void amdgpu_bo_placement_from_domain(struct amdgpu_bo *abo, u32 domain);
+ 
+diff --git a/drivers/gpu/drm/amd/amdgpu/amdgpu_vm.c b/drivers/gpu/drm/amd/amdgpu/amdgpu_vm.c
+index af4fda196c7d..c970824b041d 100644
+--- a/drivers/gpu/drm/amd/amdgpu/amdgpu_vm.c
++++ b/drivers/gpu/drm/amd/amdgpu/amdgpu_vm.c
+@@ -1718,6 +1718,10 @@ int amdgpu_vm_bo_update(struct amdgpu_device *adev, struct amdgpu_bo_va *bo_va,
+ 
+ 	if (bo) {
+ 		flags = amdgpu_ttm_tt_pte_flags(adev, bo->tbo.ttm, mem);
++
++		if (amdgpu_bo_encrypted(bo))
++			flags |= AMDGPU_PTE_TMZ;
++
+ 		bo_adev = amdgpu_ttm_adev(bo->tbo.bdev);
+ 	} else {
+ 		flags = 0x0;
+-- 
+2.17.1
+

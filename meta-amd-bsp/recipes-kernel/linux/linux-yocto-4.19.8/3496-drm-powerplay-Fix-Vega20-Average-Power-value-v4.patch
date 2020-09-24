@@ -1,0 +1,68 @@
+From 62aa9820cac841649f67624a387420b8471f42d2 Mon Sep 17 00:00:00 2001
+From: Kent Russell <kent.russell@amd.com>
+Date: Thu, 22 Aug 2019 08:17:40 -0400
+Subject: [PATCH 3496/4256] drm/powerplay: Fix Vega20 Average Power value v4
+
+The SMU changed reading from CurrSocketPower to AverageSocketPower, so
+reflect this accordingly. This fixes the issue where Average Power
+Consumption was being reported as 0 from SMU 40.46-onward
+
+v2: Fixed headline prefix
+v3: Add check for SMU version for proper compatibility
+v4: Style fix
+
+Change-Id: I471f93316820f1401cb497eefe29da68376a4bb9
+Signed-off-by: Kent Russell <kent.russell@amd.com>
+Reviewed-by: Alex Deucher <alexander.deucher@amd.com>
+---
+ drivers/gpu/drm/amd/powerplay/hwmgr/vega20_hwmgr.c |  5 ++++-
+ drivers/gpu/drm/amd/powerplay/vega20_ppt.c         | 10 +++++++++-
+ 2 files changed, 13 insertions(+), 2 deletions(-)
+
+diff --git a/drivers/gpu/drm/amd/powerplay/hwmgr/vega20_hwmgr.c b/drivers/gpu/drm/amd/powerplay/hwmgr/vega20_hwmgr.c
+index 0516c294b377..9f50a12f5c03 100644
+--- a/drivers/gpu/drm/amd/powerplay/hwmgr/vega20_hwmgr.c
++++ b/drivers/gpu/drm/amd/powerplay/hwmgr/vega20_hwmgr.c
+@@ -2101,7 +2101,10 @@ static int vega20_get_gpu_power(struct pp_hwmgr *hwmgr,
+ 	if (ret)
+ 		return ret;
+ 
+-	*query = metrics_table.CurrSocketPower << 8;
++	if (hwmgr->smu_version < 0x282e00)
++		*query = metrics_table.CurrSocketPower << 8;
++	else
++		*query = metrics_table.AverageSocketPower << 8;
+ 
+ 	return ret;
+ }
+diff --git a/drivers/gpu/drm/amd/powerplay/vega20_ppt.c b/drivers/gpu/drm/amd/powerplay/vega20_ppt.c
+index e14363182691..0fac824490d7 100644
+--- a/drivers/gpu/drm/amd/powerplay/vega20_ppt.c
++++ b/drivers/gpu/drm/amd/powerplay/vega20_ppt.c
+@@ -2917,6 +2917,7 @@ static int vega20_get_fan_speed_percent(struct smu_context *smu,
+ 
+ static int vega20_get_gpu_power(struct smu_context *smu, uint32_t *value)
+ {
++	uint32_t smu_version;
+ 	int ret = 0;
+ 	SmuMetrics_t metrics;
+ 
+@@ -2927,7 +2928,14 @@ static int vega20_get_gpu_power(struct smu_context *smu, uint32_t *value)
+ 	if (ret)
+ 		return ret;
+ 
+-	*value = metrics.CurrSocketPower << 8;
++	ret = smu_get_smc_version(smu, NULL, &smu_version);
++	if (ret)
++		return ret;
++
++	if (smu_version < 0x282e00)
++		*value = metrics.CurrSocketPower << 8;
++	else
++		*value = metrics.AverageSocketPower << 8;
+ 
+ 	return 0;
+ }
+-- 
+2.17.1
+
