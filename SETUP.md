@@ -43,11 +43,11 @@ git clone --single-branch --branch "${YOCTO_BRANCH}" \
 
 Checkout commit hashes:
 ```sh
-git checkout --quiet 2be7ce47d6919df1074e543924db8e4f7101d6b8
+git checkout --quiet tags/yocto-3.1.2
 cd meta-openembedded
-git checkout --quiet a62ad77973b16daac1cbaa03cbda3c6b9b91f2ff
+git checkout --quiet 144077083457ccb75700777d5e6b1da9aaff01aa
 cd ../meta-dpdk
-git checkout --quiet 2b077a7ece9b4f2b9c5b3586149b4eef0e383e3e
+git checkout --quiet 4fa8669a413f96d6df4358b4d70f563baa272e69
 cd ../meta-amd
 git checkout --quiet HEAD
 cd ..
