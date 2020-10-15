@@ -7,7 +7,7 @@ PREFERRED_VERSION_grub-efi ?= "2.02"
 PREFERRED_VERSION_grub ?= "2.02"
 PREFERRED_PROVIDER_jpeg ?= "jpeg"
 PREFERRED_PROVIDER_jpeg-native ?= "jpeg-native"
-PREFERRED_VERSION_linux-yocto ?= "4.14%"
+PREFERRED_VERSION_linux-yocto ?= "4.19%"
 PREFERRED_VERSION_libav ?= "9.18"
 PREFERRED_PROVIDER_llvm ?= "llvm9.0.0"
 
