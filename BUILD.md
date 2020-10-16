@@ -7,9 +7,8 @@ a selected AMD BSP, and will start a build:
 
 ### 2.1. Select a BSP
 
-Set the environment variable `MACHINE` to one of the
-supported AMD BSPs (i.e. `r1000`, `v1000` or `e3000`) that you want to
-build for (change the `<machine-name>` in the following example
+Set the environment variable `MACHINE` to the `e3000` bsp that you want
+to build an image for (change the `<machine-name>` in the following example
 accordingly):
 ```sh
 MACHINE="<machine-name>"

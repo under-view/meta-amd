@@ -1,7 +1,7 @@
 # meta-amd/meta-amd-bsp
 
-This layer contains metadata that is appropriate for all
-AMD-based platforms.
+This layer contains metadata that is applicable to all the supported
+AMD platforms.
 
 Settings in this layer should use appropriate variable suffixes
 to ensure they only apply to expected boards.
@@ -10,8 +10,6 @@ to ensure they only apply to expected boards.
 
 The supported AMD BSPs are:
 
-* r1000
-* v1000
 * e3000
 
 Please see the README file contained in the root meta-amd directory

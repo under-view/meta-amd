@@ -7,8 +7,7 @@ and [Yocto Project Quick Build Guide](https://www.yoctoproject.org/docs/3.0.4/br
 if you are not familiar with the Yocto Project and it's Build System.
 
 Running the following commands will setup the build system and will
-enable us to build recipes & images for any of the
-supported AMD BSPs (i.e `r1000`, `v1000` or `e3000`).
+enable us to build recipes & images for the `e3000` bsp.
 
 ### 1.1 Prerequisites
 
