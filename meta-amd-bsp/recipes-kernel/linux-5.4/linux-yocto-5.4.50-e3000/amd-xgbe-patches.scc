@@ -1,0 +1,3 @@
+patch 0001-amd-xgbe-Fix-for-Network-fluctuations-observed-with-.patch
+patch 0002-amd-xgbe-fix-for-the-crash-which-happens-during-SFP-.patch
+patch 0003-amd-xgbe-Fix-NETDEV-WATCHDOG-transmit-queue-timed-ou.patch

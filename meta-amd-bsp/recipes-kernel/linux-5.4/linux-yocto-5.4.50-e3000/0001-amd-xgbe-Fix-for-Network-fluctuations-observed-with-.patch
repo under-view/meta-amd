@@ -1,0 +1,37 @@
+From fd13d5c5856941aa4a69d614541c28e221963bd1 Mon Sep 17 00:00:00 2001
+From: Sudheesh Mavila <sudheesh.mavila@amd.com>
+Date: Mon, 19 Oct 2020 16:06:24 +0530
+Subject: [PATCH 1/3] amd-xgbe Fix for Network fluctuations observed with 1G 
+ BEL SFP
+
+Signed-off-by: Sudheesh Mavila <sudheesh.mavila@amd.com>
+---
+ drivers/net/ethernet/amd/xgbe/xgbe-phy-v2.c | 12 ++++++++++++
+ 1 file changed, 12 insertions(+)
+
+diff --git a/drivers/net/ethernet/amd/xgbe/xgbe-phy-v2.c b/drivers/net/ethernet/amd/xgbe/xgbe-phy-v2.c
+index 128cd648ba99..9e03423bf172 100644
+--- a/drivers/net/ethernet/amd/xgbe/xgbe-phy-v2.c
++++ b/drivers/net/ethernet/amd/xgbe/xgbe-phy-v2.c
+@@ -1045,6 +1045,18 @@ static int xgbe_phy_find_phy_device(struct xgbe_prv_data *pdata)
+ 	}
+ 	phy_data->phydev = phydev;
+ 
++	switch (phy_data->port_mode) {
++	case XGBE_PORT_MODE_SFP:
++		/*  reset the sfp phy  EMBDEV-8951 */
++		if(phydev)
++			genphy_soft_reset(phydev);
++		else
++			netdev_err(pdata->netdev, "phy reset failed\n");
++		break;
++	default:
++		break;
++	}
++
+ 	xgbe_phy_external_phy_quirks(pdata);
+ 
+ 	linkmode_and(phydev->advertising, phydev->advertising,
+-- 
+2.17.1
+
