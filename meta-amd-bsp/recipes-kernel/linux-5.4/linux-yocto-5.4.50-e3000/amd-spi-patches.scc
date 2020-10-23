@@ -1,0 +1,9 @@
+patch 0001-spi-spi-amd-Add-AMD-SPI-controller-driver-support.patch
+patch 0002-spi-spi-amd-fix-warning.patch
+patch 0003-spi-spi-amd-Fix-a-NULL-vs-IS_ERR-check-in-amd_spi_pr.patch
+patch 0004-spi-amd-Fix-duplicate-iounmap-in-error-path.patch
+patch 0005-spi-amd-Pass-probe-errors-back-to-driver-core.patch
+patch 0006-spi-amd-Drop-duplicate-driver-data-assignments.patch
+patch 0007-spi-amd-Fix-refcount-underflow-on-remove.patch
+patch 0008-spi-amd-Drop-superfluous-member-from-struct-amd_spi.patch
+patch 0009-spi-spidev-Add-dummy-spidev-device-to-SPI-bus.patch
