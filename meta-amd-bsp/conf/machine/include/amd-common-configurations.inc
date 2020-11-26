@@ -42,4 +42,4 @@ APPEND += "${APPEND_ADDITIONAL}"
 EXTRA_OECONF_append_pn-matchbox-panel-2 = " --with-battery=acpi"
 
 # Add common feartures to be supported for all machines here
-EXTRA_IMAGE_FEATURES += "amd-misc-pkgs"
+EXTRA_IMAGE_FEATURES += "amd-misc-pkgs nfs-server nfs-client"
