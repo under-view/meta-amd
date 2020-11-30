@@ -1,0 +1,558 @@
+From 5af940fe2cf7deec76f95df7237384188461fc5a Mon Sep 17 00:00:00 2001
+From: "Arsalan H. Awan" <Arsalan_Awan@mentor.com>
+Date: Mon, 30 Nov 2020 19:36:34 +0500
+Subject: [PATCH 1/4] Update for kernel 5.7: use vmalloc_sync_mappings on
+ kernels >= 5.7
+
+Signed-off-by: Mathieu Desnoyers <mathieu.desnoyers@efficios.com>
+Backported-from: 263b6c88138c3354d63dba3c70a965de94becd22
+Signed-off-by: Arsalan H. Awan <Arsalan_Awan@mentor.com>
+---
+ lib/ringbuffer/ring_buffer_backend.c |  4 +--
+ lttng-abi.c                          |  4 +--
+ lttng-context-cpu-id.c               |  2 +-
+ lttng-context-hostname.c             |  2 +-
+ lttng-context-interruptible.c        |  2 +-
+ lttng-context-migratable.c           |  2 +-
+ lttng-context-need-reschedule.c      |  2 +-
+ lttng-context-nice.c                 |  2 +-
+ lttng-context-perf-counters.c        |  2 +-
+ lttng-context-pid.c                  |  2 +-
+ lttng-context-ppid.c                 |  2 +-
+ lttng-context-preemptible.c          |  2 +-
+ lttng-context-prio.c                 |  2 +-
+ lttng-context-procname.c             |  2 +-
+ lttng-context-tid.c                  |  2 +-
+ lttng-context-vpid.c                 |  2 +-
+ lttng-context-vppid.c                |  2 +-
+ lttng-context-vtid.c                 |  2 +-
+ lttng-context.c                      |  2 +-
+ lttng-events.c                       | 10 +++---
+ lttng-ring-buffer-client.h           |  4 +--
+ lttng-ring-buffer-metadata-client.h  |  4 +--
+ lttng-syscalls.c                     |  2 +-
+ probes/lttng-kprobes.c               |  2 +-
+ probes/lttng-kretprobes.c            |  2 +-
+ probes/lttng-tracepoint-event-impl.h |  4 +--
+ probes/lttng.c                       |  2 +-
+ tests/probes/lttng-test.c            |  2 +-
+ wrapper/vmalloc.h                    | 49 ++++++++++++++++++++++++++--
+ 29 files changed, 83 insertions(+), 40 deletions(-)
+
+diff --git a/lib/ringbuffer/ring_buffer_backend.c b/lib/ringbuffer/ring_buffer_backend.c
+index d430f71c..427804ce 100644
+--- a/lib/ringbuffer/ring_buffer_backend.c
++++ b/lib/ringbuffer/ring_buffer_backend.c
+@@ -30,7 +30,7 @@
+ #include <linux/vmalloc.h>
+ 
+ #include <wrapper/mm.h>
+-#include <wrapper/vmalloc.h>	/* for wrapper_vmalloc_sync_all() */
++#include <wrapper/vmalloc.h>	/* for wrapper_vmalloc_sync_mappings() */
+ #include <wrapper/ringbuffer/config.h>
+ #include <wrapper/ringbuffer/backend.h>
+ #include <wrapper/ringbuffer/frontend.h>
+@@ -169,7 +169,7 @@ int lib_ring_buffer_backend_allocate(const struct lib_ring_buffer_config *config
+ 	 * If kmalloc ever uses vmalloc underneath, make sure the buffer pages
+ 	 * will not fault.
+ 	 */
+-	wrapper_vmalloc_sync_all();
++	wrapper_vmalloc_sync_mappings();
+ 	wrapper_clear_current_oom_origin();
+ 	vfree(pages);
+ 	return 0;
+diff --git a/lttng-abi.c b/lttng-abi.c
+index 811becf6..aff4a237 100644
+--- a/lttng-abi.c
++++ b/lttng-abi.c
+@@ -44,7 +44,7 @@
+ #include <linux/uaccess.h>
+ #include <linux/slab.h>
+ #include <linux/err.h>
+-#include <wrapper/vmalloc.h>	/* for wrapper_vmalloc_sync_all() */
++#include <wrapper/vmalloc.h>	/* for wrapper_vmalloc_sync_mappings() */
+ #include <wrapper/ringbuffer/vfs.h>
+ #include <wrapper/ringbuffer/backend.h>
+ #include <wrapper/ringbuffer/frontend.h>
+@@ -1732,7 +1732,7 @@ int __init lttng_abi_init(void)
+ {
+ 	int ret = 0;
+ 
+-	wrapper_vmalloc_sync_all();
++	wrapper_vmalloc_sync_mappings();
+ 	lttng_clock_ref();
+ 
+ 	ret = lttng_tp_mempool_init();
+diff --git a/lttng-context-cpu-id.c b/lttng-context-cpu-id.c
+index f2bab8fe..a34f96bc 100644
+--- a/lttng-context-cpu-id.c
++++ b/lttng-context-cpu-id.c
+@@ -81,7 +81,7 @@ int lttng_add_cpu_id_to_ctx(struct lttng_ctx **ctx)
+ 	field->record = cpu_id_record;
+ 	field->get_value = cpu_id_get_value;
+ 	lttng_context_update(*ctx);
+-	wrapper_vmalloc_sync_all();
++	wrapper_vmalloc_sync_mappings();
+ 	return 0;
+ }
+ EXPORT_SYMBOL_GPL(lttng_add_cpu_id_to_ctx);
+diff --git a/lttng-context-hostname.c b/lttng-context-hostname.c
+index 791fed46..e151cc6f 100644
+--- a/lttng-context-hostname.c
++++ b/lttng-context-hostname.c
+@@ -114,7 +114,7 @@ int lttng_add_hostname_to_ctx(struct lttng_ctx **ctx)
+ 	field->record = hostname_record;
+ 	field->get_value = hostname_get_value;
+ 	lttng_context_update(*ctx);
+-	wrapper_vmalloc_sync_all();
++	wrapper_vmalloc_sync_mappings();
+ 	return 0;
+ }
+ EXPORT_SYMBOL_GPL(lttng_add_hostname_to_ctx);
+diff --git a/lttng-context-interruptible.c b/lttng-context-interruptible.c
+index 8966fa95..0098f990 100644
+--- a/lttng-context-interruptible.c
++++ b/lttng-context-interruptible.c
+@@ -88,7 +88,7 @@ int lttng_add_interruptible_to_ctx(struct lttng_ctx **ctx)
+ 	field->record = interruptible_record;
+ 	field->get_value = interruptible_get_value;
+ 	lttng_context_update(*ctx);
+-	wrapper_vmalloc_sync_all();
++	wrapper_vmalloc_sync_mappings();
+ 	return 0;
+ }
+ EXPORT_SYMBOL_GPL(lttng_add_interruptible_to_ctx);
+diff --git a/lttng-context-migratable.c b/lttng-context-migratable.c
+index c8861959..f134c517 100644
+--- a/lttng-context-migratable.c
++++ b/lttng-context-migratable.c
+@@ -81,7 +81,7 @@ int lttng_add_migratable_to_ctx(struct lttng_ctx **ctx)
+ 	field->record = migratable_record;
+ 	field->get_value = migratable_get_value;
+ 	lttng_context_update(*ctx);
+-	wrapper_vmalloc_sync_all();
++	wrapper_vmalloc_sync_mappings();
+ 	return 0;
+ }
+ EXPORT_SYMBOL_GPL(lttng_add_migratable_to_ctx);
+diff --git a/lttng-context-need-reschedule.c b/lttng-context-need-reschedule.c
+index 987d917e..b4a8978c 100644
+--- a/lttng-context-need-reschedule.c
++++ b/lttng-context-need-reschedule.c
+@@ -81,7 +81,7 @@ int lttng_add_need_reschedule_to_ctx(struct lttng_ctx **ctx)
+ 	field->record = need_reschedule_record;
+ 	field->get_value = need_reschedule_get_value;
+ 	lttng_context_update(*ctx);
+-	wrapper_vmalloc_sync_all();
++	wrapper_vmalloc_sync_mappings();
+ 	return 0;
+ }
+ EXPORT_SYMBOL_GPL(lttng_add_need_reschedule_to_ctx);
+diff --git a/lttng-context-nice.c b/lttng-context-nice.c
+index a8823c42..442259bd 100644
+--- a/lttng-context-nice.c
++++ b/lttng-context-nice.c
+@@ -81,7 +81,7 @@ int lttng_add_nice_to_ctx(struct lttng_ctx **ctx)
+ 	field->record = nice_record;
+ 	field->get_value = nice_get_value;
+ 	lttng_context_update(*ctx);
+-	wrapper_vmalloc_sync_all();
++	wrapper_vmalloc_sync_mappings();
+ 	return 0;
+ }
+ EXPORT_SYMBOL_GPL(lttng_add_nice_to_ctx);
+diff --git a/lttng-context-perf-counters.c b/lttng-context-perf-counters.c
+index 260e5d0d..04be692a 100644
+--- a/lttng-context-perf-counters.c
++++ b/lttng-context-perf-counters.c
+@@ -334,7 +334,7 @@ int lttng_add_perf_counter_to_ctx(uint32_t type,
+ 	field->u.perf_counter = perf_field;
+ 	lttng_context_update(*ctx);
+ 
+-	wrapper_vmalloc_sync_all();
++	wrapper_vmalloc_sync_mappings();
+ 	return 0;
+ 
+ #if (LINUX_VERSION_CODE >= KERNEL_VERSION(4,10,0))
+diff --git a/lttng-context-pid.c b/lttng-context-pid.c
+index 4cff3076..2703ea1b 100644
+--- a/lttng-context-pid.c
++++ b/lttng-context-pid.c
+@@ -81,7 +81,7 @@ int lttng_add_pid_to_ctx(struct lttng_ctx **ctx)
+ 	field->record = pid_record;
+ 	field->get_value = pid_get_value;
+ 	lttng_context_update(*ctx);
+-	wrapper_vmalloc_sync_all();
++	wrapper_vmalloc_sync_mappings();
+ 	return 0;
+ }
+ EXPORT_SYMBOL_GPL(lttng_add_pid_to_ctx);
+diff --git a/lttng-context-ppid.c b/lttng-context-ppid.c
+index 8b7c8ed7..e8d17091 100644
+--- a/lttng-context-ppid.c
++++ b/lttng-context-ppid.c
+@@ -103,7 +103,7 @@ int lttng_add_ppid_to_ctx(struct lttng_ctx **ctx)
+ 	field->record = ppid_record;
+ 	field->get_value = ppid_get_value;
+ 	lttng_context_update(*ctx);
+-	wrapper_vmalloc_sync_all();
++	wrapper_vmalloc_sync_mappings();
+ 	return 0;
+ }
+ EXPORT_SYMBOL_GPL(lttng_add_ppid_to_ctx);
+diff --git a/lttng-context-preemptible.c b/lttng-context-preemptible.c
+index c8421045..074697ed 100644
+--- a/lttng-context-preemptible.c
++++ b/lttng-context-preemptible.c
+@@ -99,7 +99,7 @@ int lttng_add_preemptible_to_ctx(struct lttng_ctx **ctx)
+ 	field->record = preemptible_record;
+ 	field->get_value = preemptible_get_value;
+ 	lttng_context_update(*ctx);
+-	wrapper_vmalloc_sync_all();
++	wrapper_vmalloc_sync_mappings();
+ 	return 0;
+ }
+ EXPORT_SYMBOL_GPL(lttng_add_preemptible_to_ctx);
+diff --git a/lttng-context-prio.c b/lttng-context-prio.c
+index 8a0839cf..cc5d0ec7 100644
+--- a/lttng-context-prio.c
++++ b/lttng-context-prio.c
+@@ -102,7 +102,7 @@ int lttng_add_prio_to_ctx(struct lttng_ctx **ctx)
+ 	field->record = prio_record;
+ 	field->get_value = prio_get_value;
+ 	lttng_context_update(*ctx);
+-	wrapper_vmalloc_sync_all();
++	wrapper_vmalloc_sync_mappings();
+ 	return 0;
+ }
+ EXPORT_SYMBOL_GPL(lttng_add_prio_to_ctx);
+diff --git a/lttng-context-procname.c b/lttng-context-procname.c
+index f0b9d975..33b1ce5e 100644
+--- a/lttng-context-procname.c
++++ b/lttng-context-procname.c
+@@ -85,7 +85,7 @@ int lttng_add_procname_to_ctx(struct lttng_ctx **ctx)
+ 	field->record = procname_record;
+ 	field->get_value = procname_get_value;
+ 	lttng_context_update(*ctx);
+-	wrapper_vmalloc_sync_all();
++	wrapper_vmalloc_sync_mappings();
+ 	return 0;
+ }
+ EXPORT_SYMBOL_GPL(lttng_add_procname_to_ctx);
+diff --git a/lttng-context-tid.c b/lttng-context-tid.c
+index 913c6d5b..c4e15e44 100644
+--- a/lttng-context-tid.c
++++ b/lttng-context-tid.c
+@@ -84,7 +84,7 @@ int lttng_add_tid_to_ctx(struct lttng_ctx **ctx)
+ 	field->record = tid_record;
+ 	field->get_value = tid_get_value;
+ 	lttng_context_update(*ctx);
+-	wrapper_vmalloc_sync_all();
++	wrapper_vmalloc_sync_mappings();
+ 	return 0;
+ }
+ EXPORT_SYMBOL_GPL(lttng_add_tid_to_ctx);
+diff --git a/lttng-context-vpid.c b/lttng-context-vpid.c
+index 48236659..7de85678 100644
+--- a/lttng-context-vpid.c
++++ b/lttng-context-vpid.c
+@@ -96,7 +96,7 @@ int lttng_add_vpid_to_ctx(struct lttng_ctx **ctx)
+ 	field->record = vpid_record;
+ 	field->get_value = vpid_get_value;
+ 	lttng_context_update(*ctx);
+-	wrapper_vmalloc_sync_all();
++	wrapper_vmalloc_sync_mappings();
+ 	return 0;
+ }
+ EXPORT_SYMBOL_GPL(lttng_add_vpid_to_ctx);
+diff --git a/lttng-context-vppid.c b/lttng-context-vppid.c
+index cb5c050e..85741944 100644
+--- a/lttng-context-vppid.c
++++ b/lttng-context-vppid.c
+@@ -125,7 +125,7 @@ int lttng_add_vppid_to_ctx(struct lttng_ctx **ctx)
+ 	field->record = vppid_record;
+ 	field->get_value = vppid_get_value;
+ 	lttng_context_update(*ctx);
+-	wrapper_vmalloc_sync_all();
++	wrapper_vmalloc_sync_mappings();
+ 	return 0;
+ }
+ EXPORT_SYMBOL_GPL(lttng_add_vppid_to_ctx);
+diff --git a/lttng-context-vtid.c b/lttng-context-vtid.c
+index ddc29e6e..7e6b5744 100644
+--- a/lttng-context-vtid.c
++++ b/lttng-context-vtid.c
+@@ -96,7 +96,7 @@ int lttng_add_vtid_to_ctx(struct lttng_ctx **ctx)
+ 	field->record = vtid_record;
+ 	field->get_value = vtid_get_value;
+ 	lttng_context_update(*ctx);
+-	wrapper_vmalloc_sync_all();
++	wrapper_vmalloc_sync_mappings();
+ 	return 0;
+ }
+ EXPORT_SYMBOL_GPL(lttng_add_vtid_to_ctx);
+diff --git a/lttng-context.c b/lttng-context.c
+index 544e95f8..dfec42c6 100644
+--- a/lttng-context.c
++++ b/lttng-context.c
+@@ -24,7 +24,7 @@
+ #include <linux/list.h>
+ #include <linux/mutex.h>
+ #include <linux/slab.h>
+-#include <wrapper/vmalloc.h>	/* for wrapper_vmalloc_sync_all() */
++#include <wrapper/vmalloc.h>	/* for wrapper_vmalloc_sync_mappings() */
+ #include <lttng-events.h>
+ #include <lttng-tracer.h>
+ 
+diff --git a/lttng-events.c b/lttng-events.c
+index 3d0ef984..0078aaa9 100644
+--- a/lttng-events.c
++++ b/lttng-events.c
+@@ -42,7 +42,7 @@
+ #include <linux/vmalloc.h>
+ 
+ #include <wrapper/uuid.h>
+-#include <wrapper/vmalloc.h>	/* for wrapper_vmalloc_sync_all() */
++#include <wrapper/vmalloc.h>	/* for wrapper_vmalloc_sync_mappings() */
+ #include <wrapper/random.h>
+ #include <wrapper/tracepoint.h>
+ #include <wrapper/list.h>
+@@ -2631,9 +2631,9 @@ end:
+  * Registers a transport which can be used as output to extract the data out of
+  * LTTng. The module calling this registration function must ensure that no
+  * trap-inducing code will be executed by the transport functions. E.g.
+- * vmalloc_sync_all() must be called between a vmalloc and the moment the memory
++ * vmalloc_sync_mappings() must be called between a vmalloc and the moment the memory
+  * is made visible to the transport function. This registration acts as a
+- * vmalloc_sync_all. Therefore, only if the module allocates virtual memory
++ * vmalloc_sync_mappings. Therefore, only if the module allocates virtual memory
+  * after its registration must it synchronize the TLBs.
+  */
+ void lttng_transport_register(struct lttng_transport *transport)
+@@ -2641,9 +2641,9 @@ void lttng_transport_register(struct lttng_transport *transport)
+ 	/*
+ 	 * Make sure no page fault can be triggered by the module about to be
+ 	 * registered. We deal with this here so we don't have to call
+-	 * vmalloc_sync_all() in each module's init.
++	 * vmalloc_sync_mappings() in each module's init.
+ 	 */
+-	wrapper_vmalloc_sync_all();
++	wrapper_vmalloc_sync_mappings();
+ 
+ 	mutex_lock(&sessions_mutex);
+ 	list_add_tail(&transport->node, &lttng_transport_list);
+diff --git a/lttng-ring-buffer-client.h b/lttng-ring-buffer-client.h
+index 8916ab02..10d9cd3e 100644
+--- a/lttng-ring-buffer-client.h
++++ b/lttng-ring-buffer-client.h
+@@ -23,7 +23,7 @@
+ #include <linux/module.h>
+ #include <linux/types.h>
+ #include <lib/bitfield.h>
+-#include <wrapper/vmalloc.h>	/* for wrapper_vmalloc_sync_all() */
++#include <wrapper/vmalloc.h>	/* for wrapper_vmalloc_sync_mappings() */
+ #include <wrapper/trace-clock.h>
+ #include <lttng-events.h>
+ #include <lttng-tracer.h>
+@@ -744,7 +744,7 @@ static int __init lttng_ring_buffer_client_init(void)
+ 	 * This vmalloc sync all also takes care of the lib ring buffer
+ 	 * vmalloc'd module pages when it is built as a module into LTTng.
+ 	 */
+-	wrapper_vmalloc_sync_all();
++	wrapper_vmalloc_sync_mappings();
+ 	lttng_transport_register(&lttng_relay_transport);
+ 	return 0;
+ }
+diff --git a/lttng-ring-buffer-metadata-client.h b/lttng-ring-buffer-metadata-client.h
+index b2c0c821..193ddf98 100644
+--- a/lttng-ring-buffer-metadata-client.h
++++ b/lttng-ring-buffer-metadata-client.h
+@@ -22,7 +22,7 @@
+ 
+ #include <linux/module.h>
+ #include <linux/types.h>
+-#include <wrapper/vmalloc.h>	/* for wrapper_vmalloc_sync_all() */
++#include <wrapper/vmalloc.h>	/* for wrapper_vmalloc_sync_mappings() */
+ #include <lttng-events.h>
+ #include <lttng-tracer.h>
+ 
+@@ -439,7 +439,7 @@ static int __init lttng_ring_buffer_client_init(void)
+ 	 * This vmalloc sync all also takes care of the lib ring buffer
+ 	 * vmalloc'd module pages when it is built as a module into LTTng.
+ 	 */
+-	wrapper_vmalloc_sync_all();
++	wrapper_vmalloc_sync_mappings();
+ 	lttng_transport_register(&lttng_relay_transport);
+ 	return 0;
+ }
+diff --git a/lttng-syscalls.c b/lttng-syscalls.c
+index b8a3eac4..4f73af87 100644
+--- a/lttng-syscalls.c
++++ b/lttng-syscalls.c
+@@ -773,7 +773,7 @@ int lttng_syscalls_register(struct lttng_channel *chan, void *filter)
+ 	struct lttng_kernel_event ev;
+ 	int ret;
+ 
+-	wrapper_vmalloc_sync_all();
++	wrapper_vmalloc_sync_mappings();
+ 
+ 	if (!chan->sc_table) {
+ 		/* create syscall table mapping syscall to events */
+diff --git a/probes/lttng-kprobes.c b/probes/lttng-kprobes.c
+index 6d2038e7..7bbbfbd2 100644
+--- a/probes/lttng-kprobes.c
++++ b/probes/lttng-kprobes.c
+@@ -145,7 +145,7 @@ int lttng_kprobes_register(const char *name,
+ 	 * Well.. kprobes itself puts the page fault handler on the blacklist,
+ 	 * but we can never be too careful.
+ 	 */
+-	wrapper_vmalloc_sync_all();
++	wrapper_vmalloc_sync_mappings();
+ 
+ 	ret = register_kprobe(&event->u.kprobe.kp);
+ 	if (ret)
+diff --git a/probes/lttng-kretprobes.c b/probes/lttng-kretprobes.c
+index 307e6777..1c4a09e9 100644
+--- a/probes/lttng-kretprobes.c
++++ b/probes/lttng-kretprobes.c
+@@ -234,7 +234,7 @@ int lttng_kretprobes_register(const char *name,
+ 	 * Well.. kprobes itself puts the page fault handler on the blacklist,
+ 	 * but we can never be too careful.
+ 	 */
+-	wrapper_vmalloc_sync_all();
++	wrapper_vmalloc_sync_mappings();
+ 
+ 	ret = register_kretprobe(&lttng_krp->krp);
+ 	if (ret)
+diff --git a/probes/lttng-tracepoint-event-impl.h b/probes/lttng-tracepoint-event-impl.h
+index 97f0b3db..3d60fa56 100644
+--- a/probes/lttng-tracepoint-event-impl.h
++++ b/probes/lttng-tracepoint-event-impl.h
+@@ -28,7 +28,7 @@
+ #include <probes/lttng.h>
+ #include <probes/lttng-types.h>
+ #include <probes/lttng-probe-user.h>
+-#include <wrapper/vmalloc.h>	/* for wrapper_vmalloc_sync_all() */
++#include <wrapper/vmalloc.h>	/* for wrapper_vmalloc_sync_mappings() */
+ #include <wrapper/ringbuffer/frontend_types.h>
+ #include <wrapper/ringbuffer/backend.h>
+ #include <wrapper/rcu.h>
+@@ -1365,7 +1365,7 @@ static __used struct lttng_probe_desc TP_ID(__probe_desc___, TRACE_SYSTEM) = {
+ #ifndef TP_MODULE_NOINIT
+ static int TP_ID(__lttng_events_init__, TRACE_SYSTEM)(void)
+ {
+-	wrapper_vmalloc_sync_all();
++	wrapper_vmalloc_sync_mappings();
+ 	return lttng_probe_register(&TP_ID(__probe_desc___, TRACE_SYSTEM));
+ }
+ 
+diff --git a/probes/lttng.c b/probes/lttng.c
+index b63ffdf3..1de2bcd2 100644
+--- a/probes/lttng.c
++++ b/probes/lttng.c
+@@ -121,7 +121,7 @@ int __init lttng_logger_init(void)
+ {
+ 	int ret = 0;
+ 
+-	wrapper_vmalloc_sync_all();
++	wrapper_vmalloc_sync_mappings();
+ 	lttng_logger_dentry = proc_create_data(LTTNG_LOGGER_FILE,
+ 				S_IRUGO | S_IWUGO, NULL,
+ 				&lttng_logger_proc_ops, NULL);
+diff --git a/tests/probes/lttng-test.c b/tests/probes/lttng-test.c
+index 7d7982b3..15e64f72 100644
+--- a/tests/probes/lttng-test.c
++++ b/tests/probes/lttng-test.c
+@@ -106,7 +106,7 @@ int __init lttng_test_init(void)
+ 	int ret = 0;
+ 
+ 	(void) wrapper_lttng_fixup_sig(THIS_MODULE);
+-	wrapper_vmalloc_sync_all();
++	wrapper_vmalloc_sync_mappings();
+ 	lttng_test_filter_event_dentry =
+ 			proc_create_data(LTTNG_TEST_FILTER_EVENT_FILE,
+ 				S_IRUGO | S_IWUGO, NULL,
+diff --git a/wrapper/vmalloc.h b/wrapper/vmalloc.h
+index b4d79540..c7a27cc7 100644
+--- a/wrapper/vmalloc.h
++++ b/wrapper/vmalloc.h
+@@ -34,8 +34,35 @@
+ #include <linux/kallsyms.h>
+ #include <wrapper/kallsyms.h>
+ 
++#if (LINUX_VERSION_CODE >= KERNEL_VERSION(5,7,0))
++
++static inline
++void wrapper_vmalloc_sync_mappings(void)
++{
++	void (*vmalloc_sync_mappings_sym)(void);
++
++	vmalloc_sync_mappings_sym = (void *) kallsyms_lookup_funcptr("vmalloc_sync_mappings");
++	if (vmalloc_sync_mappings_sym) {
++		vmalloc_sync_mappings_sym();
++	} else {
++#ifdef CONFIG_X86
++		/*
++		 * Only x86 needs vmalloc_sync_mappings to make sure LTTng does not
++		 * trigger recursive page faults.
++		 */
++		printk_once(KERN_WARNING "LTTng: vmalloc_sync_mappings symbol lookup failed.\n");
++		printk_once(KERN_WARNING "Page fault handler and NMI tracing might trigger faults.\n");
++#endif
++	}
++}
++
++#else /* #if (LINUX_VERSION_CODE >= KERNEL_VERSION(5,7,0)) */
++
++/*
++ * Map vmalloc_sync_mappings to vmalloc_sync_all() on kernels before 5.7.
++ */
+ static inline
+-void wrapper_vmalloc_sync_all(void)
++void wrapper_vmalloc_sync_mappings(void)
+ {
+ 	void (*vmalloc_sync_all_sym)(void);
+ 
+@@ -53,13 +80,29 @@ void wrapper_vmalloc_sync_all(void)
+ #endif
+ 	}
+ }
++
++#endif /* #else #if (LINUX_VERSION_CODE >= KERNEL_VERSION(5,7,0)) */
++
+ #else
+ 
++#if (LINUX_VERSION_CODE >= KERNEL_VERSION(5,7,0))
++
++static inline
++void wrapper_vmalloc_sync_mappings(void)
++{
++	return vmalloc_sync_mappings();
++}
++
++#else /* #if (LINUX_VERSION_CODE >= KERNEL_VERSION(5,7,0)) */
++
+ static inline
+-void wrapper_vmalloc_sync_all(void)
++void wrapper_vmalloc_sync_mappings(void)
+ {
+ 	return vmalloc_sync_all();
+ }
++
++#endif /* #else #if (LINUX_VERSION_CODE >= KERNEL_VERSION(5,7,0)) */
++
+ #endif
+ 
+ #if (LINUX_VERSION_CODE >= KERNEL_VERSION(4,12,0))
+@@ -74,7 +117,7 @@ void *lttng_kvmalloc_node(unsigned long size, gfp_t flags, int node)
+ 		 * Make sure we don't trigger recursive page faults in the
+ 		 * tracing fast path.
+ 		 */
+-		wrapper_vmalloc_sync_all();
++		wrapper_vmalloc_sync_mappings();
+ 	}
+ 	return ret;
+ }
+-- 
+2.25.1
+

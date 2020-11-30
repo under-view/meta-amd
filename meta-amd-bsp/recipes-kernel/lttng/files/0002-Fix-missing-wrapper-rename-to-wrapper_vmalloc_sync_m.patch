@@ -1,0 +1,54 @@
+From 18b2792b39587c7c9dc21728c73897ccdcad8069 Mon Sep 17 00:00:00 2001
+From: Michael Jeanson <mjeanson@efficios.com>
+Date: Wed, 6 May 2020 11:03:32 -0400
+Subject: [PATCH 2/4] Fix: missing wrapper rename to
+ wrapper_vmalloc_sync_mappings
+
+Signed-off-by: Michael Jeanson <mjeanson@efficios.com>
+Signed-off-by: Mathieu Desnoyers <mathieu.desnoyers@efficios.com>
+Change-Id: Idf7082a980c5a604bfef5c69906678b5083a9bbf
+Backported-from: f3e4ba5d199a809b8dcdf9718aae651734e1b20e
+Signed-off-by: Arsalan H. Awan <Arsalan_Awan@mentor.com>
+---
+ probes/lttng-ftrace.c | 4 ++--
+ wrapper/vmalloc.h     | 2 +-
+ 2 files changed, 3 insertions(+), 3 deletions(-)
+
+diff --git a/probes/lttng-ftrace.c b/probes/lttng-ftrace.c
+index 50675a4f..5bf6a669 100644
+--- a/probes/lttng-ftrace.c
++++ b/probes/lttng-ftrace.c
+@@ -190,7 +190,7 @@ int lttng_ftrace_register(const char *name,
+ 		goto name_error;
+ 
+ 	/* Ensure the memory we just allocated don't trigger page faults */
+-	wrapper_vmalloc_sync_all();
++	wrapper_vmalloc_sync_mappings();
+ 
+ 	ret = wrapper_register_ftrace_function_probe(event->u.ftrace.symbol_name,
+ 			&lttng_ftrace_ops, event);
+@@ -226,7 +226,7 @@ EXPORT_SYMBOL_GPL(lttng_ftrace_destroy_private);
+ 
+ int lttng_ftrace_init(void)
+ {
+-	wrapper_vmalloc_sync_all();
++	wrapper_vmalloc_sync_mappings();
+ 	return 0;
+ }
+ module_init(lttng_ftrace_init)
+diff --git a/wrapper/vmalloc.h b/wrapper/vmalloc.h
+index c7a27cc7..0832ee03 100644
+--- a/wrapper/vmalloc.h
++++ b/wrapper/vmalloc.h
+@@ -229,7 +229,7 @@ void *lttng_kvmalloc_node(unsigned long size, gfp_t flags, int node)
+ 		 * Make sure we don't trigger recursive page faults in the
+ 		 * tracing fast path.
+ 		 */
+-		wrapper_vmalloc_sync_all();
++		wrapper_vmalloc_sync_mappings();
+ 	}
+ 	return ret;
+ }
+-- 
+2.25.1
+
