@@ -47,7 +47,7 @@ git checkout --quiet 2b5dd1eb81cd08bc065bc76125f2856e9383e98b
 cd ../meta-dpdk
 git checkout --quiet 65861f98a8f88389963921f2d78de7e5a8881048
 cd ../meta-amd
-git checkout --quiet HEAD
+git checkout --quiet tags/zeus-e3000-ga-202011
 cd ..
 ```
 
