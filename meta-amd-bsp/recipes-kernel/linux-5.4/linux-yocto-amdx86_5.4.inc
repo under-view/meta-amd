@@ -1,19 +1,19 @@
 FILESEXTRAPATHS_prepend := "${THISDIR}/linux-yocto-${LINUX_VERSION}-${MACHINE}:"
 
-SRC_URI_append_e3000 += "file://e3000-user-features.scc \
-    file://e3000-user-patches.scc \
-    file://e3000.cfg \
-    file://e3000-user-config.cfg \
-    file://e3000-extra-config.cfg \
+SRC_URI_append_amdx86 += "file://amdx86-user-features.scc \
+    file://amdx86-user-patches.scc \
+    file://amdx86.cfg \
+    file://amdx86-user-config.cfg \
+    file://amdx86-extra-config.cfg \
     file://amd-xgbe.cfg \
     file://amd-ccp.cfg \
     file://kvm.cfg \
     file://afalg.cfg \
     file://disable-graphics.cfg \
-    file://e3000-standard-only.cfg \
+    file://amdx86-standard-only.cfg \
 "
 
-COMPATIBLE_MACHINE_e3000 = "e3000"
+COMPATIBLE_MACHINE_amdx86 = "amdx86"
 
 do_validate_branches_append() {
     # Droping configs related to sound generating spurious warnings
