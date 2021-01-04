@@ -1,18 +1,16 @@
 # meta-amd/meta-amd-bsp
 
-This layer contains metadata that is appropriate for all
-AMD-based platforms.
+This layer contains metadata that is appropriate for all the supported
+AMD-based platforms under `amdx86` BSP.
 
 Settings in this layer should use appropriate variable suffixes
 to ensure they only apply to expected boards.
 
 ## Machines
 
-The supported AMD BSPs are:
+The supported AMD machines/platforms under the `amdx86` BSP are:
 
-* r1000
-* v1000
-* e3000
+* AMD EPYC™ Embedded 3000 Series (a.k.a. E3000)
 
 Please see the README file contained in the root meta-amd directory
 for general information and usage details.

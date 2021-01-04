@@ -8,7 +8,7 @@ SRC_URI = "file://spirom-test.c \
            file://spirom.h \
           "
 
-SRC_URI_append_e3000 = "file://0001-Modified-the-spi-driver-test-application-to-support-.patch"
+SRC_URI_append_amdx86 = "file://0001-Modified-the-spi-driver-test-application-to-support-.patch"
 
 S = "${WORKDIR}"
 

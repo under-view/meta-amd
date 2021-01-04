@@ -1,12 +1,12 @@
 PR := "${INC_PR}.1"
 
-KMACHINE_amdx86 ?= "common-pc-64"
-SRCREV_meta_amdx86 ?= "94bb91f62b8ea78d1b87eef6fc348035c405726a"
-LINUX_VERSION_amdx86 ?= "5.4.2"
+KMACHINE_amd ?= "common-pc-64"
+SRCREV_meta_amd ?= "7f765dcb29003bafc9c0ac770147940be6c420b2"
+LINUX_VERSION_amd ?= "5.4.69"
 
 FILESEXTRAPATHS_prepend := "${THISDIR}/linux-yocto-${LINUX_VERSION}:"
 
-SRC_URI_append_amdx86 = " file://amd-xgbe-patches.scc \
+SRC_URI_append_amd = " file://amd-xgbe-patches.scc \
                    file://amd-emmc-patches.scc \
                    file://logo.cfg \
                    file://console.cfg \
@@ -18,4 +18,4 @@ SRC_URI_append_amdx86 = " file://amd-xgbe-patches.scc \
                    ${@bb.utils.contains('DISTRO_FEATURES', 'bluetooth', 'file://enable-bluetooth.cfg', 'file://disable-bluetooth.cfg', d)} \
                    ${@bb.utils.contains('DISTRO', 'poky-amd', 'file://enable-kgdb.cfg', 'file://disable-kgdb.cfg', d)}"
 
-KERNEL_FEATURES_append_amdx86 = " cfg/smp.scc"
+KERNEL_FEATURES_append_amd = " cfg/smp.scc"
