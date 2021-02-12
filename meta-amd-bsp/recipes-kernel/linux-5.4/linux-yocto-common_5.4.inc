@@ -8,6 +8,8 @@ FILESEXTRAPATHS_prepend := "${THISDIR}/linux-yocto-${LINUX_VERSION}:"
 
 SRC_URI_append_amd = " file://amd-xgbe-patches.scc \
                    file://amd-emmc-patches.scc \
+                   file://amd-spi-patches.scc \
+                   file://amd-usb-patches.scc \
                    file://logo.cfg \
                    file://console.cfg \
                    file://sound.cfg \
