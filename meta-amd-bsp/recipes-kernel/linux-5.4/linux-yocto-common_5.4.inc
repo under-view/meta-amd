@@ -8,11 +8,15 @@ FILESEXTRAPATHS_prepend := "${THISDIR}/linux-yocto-${LINUX_VERSION}:"
 
 SRC_URI_append_amd = " file://amd-xgbe-patches.scc \
                    file://amd-emmc-patches.scc \
+                   file://amd-spi-patches.scc \
+                   file://amd-usb-patches.scc \
+                   file://amd-wdt-patches.scc \
                    file://logo.cfg \
                    file://console.cfg \
                    file://sound.cfg \
                    file://hid.cfg \
                    file://usb-serial.cfg \
+                   file://wdt-driver.cfg \
                    file://wifi-drivers.cfg \
                    file://disable-intel-graphics.cfg \
                    ${@bb.utils.contains('DISTRO_FEATURES', 'bluetooth', 'file://enable-bluetooth.cfg', 'file://disable-bluetooth.cfg', d)} \
