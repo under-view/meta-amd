@@ -26,4 +26,8 @@ do_validate_branches_append() {
     sed -i '/kconf hardware i915.cfg/d' ${WORKDIR}/${KMETA}/features/i915/i915.scc
     sed -i '/CONFIG_FB/d' ${WORKDIR}/${KMETA}/cfg/efi-ext.cfg
     sed -i '/CONFIG_FRAMEBUFFER_CONSOLE/d' ${WORKDIR}/${KMETA}/cfg/efi-ext.cfg
+
+    # Drop configs limiting the max number of cpus - we use our own setting in amdx86-user-config.cfg
+    sed -i '/CONFIG_NR_CPUS/d' ${WORKDIR}/${KMETA}/cfg/smp.cfg
+    sed -i '/CONFIG_NR_CPUS/d' ${WORKDIR}/${KMETA}/cfg/smp_64.cfg
 }
