@@ -1,13 +1,13 @@
 # 1. Setting up the build system
 
-Building images for AMD BSPs requires setting up the Yocto Project
+Building images for AMD machines requires setting up the Yocto Project
 Build System. Please follow the guidelines on
 [Yocto Project Overview and Concepts Manual](https://www.yoctoproject.org/docs/3.1.4/overview-manual/overview-manual.html)
 and [Yocto Project Quick Build Guide](https://www.yoctoproject.org/docs/3.1.4/brief-yoctoprojectqs/brief-yoctoprojectqs.html)
 if you are not familiar with the Yocto Project and it's Build System.
 
 Running the following commands will setup the build system and will
-enable us to build recipes & images for the `amdx86` bsp.
+enable us to build recipes & images for any of the supported AMD machines (i.e `e3000` or `rome`).
 
 ### 1.1 Prerequisites
 
@@ -16,7 +16,8 @@ Install the build system's dependencies:
 sudo apt install -y gawk wget git-core diffstat unzip texinfo \
      gcc-multilib build-essential chrpath socat cpio python3 \
      python3-pip python3-pexpect xz-utils debianutils iputils-ping \
-     python3-git python3-jinja2 libegl1-mesa libsdl1.2-dev pylint3 xterm
+     python3-git python3-jinja2 libegl1-mesa libsdl1.2-dev pylint3 \
+     xterm
 ```
 
 ### 1.2 Download the build system and the meta-data layers
@@ -56,4 +57,4 @@ cd ..
 
 Continue to "Section 2 - Setting up and starting a build"
 ([BUILD.md](BUILD.md)) for instructions on how to setup and start a
-build for a particular AMD BSP.
+build for a particular AMD machine.

@@ -1,7 +1,7 @@
 # Documentation
 
 This section lists the links to official documentation of various
-features and a general guide to Yocto Project and it's build system.
+features, and user guide to Yocto Project and it's build system.
 
 | Feature                                      | Documentation                                                                          | Comments |
 |:---------------------------------------------|:---------------------------------------------------------------------------------------|:---------|
