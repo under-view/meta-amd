@@ -35,14 +35,14 @@ target.
 
 ---
 
-#### Supported Features
+#### Supported software features
 
-| Feature               | Configuration variable      | Configuration values | Default value | Supported Platforms |
-|:----------------------|:----------------------------|:---------------------|:--------------|:--------------------|
-| ON-TARGET DEVELOPMENT | EXTRA_IMAGE_FEATURES_append | tools-sdk            |               | E3000               |
-| ON-TARGET DEBUGGING   | EXTRA_IMAGE_FEATURES_append | tools-debug          |               | E3000               |
-| ON-TARGET PROFILING   | EXTRA_IMAGE_FEATURES_append | tools-profile        |               | E3000               |
-| RT KERNEL             | RT_KERNEL_AMD               | yes, no              | no            | E3000               |
+| Software feature      | Configuration variable      | Configuration values | Default value | Supported machines |
+|:----------------------|:----------------------------|:---------------------|:--------------|:-------------------|
+| ON-TARGET DEVELOPMENT | EXTRA_IMAGE_FEATURES_append | tools-sdk            |               | e3000, rome        |
+| ON-TARGET DEBUGGING   | EXTRA_IMAGE_FEATURES_append | tools-debug          |               | e3000, rome        |
+| ON-TARGET PROFILING   | EXTRA_IMAGE_FEATURES_append | tools-profile        |               | e3000, rome        |
+| RT KERNEL             | RT_KERNEL_AMD               | yes, no              | no            | e3000, rome        |
 
 #### Example configuration in local.conf
 ```sh
@@ -50,7 +50,8 @@ EXTRA_IMAGE_FEATURES_append = " tools-sdk"
 EXTRA_IMAGE_FEATURES_append = " tools-debug"
 EXTRA_IMAGE_FEATURES_append = " tools-profile"
 
-# Please run 'bitbake -c clean virtual/kernel' before configuring RT_KERNEL_AMD
+# Please run 'bitbake -c clean virtual/kernel' everytime before
+# configuring the RT_KERNEL_AMD variable
 RT_KERNEL_AMD = "yes"
 ```
 
