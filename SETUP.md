@@ -48,7 +48,7 @@ git checkout --quiet f2d02cb71eaff8eb285a1997b30be52486c160ae
 cd ../meta-dpdk
 git checkout --quiet 9465b6d27fc9520e18d05cc50dbed9d84e111953
 cd ../meta-amd
-git checkout --quiet HEAD
+git checkout --quiet tags/dunfell-e3000-ga-202103
 cd ..
 ```
 
