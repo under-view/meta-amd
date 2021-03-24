@@ -1,6 +1,6 @@
 # Release notes
 
-This is the release notes document for the AMD machine E3000. This document
+This is the release notes document for the AMD machine ROME. This document
 contains information about the Yocto layers' git repos, their branches
 and commit hashes, software versions, and known/fixed issues/limitations.
 
@@ -10,7 +10,7 @@ and commit hashes, software versions, and known/fixed issues/limitations.
 | poky              | git://git.yoctoproject.org/poky              | dunfell | tags/yocto-3.1.4                         |
 | meta-openembedded | git://git.openembedded.org/meta-openembedded | dunfell | f2d02cb71eaff8eb285a1997b30be52486c160ae |
 | meta-dpdk         | git://git.yoctoproject.org/meta-dpdk         | dunfell | 9465b6d27fc9520e18d05cc50dbed9d84e111953 |
-| meta-amd          | git://git.yoctoproject.org/meta-amd          | dunfell | tags/dunfell-e3000-ga-202103                                     |
+| meta-amd          | git://git.yoctoproject.org/meta-amd          | dunfell | tags/dunfell-rome-ga-202103                                     |
 
 ## Software versions
 | Software        | Version  |
@@ -29,17 +29,11 @@ and commit hashes, software versions, and known/fixed issues/limitations.
 | strongswan      | 5.8.4    |
 
 ## Fixed issues
-| __E3000 Fixed Issues__ |
-|:-----------------------|
-| None                   |
+| __ROME Fixed Issues__ |
+|:----------------------|
+| None                  |
 
 ## Known issues
-| __E3000 Known Issues/Limitations__                                                                                                                    |
-|:------------------------------------------------------------------------------------------------------------------------------------------------------|
-| DPDK does not work with IOMMU enabled in BIOS                                                                                                         |
-| _** Workaround: Disable IOMMU in BIOS_                                                                                                                |
-| Observing Failures in SEV test run                                                                                                                    |
-| Bandwidth drop observed when running all ports simultaneously with default system configuration and the solution is system level tuning is required.  |
-| Peer to peer network between EPYC 3000 Series CPUs ( using xgbe) is not working with few finisar SFP modules                                          |
-| FIO Sequential Read/Write ZE3351HAQCAAF_30Performs better than ZE3451HAQGAAF_30.                                                                      |
-| FIO Random Read/write performance for QD32 BS4k is low compared with spec.                                                                            |
+| __ROME Known Issues/Limitations__                                                           |
+|:--------------------------------------------------------------------------------------------|
+| Network is detected from only one NIC card when two NIC cards are connected on the platform |
