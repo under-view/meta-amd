@@ -1,14 +1,14 @@
 # 3. Deploying an image to the target
 
 After building an image ([BUILD.md](BUILD.md)), we can deploy it to the
-target using a USB Flash Drive or a CD/DVD. The built images can be
+target machine using a USB Flash Drive or a CD/DVD. The built images can be
 found in the `<build-dir>/tmp/deploy/images/<machine-name>` directory to
 which we will refer to as the **"Image Deploy Directory"** in this doc.
 
 ---
 ##### Note
 Change the `<machine-name>` and `<image-name>` placeholders in the
-following instructions according to the selected BSP and the image 
+following instructions according to the selected machine and the image 
 built in "Section 2 - Setting up and starting a build" ([BUILD.md](BUILD.md)).
 
 ---
@@ -35,7 +35,8 @@ sudo bmaptool copy <image-name>-<machine-name>.wic /dev/<dev-node>
 
 ##### Using dd
 ```sh
-sudo dd if=<image-name>-<machine-name>.wic of=/dev/<dev-node> status=progress
+sudo dd if=<image-name>-<machine-name>.wic of=/dev/<dev-node> \
+conv=fdatasync status=progress
 ```
 
 ###### where `<dev-node>` is to be replaced with the device node of the USB Flash Drive.

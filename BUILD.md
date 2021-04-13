@@ -3,23 +3,22 @@
 After setting up the build system ([SETUP.md](SETUP.md)), we can build
 images or recipes for a target machine (or BSP).
 Running the commands in the instructions below will setup a build for
-a selected AMD BSP, and will start a build:
+a selected AMD machine, and will start a build:
 
-### 2.1. Select a BSP
+### 2.1. Select a target machine
 
-Set the environment variable `MACHINE` to one of the
-supported AMD BSPs (i.e. `r1000`, `v1000` or `e3000`) that you want to
-build for (change the `<machine-name>` in the following example
+Set the environment variable `MACHINE` to one of the supported AMD machines (i.e `e3000` or `rome`) that you want
+to build an image for (change the `<machine-name>` in the following example
 accordingly):
 ```sh
 MACHINE="<machine-name>"
 ```
 
-### 2.2. Setup the build environment for selected BSP
+### 2.2. Setup the build environment for selected machine
 
 Source the *oe-init-build-env* script:
 ```sh
-source ./oe-init-build-env build-${MACHINE}-warrior
+source ./oe-init-build-env build-${MACHINE}-${YOCTO_BRANCH}
 ```
 
 Set the `MACHINE` and `DISTRO` bitbake environment variables in the
@@ -51,7 +50,7 @@ Build one of the supported image recipes:
 bitbake <image-name> -k
 ```
 
-###### where `<image-name>` is to be replaced with one of the supported images for the selected AMD BSP. See *supported features* section for a list all supported images for your machine.
+###### where `<image-name>` is to be replaced with one of the supported images for the selected AMD machine. See *supported features* section for a list all supported images for your machine.
 ###### (e.g. `core-image-sato` or `core-image-base`)
 
 ---
