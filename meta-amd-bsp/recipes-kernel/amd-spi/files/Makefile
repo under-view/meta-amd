@@ -1,4 +1,4 @@
-obj-m := spi_amd.o spirom.o
+obj-m := spirom.o
 
 SRC := $(shell pwd)
 

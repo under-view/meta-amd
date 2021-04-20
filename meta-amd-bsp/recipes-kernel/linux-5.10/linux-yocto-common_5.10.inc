@@ -17,6 +17,7 @@ SRC_URI_append_amd = " file://amd-xgbe-patches.scc \
                    file://sound.cfg \
                    file://hid.cfg \
                    file://usb-serial.cfg \
+                   file://spi-driver.cfg \
                    file://wdt-driver.cfg \
                    file://wifi-drivers.cfg \
                    file://disable-intel-graphics.cfg \
