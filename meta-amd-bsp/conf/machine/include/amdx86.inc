@@ -6,6 +6,9 @@ require conf/machine/include/tune-amdx86.inc
 require conf/machine/include/amd-common-configurations.inc
 include conf/machine/include/amd-customer-configurations.inc
 
+# Add machine specific AMD features and feature pkgs here
+DPDK_PKGS = "${@bb.utils.contains("BBFILE_COLLECTIONS", "dpdk", "dpdk dpdk-examples dpdk-tools dpdk-module", "", d)}"
+
 MACHINE_FEATURES_remove = "alsa"
 MACHINE_EXTRA_RRECOMMENDS_remove = " rtc-test alsa-utils"
 
