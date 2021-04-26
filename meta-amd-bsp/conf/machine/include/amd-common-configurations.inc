@@ -19,8 +19,7 @@ MACHINE_FEATURES_remove = "qemu-usermode"
 
 MACHINE_EXTRA_RRECOMMENDS += "kernel-modules alsa-utils"
 MACHINE_EXTRA_RRECOMMENDS += "grub parted util-linux-blkid"
-MACHINE_EXTRA_RRECOMMENDS += "rtc-test watchdog-test spi-test smbus-test gpio-test"
-MACHINE_EXTRA_RRECOMMENDS += "amd-spi"
+MACHINE_EXTRA_RRECOMMENDS += "rtc-test watchdog-test smbus-test gpio-test"
 
 # Add serial consoles to kernel commandline, these should occur before the tty0
 KERNEL_SERIAL_CONSOLE ??= ""
