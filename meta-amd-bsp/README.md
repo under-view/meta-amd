@@ -10,8 +10,8 @@ to ensure they only apply to expected boards.
 
 The supported AMD machines/platforms are:
 
-* rome  - AMD EPYC™ 7002 Series (a.k.a. ROME)
-* e3000 - AMD EPYC™ Embedded 3000 Series (a.k.a. E3000)
+* e3000 - AMD EPYC™ Embedded 3000 Series
+* rome  - AMD EPYC™ 7002 Series
 
 Please see the README file contained in the root meta-amd directory
 for general information and usage details.
