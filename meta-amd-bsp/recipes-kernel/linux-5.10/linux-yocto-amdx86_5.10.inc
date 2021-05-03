@@ -14,6 +14,8 @@ SRC_URI_append_amdx86 += "file://amdx86-user-features.scc \
     file://amdx86-standard-only.cfg \
 "
 
+SRC_URI_remove_amdx86 = " file://sound.cfg"
+
 do_validate_branches_append() {
     # Droping configs related to sound generating spurious warnings
     sed -i '/kconf hardware snd_hda_intel.cfg/d' ${WORKDIR}/${KMETA}/features/sound/snd_hda_intel.scc
