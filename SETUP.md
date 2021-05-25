@@ -7,7 +7,7 @@ and [Yocto Project Quick Build Guide](https://docs.yoctoproject.org/3.3/brief-yo
 if you are not familiar with the Yocto Project and it's Build System.
 
 Running the following commands will setup the build system and will
-enable us to build recipes & images for any of the supported AMD machines (i.e `e3000` or `rome`).
+enable us to build recipes & images for the `milan` bsp.
 
 ### 1.1 Prerequisites
 
@@ -44,9 +44,9 @@ Checkout commit hashes:
 ```sh
 git checkout --quiet tags/yocto-3.3
 cd meta-openembedded
-git checkout --quiet 71b546ed8595b14d29efc1e8b951f8c845ad10c4
+git checkout --quiet cf5bd6a8308108b4313a1e45ce8aa87e73125bf9
 cd ../meta-dpdk
-git checkout --quiet 8fb1422a63b2c6ae3179a45019d78e458be43174
+git checkout --quiet c011004a49ffb1304f376f0fdc65066913102d5f
 cd ../meta-amd
 git checkout --quiet HEAD
 cd ..
