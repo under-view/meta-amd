@@ -37,12 +37,12 @@ target.
 
 #### Supported software features
 
-| Software feature      | Configuration variable      | Configuration values | Default value | Supported machines |
-|:----------------------|:----------------------------|:---------------------|:--------------|:-------------------|
-| ON-TARGET DEVELOPMENT | EXTRA_IMAGE_FEATURES_append | tools-sdk            |               | milan              |
-| ON-TARGET DEBUGGING   | EXTRA_IMAGE_FEATURES_append | tools-debug          |               | milan              |
-| ON-TARGET PROFILING   | EXTRA_IMAGE_FEATURES_append | tools-profile        |               | milan              |
-| RT KERNEL             | RT_KERNEL_AMD               | yes, no              | no            | milan              |
+| Software feature      | Configuration variable      | Configuration values | Default value | Supported machines     |
+|:----------------------|:----------------------------|:---------------------|:--------------|:-----------------------|
+| ON-TARGET DEVELOPMENT | EXTRA_IMAGE_FEATURES_append | tools-sdk            |               | ethanolx (milan, rome) |
+| ON-TARGET DEBUGGING   | EXTRA_IMAGE_FEATURES_append | tools-debug          |               | ethanolx (milan, rome) |
+| ON-TARGET PROFILING   | EXTRA_IMAGE_FEATURES_append | tools-profile        |               | ethanolx (milan, rome) |
+| RT KERNEL             | RT_KERNEL_AMD               | yes, no              | no            | ethanolx (milan, rome) |
 
 #### Example configuration in local.conf
 ```sh
