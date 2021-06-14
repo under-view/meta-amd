@@ -10,7 +10,8 @@ to ensure they only apply to expected boards.
 
 The supported AMD machines/platforms are:
 
-* milan  - AMD EPYC™ 7003 Series
+* ethanolx  - AMD EPYC™ 7003 Series (a.k.a. milan)
+* ethanolx  - AMD EPYC™ 7002 Series (a.k.a. rome)
 
 Please see the README file contained in the root meta-amd directory
 for general information and usage details.
