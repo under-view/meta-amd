@@ -48,7 +48,7 @@ git checkout --quiet cf5bd6a8308108b4313a1e45ce8aa87e73125bf9
 cd ../meta-dpdk
 git checkout --quiet c011004a49ffb1304f376f0fdc65066913102d5f
 cd ../meta-amd
-git checkout --quiet HEAD
+git checkout --quiet tags/hardknott-ethanolx-ga-202107
 cd ..
 ```
 
