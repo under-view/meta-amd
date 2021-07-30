@@ -7,7 +7,7 @@ a selected AMD machine, and will start a build:
 
 ### 2.1. Select a target machine
 
-Set the environment variable `MACHINE` to one of the supported AMD machines (i.e `e3000` or `rome`) that you want
+Set the environment variable `MACHINE` to the `ethanolx` bsp that you want
 to build an image for (change the `<machine-name>` in the following example
 accordingly):
 ```sh

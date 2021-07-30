@@ -3,12 +3,12 @@
 This section lists the links to official documentation of various
 features, and user guide to Yocto Project and it's build system.
 
-| Feature                                      | Documentation                                                                          | Comments |
-|:---------------------------------------------|:---------------------------------------------------------------------------------------|:---------|
-| Yocto Project – Overview and Concepts Manual | https://www.yoctoproject.org/docs/3.1.4/overview-manual/overview-manual.html           |          |
-| Yocto Project – Quick Build                  | https://www.yoctoproject.org/docs/3.1.4/brief-yoctoprojectqs/brief-yoctoprojectqs.html |          |
-| Yocto Project – Toaster Manual               | https://www.yoctoproject.org/docs/3.1.4/toaster-manual/toaster-manual.html             |          |
-| Yocto Project – SDK Manual                   | https://www.yoctoproject.org/docs/3.1.4/sdk-manual/sdk-manual.html                     |          |
-| KGDB                                         | https://www.kernel.org/doc/html/v5.4/dev-tools/kgdb.html                               |          |
-| LTTng                                        | https://lttng.org/docs/v2.11                                                           |          |
-| DPDK                                         | https://doc.dpdk.org/guides-18.11                                                      |          |
+| Feature                                      | Documentation                                                     | Comments |
+|:---------------------------------------------|:------------------------------------------------------------------|:---------|
+| Yocto Project – Overview and Concepts Manual | https://docs.yoctoproject.org/3.3/overview-manual/index.html      |          |
+| Yocto Project – Quick Build                  | https://docs.yoctoproject.org/3.3/brief-yoctoprojectqs/index.html |          |
+| Yocto Project – Toaster Manual               | https://docs.yoctoproject.org/3.3/toaster-manual/index.html       |          |
+| Yocto Project – SDK Manual                   | https://docs.yoctoproject.org/3.3/sdk-manual/index.html           |          |
+| KGDB                                         | https://www.kernel.org/doc/html/v5.10/dev-tools/kgdb.html         |          |
+| LTTng                                        | https://lttng.org/docs/v2.12                                      |          |
+| DPDK                                         | https://doc.dpdk.org/guides-20.11                                 |          |
