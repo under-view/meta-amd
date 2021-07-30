@@ -4,7 +4,7 @@ This section lists the features supported on the AMD machines. In each
 machine column, a 'Y' represents that the feature in this row is supported
 on this machine.
 
-| Category                        | Feature                                 | E3000 | ROME |
+| Category                        | Feature                                 | MILAN | ROME |
 |:--------------------------------|:----------------------------------------|:-----:|:----:|
 | Images                          |                                         |       |      |
 |                                 | core-image-sato                         |       |      |
@@ -16,11 +16,11 @@ on this machine.
 |                                 | USB 2.0 Host                            | Y     | Y    |
 |                                 | USB 3.0 Host (MSC)                      | Y     | Y    |
 |                                 | USB 3.1 Host                            |       |      |
-|                                 | NVMe                                    |       | Y    |
+|                                 | NVMe                                    | Y     | Y    |
 |                                 | M.2 SATA                                |       |      |
 |                                 | I2C                                     | Y     | Y    |
 |                                 | UART                                    | Y     | Y    |
-|                                 | eMMC                                    | Y     |      |
+|                                 | eMMC                                    |       |      |
 |                                 | SMP                                     | Y     | Y    |
 |                                 | SPI                                     | Y     | Y    |
 | I/O                             |                                         |       |      |
@@ -29,13 +29,13 @@ on this machine.
 |                                 | Audio                                   |       |      |
 |                                 | UART                                    | Y     | Y    |
 |                                 | Bluetooth                               |       |      |
-|                                 | USB Wi-Fi                               | Y     |      |
+|                                 | USB Wi-Fi                               |       |      |
 |                                 | HDD/SATA                                | Y     | Y    |
-|                                 | SD/MMC                                  | Y     |      |
+|                                 | SD/MMC                                  |       |      |
 | Networking                      |                                         |       |      |
-|                                 | Ethernet                                | Y     |      |
-|                                 | SGMII                                   | Y     |      |
-|                                 | RGMII                                   | Y     |      |
+|                                 | Ethernet                                |       |      |
+|                                 | SGMII                                   |       |      |
+|                                 | RGMII                                   |       |      |
 | Network Protocols               |                                         |       |      |
 |                                 | IPv4                                    | Y     | Y    |
 |                                 | IPv6                                    | Y     | Y    |
@@ -99,7 +99,7 @@ on this machine.
 |                                 | H.265                                   |       |      |
 |                                 | ROCm-OpenCL                             |       |      |
 | Network Security                |                                         |       |      |
-|                                 | IPSEC (strongswan)                      | Y     |      |
-|                                 | DPDK                                    | Y     |      |
+|                                 | IPSEC (strongswan)                      |       |      |
+|                                 | DPDK                                    |       |      |
 | Kernel Virtualization           |                                         |       |      |
 |                                 | KVM                                     | Y     | Y    |
