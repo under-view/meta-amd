@@ -32,6 +32,7 @@ do_validate_branches_append() {
     sed -i '/CONFIG_FRAMEBUFFER_CONSOLE/d' ${WORKDIR}/${KMETA}/cfg/efi-ext.cfg
 
     # Drop configs limiting the max number of cpus - we use our own setting in amdx86-user-config.cfg
+    sed -i '/CONFIG_X86_BIGSMP/d' ${WORKDIR}/${KMETA}/cfg/smp.cfg
     sed -i '/CONFIG_NR_CPUS/d' ${WORKDIR}/${KMETA}/cfg/smp.cfg
     sed -i '/CONFIG_NR_CPUS/d' ${WORKDIR}/${KMETA}/cfg/smp_64.cfg
 }
