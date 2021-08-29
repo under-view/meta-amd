@@ -10,7 +10,8 @@ SRC_URI_append_amdx86 += "file://amdx86-user-features.scc \
     file://kvm.cfg \
     ${@bb.utils.contains('EXTRA_IMAGE_FEATURES', 'amd-feature-networking', 'file://dpdk.cfg', '', d)} \
     file://afalg.cfg \
-    file://disable-graphics.cfg \
+    ${@bb.utils.contains('MACHINE_FEATURES', 'screen', 'file://enable-graphics.cfg', 'file://disable-graphics.cfg', d)} \
+    ${@bb.utils.contains('MACHINE_FEATURES', 'screen-console', 'file://enable-screen-console.cfg', 'file://disable-screen-console.cfg', d)} \
     file://amdx86-standard-only.cfg \
 "
 
