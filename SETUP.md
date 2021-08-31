@@ -7,7 +7,7 @@ and [Yocto Project Quick Build Guide](https://docs.yoctoproject.org/3.3.2/brief-
 if you are not familiar with the Yocto Project and it's Build System.
 
 Running the following commands will setup the build system and will
-enable us to build recipes & images for the `ethanolx` bsp.
+enable us to build recipes & images for any of the supported AMD machines (i.e `vermeer` or `ethanolx`).
 
 ### 1.1 Prerequisites
 
