@@ -6,7 +6,7 @@ SRC_URI_append_amdx86 += "file://amdx86-user-features.scc \
     file://amdx86-user-config.cfg \
     file://amdx86-extra-config.cfg \
     file://amd-xgbe.cfg \
-    file://amd-ccp.cfg \
+    ${@bb.utils.contains('MACHINE_FEATURES', 'ccp', 'file://amd-ccp.cfg', '', d)} \
     file://kvm.cfg \
     ${@bb.utils.contains('EXTRA_IMAGE_FEATURES', 'amd-feature-networking', 'file://dpdk.cfg', '', d)} \
     file://afalg.cfg \
