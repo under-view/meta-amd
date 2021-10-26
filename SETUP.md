@@ -48,7 +48,7 @@ git checkout --quiet aaa1c12b2cdea197d420953c8df873e8af5cc507
 cd ../meta-dpdk
 git checkout --quiet c011004a49ffb1304f376f0fdc65066913102d5f
 cd ../meta-amd
-git checkout --quiet HEAD
+git checkout --quiet tags/hardknott-vermeer-ga-202110
 cd ..
 ```
 

@@ -20,7 +20,7 @@ on this machine.
 |                                 | NVMe                                    | Y     | Y    | Y       |
 |                                 | M.2 SATA                                |       |      | Y       |
 |                                 | I2C                                     | Y     | Y    | Y       |
-|                                 | UART                                    | Y     | Y    | Y       |
+|                                 | UART                                    | Y     | Y    |         |
 |                                 | eMMC                                    |       |      |         |
 |                                 | SMP                                     | Y     | Y    | Y       |
 |                                 | SPI                                     | Y     | Y    | Y       |
@@ -28,7 +28,8 @@ on this machine.
 |                                 | USB Host                                | Y     | Y    | Y       |
 |                                 | USB Mass Storage                        | Y     | Y    | Y       |
 |                                 | Audio                                   |       |      |         |
-|                                 | UART                                    | Y     | Y    | Y       |
+|                                 | UART                                    | Y     | Y    | Y*      |
+|                                 | _* via LPC to UART Adapter module_      |       |      |         |
 |                                 | Bluetooth                               |       |      |         |
 |                                 | USB Wi-Fi                               |       |      |         |
 |                                 | HDD/SATA                                | Y     | Y    | Y       |
