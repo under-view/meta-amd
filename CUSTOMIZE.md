@@ -37,12 +37,12 @@ target.
 
 #### Supported software features
 
-| Software feature      | Configuration variable      | Configuration values | Default value | Supported machines     |
-|:----------------------|:----------------------------|:---------------------|:--------------|:-----------------------|
-| ON-TARGET DEVELOPMENT | EXTRA_IMAGE_FEATURES_append | tools-sdk            |               | ethanolx (milan, rome) |
-| ON-TARGET DEBUGGING   | EXTRA_IMAGE_FEATURES_append | tools-debug          |               | ethanolx (milan, rome) |
-| ON-TARGET PROFILING   | EXTRA_IMAGE_FEATURES_append | tools-profile        |               | ethanolx (milan, rome) |
-| RT KERNEL             | RT_KERNEL_AMD               | yes, no              | no            | ethanolx (milan, rome) |
+| Software feature      | Configuration variable      | Configuration values | Default value | Supported machines              |
+|:----------------------|:----------------------------|:---------------------|:--------------|:--------------------------------|
+| ON-TARGET DEVELOPMENT | EXTRA_IMAGE_FEATURES_append | tools-sdk            |               | ethanolx (milan, rome), vermeer |
+| ON-TARGET DEBUGGING   | EXTRA_IMAGE_FEATURES_append | tools-debug          |               | ethanolx (milan, rome), vermeer |
+| ON-TARGET PROFILING   | EXTRA_IMAGE_FEATURES_append | tools-profile        |               | ethanolx (milan, rome), vermeer |
+| RT KERNEL             | RT_KERNEL_AMD               | yes, no              | no            | ethanolx (milan, rome), vermeer |
 
 #### Example configuration in local.conf
 ```sh
@@ -54,6 +54,32 @@ EXTRA_IMAGE_FEATURES_append = " tools-profile"
 # configuring the RT_KERNEL_AMD variable
 RT_KERNEL_AMD = "yes"
 ```
+
+Furthermore, the `vermeer` platform does not have an on-board RS232
+serial port. Therefore, the graphical console is enabled on this
+machine by default and the user is required to interact with the
+machine using a display device plugged into a dGPU connected via the
+PCIe slot.
+
+In case the user does not have a dGPU, and wants to interact with the
+machine over the RS232 serial interface, the user needs to have an
+`LPC to UART Adapter` module plugged into the LPC header on the
+motherboard.
+
+Using a serial cable connected between the host machine's RS232 port
+and this module, the user will be able to interact with the machine
+using the serial interface, but will still not be able to install the
+OS to a harddrive using the serial interface. For that, the graphical
+console has to be disabled. In order to achieve that, add the
+following to the `local.conf` and rebuild an image.
+
+```sh
+MACHINE_FEATURES_remove = "screen-console"
+```
+
+The resulting image will have no graphical console support and will
+only have the serial console support. After this, the user will also
+be able to install the OS to a harddrive using the serial interface.
 
 ---
 #### What's next
