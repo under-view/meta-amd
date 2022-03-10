@@ -11,9 +11,6 @@ DPDK_PKGS = "${@bb.utils.contains("BBFILE_COLLECTIONS", "dpdk", "dpdk dpdk-examp
 MACHINE_FEATURES_remove = "screen alsa"
 MACHINE_EXTRA_RRECOMMENDS_remove = " rtc-test alsa-utils"
 
-# Drop features we do not need
-DISTRO_FEATURES_remove="opengl x11 alsa pulseaudio"
-
 # Disable the graphical console when machine does not have a screen.
 # This allows the serial console to be used for installation.
 APPEND_remove="${@bb.utils.contains('MACHINE_FEATURES', 'screen-console', '', 'console=tty0', d)}"
