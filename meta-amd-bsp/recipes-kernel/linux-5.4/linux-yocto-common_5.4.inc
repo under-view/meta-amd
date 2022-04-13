@@ -1,3 +1,4 @@
+INC_PR := "r0"
 PR := "${INC_PR}.1"
 
 KMACHINE_amd ?= "common-pc-64"
