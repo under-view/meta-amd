@@ -9,7 +9,7 @@ TUNECONFLICTS[amd64] = "m32 mx32"
 
 # Extra tune selections
 AVAILTUNES += "amd64"
-TUNE_FEATURES_tune-amd64 = "m64"
-BASE_LIB_tune-amd64 = "lib64"
-TUNE_PKGARCH_tune-amd64 = "amd64"
-PACKAGE_EXTRA_ARCHS_tune-amd64 = "${TUNE_PKGARCH_tune-amd64}"
+TUNE_FEATURES:tune-amd64 = "m64"
+BASE_LIB:tune-amd64 = "lib64"
+TUNE_PKGARCH:tune-amd64 = "amd64"
+PACKAGE_EXTRA_ARCHS:tune-amd64 = "${TUNE_PKGARCH:tune-amd64}"

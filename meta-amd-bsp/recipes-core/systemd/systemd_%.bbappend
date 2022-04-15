@@ -1,7 +1,7 @@
-FILESEXTRAPATHS_prepend := "${THISDIR}/files:"
+FILESEXTRAPATHS:prepend := "${THISDIR}/files:"
 
-pkg_postinst_udev-hwdb_amd () {
+pkg_postinst:udev-hwdb:amd () {
 }
-pkg_postinst_ontarget_udev-hwdb_amd () {
+pkg_postinst_ontarget:udev-hwdb:amd () {
     udevadm hwdb --update
 }

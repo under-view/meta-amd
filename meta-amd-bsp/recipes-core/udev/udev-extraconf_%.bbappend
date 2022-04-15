@@ -1,4 +1,4 @@
-FILESEXTRAPATHS_prepend := "${THISDIR}/${PN}:"
+FILESEXTRAPATHS:prepend := "${THISDIR}/${PN}:"
 
 SRC_URI += " \
        file://60-drm-hotplug-mode.rules \
@@ -10,7 +10,7 @@ SRC_URI += " \
 # Allowed options for MULTI_DISPLAY_MODE: auto | mirrored | extended-h | extended-v
 MULTI_DISPLAY_MODE ?= "auto"
 
-do_install_append() {
+do_install:append() {
     sed -i 's/@MULTIDISPLAYMODE/${MULTI_DISPLAY_MODE}/' ${WORKDIR}/60-drm-hotplug-mode.rules
 
     install -d ${D}${sysconfdir}/udev/rules.d
@@ -23,4 +23,4 @@ do_install_append() {
     install -m 0755 ${WORKDIR}/hotplug-display-extended-v.sh ${D}${sysconfdir}/udev/scripts/hotplug-display-extended-v.sh
 }
 
-RDEPENDS_${PN} += "${@bb.utils.contains('IMAGE_FEATURES', 'x11-base', 'xrandr', '', d)}"
+RDEPENDS:${PN} += "${@bb.utils.contains('IMAGE_FEATURES', 'x11-base', 'xrandr', '', d)}"

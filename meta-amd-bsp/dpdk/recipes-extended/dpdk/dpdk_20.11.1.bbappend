@@ -1,10 +1,10 @@
-FILESEXTRAPATHS_prepend := "${THISDIR}/files:"
+FILESEXTRAPATHS:prepend := "${THISDIR}/files:"
 
 DEPENDS += "openssl"
 
-SRC_URI_append_v1000 = " file://0001-axgbe_ethdev.c-use-RV-AXGBE-as-pci_search_device-doe.patch"
+SRC_URI:append:v1000 = " file://0001-axgbe_ethdev.c-use-RV-AXGBE-as-pci_search_device-doe.patch"
 
-RDEPENDS_dpdk-tools += "\
+RDEPENDS:dpdk-tools += "\
   python3-shell \
   python3-json \
   python3-pyelftools \

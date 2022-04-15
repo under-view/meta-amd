@@ -39,16 +39,16 @@ target.
 
 | Software feature      | Configuration variable      | Configuration values | Default value | Supported machines              |
 |:----------------------|:----------------------------|:---------------------|:--------------|:--------------------------------|
-| ON-TARGET DEVELOPMENT | EXTRA_IMAGE_FEATURES_append | tools-sdk            |               | ethanolx (milan, rome), vermeer |
-| ON-TARGET DEBUGGING   | EXTRA_IMAGE_FEATURES_append | tools-debug          |               | ethanolx (milan, rome), vermeer |
-| ON-TARGET PROFILING   | EXTRA_IMAGE_FEATURES_append | tools-profile        |               | ethanolx (milan, rome), vermeer |
+| ON-TARGET DEVELOPMENT | EXTRA_IMAGE_FEATURES:append | tools-sdk            |               | ethanolx (milan, rome), vermeer |
+| ON-TARGET DEBUGGING   | EXTRA_IMAGE_FEATURES:append | tools-debug          |               | ethanolx (milan, rome), vermeer |
+| ON-TARGET PROFILING   | EXTRA_IMAGE_FEATURES:append | tools-profile        |               | ethanolx (milan, rome), vermeer |
 | RT KERNEL             | RT_KERNEL_AMD               | yes, no              | no            | ethanolx (milan, rome), vermeer |
 
 #### Example configuration in local.conf
 ```sh
-EXTRA_IMAGE_FEATURES_append = " tools-sdk"
-EXTRA_IMAGE_FEATURES_append = " tools-debug"
-EXTRA_IMAGE_FEATURES_append = " tools-profile"
+EXTRA_IMAGE_FEATURES:append = " tools-sdk"
+EXTRA_IMAGE_FEATURES:append = " tools-debug"
+EXTRA_IMAGE_FEATURES:append = " tools-profile"
 
 # Please run 'bitbake -c clean virtual/kernel' everytime before
 # configuring the RT_KERNEL_AMD variable
@@ -74,7 +74,7 @@ console has to be disabled. In order to achieve that, add the
 following to the `local.conf` and rebuild an image.
 
 ```sh
-MACHINE_FEATURES_remove = "screen-console"
+MACHINE_FEATURES:remove = "screen-console"
 ```
 
 The resulting image will have no graphical console support and will

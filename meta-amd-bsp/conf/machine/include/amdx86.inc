@@ -8,12 +8,12 @@ include conf/machine/include/amd-customer-configurations.inc
 # Add machine specific AMD features and feature pkgs here
 DPDK_PKGS = "${@bb.utils.contains("BBFILE_COLLECTIONS", "dpdk", "dpdk dpdk-examples dpdk-tools dpdk-module", "", d)}"
 
-MACHINE_FEATURES_remove = "screen alsa"
-MACHINE_EXTRA_RRECOMMENDS_remove = " rtc-test alsa-utils"
+MACHINE_FEATURES:remove = "screen alsa"
+MACHINE_EXTRA_RRECOMMENDS:remove = " rtc-test alsa-utils"
 
 # Disable the graphical console when machine does not have a screen.
 # This allows the serial console to be used for installation.
-APPEND_remove="${@bb.utils.contains('MACHINE_FEATURES', 'screen-console', '', 'console=tty0', d)}"
+APPEND:remove="${@bb.utils.contains('MACHINE_FEATURES', 'screen-console', '', 'console=tty0', d)}"
 
 MACHINEOVERRIDES =. "amd:amdx86:"
 

@@ -8,7 +8,7 @@ PREFERRED_PROVIDER_virtual/kernel ?= "linux-seattle"
 
 MACHINE_FEATURES = "pci ext2 ext3 serial"
 
-RDEPENDS_kernel-base = "kernel-image"
+RDEPENDS:kernel-base = "kernel-image"
 
 KERNEL_IMAGETYPE = "Image"
 

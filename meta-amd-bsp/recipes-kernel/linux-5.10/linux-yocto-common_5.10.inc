@@ -1,13 +1,13 @@
 INC_PR := "r0"
 PR := "${INC_PR}.1"
 
-KMACHINE_amd ?= "common-pc-64"
-SRCREV_meta_amd ?= "82899c6a7119b9668be9ae508159f5ac96554cc2"
-LINUX_VERSION_amd ?= "5.10.47"
+KMACHINE:amd ?= "common-pc-64"
+SRCREV_meta:amd ?= "82899c6a7119b9668be9ae508159f5ac96554cc2"
+LINUX_VERSION:amd ?= "5.10.47"
 
-FILESEXTRAPATHS_prepend := "${THISDIR}/linux-yocto-${LINUX_VERSION}:"
+FILESEXTRAPATHS:prepend := "${THISDIR}/linux-yocto-${LINUX_VERSION}:"
 
-SRC_URI_append_amd = " file://amd-xgbe-patches.scc \
+SRC_URI:append:amd = " file://amd-xgbe-patches.scc \
                    file://amd-emmc-patches.scc \
                    file://amd-spi-patches.scc \
                    file://amd-usb-patches.scc \
@@ -24,4 +24,4 @@ SRC_URI_append_amd = " file://amd-xgbe-patches.scc \
                    ${@bb.utils.contains('DISTRO_FEATURES', 'bluetooth', 'file://enable-bluetooth.cfg', 'file://disable-bluetooth.cfg', d)} \
                    ${@bb.utils.contains('DISTRO', 'poky-amd', 'file://enable-kgdb.cfg', 'file://disable-kgdb.cfg', d)}"
 
-KERNEL_FEATURES_append_amd = " cfg/smp.scc"
+KERNEL_FEATURES:append:amd = " cfg/smp.scc"
