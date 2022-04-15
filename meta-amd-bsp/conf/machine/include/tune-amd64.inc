@@ -1,7 +1,7 @@
 DEFAULTTUNE ?= "amd64"
 
 require conf/machine/include/x86/arch-x86.inc
-require conf/machine/include/x86-base.inc
+require conf/machine/include/x86/x86-base.inc
 
 # AMD x86 64-bit
 TUNEVALID[amd64] = "Enable AMD x86 (64 bit) specific processor optimizations"
