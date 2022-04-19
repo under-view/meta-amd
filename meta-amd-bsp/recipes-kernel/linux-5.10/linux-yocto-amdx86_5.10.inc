@@ -1,4 +1,4 @@
-FILESEXTRAPATHS:prepend := "${THISDIR}/linux-yocto-${LINUX_VERSION}-amdx86:"
+FILESEXTRAPATHS:prepend := "${THISDIR}/linux-yocto-amdx86:"
 
 SRC_URI:append:amdx86 += "file://amdx86-user-features.scc \
     file://amdx86-user-patches.scc \
