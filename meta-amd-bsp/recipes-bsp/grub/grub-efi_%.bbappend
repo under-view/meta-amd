@@ -1,3 +1,3 @@
 require grub-fixes.inc
 
-RDEPENDS_${PN}_class-target_append = " efibootmgr"
+RDEPENDS:${PN}:class-target:append = " efibootmgr"

@@ -10,9 +10,9 @@ SRC_URI = "git://git.yoctoproject.org/linux-yocto-3.19;branch="standard/qemuarm6
            file://319-Update-xgbe-drivers-for-B0-board.patch \
            file://defconfig \
            "
-SRC_URI_append_seattle-be = "file://bigendian.cfg \
+SRC_URI:append:seattle-be = "file://bigendian.cfg \
                             "
 
-INSANE_SKIP_${PN} += "installed-vs-shipped"
-INSANE_SKIP_kernel-dev += "debug-files"
-INSANE_SKIP_kernel-dev += "arch"
+INSANE_SKIP:${PN} += "installed-vs-shipped"
+INSANE_SKIP:kernel-dev += "debug-files"
+INSANE_SKIP:kernel-dev += "arch"

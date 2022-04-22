@@ -1,6 +1,6 @@
-FILESEXTRAPATHS_prepend := "${THISDIR}/linux-yocto-${LINUX_VERSION}-amdx86:"
+FILESEXTRAPATHS:prepend := "${THISDIR}/linux-yocto-amdx86:"
 
-SRC_URI_append_amdx86 += "file://amdx86-user-features.scc \
+SRC_URI:append:amdx86 += "file://amdx86-user-features.scc \
     file://amdx86-user-patches.scc \
     file://amdx86.cfg \
     file://amdx86-user-config.cfg \
@@ -15,9 +15,9 @@ SRC_URI_append_amdx86 += "file://amdx86-user-features.scc \
     file://amdx86-standard-only.cfg \
 "
 
-SRC_URI_remove_amdx86 = " file://sound.cfg"
+SRC_URI:remove:amdx86 = " file://sound.cfg"
 
-do_validate_branches_append() {
+do_validate_branches:append() {
     # Droping configs related to sound generating spurious warnings
     sed -i '/kconf hardware snd_hda_intel.cfg/d' ${WORKDIR}/${KMETA}/features/sound/snd_hda_intel.scc
 

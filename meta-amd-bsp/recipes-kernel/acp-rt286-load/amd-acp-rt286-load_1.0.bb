@@ -11,5 +11,5 @@ do_install() {
     install -m 0644 modprobe.d/snd-soc-acp-rt286-mach.conf ${D}${sysconfdir}/modprobe.d/
 }
 
-FILES_${PN} = "${sysconfdir}/modprobe.d"
+FILES:${PN} = "${sysconfdir}/modprobe.d"
 

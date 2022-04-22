@@ -10,12 +10,12 @@ S = "${WORKDIR}/git"
 
 DEPENDS += "libgcc"
 
-MACHINE_KERNEL_PR_append = "b+gitr${SRCPV}"
+MACHINE_KERNEL_PR:append = "b+gitr${SRCPV}"
 PR = "${MACHINE_KERNEL_PR}"
 
 COMPATIBLE_MACHINE = "seattle*"
 
-do_deploy_append() {                                                                                         
+do_deploy:append() {
         install -m 0644 ${B}/arch/arm64/boot/dts/amd/amd-overdrive.dtb ${DEPLOYDIR}/${KERNEL_IMAGE_BASE_NAME}.dtb
 }                                                                                                            
 
