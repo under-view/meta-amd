@@ -1,11 +1,10 @@
 INC_PR := "r0"
-PR := "${INC_PR}.1"
 
 KMACHINE:amd ?= "common-pc-64"
 SRCREV_meta:amd ?= "f8afd84b117f336477846b9e22178ebefb26c08d"
 LINUX_VERSION:amd ?= "5.10.70"
 
-FILESEXTRAPATHS:prepend := "${THISDIR}/linux-yocto:"
+FILESEXTRAPATHS:prepend := "${THISDIR}/linux-yocto-5.10:"
 
 SRC_URI:append:amd = " file://amd-xgbe-patches.scc \
                    file://amd-emmc-patches.scc \
