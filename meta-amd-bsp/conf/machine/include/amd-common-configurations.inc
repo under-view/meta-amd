@@ -4,7 +4,6 @@ POKY_DEFAULT_DISTRO_FEATURES:remove = "wayland"
 
 PREFERRED_PROVIDER_jpeg ?= "jpeg"
 PREFERRED_PROVIDER_jpeg-native ?= "jpeg-native"
-PREFERRED_VERSION_linux-yocto ?= "5.10%"
 
 MULTILIBS ?= ""
 require conf/multilib.conf
