@@ -1,8 +1,8 @@
 INC_PR := "r0"
 
 KMACHINE:amd ?= "common-pc-64"
-SRCREV_meta:amd ?= "f8afd84b117f336477846b9e22178ebefb26c08d"
-LINUX_VERSION:amd ?= "5.10.70"
+SRCREV_meta:amd ?= "2278ed571c14df6e87d8e01ac26f649d98020623"
+LINUX_VERSION:amd ?= "5.10.109"
 
 FILESEXTRAPATHS:prepend := "${THISDIR}/linux-yocto-5.10:"
 
