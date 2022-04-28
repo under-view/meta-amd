@@ -24,7 +24,7 @@ sudo apt install -y gawk wget git diffstat unzip texinfo gcc \
 
 Select the Yocto Project branch:
 ```sh
-YOCTO_BRANCH="hardknott"
+YOCTO_BRANCH="honister"
 ```
 
 Clone the git repositories: 
@@ -42,13 +42,13 @@ git clone --single-branch --branch "${YOCTO_BRANCH}" \
 
 Checkout commit hashes:
 ```sh
-git checkout --quiet tags/yocto-3.3.2
+git checkout --quiet tags/yocto-3.4
 cd meta-openembedded
-git checkout --quiet aaa1c12b2cdea197d420953c8df873e8af5cc507
+git checkout --quiet 9a0caf5b09e14a28a54c3f8524d97530aeb8152c
 cd ../meta-dpdk
-git checkout --quiet c011004a49ffb1304f376f0fdc65066913102d5f
+git checkout --quiet 6c1b9b6cfe495ed5e62e1d2b8f75f24a790ee696
 cd ../meta-amd
-git checkout --quiet tags/hardknott-vermeer-ga-202110
+git checkout --quiet tags/yocto-3.4
 cd ..
 ```
 

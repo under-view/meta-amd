@@ -63,7 +63,6 @@ FEATURE_PACKAGES_amd-feature-graphics = "\
     ${@bb.utils.contains("INCLUDE_VULKAN", "yes", "${VULKAN_PKGS}", "", d)} \
     ${AMD_FEATURE_GRAPHICS_PKGS} \
 "
-FEATURE_PACKAGES_amd-feature-graphics:append:amdgpu = " ${@bb.utils.contains("IMAGE_FEATURES", "x11-base", "mesa-demos", "", d)}"
 FEATURE_PACKAGES_amd-feature-graphics:append:radeon = " ${@bb.utils.contains("IMAGE_FEATURES", "x11-base", "mesa-demos", "", d)}"
 
 FEATURE_PACKAGES_amd-feature-networking = "\

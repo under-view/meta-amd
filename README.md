@@ -124,6 +124,6 @@ may take longer.
 
 The per layer gatekeepers are the following.
 
-- meta-amd-bsp: Wade Farnsworth, wade_farnsworth@mentor.com
-- meta-amd-distro: Wade Farnsworth, wade_farnsworth@mentor.com
-- meta-seattle: Adrian Calianu, adrian.calianu@enea.com
+- meta-amd-bsp: Andy Dracup <andy.dracup@windriver.com>
+- meta-amd-distro: Andy Dracup <andy.dracup@windriver.com>
+- meta-seattle: Adrian Calianu, <adrian.calianu@enea.com>
