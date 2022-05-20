@@ -2,12 +2,12 @@
 
 Building images for AMD machines requires setting up the Yocto Project
 Build System. Please follow the guidelines on
-[Yocto Project Overview and Concepts Manual](https://docs.yoctoproject.org/3.3.2/overview-manual/index.html)
-and [Yocto Project Quick Build Guide](https://docs.yoctoproject.org/3.3.2/brief-yoctoprojectqs/index.html)
+[Yocto Project Overview and Concepts Manual](https://docs.yoctoproject.org/4.0/overview-manual/index.html)
+and [Yocto Project Quick Build Guide](https://docs.yoctoproject.org/4.0/brief-yoctoprojectqs/index.html)
 if you are not familiar with the Yocto Project and it's Build System.
 
 Running the following commands will setup the build system and will
-enable us to build recipes & images for any of the supported AMD machines (i.e `vermeer` or `ethanolx`).
+enable us to build recipes & images for any of the supported AMD machines (i.e `rome` or `milan`).
 
 ### 1.1 Prerequisites
 
@@ -24,7 +24,7 @@ sudo apt install -y gawk wget git diffstat unzip texinfo gcc \
 
 Select the Yocto Project branch:
 ```sh
-YOCTO_BRANCH="honister"
+YOCTO_BRANCH="kirkstone"
 ```
 
 Clone the git repositories: 
@@ -42,13 +42,13 @@ git clone --single-branch --branch "${YOCTO_BRANCH}" \
 
 Checkout commit hashes:
 ```sh
-git checkout --quiet tags/yocto-3.4
+git checkout --quiet tags/yocto-4.0
 cd meta-openembedded
-git checkout --quiet 9a0caf5b09e14a28a54c3f8524d97530aeb8152c
+git checkout --quiet 64156a6f8f3b4527c4732c91936aee0a167acb48
 cd ../meta-dpdk
-git checkout --quiet 6c1b9b6cfe495ed5e62e1d2b8f75f24a790ee696
+git checkout --quiet 09098721b1c78ee812ee287f6b366a47f4b5be87
 cd ../meta-amd
-git checkout --quiet tags/yocto-3.4
+git checkout --quiet tags/yocto-4.0
 cd ..
 ```
 

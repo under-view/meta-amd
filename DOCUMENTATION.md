@@ -5,10 +5,10 @@ features, and user guide to Yocto Project and it's build system.
 
 | Feature                                      | Documentation                                                     | Comments |
 |:---------------------------------------------|:------------------------------------------------------------------|:---------|
-| Yocto Project – Overview and Concepts Manual | https://docs.yoctoproject.org/3.4/overview-manual/index.html      |          |
-| Yocto Project – Quick Build                  | https://docs.yoctoproject.org/3.4/brief-yoctoprojectqs/index.html |          |
-| Yocto Project – Toaster Manual               | https://docs.yoctoproject.org/3.4/toaster-manual/index.html       |          |
-| Yocto Project – SDK Manual                   | https://docs.yoctoproject.org/3.4/sdk-manual/index.html           |          |
-| KGDB                                         | https://www.kernel.org/doc/html/v5.10/dev-tools/kgdb.html         |          |
-| LTTng                                        | https://lttng.org/docs/v2.12                                      |          |
-| DPDK                                         | https://doc.dpdk.org/guides-20.11                                 |          |
+| Yocto Project – Overview and Concepts Manual | https://docs.yoctoproject.org/4.0/overview-manual/index.html      |          |
+| Yocto Project – Quick Build                  | https://docs.yoctoproject.org/4.0/brief-yoctoprojectqs/index.html |          |
+| Yocto Project – Toaster Manual               | https://docs.yoctoproject.org/4.0/toaster-manual/index.html       |          |
+| Yocto Project – SDK Manual                   | https://docs.yoctoproject.org/4.0/sdk-manual/index.html           |          |
+| KGDB                                         | https://www.kernel.org/doc/html/v5.15/dev-tools/kgdb.html         |          |
+| LTTng                                        | https://lttng.org/docs/v2.13                                      |          |
+| DPDK                                         | https://doc.dpdk.org/guides-21.11                                 |          |

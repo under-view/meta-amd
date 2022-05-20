@@ -39,10 +39,10 @@ target.
 
 | Software feature      | Configuration variable      | Configuration values | Default value | Supported machines   |
 |:----------------------|:----------------------------|:---------------------|:--------------|:---------------------|
-| ON-TARGET DEVELOPMENT | EXTRA_IMAGE_FEATURES:append | tools-sdk            |               | milan, rome, vermeer |
-| ON-TARGET DEBUGGING   | EXTRA_IMAGE_FEATURES:append | tools-debug          |               | milan, rome, vermeer |
-| ON-TARGET PROFILING   | EXTRA_IMAGE_FEATURES:append | tools-profile        |               | milan, rome, vermeer |
-| RT KERNEL             | RT_KERNEL_AMD               | yes, no              | no            | milan, rome, vermeer |
+| ON-TARGET DEVELOPMENT | EXTRA_IMAGE_FEATURES:append | tools-sdk            |               | milan, rome          |
+| ON-TARGET DEBUGGING   | EXTRA_IMAGE_FEATURES:append | tools-debug          |               | milan, rome          |
+| ON-TARGET PROFILING   | EXTRA_IMAGE_FEATURES:append | tools-profile        |               | milan, rome          |
+| RT KERNEL             | RT_KERNEL_AMD               | yes, no              | no            | milan, rome          |
 
 #### Example configuration in local.conf
 ```sh
@@ -54,12 +54,6 @@ EXTRA_IMAGE_FEATURES:append = " tools-profile"
 # configuring the RT_KERNEL_AMD variable
 RT_KERNEL_AMD = "yes"
 ```
-
-Furthermore, the `vermeer` platform does not have an on-board RS232
-serial port. Therefore, the graphical console is enabled on this
-machine by default and the user is required to interact with the
-machine using a display device plugged into a dGPU connected via the
-PCIe slot.
 
 In case the user does not have a dGPU, and wants to interact with the
 machine over the RS232 serial interface, the user needs to have an

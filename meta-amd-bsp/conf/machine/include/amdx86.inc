@@ -1,6 +1,4 @@
 PREFERRED_PROVIDER_virtual/kernel ?= "${@bb.utils.contains('RT_KERNEL_AMD', 'yes', "linux-yocto-rt", "linux-yocto", d)}"
-PREFERRED_VERSION_linux-yocto ?= "5.10%"
-PREFERRED_VERSION_linux-yocto-rt ?= "5.10%"
 
 require conf/machine/include/amd-common-configurations.inc
 include conf/machine/include/amd-customer-configurations.inc
