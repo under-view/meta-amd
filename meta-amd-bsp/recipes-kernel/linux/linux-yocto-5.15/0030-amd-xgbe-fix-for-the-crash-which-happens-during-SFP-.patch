@@ -1,7 +1,7 @@
-From 1cbf1b80948bcb1c46b9674d6ff8f2b2629d1327 Mon Sep 17 00:00:00 2001
+From 12a357b858cef54ebff700e35e79b4e3c558e163 Mon Sep 17 00:00:00 2001
 From: Sudheesh Mavila <sudheesh.mavila@amd.com>
 Date: Thu, 13 Feb 2020 15:26:20 +0530
-Subject: [PATCH 02/10] amd-xgbe fix for the crash which happens during SFP
+Subject: [PATCH 30/48] amd-xgbe: fix for the crash which happens during SFP
  hotplug
 
  INFO: task kworker/u32:3:238 blocked for more than 120 seconds.
@@ -42,7 +42,7 @@ Signed-off-by: Sudheesh Mavila <sudheesh.mavila@amd.com>
  1 file changed, 4 insertions(+), 2 deletions(-)
 
 diff --git a/drivers/net/ethernet/amd/xgbe/xgbe-phy-v2.c b/drivers/net/ethernet/amd/xgbe/xgbe-phy-v2.c
-index 18e48b3bc402..90f33c3ddb32 100644
+index 2156600641b6..765479904723 100644
 --- a/drivers/net/ethernet/amd/xgbe/xgbe-phy-v2.c
 +++ b/drivers/net/ethernet/amd/xgbe/xgbe-phy-v2.c
 @@ -1283,7 +1283,7 @@ static int xgbe_phy_sfp_read_eeprom(struct xgbe_prv_data *pdata)
@@ -73,5 +73,5 @@ index 18e48b3bc402..90f33c3ddb32 100644
  
  static int xgbe_phy_module_eeprom(struct xgbe_prv_data *pdata,
 -- 
-2.17.1
+2.27.0
 

@@ -1,0 +1,9 @@
+# upstream
+patch 0012-i2c-Introduce-common-module-to-instantiate-CCGx-UCSI.patch
+patch 0013-i2c-nvidia-gpu-Switch-to-use-i2c_new_ccgx_ucsi.patch
+patch 0014-i2c-nvidia-gpu-Use-temporary-variable-for-struct-dev.patch
+patch 0015-i2c-nvidia-gpu-Convert-to-use-dev_err_probe.patch
+patch 0016-i2c-designware-pci-Switch-to-use-i2c_new_ccgx_ucsi.patch
+
+# out-of-tree
+patch 0017-Add-support-to-instantiate-CCGx-UCSI-driver.patch

@@ -1,0 +1,25 @@
+# upstream
+patch 0027-net-amd-xgbe-Add-Support-for-Yellow-Carp-Ethernet-de.patch
+patch 0028-net-amd-xgbe-Alter-the-port-speed-bit-range.patch
+patch 0029-net-amd-xgbe-Disable-the-CDR-workaround-path-for-Yel.patch
+
+# out-of-tree
+patch 0030-amd-xgbe-fix-for-the-crash-which-happens-during-SFP-.patch
+patch 0031-amd-xgbe-Fix-NETDEV-WATCHDOG-transmit-queue-timed-ou.patch
+patch 0032-amd-xgbe-Fix-for-Network-fluctuations.patch
+patch 0033-amd-xgbe-sets-XGBE_LINK_INIT-when-there-is-a-link-fa.patch
+patch 0034-amd-xgbe-rrc-is-required-only-for-Fixed-PHY-configur.patch
+patch 0035-amd-xgbe-increased-cdr-delay.patch
+patch 0036-amd-xgbe-enable-PLL_CTRL-feature-for-fixed-PHY-only.patch
+patch 0037-amd-xgbe-10KR-Modeset-every-AN-link-time-out.patch
+patch 0038-amd-xgbe-PLL-enabled-for-10G-Base-T.patch
+patch 0039-amd-xgbe-need-to-check-KR-training-before-restart-CL.patch
+patch 0040-amd-xgbe-10G-RJ45-support-on-Fox-platform.patch
+patch 0041-amd-xgbe-10G-RJ45-support-on-Fox-platform-with-AN-su.patch
+patch 0042-amd-xgbe-Yellow-carp-devices-do-not-need-rrc.patch
+patch 0043-amd-xgbe-10Gbaset-MDIO-for-10G.patch
+patch 0044-amd-xgbe-RX-Adaptation-support-for-V3000.patch
+patch 0045-amd-xgbe-limit-the-rx-adaptation-retries-to-MAX_RX_A.patch
+patch 0046-amd-xgbe-do-not-enable-rx-adaptation-for-InPhi-redri.patch
+patch 0047-amd-xgbe-RX-adapation-sending-proper-mailbox-command.patch
+patch 0048-amd-xgbe-enabled-PLL-when-cmd-other-then-0-and-5.patch

@@ -1,0 +1,4 @@
+# out-of-tree
+patch 0024-phy-aqr113-support-on-fox-platform-v1.patch
+patch 0025-net-phy-aquantia-Added-support-for-AQR113-PHY-device.patch
+patch 0026-net-phy-part1-aquantia-Added-support-for-AQR113-PHY-.patch

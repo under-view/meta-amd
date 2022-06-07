@@ -1,7 +1,7 @@
-From f811f3596ae62941ce01aa84beef4159844de39f Mon Sep 17 00:00:00 2001
+From da381975174f163cfd97ef12169732d9d96df8e9 Mon Sep 17 00:00:00 2001
 From: Sudheesh Mavila <sudheesh.mavila@amd.com>
 Date: Wed, 11 Nov 2020 12:13:33 +0530
-Subject: [PATCH 09/10] amd-xgbe: increased cdr delay
+Subject: [PATCH 35/48] amd-xgbe: increased cdr delay
 
 amd-xgbe driver needs delay to emable CDR.
 Some link partner's use 20ms of idle time before sending valid clock.
@@ -14,7 +14,7 @@ Signed-off-by: Sudheesh Mavila <sudheesh.mavila@amd.com>
  1 file changed, 3 insertions(+), 3 deletions(-)
 
 diff --git a/drivers/net/ethernet/amd/xgbe/xgbe-phy-v2.c b/drivers/net/ethernet/amd/xgbe/xgbe-phy-v2.c
-index a043c30358d2..f3566a480f2d 100644
+index 73f8bf084021..a6b90470e059 100644
 --- a/drivers/net/ethernet/amd/xgbe/xgbe-phy-v2.c
 +++ b/drivers/net/ethernet/amd/xgbe/xgbe-phy-v2.c
 @@ -149,9 +149,9 @@
@@ -31,5 +31,5 @@ index a043c30358d2..f3566a480f2d 100644
  /* RRC frequency during link status check */
  #define XGBE_RRC_FREQUENCY		10
 -- 
-2.17.1
+2.27.0
 
