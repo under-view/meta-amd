@@ -22,4 +22,11 @@ patch 0044-amd-xgbe-RX-Adaptation-support-for-V3000.patch
 patch 0045-amd-xgbe-limit-the-rx-adaptation-retries-to-MAX_RX_A.patch
 patch 0046-amd-xgbe-do-not-enable-rx-adaptation-for-InPhi-redri.patch
 patch 0047-amd-xgbe-RX-adapation-sending-proper-mailbox-command.patch
-patch 0048-amd-xgbe-enabled-PLL-when-cmd-other-then-0-and-5.patch
+patch 0051-amd-xgbe-Add-support-for-10Mbps.patch
+patch 0052-amd-xgbe-rx-adap-finetunings.patch
+patch 0053-amd-xgbe-rx-adaptation-handle-SFP-connectors.patch
+patch 0054-amd-xgbe-Fix-Tx_Timestamp_Timeout-error-while-runnin.patch
+patch 0055-amd-xgbe-Update-SSINC-value-based-on-125MHz-PTP-cloc.patch
+patch 0056-amd-xgbe-Add-support-for-molex-passive-cables.patch
+patch 0057-amd-xgbe-For-mac-SNPSVER-0x30H-modifying-driver-to-u.patch
+patch 0058-amd-xgbe-AIC2-rx-adaption-software-tuning-enablement.patch
