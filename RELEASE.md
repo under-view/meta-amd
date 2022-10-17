@@ -10,7 +10,7 @@ hashes, software versions, and known/fixed issues/limitations.
 | poky              | git://git.yoctoproject.org/poky              | kirkstone | tags/yocto-4.0                           |
 | meta-openembedded | git://git.openembedded.org/meta-openembedded | kirkstone | 64156a6f8f3b4527c4732c91936aee0a167acb48 |
 | meta-dpdk         | git://git.yoctoproject.org/meta-dpdk         | kirkstone | 09098721b1c78ee812ee287f6b366a47f4b5be87 |
-| meta-amd          | git://git.yoctoproject.org/meta-amd          | kirkstone | tags/yocto-4.0                           |
+| meta-amd          | git://git.yoctoproject.org/meta-amd          | kirkstone | tags/kirkstone-v3000-ga-202210           |
 
 ## Software versions
 | Software        | Version  |
@@ -31,3 +31,5 @@ hashes, software versions, and known/fixed issues/limitations.
 ## Fixed issues
 
 ## Known issues
+
+* v3000: PORT0 does not work in finsar FCLF8520P2BTL

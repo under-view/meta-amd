@@ -7,9 +7,9 @@ a selected AMD machine, and will start a build:
 
 ### 2.1. Select a target machine
 
-Set the environment variable `MACHINE` to one of the supported AMD machines (i.e `rome` or `milan`) that you want
-to build an image for (change the `<machine-name>` in the following example
-accordingly):
+Set the environment variable `MACHINE` to one of the supported AMD machines
+(i.e `milan`, `rome` or `v3000`) that you want to build an image for (change
+the `<machine-name>` in the following example accordingly):
 ```sh
 MACHINE="<machine-name>"
 ```

@@ -7,7 +7,7 @@ and [Yocto Project Quick Build Guide](https://docs.yoctoproject.org/4.0/brief-yo
 if you are not familiar with the Yocto Project and it's Build System.
 
 Running the following commands will setup the build system and will
-enable us to build recipes & images for any of the supported AMD machines (i.e `rome` or `milan`).
+enable us to build recipes & images for any of the supported AMD machines (i.e `milan`, `rome` or `v3000`).
 
 ### 1.1 Prerequisites
 
@@ -48,7 +48,7 @@ git checkout --quiet 64156a6f8f3b4527c4732c91936aee0a167acb48
 cd ../meta-dpdk
 git checkout --quiet 09098721b1c78ee812ee287f6b366a47f4b5be87
 cd ../meta-amd
-git checkout --quiet tags/yocto-4.0
+git checkout --quiet tags/kirkstone-v3000-ga-202210
 cd ..
 ```
 

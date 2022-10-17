@@ -39,10 +39,10 @@ target.
 
 | Software feature      | Configuration variable      | Configuration values | Default value | Supported machines   |
 |:----------------------|:----------------------------|:---------------------|:--------------|:---------------------|
-| ON-TARGET DEVELOPMENT | EXTRA_IMAGE_FEATURES:append | tools-sdk            |               | milan, rome          |
-| ON-TARGET DEBUGGING   | EXTRA_IMAGE_FEATURES:append | tools-debug          |               | milan, rome          |
-| ON-TARGET PROFILING   | EXTRA_IMAGE_FEATURES:append | tools-profile        |               | milan, rome          |
-| RT KERNEL             | RT_KERNEL_AMD               | yes, no              | no            | milan, rome          |
+| ON-TARGET DEVELOPMENT | EXTRA_IMAGE_FEATURES:append | tools-sdk            |               | milan, rome, v3000   |
+| ON-TARGET DEBUGGING   | EXTRA_IMAGE_FEATURES:append | tools-debug          |               | milan, rome, v3000   |
+| ON-TARGET PROFILING   | EXTRA_IMAGE_FEATURES:append | tools-profile        |               | milan, rome, v3000   |
+| RT KERNEL             | RT_KERNEL_AMD               | yes, no              | no            | milan, rome, v3000   |
 
 #### Example configuration in local.conf
 ```sh
