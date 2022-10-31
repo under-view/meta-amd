@@ -1,12 +1,4 @@
 # upstream
-patch 0003-i2c-piix4-Replace-hardcoded-memory-map-size-with-a-d.patch
-patch 0004-i2c-piix4-Move-port-I-O-region-request-release-code-.patch
-patch 0005-i2c-piix4-Move-SMBus-controller-base-address-detect-.patch
-patch 0006-i2c-piix4-Move-SMBus-port-selection-into-function.patch
-patch 0007-i2c-piix4-Add-EFCH-MMIO-support-to-region-request-an.patch
-patch 0008-i2c-piix4-Add-EFCH-MMIO-support-to-SMBus-base-addres.patch
-patch 0009-i2c-piix4-Add-EFCH-MMIO-support-for-SMBus-port-selec.patch
-patch 0010-i2c-piix4-Enable-EFCH-MMIO-for-Family-17h.patch
 
 # out-of-tree
 patch 0011-i2c-amd-mp2-avoid-using-pci_intx-if-msi-or-msix-is-s.patch

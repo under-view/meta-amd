@@ -1,6 +1,2 @@
 # upstream
 patch 0018-watchdog-sp5100_tco-Add-support-for-get_timeleft.patch
-patch 0019-Watchdog-sp5100_tco-Move-timer-initialization-into-f.patch
-patch 0020-Watchdog-sp5100_tco-Refactor-MMIO-base-address-initi.patch
-patch 0021-Watchdog-sp5100_tco-Add-initialization-using-EFCH-MM.patch
-patch 0022-Watchdog-sp5100_tco-Enable-Family-17h-CPUs.patch

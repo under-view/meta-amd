@@ -1,13 +1,13 @@
 FILESEXTRAPATHS:prepend := "${THISDIR}/linux-yocto-5.15:"
 
 KMACHINE:amd ?= "common-pc-64"
-SRCREV_meta:amd ?= "63e25b5717751b4b33685bd5991d10c52934a4c6"
-LINUX_VERSION:amd ?= "5.15.32"
+SRCREV_meta:amd ?= "1128d7bcdcde490d4f35cc00c97f5410bb240d99"
+LINUX_VERSION:amd ?= "5.15.68"
 LINUX_VERSION_EXTENSION:amd ?= "-amd-${LINUX_KERNEL_TYPE}"
 
 COMPATIBLE_MACHINE = "${MACHINE}"
 
-INC_PR := "r0"
+INC_PR := "r1"
 
 SRC_URI:append:amd = " \
       file://amdx86.cfg \
