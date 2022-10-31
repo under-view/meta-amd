@@ -30,3 +30,4 @@ patch 0055-amd-xgbe-Update-SSINC-value-based-on-125MHz-PTP-cloc.patch
 patch 0056-amd-xgbe-Add-support-for-molex-passive-cables.patch
 patch 0057-amd-xgbe-For-mac-SNPSVER-0x30H-modifying-driver-to-u.patch
 patch 0058-amd-xgbe-AIC2-rx-adaption-software-tuning-enablement.patch
+patch 0059-amd-xgbe-Delay-AN-timeout-during-KR-training.patch
