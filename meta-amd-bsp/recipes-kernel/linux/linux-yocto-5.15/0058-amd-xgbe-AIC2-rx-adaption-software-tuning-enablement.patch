@@ -90,7 +90,7 @@ index 278e0509cd19..b067f8216710 100644
 +
 +			if ((phy_data->cur_mode == XGBE_MODE_KR) ||( phy_data->cur_mode == XGBE_MODE_SFI))
 +				pdata->hw_if.set_speed(pdata, SPEED_10000);
-+				_xgbe_mode_set(pdata, phy_data->cur_mode);
++			_xgbe_mode_set(pdata, phy_data->cur_mode);
  		}
  	} else {
  		netif_dbg(pdata, link, pdata->netdev, "%s either RX_VALID or LF_SIGDET is not set, issuing rrc\n",__func__);
