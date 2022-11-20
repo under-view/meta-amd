@@ -1,15 +1,15 @@
 FILESEXTRAPATHS:prepend := "${THISDIR}/linux-yocto-5.15:"
 
-KMACHINE:amd ?= "common-pc-64"
-SRCREV_meta:amd ?= "1128d7bcdcde490d4f35cc00c97f5410bb240d99"
-LINUX_VERSION:amd ?= "5.15.68"
-LINUX_VERSION_EXTENSION:amd ?= "-amd-${LINUX_KERNEL_TYPE}"
+KMACHINE = "common-pc-64"
+SRCREV_meta = "1128d7bcdcde490d4f35cc00c97f5410bb240d99"
+LINUX_VERSION = "5.15.68"
+LINUX_VERSION_EXTENSION = "-amd-${LINUX_KERNEL_TYPE}"
 
 COMPATIBLE_MACHINE = "${MACHINE}"
 
 INC_PR := "r1"
 
-SRC_URI:append:amd = " \
+SRC_URI:append = " \
       file://amdx86.cfg \
       file://amdx86-user-config.cfg \
       file://amdx86-extra-config.cfg \

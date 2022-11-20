@@ -1,5 +1,9 @@
-# Setup a getty on all serial ports
+require conf/machine/include/x86/x86-base.inc
+
+# ttyS4 is J39 on the board
 SERIAL_CONSOLES = "115200;ttyS4"
 
-# Enable the kernel console on ttyS0/COM0
-KERNEL_SERIAL_CONSOLE ?= "console=ttyS4,115200n8"
+# Enable the kernel console on ttyS4
+APPEND += "console=ttyS4,115200n8"
+
+MACHINE_FEATURES += "efi"
