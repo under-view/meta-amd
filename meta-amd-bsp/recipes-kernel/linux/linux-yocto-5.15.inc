@@ -25,13 +25,13 @@ SRC_URI:append = " \
       file://spi-driver.cfg \
       file://wdt-driver.cfg \
       file://wifi-drivers.cfg \
-      file://fragment.cfg \
       ${@bb.utils.contains('MACHINE_FEATURES', 'ccp', 'file://amd-ccp.cfg', '', d)} \
       ${@bb.utils.contains('MACHINE_FEATURES', 'screen', 'file://enable-graphics.cfg', 'file://disable-graphics.cfg', d)} \
       ${@bb.utils.contains('MACHINE_FEATURES', 'screen-console', 'file://enable-screen-console.cfg', 'file://disable-screen-console.cfg', d)} \
       ${@bb.utils.contains('DISTRO_FEATURES', 'bluetooth', 'file://enable-bluetooth.cfg', 'file://disable-bluetooth.cfg', d)} \
       ${@bb.utils.contains('DISTRO', 'poky-amd', 'file://enable-kgdb.cfg', 'file://disable-kgdb.cfg', d)} \
       ${@bb.utils.contains('EXTRA_IMAGE_FEATURES', 'amd-feature-networking', 'file://dpdk.cfg', '', d)} \
+      file://fragment.cfg \
       file://upstream.scc \
       file://core.scc \
       file://spi.scc \
