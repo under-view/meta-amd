@@ -32,6 +32,7 @@ SRC_URI:append = " \
       ${@bb.utils.contains('DISTRO_FEATURES', 'bluetooth', 'file://enable-bluetooth.cfg', 'file://disable-bluetooth.cfg', d)} \
       ${@bb.utils.contains('DISTRO', 'poky-amd', 'file://enable-kgdb.cfg', 'file://disable-kgdb.cfg', d)} \
       ${@bb.utils.contains('EXTRA_IMAGE_FEATURES', 'amd-feature-networking', 'file://dpdk.cfg', '', d)} \
+      file://upstream.scc \
       file://core.scc \
       file://spi.scc \
       file://smbus.scc \
