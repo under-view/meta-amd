@@ -2,12 +2,12 @@
 
 Building images for AMD machines requires setting up the Yocto Project
 Build System. Please follow the guidelines on
-[Yocto Project Overview and Concepts Manual](https://docs.yoctoproject.org/4.0/overview-manual/index.html)
-and [Yocto Project Quick Build Guide](https://docs.yoctoproject.org/4.0/brief-yoctoprojectqs/index.html)
+[Yocto Project Overview and Concepts Manual](https://docs.yoctoproject.org/4.0.5/overview-manual/index.html)
+and [Yocto Project Quick Build Guide](https://docs.yoctoproject.org/4.0.5/brief-yoctoprojectqs/index.html)
 if you are not familiar with the Yocto Project and it's Build System.
 
 Running the following commands will setup the build system and will
-enable us to build recipes & images for any of the supported AMD machines (i.e `milan`, `rome` or `v3000`).
+enable us to build recipes & images for any of the supported AMD machines.
 
 ### 1.1 Prerequisites
 
@@ -42,13 +42,13 @@ git clone --single-branch --branch "${YOCTO_BRANCH}" \
 
 Checkout commit hashes:
 ```sh
-git checkout --quiet tags/yocto-4.0
+git checkout --quiet tags/yocto-4.0.5
 cd meta-openembedded
-git checkout --quiet 64156a6f8f3b4527c4732c91936aee0a167acb48
+git checkout --quiet 50d4a8d2a983a68383ef1ffec2c8e21adf0c1a79
 cd ../meta-dpdk
-git checkout --quiet 09098721b1c78ee812ee287f6b366a47f4b5be87
+git checkout --quiet 0e62d02f2755fbbf7dfa6e243381377c0a1cd97c
 cd ../meta-amd
-git checkout --quiet tags/kirkstone-v3000-ga-202210
+git checkout --quiet tags/kirkstone-genoa-ga-202212
 cd ..
 ```
 
