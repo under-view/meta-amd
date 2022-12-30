@@ -64,3 +64,4 @@ patch 0083-KVM-SVM-Move-RESET-emulation-to-svm_vcpu_reset.patch
 patch 0084-KVM-SEV-ES-Use-V_TSC_AUX-if-available-instead-of-RDT.patch
 patch 0085-EDAC-amd64-Set-memory-type-per-DIMM.patch
 patch 0086-EDAC-amd64-Add-new-register-offset-support-and-relat.patch
+patch 0087-NFS-Fix-WARN_ON-due-to-unionization-of-nfs_inode.nre.patch
