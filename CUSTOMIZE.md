@@ -37,12 +37,12 @@ target.
 
 #### Supported software features
 
-| Software feature      | Configuration variable      | Configuration values | Default value | Supported machines   |
-|:----------------------|:----------------------------|:---------------------|:--------------|:---------------------|
-| ON-TARGET DEVELOPMENT | EXTRA_IMAGE_FEATURES:append | tools-sdk            |               | milan, rome, v3000   |
-| ON-TARGET DEBUGGING   | EXTRA_IMAGE_FEATURES:append | tools-debug          |               | milan, rome, v3000   |
-| ON-TARGET PROFILING   | EXTRA_IMAGE_FEATURES:append | tools-profile        |               | milan, rome, v3000   |
-| RT KERNEL             | RT_KERNEL_AMD               | yes, no              | no            | milan, rome, v3000   |
+| Software feature      | Configuration variable            | Configuration values        | Default value | Supported machines |
+|:----------------------|:----------------------------------|:----------------------------|:--------------|:-------------------|
+| ON-TARGET DEVELOPMENT | EXTRA_IMAGE_FEATURES:append       | tools-sdk                   |               | all                |
+| ON-TARGET DEBUGGING   | EXTRA_IMAGE_FEATURES:append       | tools-debug                 |               | all                |
+| ON-TARGET PROFILING   | EXTRA_IMAGE_FEATURES:append       | tools-profile               |               | all                |
+| RT KERNEL             | PREFERRED_PROVIDER_virtual/kernel | linux-yocto, linux-yocto-rt | linux-yocto   | all                |
 
 #### Example configuration in local.conf
 ```sh
@@ -51,8 +51,8 @@ EXTRA_IMAGE_FEATURES:append = " tools-debug"
 EXTRA_IMAGE_FEATURES:append = " tools-profile"
 
 # Please run 'bitbake -c clean virtual/kernel' everytime before
-# configuring the RT_KERNEL_AMD variable
-RT_KERNEL_AMD = "yes"
+# configuring the PREFERRED_PROVIDER_virtual/kernel variable
+PREFERRED_PROVIDER_virtual/kernel = "linux-yocto-rt"
 ```
 
 In case the user does not have a dGPU, and wants to interact with the

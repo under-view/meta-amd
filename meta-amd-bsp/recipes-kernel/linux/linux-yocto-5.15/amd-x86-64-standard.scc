@@ -1,9 +1,0 @@
-define KMETA_EXTERNAL_BSP t
-
-define KMACHINE amd-x86-64
-define KTYPE standard
-define KARCH x86
-
-include ktypes/standard
-
-branch amd-x86-64

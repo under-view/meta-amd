@@ -1,6 +1,6 @@
 require linux-yocto-5.15.inc
 
-PR := "${INC_PR}.1"
+PR := "${INC_PR}.0"
 
-KBRANCH:amd ?= "v5.15/standard/base"
-SRCREV_machine:amd ?= "c9f3902d8069e32a8928153a38d8f6115194d128"
+KBRANCH = "v5.15/standard/base"
+SRCREV_machine = "0e51e571701842db33ad96f6ddc8cc6b23230627"
